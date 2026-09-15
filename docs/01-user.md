@@ -1,36 +1,57 @@
 # User
 
-`User` is the canonical identity of a person in TeamAgent. A user can belong to multiple teams, connect multiple external accounts, use agents, and have permissions and preferences.
+`User` is the canonical identity of a human person in TeamAgent. It represents the internal account that owns team memberships, external source connections, permissions, preferences, and activity history.
+
+## Purpose
+A user is not just a profile record. It is the primary identity boundary for:
+- team membership and role assignment
+- source account connections
+- personalization and settings
+- access control decisions
+- audit and ownership history
 
 ## Responsibilities
-- Represent the internal identity of a person.
-- Own external source connections.
+- Represent the real identity of a person in the system.
+- Own external source connections and credentials scope.
 - Belong to one or more teams.
-- Hold roles and permissions.
-- Store preferences and personal memory.
+- Receive roles and permissions.
+- Store preferences, profile information, and personal context.
+- Participate in workflows and agent interactions.
 
 ## Relationships
-- One user → many teams.
-- One user → many source connections.
-- One user → many agent usages.
-- One user → direct permissions and role assignments.
+- One user has many team memberships.
+- One user may connect multiple external accounts.
+- One user may use many agents.
+- One user can own many permissions or role assignments.
+- One user may have personal memory or custom preferences.
 
 ## Suggested Fields
 | Field | Description |
 |---|---|
 | `id` | Internal unique identifier |
 | `name` | Display name |
-| `email` | Optional verified email |
-| `avatar` | Optional profile image |
+| `email` | Verified email address if available |
+| `avatar_url` | Optional profile image |
 | `locale` | Preferred locale |
 | `timezone` | Preferred timezone |
 | `status` | Active, suspended, or deleted |
-| `preferences` | User settings |
+| `preferences` | Personal settings and defaults |
 | `created_at` | Creation timestamp |
 | `updated_at` | Last update timestamp |
 
-## Identity
-External accounts remain connections owned by the internal user. This lets one person connect multiple accounts on the same platform without creating multiple TeamAgent users.
+## Identity Model
+A user may connect several external accounts, such as Google, GitHub, Telegram, or Discord. These remain attached to the same internal TeamAgent user rather than creating separate user records per connection.
 
-## Security
-Credentials, tokens, and encryption keys must be isolated from ordinary profile data and protected with encryption and access controls.
+This model preserves:
+- one person = one canonical identity
+- multiple provider identities = multiple linked accounts
+- centralized access review and permission evaluation
+
+## Security Requirements
+- Profile data and secret data must be stored separately.
+- Tokens, API keys, and credentials must be encrypted.
+- Sensitive fields must not be exposed in normal user responses.
+- User-level access must be reviewed when teams or source connections change.
+
+## Notes
+The `User` model should be treated as the trust anchor for the system. All other core entities—team, agent, source, workflow, and knowledge—should ultimately resolve access through that identity or through a delegated principal.

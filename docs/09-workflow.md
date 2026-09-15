@@ -1,43 +1,71 @@
 # Workflow
 
-`Workflow` defines an automated sequence connecting triggers, sources, agents, models, tools, and outputs.
+`Workflow` is an automated sequence that connects triggers, sources, agents, tools, knowledge, and output actions into a governed execution path.
+
+## Purpose
+A workflow is how TeamAgent turns repeated business logic into automation. It helps transform events or schedules into structured multi-step execution.
 
 ## Basic Pattern
-`Trigger → Source → Agent → Model → Tool → Output → Source`
+`Trigger -> Source -> Agent -> Model -> Tool -> Output -> Source`
 
-Not every workflow needs every step. A simple workflow can be `Message Received → Agent → Response`.
+A simple workflow can also be:
+`Message Received -> Agent -> Response`
 
 ## Responsibilities
 - Define automation logic.
-- Start from triggers or schedules.
+- Start from events, schedules, or manual triggers.
 - Pass structured data between steps.
-- Run agents and tools.
-- Apply conditions and branching.
-- Produce outputs.
-- Record status and errors.
+- Invoke agents, models, and tools.
+- Apply conditions, branching, delays, and transformations.
+- Emit outputs or notifications.
+- Capture errors and execution history.
 
 ## Suggested Fields
 | Field | Description |
 |---|---|
-| `id` | Internal identifier |
+| `id` | Internal unique identifier |
 | `team_id` | Owning team |
 | `name` | Workflow name |
 | `description` | Workflow purpose |
 | `trigger` | Event or schedule |
 | `steps` | Ordered execution steps |
 | `status` | Active, paused, archived |
-| `settings` | Retry, timeout, execution options |
+| `settings` | Retry, timeout, and execution options |
 | `created_at` | Creation timestamp |
 | `updated_at` | Last update timestamp |
 
 ## Common Triggers
-`message.received`, `user.created`, `user.updated`, `file.uploaded`, `agent.started`, schedules, webhooks, and manual execution.
+- `message.received`
+- `user.created`
+- `user.updated`
+- `file.uploaded`
+- `agent.started`
+- scheduled tasks
+- webhooks
+- manual execution
 
-## Common Steps
-Call an agent/model, execute a tool, search knowledge, send a message, transform data, evaluate a condition, wait/schedule, or call an external API.
+## Common Step Types
+- call an agent or model
+- execute a tool
+- search or retrieve knowledge
+- send a message
+- transform data
+- evaluate a condition
+- wait or schedule actions
+- call an external API
 
-## Reliability
-Support timeouts, retries, idempotency where appropriate, error handling, step-level logs, execution history, and rate limits.
+## Reliability Requirements
+A workflow should support:
+- timeouts
+- retries
+- error handling
+- step execution logs
+- execution history
+- rate limits and safeguards
+- idempotency where appropriate
 
 ## Example
-A social-media workflow can receive a request, invoke a Content Agent, retrieve brand knowledge, generate an image, perform checks, and publish through an approved source.
+A support workflow may receive a message from a customer, invoke a triage agent, retrieve relevant knowledge, perform a tool-backed action, and reply through an approved source.
+
+## Notes
+Workflows are where TeamAgent moves from interactive assistance to repeatable operational automation. They should be explicit, auditable, and scoped to a team’s safe boundaries.

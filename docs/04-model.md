@@ -1,29 +1,48 @@
 # Model
 
-`Model` represents an AI capability used by an agent. It can represent chat, reasoning, coding, image, video, speech, embedding, or vision models.
+`Model` is the AI capability abstraction used by TeamAgent. It represents a concrete model provider and capability profile such as chat, reasoning, coding, image generation, speech, embedding, or vision.
+
+## Purpose
+The model layer abstracts the actual model provider from the application logic. This lets TeamAgent select or replace providers without rewriting agent behavior.
 
 ## Responsibilities
-- Define provider and model version.
-- Describe capabilities.
-- Define supported input and output types.
-- Track limits and optional pricing metadata.
+- Describe the provider and model version.
+- Define supported capabilities and role types.
+- Record supported input and output formats.
+- Track context limits, quota metadata, and pricing information.
+- Expose status so agents can choose only valid and enabled models.
 
 ## Suggested Fields
 | Field | Description |
 |---|---|
-| `id` | Internal identifier |
-| `provider` | Model provider |
+| `id` | Internal unique identifier |
+| `provider` | Model provider name |
 | `name` | Model name |
-| `version` | Optional version |
-| `type` | Capability type |
+| `version` | Model version or release label |
+| `type` | Capability category |
 | `capabilities` | Supported capabilities |
-| `context_limit` | Maximum context size |
-| `input_types` | Supported inputs |
-| `output_types` | Supported outputs |
-| `pricing` | Optional cost metadata |
+| `context_limit` | Maximum context window |
+| `input_types` | Supported input formats |
+| `output_types` | Supported output formats |
+| `pricing` | Optional pricing metadata |
 | `status` | Available, disabled, deprecated |
 
-## Common Types
-Chat, Reasoning, Coding, Image Generation, Image Understanding, Video Generation, STT, TTS, Embedding, Vision.
+## Common Model Types
+- Chat
+- Reasoning
+- Coding
+- Image generation
+- Image understanding
+- Video generation
+- Speech-to-text
+- Text-to-speech
+- Embedding
+- Vision
 
-Agents should reference TeamAgent model records instead of hard-coding provider implementations, allowing providers to be added or replaced.
+## Model Governance
+- Agents should reference TeamAgent model records instead of provider-specific implementation details.
+- Providers can be swapped or added without forcing agent redesign.
+- Model availability and status should be checked before runtime execution.
+
+## Notes
+The `Model` entity should represent capability and operational metadata, not only a vendor name. Model selection needs to account for context size, cost, speed, modality, and policy restrictions.
