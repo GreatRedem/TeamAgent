@@ -1,6 +1,6 @@
 # Permission
 
-`Permission` defines what a user, agent, role, or principal can do on a TeamAgent resource.
+`Permission` defines what a user, agent, role, or principal can do on a NuraAI resource.
 
 ## Access Model
 Permissions should be expressed as:

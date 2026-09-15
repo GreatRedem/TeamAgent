@@ -1,6 +1,6 @@
 # Team
 
-`Team` is the primary collaboration boundary in TeamAgent. It groups users, agents, sources, permissions, knowledge, workflows, and operational policies into a single shared workspace.
+`Team` is the primary collaboration boundary in NuraAI. It groups users, agents, sources, permissions, knowledge, workflows, and operational policies into a single shared workspace.
 
 ## Purpose
 A team defines the trust and collaboration boundary for a group of people and systems. It is the natural container for:

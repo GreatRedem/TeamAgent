@@ -1,6 +1,6 @@
 # Production Readiness Checklist
 
-This document is the concrete checklist for turning TeamAgent from a well-specified design into a production-grade system.
+This document is the concrete checklist for turning NuraAI from a well-specified design into a production-grade system.
 
 ## Executive Summary
 
@@ -33,11 +33,11 @@ The schema is defined in code with Drizzle. Production needs:
 - migration checks in CI
 - schema drift detection
 - rollback plan
-- both dialects migrated and tested, not just the one used locally
+- the R1–R5 constraints — two partial unique indexes, a trigger, and a CHECK — actually present in a migration and covered by tests, not only described in the schema modules
 
 Required tools:
 - drizzle-kit for generation and apply
-- a separate migration set per dialect, since Postgres and SQLite schema modules are maintained in parallel
+- a CI step that migrates an empty database to head and asserts no drift from the schema modules
 
 See docs/19-tech-stack.md and docs/14-database.md.
 
@@ -57,13 +57,18 @@ Production requires:
 ### 4. Automated tests
 
 Minimum required coverage:
-- unit tests for permission checks
+- unit tests for permission checks, covering all twelve cells of the capability matrix
 - tests for source connector behavior
 - tests for workflow execution logic
 - tests for agent runtime policy decisions
-- tests for security boundary checks
-- integration tests for database and API flows
+- tests for security boundary checks: invariants R1-R5, wallet auth W1-W8, tenant isolation
+- injection containment suite against every ingress path
+- integration tests for database and API flows, run on PGlite against the committed migrations
 - end-to-end tests for critical user journeys
+
+Model evaluations are separate and do not gate merges. Tests never call a real model provider.
+
+See docs/21-testing.md.
 
 ### 5. Secrets and configuration management
 
@@ -86,14 +91,18 @@ Examples:
 
 Production needs:
 - request logging
-- structured logs
-- trace IDs
-- metrics
+- structured logs with no secrets, prompts, or message bodies
+- trace IDs propagated across the queue boundary
+- metrics, with no high-cardinality labels such as team_id
+- security signal metrics: denied tool calls, destination rejections, auth failures
+- cost tracking per team and agent
 - dashboards
-- alerting
+- alerting, with a runbook entry per page
 - uptime checks
 - incident response flow
 - runbook documentation
+
+Observability and the audit log are separate systems with separate retention and access rules. Audit records are transactional writes, never log lines, and are never sampled.
 
 Required tools:
 - OpenTelemetry
@@ -102,6 +111,8 @@ Required tools:
 - Loki
 - Sentry
 - Datadog or equivalent
+
+See docs/22-observability.md.
 
 ### 7. Security implementation beyond design
 
@@ -165,10 +176,27 @@ Required decisions:
 See docs/20-authentication.md.
 
 ### Authorization enforcement
-- every route checks permissions
+- every route checks permissions, resolved per request rather than read from a token claim
 - every runtime action checks permission and trust scope
 - team-scoped queries must enforce team_id checks
+- a resource in another team returns NOT_FOUND, not FORBIDDEN, so the API is not an existence oracle
 - no direct access to system-level resources without policy
+
+### Machine principals
+- every API key carries an explicit `trust_ceiling`, defaulting to `untrusted`
+- no key-authenticated request is ever labelled `trusted`
+- a key raised to `user_input` is bound to a named user and individually revocable
+- one key per integration, not one shared key per team
+- key revocation takes effect immediately, not at expiry
+
+See docs/17-threat-model.md T16.
+
+### Control surfaces that must exist before launch
+These are controls with no product surface until their endpoints ship, which makes them easy to mark done in design and miss in delivery:
+- agent grant endpoints, so `allowed_destinations` can actually be populated and reviewed
+- the approvals queue, with the triggering content and origin shown to the reviewer
+- a decided notification channel for approvals, given that `users.email` is usually absent
+- workflow version publishing, so editing a workflow cannot change a run in flight
 
 ### Risk control and prompt isolation
 - untrusted content must not be treated as trusted

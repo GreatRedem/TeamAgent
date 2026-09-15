@@ -1,9 +1,9 @@
 # Model
 
-`Model` is the AI capability abstraction used by TeamAgent. It represents a concrete model provider and capability profile such as chat, reasoning, coding, image generation, speech, embedding, or vision.
+`Model` is the AI capability abstraction used by NuraAI. It represents a concrete model provider and capability profile such as chat, reasoning, coding, image generation, speech, embedding, or vision.
 
 ## Purpose
-The model layer abstracts the actual model provider from the application logic. This lets TeamAgent select or replace providers without rewriting agent behavior.
+The model layer abstracts the actual model provider from the application logic. This lets NuraAI select or replace providers without rewriting agent behavior.
 
 ## Responsibilities
 - Describe the provider and model version.
@@ -40,7 +40,7 @@ The model layer abstracts the actual model provider from the application logic. 
 - Vision
 
 ## Model Governance
-- Agents should reference TeamAgent model records instead of provider-specific implementation details.
+- Agents should reference NuraAI model records instead of provider-specific implementation details.
 - Providers can be swapped or added without forcing agent redesign.
 - Model availability and status should be checked before runtime execution.
 

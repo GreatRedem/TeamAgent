@@ -1,6 +1,6 @@
 # Architecture
 
-`TeamAgent` is designed as a multi-tenant, workflow-driven AI orchestration platform. It separates identity, agent execution, model access, source integrations, permissions, knowledge, and automation logic so that each component can evolve independently.
+`NuraAI` is designed as a multi-tenant, workflow-driven AI orchestration platform. It separates identity, agent execution, model access, source integrations, permissions, knowledge, and automation logic so that each component can evolve independently.
 
 ## Goals
 - Support multiple teams and users in one deployment.
@@ -15,7 +15,7 @@
 ```mermaid
 flowchart LR
     U[User] --> UI[Web / App / API]
-    UI --> API[TeamAgent API]
+    UI --> API[NuraAI API]
     API --> IAM[Identity & Access]
     API --> ORCH[Agent Orchestration]
     ORCH --> AGENT[Agent Runtime]
@@ -37,7 +37,7 @@ flowchart LR
 ## Core Layers
 
 ### 1. Experience Layer
-This layer includes user interfaces and API surfaces through which humans and systems interact with TeamAgent.
+This layer includes user interfaces and API surfaces through which humans and systems interact with NuraAI.
 
 Responsibilities:
 - Authenticate and authorize users.
@@ -65,7 +65,7 @@ Responsibilities:
 - Apply retries, timeouts, and safety checks.
 
 ### 4. Integration Layer
-This layer connects TeamAgent to external systems and providers.
+This layer connects NuraAI to external systems and providers.
 
 Examples:
 - Messaging: Telegram, WhatsApp, Discord, Email
@@ -85,7 +85,7 @@ Responsibilities:
 
 ## Domain Boundaries
 
-### TeamAgent Core
+### NuraAI Core
 Owns the canonical business model and trust boundaries.
 
 Includes:
@@ -127,7 +127,7 @@ Responsibilities:
 
 ## Execution Model
 
-TeamAgent does not assume a single linear request path. Execution may be:
+NuraAI does not assume a single linear request path. Execution may be:
 - Human-initiated through an app or API
 - Agent-initiated through a workflow trigger
 - Tool-triggered during a running task
@@ -158,8 +158,10 @@ A first production-ready version should separate:
 - API service
 - Worker runtime for agent execution
 - Workflow engine
-- Database and event store
+- A single database, which also holds the job queue (`docs/23-job-queue.md`)
 - Object storage for files and knowledge
 - Monitoring/alerting stack
+
+These are separate *processes*, not separate datastores. There is no broker, cache, or event store beside the database.
 
 This decomposition makes safe scaling easier and reduces coupling between human interaction and long-running automation.

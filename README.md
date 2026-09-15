@@ -1,6 +1,6 @@
-# TeamAgent
+# NuraAI
 
-TeamAgent is a multi-tenant AI orchestration platform for teams that need secure, governed, and extensible agent-based workflows.
+NuraAI is a multi-tenant AI orchestration platform for teams that need secure, governed, and extensible agent-based workflows.
 
 It brings together:
 - users and team membership
@@ -12,7 +12,7 @@ It brings together:
 
 ## Mission
 
-TeamAgent aims to make AI usable in real organizational workflows without sacrificing governance, safety, or traceability.
+NuraAI aims to make AI usable in real organizational workflows without sacrificing governance, safety, or traceability.
 
 ## Core Concepts
 
@@ -30,7 +30,7 @@ TeamAgent aims to make AI usable in real organizational workflows without sacrif
 
 ```mermaid
 flowchart LR
-    U[User] --> API[TeamAgent API]
+    U[User] --> API[NuraAI API]
     API --> AUTH[Identity & Access]
     API --> AGENT[Agent Runtime]
     AGENT --> MODEL[Model Gateway]
@@ -69,6 +69,9 @@ flowchart LR
 - [docs/18-production-checklist.md](docs/18-production-checklist.md) — Production readiness gates and risk areas
 - [docs/19-tech-stack.md](docs/19-tech-stack.md) — Stack decisions, environment contract, and nginx boundary
 - [docs/20-authentication.md](docs/20-authentication.md) — Wallet sign-in and token design
+- [docs/21-testing.md](docs/21-testing.md) — Testing strategy, security suites, and evals
+- [docs/22-observability.md](docs/22-observability.md) — Logs, metrics, traces, alerts, and SLOs
+- [docs/23-job-queue.md](docs/23-job-queue.md) — Database-backed queue, leases, and scheduling
 
 ## Stack
 
@@ -76,11 +79,11 @@ flowchart LR
 |---|---|
 | Backend | Fastify + TypeScript |
 | Frontend | React + Vite + TailwindCSS |
-| Database | PostgreSQL or SQLite, selected by `DB_DIALECT` |
+| Database | PostgreSQL — the only supported engine; PGlite in-process for tests |
 | Schema | Drizzle, defined in code — no hand-written SQL in this repository |
 | Auth | JWT issued after EVM wallet sign-in (EIP-4361 / SIWE) |
 | i18n | react-i18next — English and Persian, RTL |
-| Queue | Redis + BullMQ |
+| Queue | A table in the same database — no broker, no Redis |
 
 **TLS and CORS are handled by nginx and are not implemented here.** See [docs/19-tech-stack.md](docs/19-tech-stack.md) for the full boundary and the environment contract.
 
@@ -108,8 +111,14 @@ The project should be built in phases:
 
 ## Project Status
 
-This repository currently contains the product design and architecture documentation required to define the system clearly and move into implementation planning.
+Design complete, implementation not started. The repository holds the product design, the architecture, the schema reference, the API contracts, the threat model, and the operational design — everything needed to start building, and no code yet.
+
+The stack is closed ([docs/19-tech-stack.md](docs/19-tech-stack.md)), the schema is specified ([docs/14-database.md](docs/14-database.md)), and the security model that constrains the runtime is written down ([docs/17-threat-model.md](docs/17-threat-model.md)).
+
+[docs/18-production-checklist.md](docs/18-production-checklist.md) is the honest assessment of what is missing.
 
 ## Next Step
 
-The next logical milestone is to convert this design into a concrete technical stack and implementation plan, including database schema, API contracts, and the first working MVP.
+Build the MVP, in the order set out in [docs/13-roadmap.md](docs/13-roadmap.md).
+
+The next milestone is **not** "production launch." It is a working MVP with security enforcement, automated tests, an observable runtime, and a deployment pipeline. One sequencing note worth repeating from the roadmap: the trust-gated capability matrix is a pure function with no I/O, and it should be written and fully tested *before* there is an agent runtime to attach it to.

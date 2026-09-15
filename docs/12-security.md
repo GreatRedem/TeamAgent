@@ -1,6 +1,6 @@
 # Security, Governance, and Access Control
 
-This document defines the trust model for TeamAgent and describes how identity, authorization, tool access, and operational safety are enforced.
+This document defines the trust model for NuraAI and describes how identity, authorization, tool access, and operational safety are enforced.
 
 ## Security Principles
 
@@ -20,6 +20,8 @@ Methods:
 - **EVM wallet signature (EIP-4361 / SIWE)** for human sign-in, exchanged for a short-lived JWT plus a revocable refresh token
 - API keys for machine-to-machine usage
 - Service identities for internal automation
+
+Authenticating a machine principal says who is calling, **not that what it carries is trustworthy.** An API key relaying customer email is an attacker-controlled ingress path wearing a team credential, so every key carries a `trust_ceiling` that defaults to `untrusted`. See `docs/17-threat-model.md` T16 — this is the one place where the classic model in this document is not merely insufficient but actively misleading, because the request passes every check it defines.
 
 There is no password authentication. See `docs/20-authentication.md` for the full design, including nonce handling, EIP-1271 smart-contract wallets, token rotation, and the reasoning behind keeping permissions out of the token.
 
@@ -108,7 +110,7 @@ Confidential data must be excluded from retrieval unless the relevant principal 
 
 ## Tenant Isolation
 
-For multi-tenant systems, TeamAgent must isolate:
+For multi-tenant systems, NuraAI must isolate:
 - user records
 - source connections
 - team-owned knowledge

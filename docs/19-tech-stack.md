@@ -1,6 +1,6 @@
 # Technology Stack
 
-The stack decisions for TeamAgent, and what each one costs. Earlier documents left the stack open; this one closes it.
+The stack decisions for NuraAI, and what each one costs. Earlier documents left the stack open; this one closes it.
 
 ## Decisions
 
@@ -8,12 +8,12 @@ The stack decisions for TeamAgent, and what each one costs. Earlier documents le
 |---|---|
 | Backend | **Fastify** + TypeScript |
 | Schema and migrations | **Drizzle** / `drizzle-kit`, defined in code |
-| Database | **PostgreSQL or SQLite**, selected by environment |
+| Database | **PostgreSQL**, sole supported engine; **PGlite** in-process for tests |
 | Authentication | **JWT** issued after **EVM wallet sign-in (EIP-4361 / SIWE)** |
 | Frontend | **React** + Vite |
 | Styling | **TailwindCSS** |
 | Internationalization | **react-i18next**, English and Persian, RTL-capable |
-| Queue and cache | Redis + BullMQ |
+| Job queue | A table in the same database — no broker |
 | Observability | OpenTelemetry |
 
 ## Explicitly Out of Scope
@@ -58,33 +58,43 @@ Schema validation is not incidental here. `docs/06-tool.md` and `docs/17-threat-
 Suggested plugins:
 
 - `@fastify/jwt` — access token verification
-- `@fastify/rate-limit` — per-principal limits, backed by Redis
+- `@fastify/rate-limit` — in-process counters; per-instance, not global (`docs/23-job-queue.md`)
 - `@fastify/under-pressure` — shed load rather than queueing indefinitely
 - `@fastify/sensible` — standard error shapes
 - `zod` or TypeBox — one source of truth for runtime validation and TypeScript types
 
 No `@fastify/cors`. No HTTPS options.
 
-## Database: two engines, one codebase
+## Database: PostgreSQL, one engine
 
-`DB_DIALECT` selects PostgreSQL or SQLite at startup. This is a real capability with a real cost, and the cost should be visible before the first schema module is written.
+**PostgreSQL is the only supported engine.** There is no `DB_DIALECT` switch and no SQLite path.
 
-**Drizzle does not abstract over dialects.** `drizzle-orm/pg-core` and `drizzle-orm/sqlite-core` are separate packages with separate builders; `pgTable` is not `sqliteTable`, and there is no shared table type. Supporting both means:
+An earlier revision of this document supported both, selected at startup, and it was wrong. Drizzle does not abstract over dialects — `drizzle-orm/pg-core` and `sqlite-core` are separate packages with separate builders, and `pgTable` is not `sqliteTable` — so two engines meant two schema modules kept mechanically parallel, two migration directories, two clients behind one repository interface, every schema change made twice, and every integration test run twice.
 
-- two schema modules, `schema/pg.ts` and `schema/sqlite.ts`, kept mechanically parallel
-- two migration directories, generated and reviewed separately
-- two database clients behind one repository interface
-- every schema change made twice, and every integration test run twice
+The decisive argument was not the duplication. It was that **invariants R3 and R4 in `docs/14-database.md` are security boundaries** — agents never hold admin-tier permissions, and initiating egress requires a non-empty destination allowlist. PostgreSQL enforces both in the database, via a trigger and a CHECK shipped in a migration. SQLite can enforce neither. A dual-engine build therefore had a production-grade path and a materially weaker one, and nothing but convention stopping a deployment from choosing the weaker one.
 
-The design in `docs/14-database.md` already helps: it deliberately uses a portable column vocabulary — application-generated `CHAR(36)` ids, JSON as text, UTC timestamps, no partial indexes or triggers in the baseline — specifically so the two modules stay line-for-line comparable. Keep to that vocabulary and the duplication stays mechanical. Reach for a Postgres-native type and the two definitions diverge permanently.
+SQLite also serializes writers. The API, the workflow worker, and the reaper all contend on a single write lock, which does not fit a concurrent multi-tenant workload.
 
-**What SQLite cannot do here.** Application invariants **R3** and **R4** in `docs/14-database.md` are security boundaries — agents never hold admin-tier permissions, and initiating egress requires a non-empty destination allowlist. PostgreSQL can enforce both in the database via a trigger and a CHECK shipped in a migration. SQLite can enforce neither. On SQLite they rest entirely on repository-layer code.
+### Local development without a second engine
 
-SQLite also serializes writers. The workflow worker and the API will contend on a single write lock, which makes it unsuitable for the concurrent multi-tenant workload this platform targets.
+The only good argument for SQLite was zero-install local development and testing, and that never required a second dialect.
 
-**Recommendation:** SQLite for local development, tests, and single-tenant or self-hosted deployments. PostgreSQL for anything multi-tenant or production. The `DB_DIALECT` switch is what makes the first case pleasant; it is not an invitation to run production on SQLite.
+**PGlite** (`@electric-sql/pglite`) is real PostgreSQL compiled to WASM, running in-process. No Docker, no server, no container — schema tests run in about a second, and the engine under test is the one that runs in production. `docs/21-testing.md` covers the setup.
 
-Both engines must be in CI. A dialect that is never tested is a dialect that is broken.
+### What the single engine unlocks
+
+The schema no longer has to speak a portable subset. Use the engine:
+
+- native `uuid` and `jsonb` rather than `CHAR(36)` and JSON-as-text
+- partial and expression indexes — which is how R1 and R2 stop being application rules
+- triggers and `CHECK` with JSON introspection — which is how R3 and R4 stop being application rules
+- `FOR UPDATE SKIP LOCKED` for the job queue claim (`docs/23-job-queue.md`)
+- `LISTEN`/`NOTIFY` for worker wakeup and cache invalidation
+- `pg_try_advisory_lock` for scheduler leader election
+- row-level security, if the open decision in `docs/17-threat-model.md` C12 goes that way
+- `pgvector`, when knowledge chunks and embeddings land
+
+**Self-hosting is not an exception.** PostgreSQL runs fine on one small machine, and a deployment that diverges on engine diverges on the two rules that matter most.
 
 ## Frontend
 
@@ -121,10 +131,8 @@ PORT=3000
 TRUST_PROXY=127.0.0.1          # the proxy's address, not `true`
 
 # Database
-DB_DIALECT=postgres            # postgres | sqlite
-DATABASE_URL=postgres://user:pass@localhost:5432/teamagent
-# DB_DIALECT=sqlite
-# DATABASE_URL=file:./data/teamagent.db
+DATABASE_URL=postgres://user:pass@localhost:5432/nuraai
+DB_POOL_MAX=20                 # size with the worker fleet in mind; the queue shares this pool
 
 # Auth -- see docs/20-authentication.md
 JWT_SECRET=                    # 32+ random bytes; rotating it invalidates every token
@@ -135,8 +143,10 @@ SIWE_URI=https://app.example.com
 SIWE_CHAIN_ID=1
 EVM_RPC_URL=                   # required for EIP-1271 smart-contract wallet verification
 
-# Infrastructure
-REDIS_URL=redis://localhost:6379
+# Queue
+QUEUE_POLL_INTERVAL_MS=1000
+QUEUE_LEASE_SECONDS=600        # longer than the slowest agent run, or it reruns
+QUEUE_MAX_ATTEMPTS=5
 
 # i18n
 DEFAULT_LOCALE=en
@@ -151,8 +161,10 @@ Commit a `.env.example` with every key present and no real values.
 
 Things this stack makes harder, recorded so they are not a surprise later:
 
-1. **Every schema change is made twice.** Postgres and SQLite modules both, plus two migration sets. Budget for it.
-2. **R3 and R4 are unenforced on SQLite.** Both are security rules. They need repository-layer implementations and tests that attempt the forbidden write and assert failure.
+1. **PostgreSQL is a hard dependency for every environment.** Nothing runs on a file database. In exchange there is one schema, one migration set, one test matrix, and no environment where a security invariant is enforced more weakly than in production. PGlite keeps the local and CI loop free of Docker.
+2. **R3 and R4 are database constraints, and still need tests.** A trigger can be dropped by a later migration as silently as a repository check can be refactored away. Each needs a test that attempts the forbidden write and asserts failure.
 3. **JWT cannot be revoked mid-lifetime.** Addressed by short access tokens plus a revocable refresh token, and by keeping permissions *out* of the token. See `docs/20-authentication.md`.
 4. **Wallet-only authentication means losing a wallet means losing the account.** There is no password reset path. Recovery requires a deliberate policy decision — a second linked wallet, a social recovery scheme, or an explicit admin process — and it should be made before the first real user signs up.
 5. **RTL is a layout constraint, not a translation task.** It is cheap now and expensive later.
+6. **One datastore means the queue shares the application database.** Claim polling, heartbeats, and cleanup compete with application queries for connections and I/O, and an unpruned `jobs` table is the standard way this design fails. In exchange, enqueue is transactional and there is one thing to back up, secure, and operate. See `docs/23-job-queue.md`.
+7. **Rate limits are per instance.** Without a shared counter store, the effective limit is the configured value times the instance count. The auth endpoints are the exception and are enforced accurately against `auth_nonces`.

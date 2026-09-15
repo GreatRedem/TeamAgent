@@ -1,6 +1,6 @@
 # Authentication
 
-TeamAgent authenticates humans with an **EVM wallet signature (EIP-4361, "Sign-In With Ethereum")** and issues a **short-lived JWT access token plus a revocable refresh token**.
+NuraAI authenticates humans with an **EVM wallet signature (EIP-4361, "Sign-In With Ethereum")** and issues a **short-lived JWT access token plus a revocable refresh token**.
 
 There is no password authentication. `docs/12-security.md` previously listed email/password and SSO as options; this document supersedes that for human sign-in. API keys remain the mechanism for machine-to-machine access, unchanged.
 
@@ -55,7 +55,7 @@ EIP-4361 format. The client builds it; the server re-parses and validates every 
 app.example.com wants you to sign in with your Ethereum account:
 0xAbC0000000000000000000000000000000000123
 
-Sign in to TeamAgent. This request will not trigger a transaction
+Sign in to NuraAI. This request will not trigger a transaction
 or cost any gas.
 
 URI: https://app.example.com
@@ -138,7 +138,9 @@ This is the most important decision in this document, and it is easy to get wron
 
 So the token carries **identity only**. Permissions, team memberships, and roles are resolved per request.
 
-That resolution is a database read, which is the usual objection. Two things make it a non-issue here: it is cacheable in Redis keyed by user and team with explicit invalidation on any membership or grant change, and the request already needs a principal-context load to check `ver` (below). The permission lookup rides along with a load that was happening anyway.
+That resolution is a database read, which is the usual objection. Two things make it a non-issue here: it is an indexed join returning a small row set on a connection that is already open, and the request already needs a principal-context load to check `ver` (below), so the permission lookup rides along with a query that was happening anyway. The model call in the same request takes three orders of magnitude longer.
+
+Do not put a TTL cache in front of it. A cache without an invalidation channel reintroduces exactly the staleness this section exists to prevent — it is the JWT-claims defect relocated. See `docs/23-job-queue.md`.
 
 ### The `ver` claim
 
@@ -198,7 +200,7 @@ Extends the catalogue in `docs/17-threat-model.md`.
 A captured signature is submitted twice. **Controls:** single-use nonce, atomic consume-before-verify, five-minute TTL, `Expiration Time` in the message.
 
 ### W2 — Cross-site signature phishing
-A malicious site prompts the user to sign a message that is valid for TeamAgent. The user approves what looks like a routine sign-in. **Controls:** exact `domain` equality — this is the entire defense, and a lenient match defeats it — plus a statement line that names the application clearly enough that a user notices the mismatch.
+A malicious site prompts the user to sign a message that is valid for NuraAI. The user approves what looks like a routine sign-in. **Controls:** exact `domain` equality — this is the entire defense, and a lenient match defeats it — plus a statement line that names the application clearly enough that a user notices the mismatch.
 
 ### W3 — Wrong-chain replay
 A signature produced in one chain context is accepted in another. **Controls:** `chainId` verified against `SIWE_CHAIN_ID`.

@@ -1,6 +1,6 @@
 # User
 
-`User` is the canonical identity of a human person in TeamAgent. It represents the internal account that owns team memberships, external source connections, permissions, preferences, and activity history.
+`User` is the canonical identity of a human person in NuraAI. It represents the internal account that owns team memberships, external source connections, permissions, preferences, and activity history.
 
 ## Purpose
 A user is not just a profile record. It is the primary identity boundary for:

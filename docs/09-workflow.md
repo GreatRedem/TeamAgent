@@ -3,7 +3,7 @@
 `Workflow` is an automated sequence that connects triggers, sources, agents, tools, knowledge, and output actions into a governed execution path.
 
 ## Purpose
-A workflow is how TeamAgent turns repeated business logic into automation. It helps transform events or schedules into structured multi-step execution.
+A workflow is how NuraAI turns repeated business logic into automation. It helps transform events or schedules into structured multi-step execution.
 
 ## Basic Pattern
 `Trigger -> Source -> Agent -> Model -> Tool -> Output -> Source`
@@ -68,4 +68,4 @@ A workflow should support:
 A support workflow may receive a message from a customer, invoke a triage agent, retrieve relevant knowledge, perform a tool-backed action, and reply through an approved source.
 
 ## Notes
-Workflows are where TeamAgent moves from interactive assistance to repeatable operational automation. They should be explicit, auditable, and scoped to a team’s safe boundaries.
+Workflows are where NuraAI moves from interactive assistance to repeatable operational automation. They should be explicit, auditable, and scoped to a team’s safe boundaries.

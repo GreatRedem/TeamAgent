@@ -1,6 +1,6 @@
 # Threat Model: Prompt Injection and the Confused Deputy
 
-`docs/12-security.md` describes the classic application security model for TeamAgent: authentication, authorization, secret management, tenant isolation, and audit. Those controls are necessary and largely correct.
+`docs/12-security.md` describes the classic application security model for NuraAI: authentication, authorization, secret management, tenant isolation, and audit. Those controls are necessary and largely correct.
 
 They are also insufficient, because they answer only one question: **"is this principal allowed to perform this action?"**
 
@@ -14,7 +14,7 @@ A conventional web service has a clean separation between code and data. Instruc
 
 A language model has no such separation. Instructions and data arrive through the same channel, as one undifferentiated token stream. There is no parameterized-query equivalent. Anything that enters the model's context can behave as an instruction.
 
-TeamAgent's product design deliberately gives every agent three properties at once:
+NuraAI's product design deliberately gives every agent three properties at once:
 
 1. **Access to private data** — team knowledge bases, connected databases, message history.
 2. **Exposure to untrusted content** — Telegram, WhatsApp, email, web search results, scraped URLs, uploaded documents.
@@ -55,6 +55,7 @@ flowchart TB
 
     subgraph SEMI["User input — authenticated member, bounded by their own rights"]
         MSG[Interactive message from a team member]
+        KEYU["API key bound to a user<br/>trust_ceiling = user_input"]
     end
 
     subgraph UNTRUSTED["Untrusted — attacker-controllable"]
@@ -62,6 +63,7 @@ flowchart TB
         WEB[Web search / browser / HTTP results]
         DOC[Ingested URLs and documents]
         DBR[Rows read from external databases]
+        KEYD["API key, default<br/>trust_ceiling = untrusted"]
         OUT[Model output derived from the above]
     end
 
@@ -95,6 +97,21 @@ Every piece of content entering a model context carries a label:
 **Effective context trust is the minimum over all content in the context.** A single untrusted document in a retrieval result taints the entire run. This is intentional and must not be made configurable per-run by anything the model can influence.
 
 Default for ingested knowledge is `untrusted` unless a team member explicitly marks the item trusted — trust is an action a human takes, never an inference the pipeline makes from a domain name or file type.
+
+### Machine principals
+
+The table above is written for human callers, and an API key is not one. A run started by an API key needs a trust level too, and picking the wrong default here reopens the whole model — see T16.
+
+An API key carries a **`trust_ceiling`**, set by a human when the key is issued:
+
+| `trust_ceiling` | For | Effect |
+|---|---|---|
+| `untrusted` | **Default.** Any key whose caller relays content the team does not author — a support desk bridge, a customer portal, a partner integration | Content submitted through the key is labelled `untrusted`, exactly like an inbound Telegram message |
+| `user_input` | A key acting for one identified person, such as a CLI or a personal script | Content is labelled `user_input`, bounded by the rights of the user the key is bound to |
+
+There is no `trusted` ceiling. Nothing arriving over the network through a shared credential is authored by a principal with write permission on the resource, and treating it that way is the confused deputy with an extra hop.
+
+The ceiling is a **maximum, not an assignment**: content arriving through a `user_input` key is still labelled `untrusted` if it came from an inbound source or a tool result. Trust only ever decreases.
 
 ## Threat Catalog
 
@@ -190,11 +207,33 @@ Prompts and retrieved knowledge leave the tenant boundary on every inference cal
 
 **Controls:** per-team policy on which providers may receive which data classifications; record provider, model, and version on every run; treat provider responses as `untrusted` input to the next stage.
 
+### T16 — Trust laundering through an API key
+
+`docs/12-security.md` and `docs/15-api.md` both offer API keys for machine-to-machine access, and it is tempting to treat a key-authenticated request as internal and therefore trusted. That is T8 relocated to the ingress boundary, and it bypasses the entire capability model in one step.
+
+The scenario is ordinary, not exotic:
+
+1. A team builds a small service that receives customer emails and forwards each one to `POST /teams/:teamId/agents/:agentId/run` using a team API key.
+2. The platform sees an authenticated, authorized call from a known team credential.
+3. If key-authenticated input is labelled `trusted`, or even `user_input`, the attacker's text arrives in a privileged context with the `untrusted` label stripped off.
+4. C2 now permits write-tier actions on attacker-controlled instructions, and C5's approval gate never fires — the control that was supposed to catch this only triggers on `untrusted` context.
+
+The relay does not have to be malicious or careless. **It is simply not the platform's to inspect**: the same endpoint and the same credential carry genuinely internal automation and verbatim attacker text, and nothing in the request distinguishes them.
+
+**Controls:** the `trust_ceiling` on `api_keys`, above. It defaults to `untrusted`, so the safe behaviour is what you get by doing nothing, and raising it to `user_input` is a deliberate `admin`-tier act that binds the key to a specific user. C1 labels the payload at the ingress path; C2 then applies unchanged.
+
+Two consequences worth stating, because they are the point rather than a side effect:
+
+- **A default API key cannot drive an unattended write.** A relay integration that needs one must narrow the action until it is safe by construction — a pre-approved destination, a fixed template — exactly as `docs/09-workflow.md` automation must. This will be the most common complaint about the platform and it should be answered with configuration guidance, not with a trust escalation.
+- **Keys are per-integration, not per-team-forever.** A single shared key that everything uses collapses to the weakest caller's trust level and makes revocation an outage. Issue one key per integration, scoped and individually revocable.
+
 ## Core Controls
 
 ### C1 — Provenance labelling
 
 Every content item entering a context carries a trust level and a reference to its origin. The runtime computes the effective context trust as the minimum and persists it on the run record. Labels are assigned by the ingestion path, not by content inspection, and never by the model.
+
+Every ingress path must have an explicit label, with no fall-through default. The paths are: interactive session (`user_input`), inbound source message (`untrusted`), webhook trigger payload (`untrusted`), retrieved knowledge (the item's own `trust_level`), tool result (`untrusted`, unconditionally), and API key (the key's `trust_ceiling`, defaulting to `untrusted` — T16). A new ingress path that does not assign a label is a bug, and it should fail closed at `untrusted` rather than inherit whatever the caller had.
 
 ### C2 — Trust-gated capability (the load-bearing control)
 
@@ -213,9 +252,13 @@ The decision matrix:
 
 | Context trust | `read_only` | `reply` | `write` | `admin` |
 |---|---|---|---|---|
-| `trusted` | allow | allow | allow | allow if granted |
-| `user_input` | allow | allow | allow if the requesting user also holds it | deny |
+| `trusted` | allow | allow | allow | **deny** |
+| `user_input` | allow | allow | allow if the requesting user also holds it | **deny** |
 | `untrusted` | allow | allow | **approval required** | **deny** |
+
+The `admin` column is `deny` in every row, and that is not a redundancy to be optimized away. It is the statement that **the tier is unreachable from inside a run at any trust level** — including a fully trusted one. An earlier revision read "allow if granted" on the `trusted` row, which contradicted the consequence stated immediately below it and left a cell that R3 makes unreachable anyway. Admin actions are performed by humans against the API, on a path that does not traverse the agent runtime at all.
+
+The implementation must still evaluate the cell rather than treating it as dead code. R3 prevents an agent from *holding* an admin-tier permission; this row is the second, independent check that prevents one from being *exercised* if R3 is ever bypassed. Defense in depth is the point — `docs/21-testing.md` requires all twelve cells to be tested for exactly this reason.
 
 Two consequences worth stating explicitly:
 
@@ -291,15 +334,16 @@ The schema design in `docs/14-database.md` carries the following, so that these 
 | `tool_calls` | C11 — the provenance-aware execution record |
 | `approval_requests` | C5 — human gates with the triggering content attached |
 | `audit_logs.team_id` | C12 — tenant-scoped audit queries |
+| `api_keys.trust_ceiling`, `bound_user_id` | T16 — machine principals cannot launder trust |
 
 ### Where these are enforced
 
-Two of the controls above cannot be expressed as a schema constraint at all, and are tracked as application invariants in `docs/14-database.md`:
+Two of the controls above cannot be expressed as an ordinary column constraint, and are tracked as invariants R3 and R4 in `docs/14-database.md`:
 
 - **R3** — no agent may hold an `admin`-tier or human-only permission (C2). Needs a subquery, which no engine allows in a CHECK constraint.
 - **R4** — `can_initiate` requires a non-empty `allowed_destinations` (C3). Needs JSON introspection inside a constraint.
 
-On PostgreSQL both can be enforced by a trigger and a CHECK shipped in a migration, which keeps them in the database where application code cannot bypass them. On any other engine they rest entirely on repository-layer code.
+Both are enforced by a trigger and a CHECK shipped in a migration, which keeps them in the database where application code cannot bypass them. This is the single strongest argument for the PostgreSQL-only decision in `docs/19-tech-stack.md`: on an engine that cannot express them, these two rules rest entirely on repository-layer discipline, one refactor away from silently not holding.
 
 Either way they need dedicated tests that attempt the forbidden write and assert that it fails. A code review is not sufficient for a rule this load-bearing, and these two are the difference between the capability model being enforced and merely being described.
 
@@ -334,6 +378,7 @@ Stated plainly, because a threat model that claims completeness is not credible:
 
 - [ ] No agent holds any `admin`-tier permission.
 - [ ] Every tool has an assigned `risk_tier`; none defaults to `read_only` implicitly.
+- [ ] Every API key has an explicit `trust_ceiling`; no key-authenticated request is labelled `trusted`, and any key raised to `user_input` is bound to a named user and individually revocable.
 - [ ] Every egress-capable agent has a non-empty, explicitly reviewed `allowed_destinations`.
 - [ ] Tool outputs are labelled `untrusted` with no per-tool override path.
 - [ ] Webhook ingress verifies signatures and rejects replays.
@@ -345,7 +390,7 @@ Stated plainly, because a threat model that claims completeness is not credible:
 - [ ] Rendering surfaces strip or proxy outbound-referencing markup in agent output.
 - [ ] An injection test suite runs in CI against every ingress path.
 - [ ] Application invariants R3 and R4 have tests that attempt the forbidden write and assert failure.
-- [ ] If not running PostgreSQL, the R3/R4 enforcement path has been reviewed and tested explicitly.
+- [ ] The R3 trigger and R4 CHECK are present in a shipped migration, not only in the schema modules, and each has a test that attempts the forbidden write and asserts failure.
 
 ## Notes
 

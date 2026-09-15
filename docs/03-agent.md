@@ -1,6 +1,6 @@
 # Agent
 
-`Agent` is the operational AI worker in TeamAgent. It combines a model, instructions, tools, permissions, source access, knowledge access, and runtime behavior into a reusable autonomous unit.
+`Agent` is the operational AI worker in NuraAI. It combines a model, instructions, tools, permissions, source access, knowledge access, and runtime behavior into a reusable autonomous unit.
 
 ## Purpose
 An agent is not just a single prompt. It is a bounded execution unit that can:
