@@ -18,72 +18,18 @@ Examples:
 - `workflow.run`
 - `settings.manage`
 
-## Common Permission Categories
+## Two Columns That Do Real Work
 
-### Team
-- `team.view`
-- `team.manage`
-- `member.invite`
-- `member.remove`
+The catalogue below is the single source of truth for the permission vocabulary. An earlier revision of this document also carried a second, informal list of the same names grouped by category; it drifted within one revision and has been removed rather than re-synchronized.
 
-### Agent
-- `agent.use`
-- `agent.create`
-- `agent.edit`
-- `agent.delete`
+Beyond the name, two columns carry the design:
 
-### Model
-- `model.view`
-- `model.use`
-- `model.manage`
-
-### Source
-- `source.read`
-- `source.write`
-- `source.connect`
-- `source.disconnect`
-
-### Message and File
-- `message.read`
-- `message.send`
-- `file.upload`
-- `file.download`
-- `file.delete`
-
-### Knowledge and Workflow
-- `knowledge.read`
-- `knowledge.write`
-- `workflow.view`
-- `workflow.create`
-- `workflow.edit`
-- `workflow.delete`
-- `workflow.run`
-
-### Settings and Billing
-- `settings.view`
-- `settings.manage`
-- `billing.view`
-- `billing.manage`
-
-## Agent Permissions
-Agent actions may include:
-- `image.generate`
-- `video.generate`
-- `web.search`
-- `browser.read`
-- `database.read`
-- `database.write`
-- `email.send`
-- `telegram.send`
-- `discord.send`
-- `user.profile.read`
+- **`risk_tier`** — `read_only`, `reply`, `write`, or `admin`. Drives the trust-gated capability matrix in [docs/17-threat-model.md](17-threat-model.md) C2: what a run may do depends on this tier *and* on the trust level of its context, not on the grant alone.
+- **`applies_to`** — `user` marks a permission an agent may never hold, enforcing the human/agent separation `docs/12-security.md` requires. This is invariant **R3**, enforced by a database trigger rather than by convention.
 
 ## Permission Catalogue
 
-The complete set the backend seeds on first run. Two columns beyond the name do real work:
-
-- **`risk_tier`** — `read_only`, `reply`, `write`, or `admin`. Drives the trust-gated capability matrix in [docs/17-threat-model.md](17-threat-model.md) C2: what a run may do depends on this tier *and* on the trust level of its context, not on the grant alone.
-- **`applies_to`** — `user` marks a permission an agent may never hold, enforcing the human/agent separation `docs/12-security.md` requires.
+The complete set the backend seeds on first run.
 
 Role columns: **O**wner, **A**dmin, **M**anager, m**E**mber, **V**iewer.
 
@@ -141,14 +87,23 @@ Role columns: **O**wner, **A**dmin, **M**anager, m**E**mber, **V**iewer.
 | **Settings, billing, audit** | | | | | | | | |
 | `settings.view` | read_only | user | Y | Y | Y |  |  | View team settings |
 | `settings.manage` | **admin** | user | Y | Y |  |  |  | Change team settings |
+| `apikey.manage` | **admin** | user | Y | Y |  |  |  | Issue, list, and revoke team API keys |
 | `billing.view` | read_only | user | Y | Y |  |  |  | View billing and usage |
 | `billing.manage` | **admin** | user | Y |  |  |  |  | Change plan and payment details |
 | `audit.view` | read_only | user | Y | Y | Y |  |  | Query the team audit log |
 | `approval.decide` | **admin** | user | Y | Y | Y |  |  | Approve or reject a pending agent action |
 
-47 permissions. The role mapping above is a **starting proposal, not a finished policy** — the manager and member rows deserve deliberate review before launch, since `member` currently holds `message.send` and `workflow.run`, both write-tier.
+48 permissions. The role mapping above is a **starting proposal, not a finished policy** — the manager and member rows deserve deliberate review before launch, since `member` currently holds `message.send` and `workflow.run`, both write-tier.
 
-`tool.execute` is a gate, not a capability: the effective tier for a call is the higher of this permission's tier and the invoked tool's own `risk_tier`. Holding `tool.execute` does not by itself authorize a write-tier tool.
+Two entries need reading carefully.
+
+**`tool.execute` is a gate, not a capability.** The effective tier for a call is the higher of this permission tier and the invoked tool own `risk_tier`. Holding `tool.execute` does not by itself authorize a write-tier tool.
+
+**`apikey.manage` is separated from `settings.manage` on purpose.** Issuing an API key is not an ordinary settings change: a key with `trust_ceiling: user_input` submits content that the runtime treats as coming from an authenticated member, which is the one lever that moves work out of the `untrusted` row of the capability matrix (`docs/17-threat-model.md` T16). That deserves its own grant and its own audit line rather than riding along with theme and locale.
+
+### Known rough edge
+
+`web.search`, `browser.read`, and `database.read` are all `read_only` yet granted only to Owner and Admin. A Member therefore cannot run an agent that searches the web, which is probably not intended for a product built around agents. Either these move down to Member, or the restriction needs a stated reason. Flagged rather than silently fixed, because it is a product decision.
 
 ## Scope
 Permissions may be scoped to:
@@ -162,10 +117,11 @@ Permissions may be scoped to:
 ## Principles
 - Default deny.
 - Least privilege.
-- Human and agent permissions should be separate.
+- Human and agent permissions are separate, and an agent never holds an `admin`-tier or `applies_to: user` permission.
+- **A grant is a ceiling, not an entitlement.** What a run may actually do is the grant *and* the trust level of its context. This is the principle that distinguishes this model from ordinary RBAC, and it is the reason a permission list alone cannot answer whether an action is allowed.
 - Sensitive scopes must be narrow.
 - Permission changes should be auditable.
-- Access should be revoked immediately when membership or connections change.
+- Access is revoked immediately when membership or connections change — which is why permissions are resolved per request and never carried in a token.
 
 ## Notes
 An authorization system is only as strong as its policy evaluation point. Every sensitive action should verify access at the moment it happens, not only at creation time.

@@ -336,6 +336,8 @@ The schema design in `docs/14-database.md` carries the following, so that these 
 | `audit_logs.team_id` | C12 — tenant-scoped audit queries |
 | `api_keys.trust_ceiling`, `bound_user_id` | T16 — machine principals cannot launder trust |
 
+**Settled, recorded here because it was previously listed as open:** `reply` is a distinct persisted tier, not a runtime-derived property of a scoped `write` grant. It appears in the `07` catalogue, in the `risk_tier` CHECK in `14`, and in the matrix above.
+
 ### Where these are enforced
 
 Two of the controls above cannot be expressed as an ordinary column constraint, and are tracked as invariants R3 and R4 in `docs/14-database.md`:
@@ -370,9 +372,9 @@ Stated plainly, because a threat model that claims completeness is not credible:
 ## Open Decisions
 
 1. Adopt Postgres RLS for tenant isolation, or rely on repository-layer scoping alone? RLS requires a per-transaction team context convention across the whole codebase — cheap now, expensive to retrofit.
-2. Should `reply` be a distinct persisted tier, or a runtime-derived property of a `write` grant scoped to the origin connection? Currently modelled as a distinct tier.
+2. Whether a workflow step may raise trust through an explicit sanitization or validation step, and what would qualify one. Default today: no, trust never increases.
 3. Retention policy for `tool_calls` arguments and results — they hold the richest forensic data and also the most sensitive payloads. This intersects with the unresolved GDPR erasure-versus-audit-retention question.
-4. Whether a workflow step may raise trust through an explicit sanitization or validation step, and what would qualify one. Default today: no, trust never increases.
+4. The notification channel for approval requests. `users.email` is usually absent under wallet sign-in, so approvals have no assumed delivery path. This blocks building C5 at all and must be decided first.
 
 ## Pre-Launch Checklist
 

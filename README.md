@@ -39,9 +39,11 @@ flowchart LR
     AGENT --> SOURCE[Source Integrations]
     AGENT --> FLOW[Workflow Engine]
 
-    AUTH --> DB[(Data Store)]
+    AUTH --> DB[(PostgreSQL)]
     FLOW --> DB
-    KNOW --> KB[(Knowledge Storage)]
+    KNOW --> DB
+    AGENT --> DB
+    DB --- QUEUE[/Job queue lives here too/]
     MODEL --> EXT[External AI Providers]
     TOOL --> EXT2[External Services]
     SOURCE --> EXT3[Messaging / APIs / Files]
@@ -93,11 +95,13 @@ The project should be built in phases:
 
 1. Foundation and data model
 2. Identity, teams, and permissions
-3. Source and tool framework
-4. Agent runtime and model gateway
+3. Source and tool framework — including risk tiers and destination allowlists
+4. Agent runtime and model gateway — including the trust-gated policy decision point
 5. Knowledge and retrieval
 6. Workflow orchestration
-7. Observability and safety controls
+7. Operational visibility
+
+Safety is not a phase. It lands in 3, 4, and 6 alongside the features it constrains — see [docs/13-roadmap.md](docs/13-roadmap.md).
 
 ## Design Principles
 
@@ -108,6 +112,19 @@ The project should be built in phases:
 - auditable execution and observability
 - provider abstraction for model integration
 - workflow-driven automation with safe boundaries
+
+### The one that shapes everything else
+
+An agent is not a principal with intent. **It is a transport for whatever instructions reach its context.**
+
+Any system that combines access to private data, exposure to untrusted content, and the ability to communicate externally can be made to move data from the first to the third using the second. NuraAI deliberately has all three, so this is a property of the product rather than a bug in an implementation.
+
+Authorization therefore considers the **provenance of the instruction**, not only the identity of the executing agent. Two rules carry that:
+
+- **Capability depends on context trust.** What a run may do is a function of the agent's grants *and* the trust level of everything in its context. An agent exposed to external messages cannot take a write action unattended.
+- **Destinations come from configuration, never from model output.** The model selects among pre-registered destinations by identifier. It never emits an address the runtime then uses.
+
+The goal is containment, not prevention: the design assumes injection will succeed at the model layer. [docs/17-threat-model.md](docs/17-threat-model.md) is the document to read before writing any runtime code.
 
 ## Project Status
 

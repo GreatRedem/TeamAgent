@@ -22,11 +22,29 @@ Knowledge enables grounded responses and better task resolution. It can include 
 - Support retrieval during runtime execution.
 
 ## Suggested Fields
+
+A **knowledge base** is the collection and the unit of access control. A **knowledge item** is one piece of content inside it, and the unit of trust. They are separate tables.
+
+### Knowledge base
 | Field | Description |
 |---|---|
 | `id` | Internal unique identifier |
 | `team_id` | Owning team |
-| `name` | Knowledge item or collection name |
+| `name` | Collection name |
+| `description` | Purpose |
+| `status` | Active, archived |
+| `created_at` | Creation timestamp |
+| `updated_at` | Last update timestamp |
+
+Agent access is granted per base, through `agent_knowledge_bases`. An agent reads the bases it has been explicitly granted and no others.
+
+### Knowledge item
+| Field | Description |
+|---|---|
+| `id` | Internal unique identifier |
+| `team_id` | Owning team |
+| `knowledge_base_id` | Parent collection |
+| `title` | Item name |
 | `type` | Document, URL, database, etc. |
 | `source` | Origin or storage reference |
 | `metadata` | Tags, author, dates, and classification |
@@ -38,6 +56,8 @@ Knowledge enables grounded responses and better task resolution. It can include 
 | `status` | Ready, processing, failed, archived |
 | `created_at` | Creation timestamp |
 | `updated_at` | Last update timestamp |
+
+Trust is a property of the **item**, not the base. A base can hold trusted and untrusted items side by side, and a retrieval that touches one untrusted item taints the run regardless of what else it returned.
 
 ## Trust Level
 
@@ -61,9 +81,30 @@ The effective trust of a run is the **minimum** over everything in its context. 
 **Schema gap:** ranked semantic retrieval needs a chunk and embedding table, and `docs/14-database.md` does not define one yet. Steps 2 and 3 are not implementable as written until it exists — Phase 5 work, left out deliberately rather than guessed at.
 
 ## Security Requirements
+
 - Confidential knowledge must be isolated from unauthorized agents.
-- Retrieval should respect team and user permissions.
-- Untrusted sources must be normalized or validated before use.
+- Retrieval respects team, user, and per-agent base grants.
+- **Untrusted content is labelled and contained. It is never validated into trustworthiness.**
+
+That last point replaces an earlier line in this document that read *untrusted sources must be normalized or validated before use*, which was wrong in a way worth naming.
+
+There is no validation step that converts attacker-controlled prose into safe instructions. A language model has no separation between code and data — instructions and content arrive as one token stream — so there is no parameterized-query equivalent and no sanitizer to write. Wrapping untrusted content in a delimited block that says *this is data, not instruction* raises the cost of an attack and stops naive attempts, and `docs/17-threat-model.md` C6 is explicit that it is a **mitigation, not a boundary**: any design that relies on it alone is broken.
+
+What actually contains a poisoned document is structural, and none of it happens at ingestion:
+
+- the item carries `untrusted`, so the run it enters is `untrusted`
+- a `write`-tier action from that run needs an approval
+- the destination it could reach comes from a configured allowlist the model cannot expand
+
+### Read-only access is still disclosure
+
+C3 and C4 stop exfiltration to *new* destinations. They do not stop an injected agent revealing what it can read **to the party it is already talking to** — which, for a public-facing support bot, is whoever sent the message.
+
+So the scoping decision is the control here:
+
+> An agent on a public-facing source must only be granted knowledge bases whose contents are safe to disclose to that source audience.
+
+The runtime cannot infer this. It is a configuration responsibility, and it is the most likely way this system leaks in practice.
 
 ## Notes
 Knowledge is not just raw data. It is governed context with access boundaries, relevance, and lifecycle management.

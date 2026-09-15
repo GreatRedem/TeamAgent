@@ -58,6 +58,7 @@ erDiagram
     AUTH_NONCE }o--o| USER_IDENTITY : "challenges address of"
     TEAM ||--o{ TEAM_MEMBER : has
     TEAM ||--o{ API_KEY : issues
+    API_KEY }o--o| USER : "may be bound to, when trust_ceiling is user_input"
     ROLE ||--o{ TEAM_MEMBER : "assigned to"
     ROLE ||--o{ ROLE_PERMISSION : grants
     PERMISSION ||--o{ ROLE_PERMISSION : "granted by"
@@ -132,7 +133,7 @@ Issue one key per integration rather than one per team. A shared key collapses t
 
 ### Authorization — `permissions`, `roles`, `role_permissions`, `team_members`, `user_permission_grants`
 
-`permissions` is the global catalogue. The full 47-entry list with tiers and role mappings lives in [docs/07-permission.md](07-permission.md); the backend seeds it on first run. Beyond name/resource/action it carries two columns that do real work:
+`permissions` is the global catalogue. The full 48-entry list with tiers and role mappings lives in [docs/07-permission.md](07-permission.md); the backend seeds it on first run. Beyond name/resource/action it carries two columns that do real work:
 
 - `risk_tier` — `read_only`, `reply`, `write`, or `admin`. This drives the capability matrix in `docs/17-threat-model.md` C2, where the capabilities available to a run depend on both the grant and the trust level of the run's context.
 - `applies_to` — `user`, `agent`, or `both`, enforcing the human/agent separation that `docs/12-security.md` requires.

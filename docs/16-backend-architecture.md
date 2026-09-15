@@ -16,6 +16,7 @@ flowchart LR
     Gateway --> Tool[Tool Service]
     Gateway --> Knowledge[Knowledge Service]
     Gateway --> Workflow[Workflow Service]
+    Gateway --> Approval[Approval Service]
     Gateway --> Audit[Audit Service]
 
     Agent --> Runtime[Agent Runtime Engine]
@@ -37,8 +38,12 @@ flowchart LR
     Tool --> DB
     Knowledge --> DB
     Workflow --> DB
+    Approval --> DB
     Audit --> DB
 
+    Runtime --> PDP[Policy Decision Point]
+    PDP --> Tool
+    PDP --> Approval
     Runtime --> Queue[(Job queue -- same database)]
     Worker --> Queue
     Queue --> DB
@@ -65,6 +70,7 @@ Responsibilities:
 - access token issuance, refresh token rotation and reuse detection
 - wallet identity resolution and linking
 - principal context building: `token_version` check plus permission resolution, cached per request
+- API key verification, and resolution of the key `trust_ceiling` and `bound_user_id` into the request principal, so the ingress trust label is set before any handler runs (`docs/17-threat-model.md` T16)
 
 Permissions are resolved per request and never carried in the token — see `docs/20-authentication.md`.
 
@@ -171,7 +177,23 @@ Responsibilities:
 - call model provider
 - return result and logs
 
-### 12. Audit Service
+### 12. Approval Service
+Owns the human gate for `write`-tier actions proposed on untrusted context (`docs/17-threat-model.md` C5).
+
+Responsibilities:
+- open an approval request when the policy decision point returns `approval_required`, capturing the proposed action, the resolved destination, the triggering content, and its origin
+- suspend the run and resume it on a decision
+- enforce expiry — an expired approval is a denial, never a request that waits
+- deliver notifications through the configured channel
+- record every decision in the audit log
+
+Dependencies:
+- database
+- a notification channel
+
+**The notification channel is an unresolved dependency.** `users.email` is nullable and usually absent under wallet sign-in (`docs/20-authentication.md`), so approvals cannot be assumed deliverable by email. This must be decided before the service is built, not after.
+
+### 13. Audit Service
 Owns all recorded operational and security events.
 
 Responsibilities:
@@ -223,18 +245,22 @@ backend/
       controllers/
     services/
       auth/
+      api-keys/         # issue, revoke, resolve trust_ceiling
       users/
       teams/
       agents/
+        grants/         # tools, knowledge, sources, allowed_destinations
       models/
       sources/
       tools/
       knowledge/
       workflows/
+      approvals/
       audit/
     runtime/
       agent-runtime/
       workflow-worker/
+      policy/           # THE policy decision point -- see below
     core/
       config/
       logger/
@@ -272,6 +298,18 @@ frontend/
 ```
 
 The frontend is a separate build artifact. nginx serves it; the API does not.
+
+### `runtime/policy/` deserves its own directory
+
+It is the smallest module in the backend and the most security-critical. It answers one question — given an agent grants, a tool `risk_tier`, and the effective context trust, is this call allowed, denied, or does it need an approval — and it is the boundary that every other control depends on.
+
+Three properties follow from giving it a home of its own:
+
+- **It is a pure function.** No database, no network, no clock. That makes all twelve cells of the capability matrix testable in milliseconds, and `docs/21-testing.md` requires exactly that.
+- **It has one caller that matters.** The tool runtime, immediately before execution. A check anywhere earlier is advisory; burying this logic inside `agent-runtime/` invites a second, divergent copy at configuration time.
+- **It should be readable in one sitting.** If it grows dependencies, something has been pushed into it that belongs outside.
+
+Putting it under `core/security/` alongside crypto helpers would work, and is how it quietly becomes a utility function that someone inlines for convenience.
 
 ## Service Interaction Model
 

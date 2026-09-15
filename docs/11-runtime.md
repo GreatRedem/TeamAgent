@@ -114,15 +114,24 @@ States may include:
 
 `waiting_for_approval` and `budget_exceeded` are not cosmetic. A run suspended on an approval gate (`docs/17-threat-model.md` C5) has to be distinguishable from one that is merely slow, because the approval expires and an expired approval is a denial. A run terminated by a budget (C10) has to be distinguishable from a crash, because it is a cost and security signal rather than a fault.
 
-### Workflow
-States may include:
+### Workflow definition
+A workflow and its versions are definitions, and definitions do not execute. States:
 - `draft`
 - `active`
 - `paused`
+- `archived`
+
+### Workflow run
+One execution of a pinned version. States:
+- `queued`
 - `running`
+- `waiting_for_approval`
 - `succeeded`
 - `failed`
-- `archived`
+- `budget_exceeded`
+- `cancelled`
+
+Keeping these apart matters operationally: pausing a workflow must not change the state of runs already in flight, and *this workflow is paused* is a different question from *this run is stuck*. An earlier revision merged the two lists, which made `running` a state a definition could be in.
 
 ### Source Connection
 States may include:

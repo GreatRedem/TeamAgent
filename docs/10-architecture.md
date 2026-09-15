@@ -9,6 +9,7 @@
 - Secure access to sources, tools, and knowledge.
 - Run both interactive and automated flows.
 - Record actions for audit, safety, and debugging.
+- Contain a successful prompt injection, on the assumption that one will occur.
 
 ## High-Level Architecture
 
@@ -25,13 +26,19 @@ flowchart LR
     AGENT --> SRC[Source Integrations]
     AGENT --> FLOW[Workflow Engine]
 
-    IAM --> DB[(Core Data Store)]
+    AGENT --> PDP{Policy Decision Point}
+    PDP --> TOOL
+    PDP --> APPR[Approval gate]
+
+    IAM --> DB[(PostgreSQL)]
     MODEL --> EXT[External AI Providers]
     TOOL --> EXT2[External Services]
     SRC --> EXT3[Messaging / APIs / Files]
-    KNOW --> KB[(Knowledge Stores)]
+    KNOW --> DB
     FLOW --> DB
-    ORCH --> LOG[(Audit / Logs / Metrics)]
+    APPR --> DB
+    DB --- Q[/Job queue is a table here/]
+    ORCH --> LOG[(Logs / Metrics / Traces)]
 ```
 
 ## Core Layers
@@ -135,23 +142,44 @@ NuraAI does not assume a single linear request path. Execution may be:
 
 A common execution model is:
 
-`User / Event -> API -> Permission Check -> Agent Runtime -> Knowledge -> Tool -> Model -> Output`
+```text
+User / Event
+  -> API
+  -> Identity + permission resolution
+  -> Agent Runtime
+  -> Knowledge retrieval, computing effective context trust
+  -> loop:  Model  ->  policy decision  ->  Tool  ->  result as untrusted  ->  Model
+  -> Destination resolved from the allowlist
+  -> Output
+```
+
+The loop is the shape that matters. **The model chooses the tool**, so no tool call precedes the first inference, and every tool result re-enters the context as `untrusted`, lowering the effective trust for every subsequent iteration. An earlier revision of this line showed `Knowledge -> Tool -> Model`, which inverted the control flow and hid both properties.
 
 ## Key Design Principles
 - Default deny for permissions.
 - Explicit source and tool access grants.
-- Separation of human identity and agent identity.
+- Separation of human identity and agent identity, with no agent ever holding an `admin`-tier permission.
+- **Capability is a function of the grant and the provenance of the instruction**, evaluated at execution time in the tool runtime. This is the principle that shapes the runtime layer; everything else is conventional.
+- **Destinations come from configuration, never from model output.**
 - Use provider abstraction rather than direct model coupling.
-- Make execution observable and auditable.
+- Make execution observable and auditable, from the actual execution path rather than from what the model reports doing.
 - Prefer structured tools and APIs over free-form access.
 
 ## Architectural Risks to Watch
+
+The first one is structural rather than a mistake to avoid:
+
+- **Prompt injection and the confused deputy.** Every agent here has access to private data, exposure to untrusted content, and the ability to communicate externally. Any system with all three can be made to move data from the first to the third using the second. This is a direct consequence of the feature set, not a bug in an implementation, and the architecture is arranged to contain it rather than to prevent it. `docs/17-threat-model.md` is the design document for this and should be read before the runtime layer is built.
+
+The conventional ones:
+
 - Over-permissioned agents
 - Unbounded tool access
 - Hidden provider coupling
 - Missing execution logs
 - Unclear ownership of knowledge and sources
 - Weak tenant isolation
+- Trust labels dropped at a boundary — between workflow steps, across the queue, or at an API-key ingress
 
 ## Recommended Initial Deployment Shape
 A first production-ready version should separate:

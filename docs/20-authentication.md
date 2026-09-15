@@ -2,7 +2,9 @@
 
 NuraAI authenticates humans with an **EVM wallet signature (EIP-4361, "Sign-In With Ethereum")** and issues a **short-lived JWT access token plus a revocable refresh token**.
 
-There is no password authentication. `docs/12-security.md` previously listed email/password and SSO as options; this document supersedes that for human sign-in. API keys remain the mechanism for machine-to-machine access, unchanged.
+There is no password authentication. `docs/12-security.md` previously listed email/password and SSO as options; this document supersedes that for human sign-in.
+
+API keys remain the mechanism for machine-to-machine access, but they are **not unchanged**: `docs/17-threat-model.md` T16 gives every key a `trust_ceiling` that defaults to `untrusted`, because authenticating a machine principal establishes who is calling and says nothing about whether the content it carries is safe to act on. See API keys below.
 
 ## What wallet-only changes
 
@@ -191,6 +193,18 @@ Changes to the design in `docs/14-database.md`:
 | **`user_identities.provider = 'evm_wallet'`** | `provider_user_id` is the lowercased address. `UNIQUE (provider, provider_user_id)` already gives one identity per wallet. |
 | **`user_identities.chain_id`** | The chain the signature was produced on. Recorded for audit and for EIP-1271 re-verification; not part of the identity key, since an EVM address is the same across chains. |
 | **`users.email` stays nullable** | Most wallet users will not have one. Nothing may assume it is present. |
+
+## API keys
+
+Machine credentials, issued per integration and team-scoped.
+
+- **Format:** an opaque random token with a display prefix, `nk_<env>_<random>`. Stored as a hash plus the prefix; returned in full exactly once at issuance.
+- **`trust_ceiling`:** `untrusted` by default, optionally `user_input`, never `trusted`. It caps the trust of anything submitted through the key, and raising it requires `bound_user_id` so that the `user_input` row of the capability matrix has a person to resolve against.
+- **Rotation:** issue the replacement, migrate the caller, revoke the old key. There is no in-place rotation, because a key that changes value under a running integration is an outage with extra steps.
+- **Expiry:** optional `expires_at`. Revocation is immediate and independent of it.
+- **Scope:** one key per integration. A shared key collapses to the weakest caller trust level and makes revocation an outage.
+
+Keys are not refresh tokens and do not rotate on use. They are long-lived by design, which is why the ceiling matters more than the lifetime.
 
 ## Threats
 

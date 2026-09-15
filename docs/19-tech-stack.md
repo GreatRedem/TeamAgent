@@ -148,6 +148,16 @@ QUEUE_POLL_INTERVAL_MS=1000
 QUEUE_LEASE_SECONDS=600        # longer than the slowest agent run, or it reruns
 QUEUE_MAX_ATTEMPTS=5
 
+# Observability -- see docs/22-observability.md
+LOG_LEVEL=info
+OTEL_EXPORTER_OTLP_ENDPOINT=
+OTEL_SERVICE_NAME=nuraai-api   # api | worker | scheduler
+TRACE_SAMPLE_RATIO=0.1         # errors, denials, and approvals are always kept
+
+# Approvals -- see docs/17-threat-model.md C5
+APPROVAL_TTL_SECONDS=3600      # an expired approval is a denial
+APPROVAL_NOTIFY_CHANNEL=       # UNDECIDED: email cannot be assumed, see docs/20
+
 # i18n
 DEFAULT_LOCALE=en
 SUPPORTED_LOCALES=en,fa

@@ -533,6 +533,19 @@ Request:
 }
 ```
 
+### POST /teams/:teamId/knowledge/:knowledgeId/items/:itemId/trust
+Mark a knowledge item trusted. Requires `knowledge.write`.
+
+```json
+{ "trusted": true }
+```
+
+**Trust is an action a human takes, and this is where they take it.** Ingestion always produces `trust_level = untrusted`; nothing in the pipeline may infer trust from a domain name, a file type, or the fact that the fetch was authenticated. Without this endpoint the default is permanent and the field is decorative.
+
+The call records `trusted_by` and `trusted_at`, and it is an audited event. Setting `trusted: false` returns the item to `untrusted` and takes effect on the next retrieval — it does not retroactively change runs that already used it.
+
+An agent can never call this. `knowledge.write` is `write`-tier, and a run that could raise the trust of its own context would defeat the labelling entirely.
+
 ### POST /teams/:teamId/knowledge/search
 Search knowledge base content.
 

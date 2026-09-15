@@ -38,6 +38,7 @@ With the queue in the same database, **the enqueue is part of the transaction**.
 | `last_error` | |
 | `idempotency_key` | Unique per queue. Makes enqueue safe to retry |
 | `trace_id` | Propagates the calling trace across the queue boundary |
+| `context_trust_level` | The trust level of the work this job carries, propagated across the queue boundary the same way `trace_id` is |
 | `created_at`, `completed_at` | |
 
 Indexes: `(status, run_at, priority)` for the claim; `(status, locked_at)` for the reaper; `(queue, status)` for metrics.
@@ -129,6 +130,10 @@ Missed ticks need a policy. If the scheduler was down for an hour, does an hourl
 `trace_id` is a column on `jobs` specifically so the trace survives the queue. The enqueuer writes it; the worker restores the trace context from it before doing anything else.
 
 `docs/22-observability.md` covers why this matters: without it, every model call, tool execution, and egress lands in a trace disconnected from the request that caused them.
+
+**`context_trust_level` crosses the same boundary for the same reason.** A job is frequently the thing that carries work from an untrusted ingress — an inbound message, a webhook payload — to the runtime that will act on it. If the label is not on the row, the worker either reconstructs it from the referenced rows or, worse, starts the run at a default. Trust is only ever allowed to decrease, and a queue hop is exactly where it silently resets.
+
+It also makes the trust dimension queryable at the queue level: *how much untrusted work is currently in flight* is a question worth being able to answer during an incident.
 
 ## Rate limiting without Redis
 

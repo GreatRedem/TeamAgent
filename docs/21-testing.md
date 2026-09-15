@@ -119,9 +119,38 @@ assert: every tool call attempt has a tool_calls row with a decision
 
 These hold whether or not the model was fooled, which makes them deterministic and therefore CI-gating.
 
-Maintain a corpus of payloads — direct instruction override, data exfiltration requests, markdown image side channels (T6), tool-output-borne instructions (T4), and tool-argument injection attempts (T10) — and run it through each ingress: interactive message, inbound source webhook, retrieved knowledge, and tool output.
+Maintain a corpus of payloads — direct instruction override, data exfiltration requests, markdown image side channels (T6), tool-output-borne instructions (T4), and tool-argument injection attempts (T10) — and run it through **every** ingress:
 
-### 7. Job queue semantics
+- interactive message
+- inbound source webhook
+- retrieved knowledge
+- tool output
+- **API key submission**, at both trust ceilings (T16)
+
+The API key path is the one most likely to be forgotten, because it looks like an authenticated internal call rather than an ingress. It is the ingress a relay integration uses, and the corpus has to reach it.
+
+### 7. Machine principal trust (T16)
+
+A key-authenticated request passes every authorization check, so nothing in the authorization suite catches a trust escalation here. These assertions are the only thing that does.
+
+```
+new key with no trust_ceiling given       -> defaults to 'untrusted'
+key with trust_ceiling = 'trusted'        -> rejected at issue time
+trust_ceiling = 'user_input', no bound_user_id -> rejected
+run started by a default key              -> context_trust_level is 'untrusted'
+write-tier tool on that run               -> approval_required, not executed
+run started by a user_input-bound key     -> context_trust_level is 'user_input'
+write-tier tool on that run               -> resolves against the bound user grants, not the agent alone
+inbound source content via a user_input key -> still 'untrusted' (ceiling is a cap, not an assignment)
+tool result on any key-started run        -> still 'untrusted'
+revoked key                               -> rejected immediately, not at expiry
+```
+
+The last three are the ones worth writing first. A ceiling that behaves like an assignment — raising the trust of content that arrived from a source or a tool — is the exact bug T16 exists to prevent, and it is invisible to every other suite.
+
+Add a structural assertion alongside the token one in suite 5: **decode every principal built anywhere in the suite and fail if any key-authenticated principal is ever labelled `trusted`.** There is no legitimate path to that state, so an automated check is cheaper than reviewing for it.
+
+### 8. Job queue semantics
 
 The queue is built rather than installed (`docs/23-job-queue.md`), so its correctness is your responsibility and its failure modes are concurrency bugs that unit tests miss.
 
@@ -138,11 +167,11 @@ enqueue in a rolled-back txn       -> no job runs
 
 The first and last are the ones that justify the design. The claim test needs genuine concurrent workers against a real database — a sequential test passes against a racy claim query. The rollback test proves the transactional-enqueue property that removing the broker bought.
 
-### 8. Budget enforcement (C10)
+### 9. Budget enforcement (C10)
 
 Token spend, tool-call count, recursion depth, and wall-clock each get a test that exceeds the limit and asserts the run terminates. A runaway loop is both a cost incident and a denial-of-service vector, and the limits are the only thing standing between an injected agent and an unbounded bill.
 
-### 9. Secret leakage (T9)
+### 10. Secret leakage (T9)
 
 A structural test: run a representative workload with sentinel secret values loaded into every credential path, then scan every persisted artifact — `agent_runs`, `tool_calls`, `audit_logs`, log output, and trace spans — for those sentinels. Any hit fails the build.
 
@@ -204,7 +233,7 @@ unit                                  (fast, no I/O)
 migrate      (empty -> head, assert no drift from the schema modules)
 integration  (PGlite)
 contract     (recorded connector fixtures)
-security     (R1-R5, C2 matrix, C3, isolation, W1-W8, injection corpus, secret scan)
+security     (R1-R5, C2 matrix, C3, isolation, W1-W8, T16, injection corpus, secret scan)
 e2e          (critical journeys)
 ```
 
@@ -217,11 +246,12 @@ Line coverage is a weak signal and a bad target — it is trivially gamed and it
 Track instead a short list of things that **must** have tests, and fail the build if any is missing:
 
 - every cell of the C2 capability matrix
-- every application invariant R1–R5
+- every invariant R1–R5
 - every wallet-auth threat W1–W8
+- the API key trust ceiling, T16, including the default
 - every repository method, for tenant isolation
 - every tool `risk_tier` assignment
-- every ingress path, against the injection corpus
+- every ingress path, against the injection corpus — API key included
 
 This is a checklist that can be verified mechanically, and it maps to the claims the documentation makes.
 

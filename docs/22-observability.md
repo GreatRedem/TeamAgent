@@ -52,12 +52,15 @@ JSON, one object per line, no string interpolation of variable data.
 | `trace_id`, `request_id` | |
 | `team_id` | Present on every tenant-scoped operation |
 | `actor_type`, `actor_id` | `user`, `agent`, `system`, `api_key` |
+| `ingress` | How the work entered: `interactive`, `source`, `webhook`, `schedule`, `api_key`. Pairs with `context_trust_level` to answer where untrusted work came from |
 | `run_id`, `agent_id`, `workflow_id` | Where applicable |
 | `context_trust_level` | On anything in an agent execution path |
 | `error.code`, `error.type`, `error.stack` | Codes from the taxonomy in `docs/16-backend-architecture.md` |
 | `duration_ms` | On completion lines |
 
 `context_trust_level` on execution log lines is worth the column. It makes "show me everything that happened under untrusted context in the last hour" a filter rather than a join.
+
+`ingress` earns its place next to it for the same reason in reverse: trust level tells you how dangerous the work was, `ingress` tells you where it came in. During an incident the second question follows the first immediately, and without the field it is a join across `agent_runs`, `jobs`, and whichever source table applies.
 
 ## What must never be recorded
 
@@ -125,6 +128,9 @@ The interesting ones. These are the observable signature of the threat model's f
 | `eip1271_failures_total` | W4. RPC degradation, or an attack on the verification path. |
 | `agent_permission_grant_rejected_total` | R3 firing — something tried to give an agent admin capability. |
 | `cross_team_access_denied_total` | Isolation check rejecting a request. Should be zero; anything else is a bug or a probe. |
+| `runs_total{ingress,trust_level}` | Where work enters and at what trust. A key-authenticated ingress that starts producing `user_input` runs it did not produce before means a ceiling was raised — legitimately or not. |
+| `apikey_trust_ceiling_raised_total` | A key was issued or changed to `user_input`. This is the one lever that moves work out of the `untrusted` row of the capability matrix, so every occurrence deserves a human look. |
+| `apikey_auth_failures_total{reason}` | Revoked, expired, or unknown key presented. A spike on a revoked key means an integration was not migrated, or a leaked key is still being tried. |
 
 Several of these should be **zero in healthy operation**. Those are the most valuable alerts in the system, because the signal-to-noise ratio is perfect — any non-zero value is worth a human look.
 

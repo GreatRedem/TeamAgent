@@ -35,6 +35,7 @@ A user is not just a profile record. It is the primary identity boundary for:
 | `locale` | Preferred locale |
 | `timezone` | Preferred timezone |
 | `status` | Active, suspended, or deleted |
+| `token_version` | Integer, default 1. Backs the `ver` claim; incrementing it invalidates every issued token immediately (`docs/20-authentication.md`) |
 | `preferences` | Personal settings and defaults |
 | `created_at` | Creation timestamp |
 | `updated_at` | Last update timestamp |
@@ -56,7 +57,7 @@ Two consequences of the wallet anchor are worth stating in the identity model it
 
 ## Security Requirements
 - Profile data and secret data must be stored separately.
-- Tokens, API keys, and credentials must be encrypted.
+- **No secret value is stored in this database.** Source and tool credentials are held in a vault and referenced by `credential_ref`. API keys and refresh tokens are stored as **hashes**, which are irreversible by design — not encrypted, because nothing ever needs to read them back. A design that encrypts them instead has created a decryption key that can turn the table back into credentials.
 - Sensitive fields must not be exposed in normal user responses.
 - User-level access must be reviewed when teams or source connections change.
 - A wallet address is a permanent, public, cross-site identifier already linked to a readable transaction history. Treat `provider_user_id` as personal data, not as an opaque key.
