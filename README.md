@@ -62,6 +62,27 @@ flowchart LR
 - [docs/11-runtime.md](docs/11-runtime.md) — Execution lifecycle and runtime flows
 - [docs/12-security.md](docs/12-security.md) — Security model and governance
 - [docs/13-roadmap.md](docs/13-roadmap.md) — Delivery and engineering roadmap
+- [docs/14-database.md](docs/14-database.md) — Relational schema reference and rationale
+- [docs/15-api.md](docs/15-api.md) — REST API surface and contracts
+- [docs/16-backend-architecture.md](docs/16-backend-architecture.md) — Backend structure and service breakdown
+- [docs/17-threat-model.md](docs/17-threat-model.md) — Prompt injection, confused deputy, and the trust model
+- [docs/18-production-checklist.md](docs/18-production-checklist.md) — Production readiness gates and risk areas
+- [docs/19-tech-stack.md](docs/19-tech-stack.md) — Stack decisions, environment contract, and nginx boundary
+- [docs/20-authentication.md](docs/20-authentication.md) — Wallet sign-in and token design
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Backend | Fastify + TypeScript |
+| Frontend | React + Vite + TailwindCSS |
+| Database | PostgreSQL or SQLite, selected by `DB_DIALECT` |
+| Schema | Drizzle, defined in code — no hand-written SQL in this repository |
+| Auth | JWT issued after EVM wallet sign-in (EIP-4361 / SIWE) |
+| i18n | react-i18next — English and Persian, RTL |
+| Queue | Redis + BullMQ |
+
+**TLS and CORS are handled by nginx and are not implemented here.** See [docs/19-tech-stack.md](docs/19-tech-stack.md) for the full boundary and the environment contract.
 
 ## Recommended Delivery Strategy
 

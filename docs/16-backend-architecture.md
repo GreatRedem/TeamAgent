@@ -47,8 +47,8 @@ flowchart LR
 ## Recommended Runtime Stack
 
 For a first production-friendly implementation, use:
-- Node.js + TypeScript or Python + FastAPI
-- PostgreSQL for core data
+- Fastify + TypeScript
+- PostgreSQL or SQLite, selected by `DB_DIALECT`, with the schema defined in code via Drizzle
 - Redis for caching and job orchestration
 - RabbitMQ or BullMQ for async jobs
 - object storage for files and documents
@@ -61,16 +61,17 @@ For a first production-friendly implementation, use:
 Owns authentication and identity validation.
 
 Responsibilities:
-- login/logout
-- session or token management
-- user identity verification
-- role and permission context building
-- MFA or SSO integration when needed
+- EIP-4361 nonce issuance and signature verification
+- access token issuance, refresh token rotation and reuse detection
+- wallet identity resolution and linking
+- principal context building: `token_version` check plus permission resolution, cached per request
+
+Permissions are resolved per request and never carried in the token — see `docs/20-authentication.md`.
 
 Dependencies:
-- PostgreSQL
+- database
 - secret manager
-- identity provider adapters
+- an EVM RPC endpoint, for EIP-1271 smart-contract wallet verification. This is a dependency in the authentication path: it needs a timeout and must fail closed.
 
 ### 2. User Service
 Owns human profile management.
@@ -243,6 +244,8 @@ backend/
       observability/
     infra/
       db/
+        schema/          # pg.ts and sqlite.ts, kept mechanically parallel
+        migrations/      # one directory per dialect
       redis/
       queue/
       storage/
@@ -254,7 +257,22 @@ backend/
     unit/
     integration/
     e2e/
+
+frontend/
+  src/
+    app/
+    components/
+    features/
+    lib/
+      wallet/            # wagmi config, SIWE message construction
+      api/
+    locales/
+      en/
+      fa/
+  index.html
 ```
+
+The frontend is a separate build artifact. nginx serves it; the API does not.
 
 ## Service Interaction Model
 
@@ -370,13 +388,19 @@ For the first version, keep the backend strictly focused on:
 
 ## Recommended Tech Decisions for MVP
 
-- Node.js + TypeScript for easier API and service composition
-- PostgreSQL for core relational data
+- Fastify + TypeScript. Native JSON Schema validation serves both HTTP routes and tool-argument validation (`docs/17-threat-model.md` C7), keeping one validation path rather than two.
+- PostgreSQL for core relational data. It is the only mainstream engine that can enforce application invariants R3 and R4 — the two security rules from `docs/17-threat-model.md` — in the database rather than in application code.
+- Drizzle for the schema and migrations, defined in code under `app/infra/db/`. Note that Drizzle's dialect packages are separate and not interchangeable (`pg-core` is not `mysql-core`), so the engine choice is made once, in the schema modules. See `docs/14-database.md`.
+- PGlite for local development and tests: real Postgres in-process, no server and no container, so schema tests run in about a second in CI.
 - Redis for queue and caching
-- BullMQ or RabbitMQ for async execution
-- Prisma or TypeORM for ORM if using TypeScript
+- BullMQ for async execution
+- React + Vite + TailwindCSS for the frontend, built to static assets and served by nginx
+- react-i18next for English and Persian, with RTL handled through Tailwind logical properties
+- wagmi + viem on the client, viem on the server, so message construction and signature verification share types
 - structured JSON for configs and runtime metadata
-- env-based config with secret manager integration
+- env-based config with secret manager integration, validated at startup
+
+**TLS and CORS are handled by nginx and must not appear in this codebase** — no HTTPS listener, no `@fastify/cors`. Fastify must run with `trustProxy` set to the proxy address, or `request.ip` is the proxy on every request and both audit attribution and rate limiting break quietly. See `docs/19-tech-stack.md`.
 
 ## Final Recommendation
 

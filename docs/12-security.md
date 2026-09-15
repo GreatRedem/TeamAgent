@@ -16,11 +16,12 @@ This document defines the trust model for TeamAgent and describes how identity, 
 ### Authentication
 Authentication verifies who the caller is.
 
-Common methods:
-- Email/password or SSO
-- OAuth with external providers
+Methods:
+- **EVM wallet signature (EIP-4361 / SIWE)** for human sign-in, exchanged for a short-lived JWT plus a revocable refresh token
 - API keys for machine-to-machine usage
 - Service identities for internal automation
+
+There is no password authentication. See `docs/20-authentication.md` for the full design, including nonce handling, EIP-1271 smart-contract wallets, token rotation, and the reasoning behind keeping permissions out of the token.
 
 ### Authorization
 Authorization decides what an authenticated principal can do.
@@ -162,7 +163,7 @@ If a tool or source is compromised:
 - rotate secrets and validate downstream actions
 
 ## Recommended Security Controls
-- SSO and MFA for admin users
+- Hardware-wallet or multisig requirement for owner and admin roles. Wallet sign-in makes MFA redundant for the signature itself, but it does not make key custody safe: a hot wallet holding `team.manage` is a single compromised browser extension away from full team control.
 - role-based access control for all resources
 - reviewable permission changes
 - secret vault integration

@@ -26,18 +26,20 @@ Status: not present yet.
 
 ### 2. Database migration system
 
-A schema file is useful, but production needs:
+The schema is defined in code with Drizzle. Production needs:
 - migration history table
-- reversible or forward-only migration strategy
+- forward-only migration strategy
+- generated SQL reviewed before it is applied
 - migration checks in CI
 - schema drift detection
 - rollback plan
+- both dialects migrated and tested, not just the one used locally
 
 Required tools:
-- Prisma Migrate
-- Flyway
-- Liquibase
-- Alembic
+- drizzle-kit for generation and apply
+- a separate migration set per dialect, since Postgres and SQLite schema modules are maintained in parallel
+
+See docs/19-tech-stack.md and docs/14-database.md.
 
 ### 3. CI/CD pipeline
 
@@ -148,12 +150,19 @@ Required decisions:
 ## Security-specific Production Requirements
 
 ### Authentication and session security
-- secure password hashing
-- MFA for admins and high-value roles
-- session invalidation and revocation
-- session timeout policy
+- exact domain binding on the sign-in message, compared with string equality
+- single-use, short-lived nonces consumed atomically
+- EIP-1271 verification for smart-contract wallets, with a timeout, failing closed
+- short access token TTL
+- no permission or role claim carried in any token
+- token_version checked per request for immediate global revocation
+- refresh token rotation with reuse detection and family revocation
+- hardware wallet or multisig required for owner and admin roles
 - device/session tracking
-- audit for user login events
+- audit for sign-in attempts, including failures
+- account recovery policy for lost wallets, decided before launch
+
+See docs/20-authentication.md.
 
 ### Authorization enforcement
 - every route checks permissions

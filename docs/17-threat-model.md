@@ -176,7 +176,15 @@ An injection persuades the agent to describe its actions inaccurately in its fin
 
 **Controls:** audit records are written by the runtime from the actual execution path, never from model self-report. Every tool invocation is recorded in `tool_calls` before execution and updated after, including denied and pending-approval attempts. A run's narrative output is evidence of nothing.
 
-### T14 — Model provider as a threat surface
+### T14 — Authentication bypass via wallet sign-in
+
+Sign-in is a signature exchange, which brings its own catalogue: nonce replay, cross-site signature phishing, wrong-chain replay, and a hostile or failing RPC node in the EIP-1271 verification path. These are enumerated as **W1–W8** in `docs/20-authentication.md`.
+
+The one worth repeating here, because it is a single point of failure with a one-line fix: **`domain` must be compared with exact string equality.** A suffix or subdomain match means `evil-app.example.com` validates against `app.example.com`, and any site can harvest sign-ins.
+
+**Controls:** see `docs/20-authentication.md`.
+
+### T15 — Model provider as a threat surface
 
 Prompts and retrieved knowledge leave the tenant boundary on every inference call. Provider compromise, logging, training use, and response tampering are all in scope.
 
@@ -268,7 +276,7 @@ Every query is team-scoped at the repository layer. Caches, queues, and vector i
 
 ## Schema Support
 
-The following were added to `db/schema.sql` to make these controls enforceable rather than aspirational:
+The schema design in `docs/14-database.md` carries the following, so that these controls are enforceable rather than aspirational. The backend defines them in its Drizzle schema modules:
 
 | Column or table | Control |
 |---|---|
@@ -283,6 +291,17 @@ The following were added to `db/schema.sql` to make these controls enforceable r
 | `tool_calls` | C11 — the provenance-aware execution record |
 | `approval_requests` | C5 — human gates with the triggering content attached |
 | `audit_logs.team_id` | C12 — tenant-scoped audit queries |
+
+### Where these are enforced
+
+Two of the controls above cannot be expressed as a schema constraint at all, and are tracked as application invariants in `docs/14-database.md`:
+
+- **R3** — no agent may hold an `admin`-tier or human-only permission (C2). Needs a subquery, which no engine allows in a CHECK constraint.
+- **R4** — `can_initiate` requires a non-empty `allowed_destinations` (C3). Needs JSON introspection inside a constraint.
+
+On PostgreSQL both can be enforced by a trigger and a CHECK shipped in a migration, which keeps them in the database where application code cannot bypass them. On any other engine they rest entirely on repository-layer code.
+
+Either way they need dedicated tests that attempt the forbidden write and assert that it fails. A code review is not sufficient for a rule this load-bearing, and these two are the difference between the capability model being enforced and merely being described.
 
 ## Runtime Requirements
 
@@ -325,6 +344,8 @@ Stated plainly, because a threat model that claims completeness is not credible:
 - [ ] Approval requests display the triggering content and its origin.
 - [ ] Rendering surfaces strip or proxy outbound-referencing markup in agent output.
 - [ ] An injection test suite runs in CI against every ingress path.
+- [ ] Application invariants R3 and R4 have tests that attempt the forbidden write and assert failure.
+- [ ] If not running PostgreSQL, the R3/R4 enforcement path has been reviewed and tested explicitly.
 
 ## Notes
 

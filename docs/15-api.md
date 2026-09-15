@@ -23,13 +23,17 @@ https://api.teamagent.example.com/v1
 Use bearer tokens.
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <access token>
 ```
 
 Supported flows:
-- user login via SSO or email/password
+- **human sign-in via EVM wallet signature (EIP-4361)**, exchanged for a 15-minute JWT access token and a revocable refresh token — see [docs/20-authentication.md](20-authentication.md)
 - service-to-service API keys for internal automation
 - delegated access to sources and tools via scoped tokens
+
+The access token carries identity only. Permissions and team roles are resolved per request, so a revoked grant takes effect immediately rather than at the next token expiry.
+
+TLS and CORS are terminated by nginx and are not implemented by this API.
 
 ## Common Response Format
 
@@ -72,15 +76,35 @@ Error format:
 
 ## 1) Auth API
 
-### POST /auth/login
-Login user.
+Sign-in is a two-step wallet signature exchange. Full design, verification order, and threat catalogue in [docs/20-authentication.md](20-authentication.md).
+
+### POST /auth/wallet/nonce
+Issue a single-use sign-in challenge. Unauthenticated; rate limited per address and per IP.
+
+Request:
+
+```json
+{ "address": "0xAbC0000000000000000000000000000000000123" }
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": { "nonce": "8f4kd92jaKx1mQ", "expiresAt": "2026-09-16T00:05:00.000Z" }
+}
+```
+
+### POST /auth/wallet/verify
+Verify an EIP-4361 message and its signature, then issue tokens.
 
 Request:
 
 ```json
 {
-  "email": "user@example.com",
-  "password": "secret"
+  "message": "app.example.com wants you to sign in with your Ethereum account:\n0xAbC...",
+  "signature": "0x..."
 }
 ```
 
@@ -90,21 +114,25 @@ Response:
 {
   "success": true,
   "data": {
-    "token": "jwt_token",
-    "user": {
-      "id": "uuid",
-      "name": "Alex",
-      "email": "user@example.com"
-    }
+    "accessToken": "<jwt, 15 min>",
+    "refreshToken": "<opaque, 30 days>",
+    "user": { "id": "uuid", "name": "Alex", "address": "0xAbC...0123" }
   }
 }
 ```
 
+The server re-parses the message and validates `domain`, `uri`, `chainId`, nonce, and timestamps before verifying the signature. `domain` is compared with exact string equality.
+
+### POST /auth/refresh
+Exchange a refresh token for a new pair. The presented token is rotated. Presenting an already-rotated token revokes the entire family and increments `token_version`.
+
 ### POST /auth/logout
-Invalidate the current session or token.
+Revoke the presented refresh token's family. The access token is stateless and remains valid for its remaining lifetime, up to 15 minutes; use `token_version` for an immediate global cut-off.
 
 ### GET /auth/me
-Return the current user profile and active teams.
+Return the current user, linked wallets, and active teams.
+
+**There is no `POST /auth/login`.** There is no password to post.
 
 ## 2) User API
 
