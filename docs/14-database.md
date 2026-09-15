@@ -1,599 +1,188 @@
 # Database Schema and Design
 
-This document defines the initial database design for TeamAgent. It focuses on a relational schema that can support identity, team structure, agent configuration, source access, knowledge, workflow execution, and auditing.
+This document is the reference for TeamAgent's relational schema: what each table is for and why it is shaped the way it is.
+
+**`db/schema.sql` is the single source of truth for the DDL.** This document does not repeat it. An earlier revision embedded a full copy of the DDL here, and the two drifted apart almost immediately — the permission tables described below existed only in prose. Column-level detail belongs in the schema file; the rationale belongs here.
+
+Companion documents: `docs/07-permission.md` for the permission vocabulary, `docs/17-threat-model.md` for the trust and provenance columns.
 
 ## Design Goals
 
 - support multi-tenancy by team
 - separate principals from resources
-- keep permissions explicit and auditable
+- keep permissions explicit, scoped, and auditable
 - support multiple source integrations per user or team
-- allow agents to have model, tool, and knowledge scopes
-- record execution history and security events
+- give agents narrow, enumerated access to tools, knowledge, and sources
+- record execution history in enough detail to investigate an incident
 
 ## Core Design Principles
 
-- every tenant-scoped resource belongs to a team
-- users are canonical identities and may belong to multiple teams
-- permissions are evaluated against roles and direct grants
-- source and tool access is explicit and scoped
-- workflows and agent execution are persisted for audit and retry
+- **Every tenant-scoped table carries `team_id` directly.** Isolation never depends on a join. This costs some denormalization and buys a single, checkable predicate on every query — and keeps Postgres RLS available as an option later.
+- **Secrets are never stored here.** `credential_ref`, `webhook_secret_ref`, and `mfa_secret_ref` hold vault keys. No table has a column for a token, password, or API key value.
+- **Definitions are versioned; executions reference an immutable version.** Editing a workflow must not change the meaning of a run already in flight.
+- **Status columns are `VARCHAR` + `CHECK`, not `ENUM`.** Adding a value is an ordinary migration rather than a type change.
+- **`updated_at` is maintained by trigger.** Application code cannot forget it.
+- **Destructive cascades are deliberate.** `ON DELETE CASCADE` only where the child genuinely has no meaning without the parent. Ownership references use `RESTRICT`.
 
-## Recommended Database Type
+## Recommended Database
 
-PostgreSQL is a strong default choice because it supports:
-- foreign keys and strong integrity
-- JSONB for flexible metadata
-- arrays for some simple metadata if needed
-- transactional reliability
-- JSON schema or structured storage for configs
+PostgreSQL. Foreign keys, JSONB for the genuinely open-ended config blobs, partial and expression indexes, transactional DDL, and `pgvector` available when knowledge retrieval lands.
 
-## Domain Model Summary
+## Domain Model
 
 ```mermaid
 erDiagram
+    USER ||--o| USER_CREDENTIAL : "authenticates with"
+    USER ||--o{ USER_IDENTITY : "links"
+    USER ||--o{ SESSION : "holds"
     USER ||--o{ TEAM_MEMBER : joins
     TEAM ||--o{ TEAM_MEMBER : has
+    TEAM ||--o{ API_KEY : issues
+    ROLE ||--o{ TEAM_MEMBER : "assigned to"
+    ROLE ||--o{ ROLE_PERMISSION : grants
+    PERMISSION ||--o{ ROLE_PERMISSION : "granted by"
+    PERMISSION ||--o{ AGENT_PERMISSION : "granted to agent"
+    PERMISSION ||--o{ USER_PERMISSION_GRANT : "granted directly"
+
     TEAM ||--o{ AGENT : owns
     TEAM ||--o{ SOURCE : owns
+    TEAM ||--o{ TOOL : owns
     TEAM ||--o{ KNOWLEDGE_BASE : owns
     TEAM ||--o{ WORKFLOW : owns
-    USER ||--o{ SOURCE_CONNECTION : owns
-    USER ||--o{ AUDIT_LOG : creates
-    AGENT ||--o{ AGENT_PERMISSION : has
+
     AGENT }o--|| MODEL : uses
-    WORKFLOW ||--o{ WORKFLOW_STEP : contains
-    KNOWLEDGE_BASE ||--o{ KNOWLEDGE_ITEM : contains
+    AGENT ||--o{ AGENT_PERMISSION : has
+    AGENT ||--o{ AGENT_TOOL : "may call"
+    AGENT ||--o{ AGENT_KNOWLEDGE_BASE : "may read"
+    AGENT ||--o{ AGENT_SOURCE : "may reach"
+
     SOURCE ||--o{ SOURCE_CONNECTION : has
+    SOURCE_CONNECTION ||--o{ AGENT_SOURCE : "reachable by"
+    KNOWLEDGE_BASE ||--o{ KNOWLEDGE_ITEM : contains
+
+    WORKFLOW ||--o{ WORKFLOW_VERSION : "versioned as"
+    WORKFLOW_VERSION ||--o{ WORKFLOW_STEP : contains
+    WORKFLOW_VERSION ||--o{ WORKFLOW_RUN : "executed as"
+    WORKFLOW_RUN ||--o{ WORKFLOW_STEP_RUN : "produces"
+    WORKFLOW_STEP_RUN ||--o| AGENT_RUN : "may invoke"
+    AGENT ||--o{ AGENT_RUN : executes
+    AGENT_RUN ||--o{ TOOL_CALL : "attempts"
+    AGENT_RUN ||--o{ APPROVAL_REQUEST : "may block on"
 ```
 
-## Core Tables
+## Table Reference
 
-### 1. users
-Stores the canonical human identity.
+31 tables in seven groups.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| name | VARCHAR(255) | Display name |
-| email | VARCHAR(255) | Unique, nullable |
-| avatar_url | TEXT | Nullable |
-| locale | VARCHAR(20) | Nullable |
-| timezone | VARCHAR(64) | Nullable |
-| status | VARCHAR(32) | active, suspended, deleted |
-| preferences | JSONB | User settings |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+### Identity — `users`, `user_credentials`, `user_identities`, `sessions`
 
-### 2. teams
-Stores the tenant and collaboration boundary.
+`users` is the canonical human identity and holds profile data only. Secret material lives in `user_credentials` (password hash, MFA secret reference, lockout counters), per the separation required by `docs/01-user.md`.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| name | VARCHAR(255) | Required |
-| slug | VARCHAR(120) | Unique |
-| owner_id | UUID | FK to users |
-| status | VARCHAR(32) | active, suspended, archived |
-| settings | JSONB | Team config |
-| limits | JSONB | Usage and quota policy |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+`user_identities` implements the linked-account model: one internal user, many provider identities (Google, GitHub, Telegram, Discord), unique on `(provider, provider_user_id)`. OAuth tokens are referenced, not stored.
 
-### 3. team_members
-Maps users to teams and role assignments.
+`sessions` holds opaque server-side sessions by hash. This is a deliberate choice over stateless JWTs: `docs/15-api.md` specifies a logout endpoint that invalidates the current token, which a stateless JWT cannot honour without a denylist. Opaque sessions are revocable by construction and adequate at expected scale.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | FK to teams |
-| user_id | UUID | FK to users |
-| role | VARCHAR(64) | owner, admin, manager, member, viewer |
-| status | VARCHAR(32) | active, invited, removed |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+### Tenancy — `teams`, `api_keys`
 
-### 4. roles and permissions
-Use either a compact permission table or a role-based design. For initial implementation, the practical pattern is:
-- roles table with named roles
-- permissions table with action/resource definitions
-- role_permissions join table
-- user_role assignments or team_members role mapping
+`teams.owner_id` is `ON DELETE RESTRICT`. Deleting a user must never cascade into the destruction of their teams and every agent, workflow, and knowledge base inside them. Ownership transfer is an explicit operation.
 
-#### roles
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | FK to teams |
-| name | VARCHAR(64) | role name |
-| description | TEXT | nullable |
-| created_at | TIMESTAMPTZ | Required |
+`api_keys` are team-scoped machine credentials, stored as a hash plus a display prefix, with optional expiry and revocation.
 
-#### permissions
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| name | VARCHAR(128) | unique permission key |
-| resource_type | VARCHAR(64) | team, agent, workflow, source |
-| action | VARCHAR(64) | view, create, edit, delete, run |
-| description | TEXT | nullable |
+### Authorization — `permissions`, `roles`, `role_permissions`, `team_members`, `user_permission_grants`
 
-#### role_permissions
-| Column | Type | Notes |
-|---|---|---|
-| role_id | UUID | FK to roles |
-| permission_id | UUID | FK to permissions |
-| scope | JSONB | optional scope definition |
+`permissions` is the global catalogue, seeded from `db/seed.sql`. Beyond name/resource/action it carries two columns that do real work:
 
-### 5. models
-Stores model metadata for capabilities and provider abstraction.
+- `risk_tier` — `read_only`, `reply`, `write`, or `admin`. This drives the capability matrix in `docs/17-threat-model.md` C2, where the capabilities available to a run depend on both the grant and the trust level of the run's context.
+- `applies_to` — `user`, `agent`, or `both`, enforcing the human/agent separation that `docs/12-security.md` requires.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| provider | VARCHAR(128) | provider name |
-| name | VARCHAR(128) | model name |
-| version | VARCHAR(64) | nullable |
-| type | VARCHAR(64) | chat, reasoning, coding, image |
-| capabilities | JSONB | supported capabilities |
-| context_limit | INTEGER | optional |
-| input_types | JSONB | supported input types |
-| output_types | JSONB | supported output types |
-| pricing | JSONB | optional pricing metadata |
-| status | VARCHAR(32) | available, disabled, deprecated |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+`roles` are team-scoped, with `team_id IS NULL` marking the five built-in system roles from `docs/02-team.md`. Two partial unique indexes handle the naming rules, because a plain `UNIQUE(team_id, name)` would not dedupe system roles — Postgres treats NULLs as distinct.
 
-### 6. agents
-Represents runtime AI agents.
+`team_members.role_id` is a foreign key, not the free-text `VARCHAR` it once was.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | FK to teams |
-| model_id | UUID | FK to models |
-| name | VARCHAR(255) | Required |
-| description | TEXT | nullable |
-| system_prompt | TEXT | Required |
-| settings | JSONB | runtime config |
-| status | VARCHAR(32) | active, disabled, archived |
-| created_by | UUID | FK to users |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+`user_permission_grants` covers what roles cannot: resource-scoped overrides, explicit denies, and temporary or delegated access with an expiry — the "direct grants" and "temporary access" cases named in `docs/12-security.md`.
 
-### 7. agent_permissions
-Stores explicit permissions for an agent.
+### Models — `models`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| agent_id | UUID | FK to agents |
-| permission_name | VARCHAR(128) | e.g. tool.execute |
-| scope_type | VARCHAR(64) | team, source, workflow, custom |
-| scope_id | UUID | nullable |
-| granted_at | TIMESTAMPTZ | Required |
+Provider-agnostic capability metadata, unique on `(provider, name, version)`.
 
-### 8. sources
-Stores the platform or channel definition.
+### Sources — `sources`, `source_connections`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | nullable if user-owned |
-| owner_type | VARCHAR(32) | user or team |
-| owner_id | UUID | owner reference |
-| type | VARCHAR(64) | telegram, email, api, file |
-| name | VARCHAR(255) | display name |
-| status | VARCHAR(32) | connected, disconnected, error |
-| config | JSONB | non-secret config |
-| capabilities | JSONB | supported actions |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+A source is a channel registered in a team; a connection is a concrete endpoint on it (`docs/05-source.md`).
 
-### 9. source_connections
-Specific instance of a source integration.
+The earlier `owner_type` / `owner_id` pair on `sources` has been removed. It was polymorphic with no foreign key, so it carried no referential integrity, and it was ambiguous against the adjacent `team_id`. Sources are now unambiguously team-scoped, and ownership is expressed on the connection via `owner_scope` (`team` or `user`) with a CHECK requiring `user_id` when the scope is `user`.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| source_id | UUID | FK to sources |
-| user_id | UUID | nullable owner if user-level |
-| connection_name | VARCHAR(255) | display label |
-| connection_config | JSONB | provider/config values |
-| credential_ref | VARCHAR(255) | secret reference or vault key |
-| status | VARCHAR(32) | connected, error, expired |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+`webhook_secret_ref` supports signature verification on inbound webhooks (`docs/17-threat-model.md` T7).
 
-### 10. tools
-Execution tools available to agents and workflows.
+### Tools — `tools`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | nullable if system-level |
-| name | VARCHAR(255) | required |
-| description | TEXT | nullable |
-| type | VARCHAR(64) | search, browser, db, api, action |
-| input_schema | JSONB | required |
-| output_schema | JSONB | required |
-| permissions | JSONB | required permissions list |
-| status | VARCHAR(32) | available, disabled |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+`team_id IS NULL` marks a system tool available to every team.
 
-### 11. knowledge_bases
-Knowledge containers.
+`risk_tier` is `NOT NULL` with no default. `docs/17` forbids an implicit `read_only` default, because a tool that silently defaults to the safest tier is exactly the failure mode the tiering exists to prevent.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | FK to teams |
-| name | VARCHAR(255) | required |
-| description | TEXT | nullable |
-| type | VARCHAR(64) | document, url, database |
-| status | VARCHAR(32) | ready, processing, failed |
-| created_by | UUID | FK to users |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+### Knowledge — `knowledge_bases`, `knowledge_items`
 
-### 12. knowledge_items
-Actual knowledge entries.
+`knowledge_items.trust_level` defaults to `untrusted`. Trust is asserted by a named human (`trusted_by`, `trusted_at`), never inferred by the ingestion pipeline from a domain name or file type. `ingested_from` and `ingested_by` make a poisoned corpus traceable after the fact.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| knowledge_base_id | UUID | FK to knowledge_bases |
-| title | VARCHAR(255) | required |
-| content | TEXT | nullable |
-| source_url | TEXT | nullable |
-| metadata | JSONB | tags, author, dates |
-| status | VARCHAR(32) | ready, failed, archived |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+**Known gap:** there is no chunk or embedding table yet, so the ranked semantic retrieval described in `docs/08-knowledge.md` is not yet implementable. That is Phase 5 work and will need `pgvector`; it was left out deliberately rather than guessed at.
 
-### 13. workflows
-Automation definitions.
+### Agents — `agents`, `agent_permissions`, `agent_tools`, `agent_knowledge_bases`, `agent_sources`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| team_id | UUID | FK to teams |
-| name | VARCHAR(255) | required |
-| description | TEXT | nullable |
-| trigger_type | VARCHAR(64) | webhook, event, schedule, manual |
-| trigger_config | JSONB | trigger definition |
-| status | VARCHAR(32) | draft, active, paused, archived |
-| settings | JSONB | retries, timeout, execution options |
-| created_by | UUID | FK to users |
-| created_at | TIMESTAMPTZ | Required |
-| updated_at | TIMESTAMPTZ | Required |
+`docs/03-agent.md` states that agents have allowed tools, allowed knowledge bases, and allowed source connections, and that "access must be explicit, scoped, and enforceable." These four join tables are what make that true; previously none of them existed and the claim was prose only.
 
-### 14. workflow_steps
-Ordered execution steps for workflows.
+`agent_permissions` carries an `ON INSERT OR UPDATE` trigger rejecting any permission whose `risk_tier` is `admin` or whose `applies_to` is `user`. This enforces the strongest claim in `docs/17` — that agents never hold admin capability — at the database rather than trusting every call site.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| workflow_id | UUID | FK to workflows |
-| step_index | INTEGER | required |
-| type | VARCHAR(64) | agent, tool, condition, api, send |
-| config | JSONB | step definition |
-| condition_expr | TEXT | nullable |
-| created_at | TIMESTAMPTZ | Required |
+`agent_sources` is where the egress controls live:
 
-### 15. workflow_runs
-Execution records for workflow execution history.
+- `can_reply` is reply-to-origin, the cheap default (`docs/17` C4).
+- `can_initiate` allows sending elsewhere and requires a non-empty `allowed_destinations`, enforced by CHECK.
+- `allowed_destinations` is the allowlist the model cannot expand (`docs/17` C3). The runtime resolves destinations from this list after generation; a proposed destination outside it is denied, never fuzzy-matched.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| workflow_id | UUID | FK to workflows |
-| status | VARCHAR(32) | queued, running, succeeded, failed |
-| started_at | TIMESTAMPTZ | Required |
-| finished_at | TIMESTAMPTZ | nullable |
-| inputs | JSONB | workflow input payload |
-| outputs | JSONB | output payload |
-| error_message | TEXT | nullable |
-| trace_id | VARCHAR(128) | for observability |
+`agents.budgets` holds the per-run token, tool-count, depth, and wall-clock limits required by `docs/17` C10.
 
-### 16. agent_runs
-Execution history for agents.
+### Workflows — `workflows`, `workflow_versions`, `workflow_steps`, `workflow_runs`, `workflow_step_runs`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| agent_id | UUID | FK to agents |
-| user_id | UUID | nullable user requester |
-| workflow_run_id | UUID | nullable if part of workflow |
-| status | VARCHAR(32) | queued, running, completed, failed |
-| input_payload | JSONB | input data |
-| output_payload | JSONB | result data |
-| token_usage | JSONB | optional usage metrics |
-| started_at | TIMESTAMPTZ | Required |
-| finished_at | TIMESTAMPTZ | nullable |
-| error_message | TEXT | nullable |
-| trace_id | VARCHAR(128) | required for observability |
+The versioning split is the important change. `workflows` is the stable identity and a pointer to the current version; all executable content — trigger, settings, steps — lives on an immutable `workflow_versions` row. `workflow_runs.workflow_version_id` is `NOT NULL` and `RESTRICT`, so a run can always be replayed against what actually executed. Without this, editing a workflow silently changes the semantics of in-flight runs.
 
-### 17. audit_logs
-Secure operational log for governance and investigation.
+`workflow_steps` therefore belongs to a version, not to the workflow.
 
-| Column | Type | Notes |
-|---|---|---|
-| id | UUID | Primary key |
-| actor_type | VARCHAR(32) | user, agent, system |
-| actor_id | UUID | actor reference |
-| resource_type | VARCHAR(64) | team, agent, source, workflow |
-| resource_id | UUID | target resource |
-| action | VARCHAR(128) | action name |
-| details | JSONB | payload and metadata |
-| created_at | TIMESTAMPTZ | Required |
+`workflow_step_runs` is new and serves the per-step status that `docs/15-api.md` promises and `docs/11-runtime.md` requires. It carries `attempt` for retries and `context_trust_level` so taint propagates across step boundaries (`docs/17` T8).
 
-## Core Relationships
+`workflow_runs.idempotency_key` is unique per workflow, satisfying the idempotency guarantee in `docs/11-runtime.md`.
 
-### 1. Users and Teams
-Users belong to multiple teams via `team_members`.
+### Execution — `agent_runs`, `tool_calls`
 
-### 2. Team and Resources
-Teams own many resources including:
-- agents
-- sources
-- knowledge bases
-- workflows
-- team-specific permissions and roles
+`agent_runs.agent_snapshot` pins the resolved configuration that produced the run: model, prompt, settings, granted tools, destinations. Without it, a run record cannot answer "what instructions caused this?" — and a run's own narrative output is not evidence, because a successful injection can make an agent misreport what it did (`docs/17` T13).
 
-### 3. Agents and Models
-Agents are linked to one model, but the system may support multiple provider models later.
+`tool_calls` is the provenance-aware execution record. It stores `context_trust_level`, `risk_tier`, the policy `decision` (`allowed`, `denied`, `approval_required`), `decision_reason`, and the `resolved_destination`. Rows are written *before* execution and updated after, so a crash mid-call still leaves evidence. Denied and pending attempts are recorded, not just successful ones — a partial index supports querying denials directly.
 
-### 4. Agents and Tools
-Tool access is explicit through `agent_permissions` or a dedicated `agent_tools` table if the design needs finer-grained details.
+### Governance — `approval_requests`, `audit_logs`
 
-### 5. Sources and Connections
-A source is a definition; a source connection is a concrete integration instance with secrets or credential references.
+`approval_requests` is the human gate for write-tier actions on untrusted context. `triggering_content` and `triggering_origin` are what make a review meaningful: a reviewer who cannot see that the request originated in a message from an unknown external party cannot make a real decision. `expires_at` is `NOT NULL` — an expired approval is a denial.
 
-### 6. Workflows and Execution Logs
-Workflow definitions are separate from execution history, which makes retries, debugging, and audits easier.
+`audit_logs` gained `team_id`, without which `GET /teams/:teamId/audit` in `docs/15-api.md` could not be served at all: `resource_id` is polymorphic, so scoping by team would have required a union of joins across every resource type.
 
-## Recommended Initial SQL Schema
-
-Use this as starting DDL for PostgreSQL:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) UNIQUE,
-  avatar_url TEXT,
-  locale VARCHAR(20),
-  timezone VARCHAR(64),
-  status VARCHAR(32) NOT NULL DEFAULT 'active',
-  preferences JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE teams (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  slug VARCHAR(120) NOT NULL UNIQUE,
-  owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status VARCHAR(32) NOT NULL DEFAULT 'active',
-  settings JSONB NOT NULL DEFAULT '{}',
-  limits JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE team_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role VARCHAR(64) NOT NULL DEFAULT 'member',
-  status VARCHAR(32) NOT NULL DEFAULT 'active',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(team_id, user_id)
-);
-
-CREATE TABLE models (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider VARCHAR(128) NOT NULL,
-  name VARCHAR(128) NOT NULL,
-  version VARCHAR(64),
-  type VARCHAR(64) NOT NULL,
-  capabilities JSONB NOT NULL DEFAULT '{}',
-  context_limit INTEGER,
-  input_types JSONB NOT NULL DEFAULT '[]',
-  output_types JSONB NOT NULL DEFAULT '[]',
-  pricing JSONB DEFAULT '{}',
-  status VARCHAR(32) NOT NULL DEFAULT 'available',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE agents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-  model_id UUID NOT NULL REFERENCES models(id),
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  system_prompt TEXT NOT NULL,
-  settings JSONB NOT NULL DEFAULT '{}',
-  status VARCHAR(32) NOT NULL DEFAULT 'active',
-  created_by UUID NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE sources (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-  owner_type VARCHAR(32) NOT NULL,
-  owner_id UUID NOT NULL,
-  type VARCHAR(64) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  status VARCHAR(32) NOT NULL DEFAULT 'connected',
-  config JSONB NOT NULL DEFAULT '{}',
-  capabilities JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE source_connections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  source_id UUID NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  connection_name VARCHAR(255) NOT NULL,
-  connection_config JSONB NOT NULL DEFAULT '{}',
-  credential_ref VARCHAR(255),
-  status VARCHAR(32) NOT NULL DEFAULT 'connected',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE tools (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  type VARCHAR(64) NOT NULL,
-  input_schema JSONB NOT NULL,
-  output_schema JSONB NOT NULL,
-  permissions JSONB NOT NULL DEFAULT '[]',
-  status VARCHAR(32) NOT NULL DEFAULT 'available',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE knowledge_bases (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  type VARCHAR(64) NOT NULL,
-  status VARCHAR(32) NOT NULL DEFAULT 'ready',
-  created_by UUID NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE knowledge_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  knowledge_base_id UUID NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
-  title VARCHAR(255) NOT NULL,
-  content TEXT,
-  source_url TEXT,
-  metadata JSONB NOT NULL DEFAULT '{}',
-  status VARCHAR(32) NOT NULL DEFAULT 'ready',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE workflows (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  trigger_type VARCHAR(64) NOT NULL,
-  trigger_config JSONB NOT NULL DEFAULT '{}',
-  status VARCHAR(32) NOT NULL DEFAULT 'draft',
-  settings JSONB NOT NULL DEFAULT '{}',
-  created_by UUID NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE workflow_steps (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
-  step_index INTEGER NOT NULL,
-  type VARCHAR(64) NOT NULL,
-  config JSONB NOT NULL DEFAULT '{}',
-  condition_expr TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(workflow_id, step_index)
-);
-
-CREATE TABLE workflow_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
-  status VARCHAR(32) NOT NULL DEFAULT 'queued',
-  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  finished_at TIMESTAMPTZ,
-  inputs JSONB NOT NULL DEFAULT '{}',
-  outputs JSONB DEFAULT '{}',
-  error_message TEXT,
-  trace_id VARCHAR(128)
-);
-
-CREATE TABLE agent_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id),
-  workflow_run_id UUID REFERENCES workflow_runs(id) ON DELETE SET NULL,
-  status VARCHAR(32) NOT NULL DEFAULT 'queued',
-  input_payload JSONB NOT NULL DEFAULT '{}',
-  output_payload JSONB DEFAULT '{}',
-  token_usage JSONB DEFAULT '{}',
-  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  finished_at TIMESTAMPTZ,
-  error_message TEXT,
-  trace_id VARCHAR(128)
-);
-
-CREATE TABLE audit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_type VARCHAR(32) NOT NULL,
-  actor_id UUID NOT NULL,
-  resource_type VARCHAR(64) NOT NULL,
-  resource_id UUID NOT NULL,
-  action VARCHAR(128) NOT NULL,
-  details JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
-
-## Suggested Indexes
-
-```sql
-CREATE INDEX idx_team_members_team_id ON team_members(team_id);
-CREATE INDEX idx_team_members_user_id ON team_members(user_id);
-CREATE INDEX idx_agents_team_id ON agents(team_id);
-CREATE INDEX idx_sources_owner ON sources(owner_type, owner_id);
-CREATE INDEX idx_source_connections_source_id ON source_connections(source_id);
-CREATE INDEX idx_knowledge_items_base_id ON knowledge_items(knowledge_base_id);
-CREATE INDEX idx_workflows_team_id ON workflows(team_id);
-CREATE INDEX idx_workflow_runs_workflow_id ON workflow_runs(workflow_id);
-CREATE INDEX idx_agent_runs_agent_id ON agent_runs(agent_id);
-CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
-```
+`team_id`, `actor_id`, and `resource_id` are intentionally foreign-key-free. Audit rows must survive deletion of the things they describe, and an `ON DELETE SET NULL` on `team_id` would silently unscope a deleted team's entire history. `resource_id` is nullable because events such as a failed login have no resource. `outcome` and `reason` record denials, not only successes.
 
 ## Migration Strategy
 
-1. Create the core identity tables first: users, teams, team_members.
-2. Add roles and permissions model next.
-3. Add models and agents.
-4. Add sources and tools.
-5. Add knowledge and workflows.
-6. Add execution and audit history tables last.
+1. Identity and tenancy: `users`, `user_credentials`, `user_identities`, `sessions`, `teams`, `api_keys`.
+2. Authorization: `permissions`, `roles`, `role_permissions`, `team_members`, `user_permission_grants`. Load `db/seed.sql`.
+3. Models, then agents.
+4. Sources, connections, tools, and the `agent_*` scope tables.
+5. Knowledge.
+6. Workflows and versioning.
+7. Execution and governance: runs, step runs, tool calls, approvals, audit.
 
-## Recommendation
+No migration tool has been chosen yet. Until one is, `db/schema.sql` is applied whole to an empty database. Pick a tool before the first deployment that holds real data — retrofitting migration history onto a live schema is unpleasant.
 
-For an MVP, start with a minimal but safe schema:
-- users
-- teams
-- team_members
-- agents
-- models
-- tools
-- sources
-- source_connections
-- knowledge_bases
-- knowledge_items
-- workflows
-- workflow_runs
-- audit_logs
+## Open Questions
 
-This gives a solid base for secure multi-user AI workflows without over-engineering too early.
+1. **Postgres RLS.** Recommended as defense in depth in `docs/17` C12, but it requires a per-transaction team-context convention across the entire codebase. Cheap to adopt now, expensive to retrofit. Not yet decided.
+2. **Conversations and messages.** `docs/15-api.md` accepts a `messages[]` array and the permission catalogue is full of `message.*`, but multi-turn state currently has nowhere to live except `agent_runs.input_payload`. A `conversations` / `messages` pair is probably needed before the first interactive agent ships.
+3. **Knowledge chunks and embeddings.** See the Knowledge section above.
+4. **Retention.** `tool_calls.arguments` and `.result` hold the richest forensic data and the most sensitive payloads. This intersects with the unresolved GDPR erasure-versus-audit-retention question.
+5. **Soft delete.** Several tables carry a `deleted` or `archived` status while their foreign keys cascade on hard delete. The two models coexist today; one should be chosen deliberately.
+
+## MVP Scope
+
+Everything in groups 1–4 of the migration strategy, plus `knowledge_bases` / `knowledge_items`, a linear workflow, and the execution and audit tables. That is effectively the whole schema — the permission and provenance tables are not deferrable, because they are the product's stated value proposition rather than a hardening pass to apply later.

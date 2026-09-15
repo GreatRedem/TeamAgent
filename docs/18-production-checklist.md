@@ -1,0 +1,254 @@
+# Production Readiness Checklist
+
+This document is the concrete checklist for turning TeamAgent from a well-specified design into a production-grade system.
+
+## Executive Summary
+
+The current repository contains strong domain modeling, security reasoning, API contracts, and architecture drafting. That means the project is in a solid planning and MVP-readiness stage.
+
+It is not yet in a production-readiness stage, because the missing pieces are operational and engineering-grade, not conceptual. Production requires real implementation, validation, observability, deployment automation, and strict trust enforcement in code and infrastructure.
+
+## Must-Have Production Items
+
+### 1. Real code implementation
+
+Required before production:
+- backend service implementation
+- database migrations
+- authentication flow implementation
+- authorization enforcement in code
+- source connector implementations
+- tool runtime and policy enforcement
+- workflow execution engine
+- knowledge retrieval service
+
+Status: not present yet.
+
+### 2. Database migration system
+
+A schema file is useful, but production needs:
+- migration history table
+- reversible or forward-only migration strategy
+- migration checks in CI
+- schema drift detection
+- rollback plan
+
+Required tools:
+- Prisma Migrate
+- Flyway
+- Liquibase
+- Alembic
+
+### 3. CI/CD pipeline
+
+Production requires:
+- lint
+- format
+- unit tests
+- integration tests
+- build checks
+- container build
+- deployment automation
+- branch protection
+- release tagging
+
+### 4. Automated tests
+
+Minimum required coverage:
+- unit tests for permission checks
+- tests for source connector behavior
+- tests for workflow execution logic
+- tests for agent runtime policy decisions
+- tests for security boundary checks
+- integration tests for database and API flows
+- end-to-end tests for critical user journeys
+
+### 5. Secrets and configuration management
+
+Production requires:
+- no secrets in repo
+- secret manager integration
+- environment variable validation
+- encrypted storage for credentials
+- rotation policy
+- secret-scoped access
+
+Examples:
+- Vault
+- AWS Secrets Manager
+- Azure Key Vault
+- Doppler
+- Infisical
+
+### 6. Observability and operations
+
+Production needs:
+- request logging
+- structured logs
+- trace IDs
+- metrics
+- dashboards
+- alerting
+- uptime checks
+- incident response flow
+- runbook documentation
+
+Required tools:
+- OpenTelemetry
+- Prometheus
+- Grafana
+- Loki
+- Sentry
+- Datadog or equivalent
+
+### 7. Security implementation beyond design
+
+The design is strong, but production requires enforcement in code:
+- RBAC checks in every protected route
+- permission checks before tool execution
+- explicit trust-level enforcement in runtime
+- source allowlists
+- destination validation
+- webhook signature verification
+- rate limiting
+- request limits and quotas
+
+### 8. Safe tool execution runtime
+
+The tool system must be hardened with:
+- schema validation for inputs
+- allowlist for destinations
+- bounded execution timeouts
+- retry policies
+- cancellation and timeout handling
+- execution sandboxing for risky tools
+- tool-specific allowlists and policies
+
+### 9. Workflow reliability
+
+Workflows need:
+- idempotency keys
+- retry policies
+- dead-letter queues
+- job status tracking
+- timeouts
+- partial failure handling
+- compensation or rollback where applicable
+
+### 10. Data retention and governance
+
+Required decisions:
+- how long logs are kept
+- what data is retained in audit logs
+- retention for generated content
+- retention for user messages and knowledge data
+- deletion and anonymization process
+- data export policy
+
+## Security-specific Production Requirements
+
+### Authentication and session security
+- secure password hashing
+- MFA for admins and high-value roles
+- session invalidation and revocation
+- session timeout policy
+- device/session tracking
+- audit for user login events
+
+### Authorization enforcement
+- every route checks permissions
+- every runtime action checks permission and trust scope
+- team-scoped queries must enforce team_id checks
+- no direct access to system-level resources without policy
+
+### Risk control and prompt isolation
+- untrusted content must not be treated as trusted
+- outbound destinations must be validated and allowlisted
+- no direct secret exposure in logs
+- model-generated arguments must be validated before execution
+- tool execution must fail closed
+
+## Production Quality Gates
+
+Before production deployment, the project should pass these gates:
+
+### Gate 1 — Implementation completeness
+- all core services exist
+- API routes implemented
+- DB schema migrated in code
+- auth works end-to-end
+
+### Gate 2 — Security verification
+- auth and permission tests pass
+- trust model is enforced in runtime
+- secrets not leaked in logs
+- prompt injection mitigations reviewed
+
+### Gate 3 — Reliability checks
+- retries tested
+- queue processing validated
+- error handling verified
+- timeouts and cancellations work
+
+### Gate 4 — Observability
+- logs available
+- metrics visible
+- traces complete
+- alerts tested
+- dashboards reviewed
+
+### Gate 5 — Operations
+- backups configured
+- rollback tested
+- incident runbook exists
+- support and maintenance ownership defined
+
+## Production Risk Areas
+
+These are the highest-risk areas in the current design:
+
+1. prompt injection and confused deputy risk
+2. tool execution safety
+3. knowledge retrieval poisoning and trust contamination
+4. workflow execution abuse or overreach
+5. cross-tenant data leakage
+6. credential handling and secret exposure
+7. outbound destination control
+8. high-cost or runaway agent execution
+
+## Recommended Readiness Order
+
+The best sequence is:
+
+1. implement auth and team membership
+2. implement model and agent CRUD
+3. implement source and tool access controls
+4. implement knowledge retrieval with scope checks
+5. implement workflow runtime and queue
+6. add audit logs and observability
+7. run security review and abuse testing
+8. deploy staging and production hardening
+
+## Final Judgment
+
+The repository is currently at the level of:
+- strong product design
+- strong architecture review
+- strong security reasoning
+- MVP-ready planning
+
+It is not yet at the level of:
+- fully verified production system
+- hardened deployment environment
+- reliable operational runtime
+- production-ready engineering artifact
+
+## Recommendation
+
+The next milestone should not be “production launch.”
+
+The next milestone should be:
+
+“working MVP with security enforcement, automated tests, observable runtime, and deployment pipeline.”
+
+Once this is complete, the system can move from design maturity to production readiness.
