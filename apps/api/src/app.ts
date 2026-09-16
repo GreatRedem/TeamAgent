@@ -1,5 +1,5 @@
-import Fastify from 'fastify';
-import { config } from './config.js';
+import Fastify from "fastify";
+import { config } from "./config.js";
 
 export const app = Fastify({
   // The proxy address, never `true`. Without this, request.ip is nginx on
@@ -18,18 +18,18 @@ export const app = Fastify({
     // what actually verifies that.
     redact: {
       paths: [
-        'req.headers.authorization',
-        'req.headers.cookie',
+        "req.headers.authorization",
+        "req.headers.cookie",
         'req.headers["x-api-key"]',
         'res.headers["set-cookie"]',
-        '*.accessToken',
-        '*.refreshToken',
-        '*.signature',
-        '*.key',
-        '*.secret',
-        '*.password',
+        "*.accessToken",
+        "*.refreshToken",
+        "*.signature",
+        "*.key",
+        "*.secret",
+        "*.password",
       ],
-      censor: '[redacted]',
+      censor: "[redacted]",
     },
 
     // Constant message, variable data in fields, so lines stay groupable.
@@ -58,24 +58,24 @@ export const app = Fastify({
  */
 
 // Liveness: the process is running. No dependency checks. Ever.
-app.get('/health/live', async () => ({ status: 'ok' }));
+app.get("/health/live", async () => ({ status: "ok" }));
 
 // Readiness: dependencies reachable, migrations applied, configuration valid.
 // Fails a rolling deploy before it takes traffic.
-app.get('/health/ready', async (_request, reply) => {
-  const checks: Record<string, 'ok' | 'failed'> = {};
+app.get("/health/ready", async (_request, reply) => {
+  const checks: Record<string, "ok" | "failed"> = {};
 
   // TODO(phase 1): real checks once the database module exists --
   // SELECT 1, and assert the migration head matches the committed migrations.
-  checks.config = 'ok';
+  checks.config = "ok";
 
-  const ready = Object.values(checks).every((c) => c === 'ok');
-  return reply.code(ready ? 200 : 503).send({ status: ready ? 'ready' : 'not_ready', checks });
+  const ready = Object.values(checks).every((c) => c === "ok");
+  return reply.code(ready ? 200 : 503).send({ status: ready ? "ready" : "not_ready", checks });
 });
 
 // Startup: the environment contract parsed and the process got this far.
 // src/config.ts exits before this is reachable if it did not.
-app.get('/health/startup', async () => ({
-  status: 'started',
+app.get("/health/startup", async () => ({
+  status: "started",
   service: config.OTEL_SERVICE_NAME,
 }));

@@ -3,6 +3,7 @@
 NuraAI is a multi-tenant AI orchestration platform for teams that need secure, governed, and extensible agent-based workflows.
 
 It brings together:
+
 - users and team membership
 - AI agents and model orchestration
 - permissions and access control
@@ -85,17 +86,29 @@ flowchart LR
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Backend | Fastify + TypeScript |
-| Frontend | React + Vite + TailwindCSS |
+| Layer    | Choice                                                              |
+| -------- | ------------------------------------------------------------------- |
+| Backend  | Fastify + TypeScript                                                |
+| Frontend | React + Vite + TailwindCSS                                          |
 | Database | PostgreSQL — the only supported engine; PGlite in-process for tests |
-| Schema | Drizzle, defined in code — no hand-written SQL in this repository |
-| Auth | JWT issued after EVM wallet sign-in (EIP-4361 / SIWE) |
-| i18n | react-i18next — English and Persian, RTL |
-| Queue | A table in the same database — no broker, no Redis |
+| Schema   | Drizzle, defined in code — no hand-written SQL in this repository   |
+| Auth     | JWT issued after EVM wallet sign-in (EIP-4361 / SIWE)               |
+| i18n     | react-i18next — English and Persian, RTL                            |
+| Queue    | A table in the same database — no broker, no Redis                  |
 
 **TLS and CORS are handled by nginx and are not implemented here.** See [docs/19-tech-stack.md](docs/19-tech-stack.md) for the full boundary and the environment contract.
+
+## Production commands
+
+Install dependencies, build both applications, and start the API with production settings:
+
+```bash
+npm install
+npm run build
+npm run start:api
+```
+
+The API requires a validated production environment. Use [apps/api/.env.production.example](apps/api/.env.production.example) as the template for deployment configuration. The frontend is a static Vite build in `apps/web/dist` and should be served by nginx.
 
 ## Recommended Delivery Strategy
 
@@ -129,14 +142,14 @@ Any system that combines access to private data, exposure to untrusted content, 
 
 Authorization therefore considers the **provenance of the instruction**, not only the identity of the executing agent. Two rules carry that:
 
-- **Capability depends on context trust.** What a run may do is a function of the agent's grants *and* the trust level of everything in its context. An agent exposed to external messages cannot take a write action unattended.
+- **Capability depends on context trust.** What a run may do is a function of the agent's grants _and_ the trust level of everything in its context. An agent exposed to external messages cannot take a write action unattended.
 - **Destinations come from configuration, never from model output.** The model selects among pre-registered destinations by identifier. It never emits an address the runtime then uses.
 
 The goal is containment, not prevention: the design assumes injection will succeed at the model layer. [docs/17-threat-model.md](docs/17-threat-model.md) is the document to read before writing any runtime code.
 
 ## Project Status
 
-Design complete, implementation not started. The repository holds the product design, the architecture, the schema reference, the API contracts, the threat model, and the operational design — everything needed to start building, and no code yet.
+Design complete, implementation scaffold started. The repository now contains the API and web build entry points plus production configuration templates, but core product modules, database migrations, authentication, runtime enforcement, tests, and deployment automation are still incomplete.
 
 The stack is closed ([docs/19-tech-stack.md](docs/19-tech-stack.md)), the schema is specified ([docs/14-database.md](docs/14-database.md)), and the security model that constrains the runtime is written down ([docs/17-threat-model.md](docs/17-threat-model.md)).
 
@@ -146,4 +159,4 @@ The stack is closed ([docs/19-tech-stack.md](docs/19-tech-stack.md)), the schema
 
 Build the MVP, in the order set out in [docs/13-roadmap.md](docs/13-roadmap.md).
 
-The next milestone is **not** "production launch." It is a working MVP with security enforcement, automated tests, an observable runtime, and a deployment pipeline. One sequencing note worth repeating from the roadmap: the trust-gated capability matrix is a pure function with no I/O, and it should be written and fully tested *before* there is an agent runtime to attach it to.
+The next milestone is **not** "production launch." It is a working MVP with security enforcement, automated tests, an observable runtime, and a deployment pipeline. One sequencing note worth repeating from the roadmap: the trust-gated capability matrix is a pure function with no I/O, and it should be written and fully tested _before_ there is an agent runtime to attach it to.
