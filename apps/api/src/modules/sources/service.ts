@@ -12,8 +12,10 @@ export interface SourceMeta {
 }
 
 function isForeignKeyViolation(error: unknown): boolean {
+  // 23503 fires on insert/update against a missing parent; 23001 fires on a
+  // delete blocked by RESTRICT (e.g. a connection granted to an agent).
   const code = (error as { cause?: { code?: unknown } }).cause?.code;
-  return code === "23503";
+  return code === "23503" || code === "23001";
 }
 
 export async function createSource(
