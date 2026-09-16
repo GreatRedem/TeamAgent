@@ -67,6 +67,8 @@ No `@fastify/cors`. No HTTPS options.
 
 ## Database: PostgreSQL, one engine
 
+<!-- docs-check: allow sqlite -->
+
 **PostgreSQL is the only supported engine.** There is no `DB_DIALECT` switch and no SQLite path.
 
 An earlier revision of this document supported both, selected at startup, and it was wrong. Drizzle does not abstract over dialects — `drizzle-orm/pg-core` and `sqlite-core` are separate packages with separate builders, and `pgTable` is not `sqliteTable` — so two engines meant two schema modules kept mechanically parallel, two migration directories, two clients behind one repository interface, every schema change made twice, and every integration test run twice.
@@ -76,6 +78,8 @@ The decisive argument was not the duplication. It was that **invariants R3 and R
 SQLite also serializes writers. The API, the workflow worker, and the reaper all contend on a single write lock, which does not fit a concurrent multi-tenant workload.
 
 ### Local development without a second engine
+
+<!-- docs-check: allow sqlite -->
 
 The only good argument for SQLite was zero-install local development and testing, and that never required a second dialect.
 
@@ -106,6 +110,8 @@ The schema no longer has to speak a portable subset. Use the engine:
 
 Tailwind resolves logical properties from the `dir` attribute on `<html>`, so a layout built this way flips correctly for Persian with no per-component work. A layout built with physical properties has to be audited class by class later, which is the expensive version of the same job.
 
+The design system, component standards, and accessibility floor are in `docs/24-ui-standards.md`; the screen inventory is in `docs/25-ui-information.md`. One item from there belongs in the stack decision itself, because it constrains the rendering layer rather than the styling: **content that arrived from outside the team is rendered as plain text, never as markdown or HTML**, and never with images or links resolved. A markdown image in agent output is an exfiltration channel that needs no send permission at all (`docs/17-threat-model.md` T6), and it is stopped at render time or not at all.
+
 **Wallet connection:** `wagmi` + `viem`, with RainbowKit or ConnectKit for the connect UI. `viem` is also what the backend uses to verify signatures, so the message construction and verification logic share types.
 
 ## Internationalization
@@ -113,7 +119,7 @@ Tailwind resolves logical properties from the `dir` attribute on `<html>`, so a 
 **react-i18next**, shipping English (`en`) and Persian (`fa`).
 
 - `dir` is set on `<html>` from the active locale and drives every logical property in the stylesheet
-- Persian needs a font with proper Arabic-script coverage; Vazirmatn is the usual choice, with a real fallback stack
+- **IBM Plex Sans** for Latin UI, **Vazirmatn** for Persian, **IBM Plex Mono** for identifiers and quarantined content. Persian gets a face designed for Persian rather than a Latin family's Arabic extension; normalize the two with `size-adjust` so a locale switch does not change line box height. Full rationale in `docs/24-ui-standards.md`
 - Dates, numbers, and currency go through `Intl`, never hand-formatted. Persian locale conventions differ enough — including the calendar — that manual formatting will be wrong
 - Server-side strings that reach a user (validation errors, approval notifications, agent-facing error text) need the same treatment. Locale is a property of the request, not a global
 

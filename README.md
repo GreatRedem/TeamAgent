@@ -14,6 +14,12 @@ It brings together:
 
 NuraAI aims to make AI usable in real organizational workflows without sacrificing governance, safety, or traceability.
 
+**For any past run, answer exactly what instructions caused it.**
+
+An agent that acts on your behalf is only as trustworthy as your ability to reconstruct why it acted. A run's own account of itself does not count — a successful injection can make an agent misreport what it did — so the record is written by the runtime from the actual execution path, not from the model's narration.
+
+Four things make that answerable rather than aspirational: every run pins the resolved configuration that produced it, workflow versions are immutable so an edit cannot change a run already in flight, every tool call is recorded before it executes and includes the ones that were denied, and the audit log is a transactional write that is never sampled.
+
 ## Core Concepts
 
 - User: the canonical identity of a human person.
@@ -74,6 +80,8 @@ flowchart LR
 - [docs/21-testing.md](docs/21-testing.md) — Testing strategy, security suites, and evals
 - [docs/22-observability.md](docs/22-observability.md) — Logs, metrics, traces, alerts, and SLOs
 - [docs/23-job-queue.md](docs/23-job-queue.md) — Database-backed queue, leases, and scheduling
+- [docs/24-ui-standards.md](docs/24-ui-standards.md) — Design system, the quarantine primitive, RTL, and accessibility
+- [docs/25-ui-information.md](docs/25-ui-information.md) — Screens, what each must show, and the security-critical views
 
 ## Stack
 

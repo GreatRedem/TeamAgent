@@ -134,6 +134,8 @@ Responsibilities:
 
 ## Execution Model
 
+<!-- docs-check: allow tool-model -->
+
 NuraAI does not assume a single linear request path. Execution may be:
 - Human-initiated through an app or API
 - Agent-initiated through a workflow trigger

@@ -29,11 +29,15 @@ Companion documents: `docs/07-permission.md` for the permission vocabulary, `doc
 
 ## The Database
 
+<!-- docs-check: allow sqlite -->
+
 **PostgreSQL. One engine, decided.** There is no `DB_DIALECT` switch, no SQLite path, and no portability layer.
 
 The reason is not performance. It is that PostgreSQL is the only mainstream engine that can enforce invariants **R3** and **R4** — the two security rules from `docs/17-threat-model.md` — in the database rather than in application code. On MySQL, MariaDB, or SQLite those two rules rest entirely on repository-layer discipline, which is one refactor away from silently not holding.
 
 ### Why not a second engine
+
+<!-- docs-check: allow sqlite -->
 
 An earlier revision supported PostgreSQL and SQLite in parallel. That is now dropped, because the cost was concrete and recurring:
 

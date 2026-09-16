@@ -1,0 +1,57 @@
+/* Token foundation from docs/24-ui-standards.md.
+   Kept minimal on purpose -- this is the scaffold, not the design system. */
+
+@layer reset, base, theme, components, utilities;
+
+@layer theme {
+  :root {
+    color-scheme: light dark;
+
+    --ink: light-dark(oklch(22% 0.02 264), oklch(93% 0.01 264));
+    --paper: light-dark(oklch(98% 0.004 264), oklch(19% 0.015 264));
+    --recess: light-dark(oklch(95% 0.008 264), oklch(15% 0.015 264));
+    --rule: light-dark(oklch(88% 0.01 264), oklch(31% 0.02 264));
+    --accent: light-dark(oklch(48% 0.18 285), oklch(72% 0.14 285));
+    --muted: light-dark(oklch(48% 0.02 264), oklch(66% 0.02 264));
+
+    --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+    --font-fa: "Vazirmatn", "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+    accent-color: var(--accent);
+  }
+
+  :root:lang(fa) {
+    --font-ui: var(--font-fa);
+  }
+}
+
+@layer base {
+  body {
+    margin: 0;
+    /* Logical properties throughout, so the layout flips for Persian with no
+       per-component work. Never margin-left / padding-right / left. */
+    padding-block: 2rem;
+    padding-inline: 1.5rem;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.5;
+    text-align: start;
+  }
+
+  :where(a, button):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* Identifiers stay LTR in both locales. A hex address reordered by
+     surrounding RTL text is a different address, not a cosmetic bug. */
+  .identifier {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    unicode-bidi: isolate;
+    direction: ltr;
+  }
+}

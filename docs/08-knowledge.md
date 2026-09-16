@@ -82,6 +82,8 @@ The effective trust of a run is the **minimum** over everything in its context. 
 
 ## Security Requirements
 
+<!-- docs-check: allow validate-untrusted -->
+
 - Confidential knowledge must be isolated from unauthorized agents.
 - Retrieval respects team, user, and per-agent base grants.
 - **Untrusted content is labelled and contained. It is never validated into trustworthiness.**

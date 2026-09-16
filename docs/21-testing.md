@@ -198,6 +198,8 @@ To test that the runtime denies a write-tier tool call on untrusted context, the
 
 ## Database strategy
 
+<!-- docs-check: allow sqlite -->
+
 One engine, one matrix. Integration tests run against **PGlite** — real PostgreSQL compiled to WASM, in-process, no server and no container — which satisfies the "no Docker" constraint in `docs/19-tech-stack.md` while testing the engine that runs in production.
 
 An earlier revision parameterized these tests over two dialects and ran them twice. That is gone with SQLite, and it removed a subtle hazard along with the runtime: the two runs were not testing the same thing. R3 and R4 were database constraints on one and application code on the other, so they could pass and fail independently, and a green report meant less than it appeared to.
