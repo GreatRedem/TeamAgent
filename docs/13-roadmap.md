@@ -135,7 +135,7 @@ This is the phase where `docs/17-threat-model.md` stops being a document and bec
 - Make the security controls from earlier phases observable.
 
 ### Deliverables
-- distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id` **— implemented, including OTLP/HTTP span export behind `OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset); tail-based sampling for denials/approvals remains the backend's policy**
+- distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id` **— implemented, including OTLP/HTTP span export behind `OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset) and spans at the docs/22 boundaries (agent run, model call, retrieval, tool execution with decision attributes, worker job) via `observability/spans.ts`; tail-based sampling for denials/approvals remains the backend's policy**
 - metrics and dashboards, including the security signal dashboard **— the security signal counters, RED per-route series, and a `/metrics` scrape endpoint (API and worker) are implemented; dashboards are not**
 - alerts on the signals that should be zero in healthy operation — `refresh_token_reuse_total`, `cross_team_access_denied_total`, `destination_denied_total` **— the counters exist and emit zero-series; alert rules are defined in `docs/22` with triage procedures in `docs/26-runbook.md`; no alerting backend is wired**
 - cost tracking and rate-of-change alerting **— token and model-call counters are emitted; the cost rollup is not**

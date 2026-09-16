@@ -1,14 +1,35 @@
-import { describe, expect, it } from "vitest";
-import { metrics, trace } from "@opentelemetry/api";
-import { ProxyTracerProvider } from "@opentelemetry/api";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createServer, type Server } from "node:http";
+import { metrics, trace, ProxyTracerProvider } from "@opentelemetry/api";
 import { startTracing, shutdownTracing } from "./tracing.js";
 
 /**
  * The tracing bootstrap (docs/22 span export) is wired behind
- * OTEL_EXPORTER_OTLP_ENDPOINT. These tests exercise the contract without a
- * collector: the exporter buffers and fails quietly, which is exactly the
- * production behavior for an unreachable endpoint during a test run.
+ * OTEL_EXPORTER_OTLP_ENDPOINT. These tests exercise the contract against a
+ * local HTTP sink that accepts the OTLP POSTs, so bootstrap, idempotence,
+ * and shutdown are hermetic — no collector dependency, and no
+ * unreachable-endpoint races leaking ECONNREFUSED through shutdown flush.
  */
+let sink: Server;
+let sinkUrl: string;
+
+beforeAll(async () => {
+  sink = createServer((req, res) => {
+    req.resume(); // drain the protobuf body
+    res.statusCode = 200;
+    res.end();
+  });
+  await new Promise<void>((resolve) => sink.listen(0, "127.0.0.1", resolve));
+  const addr = sink.address();
+  const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+  sinkUrl = `http://127.0.0.1:${port}`;
+});
+
+afterAll(async () => {
+  await shutdownTracing();
+  await new Promise<void>((resolve) => sink.close(() => resolve()));
+});
+
 describe("tracing bootstrap", () => {
   it("does nothing without an endpoint", async () => {
     expect(startTracing({ endpoint: undefined, serviceName: "t", sampleRatio: 1 })).toBe(false);
@@ -16,12 +37,11 @@ describe("tracing bootstrap", () => {
     // No SDK: the global tracer provider still delegates to the no-op.
     const provider = trace.getTracerProvider() as ProxyTracerProvider;
     expect(provider.getDelegate?.()?.constructor.name).toBe("NoopTracerProvider");
-    await shutdownTracing();
   });
 
   it("starts once with an endpoint and is idempotent", async () => {
     const config = {
-      endpoint: "http://127.0.0.1:59999",
+      endpoint: sinkUrl,
       serviceName: "tracing-test",
       sampleRatio: 0.5,
     };
@@ -43,7 +63,7 @@ describe("tracing bootstrap", () => {
 
   it("after shutdown, a fresh start is a fresh boot", async () => {
     const config = {
-      endpoint: "http://127.0.0.1:59999",
+      endpoint: sinkUrl,
       serviceName: "tracing-test",
       sampleRatio: 1,
     };
@@ -58,7 +78,7 @@ describe("tracing bootstrap", () => {
     // no metric readers, so no meter provider is installed by the SDK.
     const before = metrics.getMeterProvider();
     startTracing({
-      endpoint: "http://127.0.0.1:59999",
+      endpoint: sinkUrl,
       serviceName: "tracing-test",
       sampleRatio: 1,
     });

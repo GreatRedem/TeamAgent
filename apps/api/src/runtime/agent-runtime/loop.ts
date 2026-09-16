@@ -9,6 +9,7 @@ import type { ToolHandlerDeps } from "../../modules/tools/registry.js";
 import { retrieveForAgent } from "../../modules/knowledge/service.js";
 import { writeAudit } from "../../modules/audit/log.js";
 import { incrementMetric, observeHistogram } from "../../observability/metrics.js";
+import { withSpan } from "../../observability/spans.js";
 import { assembleMessages, minTrust, type ContextItem } from "./context.js";
 import { checkBudgets, type BudgetUsage, type RunBudgets } from "./budgets.js";
 
@@ -146,12 +147,21 @@ export async function executeRunLoop(deps: LoopDeps, request: LoopRequest): Prom
   if (request.knowledgeBaseIds.length > 0) {
     const lastUser = [...request.inputMessages].reverse().find((m) => m.role === "user");
     if (lastUser !== undefined) {
-      const hits = await retrieveForAgent(deps.db, {
-        teamId: request.teamId,
-        agentId: request.agent.id,
-        query: lastUser.content,
-        limit: RETRIEVAL_TOP_K,
-      });
+      const hits = await withSpan(
+        "knowledge.retrieve",
+        {
+          team_id: request.teamId,
+          agent_id: request.agent.id,
+          "operation.name": "retrieve",
+        },
+        async () =>
+          retrieveForAgent(deps.db, {
+            teamId: request.teamId,
+            agentId: request.agent.id,
+            query: lastUser.content,
+            limit: RETRIEVAL_TOP_K,
+          }),
+      );
       for (const hit of hits) {
         // Items only ever hold trusted|untrusted; anything else fails
         // closed to untrusted rather than inheriting caller trust.
@@ -240,12 +250,29 @@ async function driveLoop(
     const invokeStartedAtMs = now().getTime();
     let result;
     try {
-      result = await deps.provider.invoke({
-        model: request.model,
-        messages,
-        tools: request.tools,
-        signal: controller.signal,
-      });
+      result = await withSpan(
+        "model.call",
+        {
+          team_id: request.teamId,
+          provider: request.model.provider,
+          model: request.model.name,
+          "operation.name": "model_call",
+        },
+        (span) =>
+          deps.provider
+            .invoke({
+              model: request.model,
+              messages,
+              tools: request.tools,
+              signal: controller.signal,
+            })
+            .then((res) => {
+              // docs/22: tokens on the model span.
+              span.setAttribute("tokens.input", res.usage.inputTokens);
+              span.setAttribute("tokens.output", res.usage.outputTokens);
+              return res;
+            }),
+      );
     } catch (error) {
       clearTimeout(timeout);
       // Provider degradation (docs/22): latency and status per provider are

@@ -172,6 +172,18 @@ worker job                          <- restore trace context here
 
 Span attributes carry `team_id`, `trust_level`, `decision`, `provider` — traces handle high cardinality, unlike metrics.
 
+<!-- Implemented: apps/api/src/observability/spans.ts exposes withSpan(), built on the global
+     OTel API so call sites are unconditional (no-op without OTEL_EXPORTER_OTLP_ENDPOINT). Every
+     span carries the ambient trace_id/request_id as attributes, joining spans to the transactional
+     records (agent_runs, tool_calls, audit_logs) that share the correlation id. Wired at: agent
+     run (modules/agents/runs.ts), model call + knowledge retrieval + per-iteration
+     (runtime/agent-runtime/loop.ts), tool execution with the docs/22 decision attributes
+     (modules/tools/runtime.ts), worker job (modules/jobs/worker.ts). Spans are asserted against a
+     real SDK pipeline in observability/spans.test.ts — nesting, attributes, error status, and the
+     queue-boundary trace_id. Span export itself: observability/tracing.ts. Outstanding: span
+     export is a presentation layer — dashboards/alerting on traces, and tail sampling, remain
+     backend-side decisions. -->
+
 Sample aggressively for healthy traffic, but **always keep traces that contain a denial, an approval, a budget termination, or an error**. Tail-based sampling if the backend supports it. A trace of a successful, boring run is worth little; the trace of the one that got denied is the whole investigation.
 
 ## Alerts
