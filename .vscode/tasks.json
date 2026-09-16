@@ -131,6 +131,18 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Commit task cleanup change",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"commit",
+				"-m",
+				"chore: remove temporary tasks"
+			],
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }
