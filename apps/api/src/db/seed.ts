@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { permissions, roles } from "./schema/index.js";
+import { permissions, rolePermissions, roles } from "./schema/index.js";
 import type { AnyDb } from "./db.js";
 
 interface PermissionSeed {
@@ -328,5 +328,91 @@ export async function seedSystemRoles(database: AnyDb): Promise<void> {
     await database
       .insert(roles)
       .values(missing.map((name) => ({ id: randomUUID(), teamId: null, name })));
+  }
+}
+
+type SystemRoleName = (typeof SYSTEM_ROLES)[number];
+
+/**
+ * Starting proposal from docs/07-permission.md (O/A/M/E/V columns) — not a
+ * finished policy. The manager and member rows deserve deliberate review
+ * before launch (member currently holds write-tier message.send and
+ * workflow.run). Seeded as documented so permission checks resolve against
+ * the real catalogue from the first run.
+ */
+const ROLE_PERMISSION_MAP: Record<string, SystemRoleName[]> = {
+  "team.view": ["owner", "admin", "manager", "member", "viewer"],
+  "team.manage": ["owner", "admin"],
+  "member.invite": ["owner", "admin"],
+  "member.remove": ["owner", "admin"],
+  "agent.use": ["owner", "admin", "manager", "member"],
+  "agent.create": ["owner", "admin", "manager"],
+  "agent.edit": ["owner", "admin", "manager"],
+  "agent.delete": ["owner", "admin", "manager"],
+  "model.view": ["owner", "admin", "manager", "member", "viewer"],
+  "model.use": ["owner", "admin", "manager", "member"],
+  "model.manage": ["owner", "admin"],
+  "source.read": ["owner", "admin", "manager", "member", "viewer"],
+  "source.write": ["owner", "admin", "manager"],
+  "source.connect": ["owner", "admin"],
+  "source.disconnect": ["owner", "admin"],
+  "message.read": ["owner", "admin", "manager", "member", "viewer"],
+  "message.reply": ["owner", "admin", "manager", "member"],
+  "message.send": ["owner", "admin", "manager", "member"],
+  "file.download": ["owner", "admin", "manager", "member", "viewer"],
+  "file.upload": ["owner", "admin", "manager", "member"],
+  "file.delete": ["owner", "admin", "manager"],
+  "knowledge.read": ["owner", "admin", "manager", "member", "viewer"],
+  "knowledge.write": ["owner", "admin", "manager"],
+  "workflow.view": ["owner", "admin", "manager", "member", "viewer"],
+  "workflow.run": ["owner", "admin", "manager", "member"],
+  "workflow.create": ["owner", "admin", "manager"],
+  "workflow.edit": ["owner", "admin", "manager"],
+  "workflow.delete": ["owner", "admin", "manager"],
+  "tool.execute": ["owner", "admin", "manager", "member"],
+  "tool.manage": ["owner", "admin"],
+  "web.search": ["owner", "admin"],
+  "browser.read": ["owner", "admin"],
+  "database.read": ["owner", "admin"],
+  "database.write": ["owner", "admin"],
+  "code.execute": ["owner", "admin"],
+  "image.generate": ["owner", "admin"],
+  "video.generate": ["owner", "admin"],
+  "email.send": ["owner", "admin"],
+  "telegram.send": ["owner", "admin"],
+  "discord.send": ["owner", "admin"],
+  "user.profile.read": ["owner", "admin", "manager", "member", "viewer"],
+  "settings.view": ["owner", "admin", "manager"],
+  "settings.manage": ["owner", "admin"],
+  "apikey.manage": ["owner", "admin"],
+  "billing.view": ["owner", "admin"],
+  "billing.manage": ["owner"],
+  "audit.view": ["owner", "admin", "manager"],
+  "approval.decide": ["owner", "admin", "manager"],
+};
+
+export async function seedRolePermissions(database: AnyDb): Promise<void> {
+  const roleRows = await database.select().from(roles);
+  const roleIdByName = new Map(
+    roleRows.filter((r) => r.teamId === null).map((r) => [r.name, r.id]),
+  );
+  const permissionRows = await database.select().from(permissions);
+  const permissionIdByName = new Map(permissionRows.map((p) => [p.name, p.id]));
+  const existing = await database.select().from(rolePermissions);
+  const have = new Set(existing.map((r) => `${r.roleId}:${r.permissionId}`));
+  const missing: { id: string; roleId: string; permissionId: string }[] = [];
+  for (const [permissionName, roleNames] of Object.entries(ROLE_PERMISSION_MAP)) {
+    const permissionId = permissionIdByName.get(permissionName);
+    if (permissionId === undefined) continue;
+    for (const roleName of roleNames) {
+      const roleId = roleIdByName.get(roleName);
+      if (roleId === undefined) continue;
+      if (!have.has(`${roleId}:${permissionId}`)) {
+        missing.push({ id: randomUUID(), roleId, permissionId });
+      }
+    }
+  }
+  if (missing.length > 0) {
+    await database.insert(rolePermissions).values(missing);
   }
 }

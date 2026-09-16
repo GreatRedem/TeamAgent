@@ -1,11 +1,18 @@
 import { app } from "./app.js";
 import { config } from "./config.js";
+import { db } from "./db/db.js";
+import { seedPermissions, seedRolePermissions, seedSystemRoles } from "./db/seed.js";
 
 // config.ts has already validated the environment and exited if it was wrong,
 // so by this point every value below is known good.
 
 async function main(): Promise<void> {
   try {
+    // Idempotent catalogue seed: the permission vocabulary and system roles
+    // come from the real seed path, never a test-only copy (docs/21).
+    await seedPermissions(db);
+    await seedSystemRoles(db);
+    await seedRolePermissions(db);
     await app.listen({ port: config.PORT, host: config.HOST });
   } catch (error) {
     // app.log rather than console: structured, and it carries the same fields

@@ -1,6 +1,10 @@
 import Fastify from "fastify";
 import { config } from "./config.js";
 import { checkDatabase, pool } from "./db/pool.js";
+import { db } from "./db/db.js";
+import { RateLimiter } from "./modules/auth/rate-limit.js";
+import { parseDurationSeconds } from "./modules/auth/tokens.js";
+import { registerApi } from "./modules/api.js";
 
 export const app = Fastify({
   // The proxy address, never `true`. Without this, request.ip is nginx on
@@ -90,3 +94,22 @@ app.get("/health/startup", async () => ({
   status: "started",
   service: config.OTEL_SERVICE_NAME,
 }));
+
+// Product routes. The API contract is docs/15-api.md; the trust model that
+// constrains it is docs/17-threat-model.md.
+await registerApi(app, {
+  db,
+  siwe: {
+    domain: config.SIWE_DOMAIN,
+    uri: config.SIWE_URI,
+    chainId: config.SIWE_CHAIN_ID,
+  },
+  jwtSecret: config.JWT_SECRET,
+  accessTtlSeconds: parseDurationSeconds(config.JWT_ACCESS_TTL),
+  refreshTtlSeconds: parseDurationSeconds(config.REFRESH_TTL),
+  rpcUrl: config.EVM_RPC_URL,
+  rpcTimeoutMs: 5000,
+  keyPrefix: "nk_live",
+  nonceLimiter: new RateLimiter(10, 60_000),
+  verifyLimiter: new RateLimiter(30, 60_000),
+});
