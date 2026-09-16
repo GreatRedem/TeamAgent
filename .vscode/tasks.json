@@ -122,38 +122,11 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "Commit NuraAI changes safely",
+			"label": "Commit task cleanup",
 			"type": "shell",
 			"command": "git",
 			"args": [
-				"commit",
-				"-m",
-				"chore: adopt oxlint and oxfmt"
-			],
-			"isBackground": false,
-			"problemMatcher": []
-		},
-		{
-			"label": "Verify NuraAI commit",
-			"type": "shell",
-			"command": "pwsh",
-			"args": [
-				"-NoProfile",
-				"-Command",
-				"git status --short; git log -1 --oneline"
-			],
-			"isBackground": false,
-			"problemMatcher": []
-		},
-		{
-			"label": "Amend clean NuraAI commit",
-			"type": "shell",
-			"command": "git",
-			"args": [
-				"commit",
-				"--amend",
-				"--no-edit",
-				"--",
+				"add",
 				".vscode/tasks.json"
 			],
 			"isBackground": false,
