@@ -119,7 +119,12 @@ async function resolveApiKey(database: AnyDb, token: string, now: Date): Promise
   };
 }
 
-async function loadMemberships(database: AnyDb, userId: string, now: Date): Promise<TeamGrant[]> {
+/** Resolved per call, never cached: revocation takes effect immediately. */
+export async function loadMemberships(
+  database: AnyDb,
+  userId: string,
+  now: Date,
+): Promise<TeamGrant[]> {
   const memberships = await database
     .select({
       teamId: teamMembers.teamId,

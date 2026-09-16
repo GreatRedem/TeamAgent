@@ -83,7 +83,7 @@ async function requireActiveModel(database: AnyDb, modelId: string | null) {
   return model;
 }
 
-interface ResolvedGrants {
+export interface ResolvedGrants {
   permissionNames: string[];
   tools: Array<{
     id: string;
@@ -101,7 +101,7 @@ interface ResolvedGrants {
   }>;
 }
 
-async function resolveGrants(
+export async function resolveGrants(
   database: AnyDb,
   teamId: string,
   agentId: string,
@@ -149,7 +149,7 @@ async function resolveGrants(
   };
 }
 
-function destinationPolicyFor(sources: ResolvedGrants["sources"]): {
+export function destinationPolicyFor(sources: ResolvedGrants["sources"]): {
   allowedDestinations: string[];
   canInitiate: boolean;
 } {
@@ -190,7 +190,7 @@ function toRunSummary(row: typeof agentRuns.$inferSelect): {
   return { runId: row.id, status: row.status, traceId: row.traceId };
 }
 
-async function persistOutcome(
+export async function persistOutcome(
   database: AnyDb,
   runId: string,
   outcome: LoopOutcome,
@@ -218,6 +218,11 @@ async function persistOutcome(
             transcript: outcome.transcript,
             inputTokens: outcome.usage.inputTokens,
             outputTokens: outcome.usage.outputTokens,
+            modelIterations: outcome.suspended.modelIterations,
+            toolCallsMade: outcome.suspended.toolCallsMade,
+            elapsedMs: outcome.suspended.elapsedMs,
+            trust: outcome.suspended.trust,
+            requestingUserId: outcome.suspended.requestingUserId,
           },
         } as Record<string, unknown>,
         tokenUsage: summarizeUsage(outcome.usage),
@@ -453,7 +458,7 @@ export async function getRun(
   return toRunView(run);
 }
 
-async function expireStaleApproval(
+export async function expireStaleApproval(
   database: AnyDb,
   teamId: string,
   runId: string,

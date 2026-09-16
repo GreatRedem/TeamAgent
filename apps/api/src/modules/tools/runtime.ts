@@ -42,6 +42,14 @@ export interface ToolExecutionRequest {
   signal?: AbortSignal;
   timeoutMs?: number;
   ip?: string | null;
+  /**
+   * Set when a human approved exactly this call. Skips the capability
+   * decision — the approval IS the decision — but keeps everything else:
+   * argument validation, destination re-resolution against current grants,
+   * and the before/after tool_calls record. The approval grants one
+   * execution, not a trust elevation and not a policy bypass.
+   */
+  preAuthorized?: { approvalId: string };
 }
 
 export type ToolExecutionOutcome =
@@ -82,15 +90,21 @@ export async function executeToolCall(
     request.onBehalfOfPermissions === undefined
       ? agentHasGrant
       : request.onBehalfOfPermissions.includes(definition.requiredPermission);
-  const verdict = decideCapability({
-    contextTrust: request.contextTrust,
-    riskTier: effectiveTier,
-    agentHasGrant,
-    // Direct human callers act for themselves; the agent path passes the
-    // interactive user's grants separately so the `user_input` x `write`
-    // cell resolves against the human, never the agent alone.
-    requestingUserHasGrant: behalfOfGrant,
-  });
+  // A human approval replaces the matrix cell for this call only. It is
+  // evaluated here, at the boundary, so an approval can never be mistaken
+  // for a standing grant anywhere else.
+  const verdict =
+    request.preAuthorized === undefined
+      ? decideCapability({
+          contextTrust: request.contextTrust,
+          riskTier: effectiveTier,
+          agentHasGrant,
+          // Direct human callers act for themselves; the agent path passes the
+          // interactive user's grants separately so the `user_input` x `write`
+          // cell resolves against the human, never the agent alone.
+          requestingUserHasGrant: behalfOfGrant,
+        })
+      : { decision: "allowed" as const, reason: "human-approval-granted" };
 
   const toolCallId = randomUUID();
   await database.insert(toolCalls).values({

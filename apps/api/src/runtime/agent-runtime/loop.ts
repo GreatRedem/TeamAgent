@@ -56,6 +56,24 @@ export interface LoopUsage {
   outputTokens: number;
 }
 
+/**
+ * Suspended loop state, persisted on the run row (`output.resume`) so a
+ * later approval decision continues exactly where the run stopped — same
+ * transcript, same spend counters, same trust. The wall clock re-anchors on
+ * resume: budgets bound the agent's activity, not the reviewer's latency.
+ */
+export interface SuspendedState {
+  transcript: LoopTranscript;
+  usage: LoopUsage;
+  modelIterations: number;
+  toolCallsMade: number;
+  /** Active execution time banked before suspension. */
+  elapsedMs: number;
+  trust: ContextTrustLevel;
+  /** The requesting human for the `user_input` x `write` cell, if any. */
+  requestingUserId: string | null;
+}
+
 export type LoopOutcome =
   | { status: "succeeded"; finalText: string; usage: LoopUsage; transcript: LoopTranscript }
   | {
@@ -64,6 +82,7 @@ export type LoopOutcome =
       toolCallId: string;
       usage: LoopUsage;
       transcript: LoopTranscript;
+      suspended: Omit<SuspendedState, "transcript" | "usage">;
     }
   | { status: "budget_exceeded"; reason: string; usage: LoopUsage; transcript: LoopTranscript }
   | { status: "failed"; error: string; usage: LoopUsage; transcript: LoopTranscript };
@@ -90,27 +109,66 @@ function lastUserContent(transcript: LoopTranscript): string | null {
  * between an injected agent and an unbounded bill.
  */
 export async function executeRunLoop(deps: LoopDeps, request: LoopRequest): Promise<LoopOutcome> {
+  const now = deps.now ?? (() => new Date());
+  const state: SuspendedState = {
+    transcript: request.inputMessages.map((m) => ({
+      role: m.role,
+      trust: request.ingressTrust,
+      origin: `ingress:${request.ingressTrust}`,
+      content: m.content,
+    })),
+    usage: { inputTokens: 0, outputTokens: 0 },
+    modelIterations: 0,
+    toolCallsMade: 0,
+    elapsedMs: 0,
+    trust: request.ingressTrust,
+    requestingUserId: request.ingressTrust === "user_input" ? request.actor.id : null,
+  };
+
+  await deps.db
+    .update(agentRuns)
+    .set({ status: "running", startedAt: now(), contextTrustLevel: state.trust })
+    .where(eq(agentRuns.id, request.agentRunId));
+
+  return driveLoop(deps, request, state, now().getTime());
+}
+
+/**
+ * Continue a previously suspended loop from persisted state. The approvals
+ * service owns the approved-call execution itself; this resumes inference
+ * afterwards with identical budget, trust, and transcript semantics.
+ */
+export async function resumeRunLoop(
+  deps: LoopDeps,
+  request: LoopRequest,
+  state: SuspendedState,
+): Promise<LoopOutcome> {
+  const now = deps.now ?? (() => new Date());
+  // Re-anchor the wall clock: suspension time belongs to the reviewer.
+  const startedAtMs = now().getTime() - state.elapsedMs;
+  await deps.db
+    .update(agentRuns)
+    .set({ status: "running", contextTrustLevel: state.trust })
+    .where(eq(agentRuns.id, request.agentRunId));
+  return driveLoop(deps, request, state, startedAtMs);
+}
+
+async function driveLoop(
+  deps: LoopDeps,
+  request: LoopRequest,
+  state: SuspendedState,
+  startedAtMs: number,
+): Promise<LoopOutcome> {
   const db = deps.db;
   const now = deps.now ?? (() => new Date());
-  const usage: LoopUsage = { inputTokens: 0, outputTokens: 0 };
+  const { transcript, usage } = state;
   const budgetUsage: BudgetUsage = {
-    modelIterations: 0,
-    toolCalls: 0,
-    tokensTotal: 0,
-    startedAtMs: now().getTime(),
+    modelIterations: state.modelIterations,
+    toolCalls: state.toolCallsMade,
+    tokensTotal: usage.inputTokens + usage.outputTokens,
+    startedAtMs,
   };
-  let trust = request.ingressTrust;
-  const transcript: LoopTranscript = request.inputMessages.map((m) => ({
-    role: m.role,
-    trust: request.ingressTrust,
-    origin: `ingress:${request.ingressTrust}`,
-    content: m.content,
-  }));
-
-  await db
-    .update(agentRuns)
-    .set({ status: "running", startedAt: now(), contextTrustLevel: trust })
-    .where(eq(agentRuns.id, request.agentRunId));
+  let trust = state.trust;
 
   for (;;) {
     const verdict = checkBudgets(request.budgets, budgetUsage, now().getTime());
@@ -236,6 +294,13 @@ export async function executeRunLoop(deps: LoopDeps, request: LoopRequest): Prom
         toolCallId: outcome.toolCallId,
         usage,
         transcript,
+        suspended: {
+          modelIterations: budgetUsage.modelIterations,
+          toolCallsMade: budgetUsage.toolCalls,
+          elapsedMs: now().getTime() - startedAtMs,
+          trust,
+          requestingUserId: state.requestingUserId,
+        },
       };
     }
 
