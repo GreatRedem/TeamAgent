@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { fail } from "../lib/http.js";
 import { observabilityPlugin } from "../observability/http.js";
+import { collectQueueMetrics } from "../observability/queue.js";
 import { apiKeyRoutes } from "./api-keys/routes.js";
 import { agentRoutes } from "./agents/routes.js";
 import { approvalRoutes } from "./approvals/routes.js";
@@ -28,8 +29,9 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
   });
 
   // Trace context, structured request logs, and /metrics. First, so every
-  // route runs inside a request-scoped trace (docs/22).
-  await observabilityPlugin(app);
+  // route runs inside a request-scoped trace (docs/22). The queue depth
+  // gauges are read at scrape time: the queue is a table, depth is a query.
+  await observabilityPlugin(app, { collectors: [() => collectQueueMetrics(deps.db)] });
 
   await authRoutes(app, deps);
   await teamRoutes(app, deps);

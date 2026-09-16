@@ -90,17 +90,17 @@ Examples:
 ### 6. Observability and operations
 
 Production needs:
-- request logging
-- structured logs with no secrets, prompts, or message bodies
-- trace IDs propagated across the queue boundary
-- metrics, with no high-cardinality labels such as team_id
-- security signal metrics: denied tool calls, destination rejections, auth failures
-- cost tracking per team and agent
-- dashboards
-- alerting, with a runbook entry per page
+- request logging **— implemented: structured request summary with `request_id`, `trace_id`, `team_id`, actor, trust, status, duration**
+- structured logs with no secrets, prompts, or message bodies **— redaction rules active; sentinel-scan test enforces**
+- trace IDs propagated across the queue boundary **— implemented: ALS trace context restored per job, asserted by test**
+- metrics, with no high-cardinality labels such as team_id **— implemented: registry rejects unregistered labels; `/metrics` on API and worker**
+- security signal metrics: denied tool calls, destination rejections, auth failures **— implemented, wired at each decision point**
+- cost tracking per team and agent **— not implemented; token/model counters are the substrate**
+- dashboards **— not implemented**
+- alerting, with a runbook entry per page **— runbook exists (`docs/26-runbook.md`); no alerting backend wired**
 - uptime checks
 - incident response flow
-- runbook documentation
+- runbook documentation **— `docs/26-runbook.md`**
 
 Observability and the audit log are separate systems with separate retention and access rules. Audit records are transactional writes, never log lines, and are never sampled.
 

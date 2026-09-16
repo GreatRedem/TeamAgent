@@ -395,6 +395,12 @@ export async function startRun(
 
   const completedAt = new Date();
   incrementMetric("agent_runs_total", { status: outcome.status });
+  if (outcome.status === "budget_exceeded") {
+    // C10 terminations (docs/22): a non-zero rate means budgets are doing
+    // their job — or an injection loop is running — and `limit_type` says
+    // which limit fired (iterations, tool calls, tokens, wall clock).
+    incrementMetric("run_budget_exceeded_total", { limit_type: outcome.reason });
+  }
   await persistOutcome(database, runId, outcome, completedAt);
   await writeAudit(database, {
     teamId: input.teamId,

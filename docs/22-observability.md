@@ -85,7 +85,7 @@ Prompt and completion content is the subtle one. It is enormously useful for deb
 
 Standard RED per route and per worker: request rate, error rate, duration histogram.
 
-The queue is a table in this same database (`docs/23-job-queue.md`), so nothing emits its metrics for you — they come from queries against `jobs`:
+The queue is a table in this same database (`docs/23-job-queue.md`), so nothing emits its metrics for you — they come from queries against `jobs`: `queue_depth` and `jobs_table_rows` are read at scrape time (`observability/queue.ts`), and the rate counters are emitted by the worker as jobs reach terminal states.
 
 | Metric | Why |
 |---|---|
@@ -202,7 +202,7 @@ Three tiers. Most things are not pages.
 - trust-level distribution across runs
 - per-team usage
 
-Every page needs a runbook entry saying what to check and what to do. A page with no runbook becomes a page that gets ignored, and then a page that gets silenced.
+Every page needs a runbook entry saying what to check and what to do. A page with no runbook becomes a page that gets ignored, and then a page that gets silenced. The triage procedures for these pages live in `docs/26-runbook.md`.
 
 ## Dashboards
 

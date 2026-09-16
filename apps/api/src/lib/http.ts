@@ -91,7 +91,19 @@ export function fail(reply: FastifyReply, error: unknown): FastifyReply {
       request_id: reply.request.id,
     });
   }
-  reply.log.error({ err: error }, "unhandled error");
+  // Error classification (docs/22): the log line carries the fields the
+  // runbook filters on, so an incident query does not need to parse
+  // messages. `error.name` separates known shapes (AppError already
+  // returned above; GatewayError, timeouts) from unclassified ones.
+  reply.log.error(
+    {
+      err: error,
+      error_name: error instanceof Error ? error.name : typeof error,
+      error_code: typeof code === "string" ? code : null,
+      error_type: "unhandled",
+    },
+    "unhandled error",
+  );
   return reply.code(500).send({
     success: false,
     data: null,

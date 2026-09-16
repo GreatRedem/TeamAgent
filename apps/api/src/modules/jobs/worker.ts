@@ -1,5 +1,6 @@
 import { claimJob, completeJob, failJob, heartbeatJob, type QueueJob } from "./queue.js";
 import type { AnyDb } from "../../db/db.js";
+import { incrementMetric, observeHistogram } from "../../observability/metrics.js";
 import { runWithJobTrace } from "../../observability/trace.js";
 
 export type JobHandler = (job: QueueJob) => Promise<void>;
@@ -30,6 +31,7 @@ function retryDelayMs(attempt: number, random: () => number): number {
 /** Process one job; the caller controls polling and shutdown. */
 export async function processOne(options: WorkerOptions): Promise<ProcessResult> {
   const now = new Date();
+  const startedAtMs = Date.now();
   const job = await claimJob(options.database, {
     workerId: options.workerId,
     queue: options.queue,
@@ -56,6 +58,12 @@ export async function processOne(options: WorkerOptions): Promise<ProcessResult>
     await runWithJobTrace(job, async () => {
       await handler(job);
     });
+    incrementMetric("jobs_total", { queue: job.queue, status: "succeeded" });
+    observeHistogram(
+      "job_duration_seconds",
+      { queue: job.queue },
+      (Date.now() - startedAtMs) / 1000,
+    );
     return (await completeJob(options.database, {
       jobId: job.id,
       workerId: options.workerId,
@@ -67,14 +75,30 @@ export async function processOne(options: WorkerOptions): Promise<ProcessResult>
     const retryAt = new Date(
       Date.now() + retryDelayMs(job.attempts, options.random ?? Math.random),
     );
-    return (await failJob(options.database, {
+    const outcome = await failJob(options.database, {
       jobId: job.id,
       workerId: options.workerId,
       error: message,
       retryAt,
-    }))
-      ? "failed"
-      : "lost";
+    });
+    observeHistogram(
+      "job_duration_seconds",
+      { queue: job.queue },
+      (Date.now() - startedAtMs) / 1000,
+    );
+    if (outcome === "queued") {
+      // Returned for retry: the job comes back, so "failed" is not terminal
+      // and the retry rate is the signal a poison job shows first.
+      incrementMetric("job_retries_total", { queue: job.queue });
+      return "failed";
+    }
+    if (outcome === "dead") {
+      // Terminal: max_attempts exhausted. Pages the queue alert.
+      incrementMetric("jobs_total", { queue: job.queue, status: "dead" });
+      incrementMetric("jobs_dead_total", { queue: job.queue });
+      return "failed";
+    }
+    return "lost";
   } finally {
     clearInterval(heartbeat);
   }

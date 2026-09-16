@@ -136,11 +136,11 @@ This is the phase where `docs/17-threat-model.md` stops being a document and bec
 
 ### Deliverables
 - distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id` **— trace propagation and the asserting test are implemented; span export to a tracing backend is not**
-- metrics and dashboards, including the security signal dashboard **— the security signal counters and a `/metrics` scrape endpoint are implemented; dashboards are not**
-- alerts on the signals that should be zero in healthy operation — `refresh_token_reuse_total`, `cross_team_access_denied_total`, `destination_denied_total`
-- cost tracking and rate-of-change alerting
-- error classification
-- incident response playbook, with a runbook entry per page
+- metrics and dashboards, including the security signal dashboard **— the security signal counters, RED per-route series, and a `/metrics` scrape endpoint (API and worker) are implemented; dashboards are not**
+- alerts on the signals that should be zero in healthy operation — `refresh_token_reuse_total`, `cross_team_access_denied_total`, `destination_denied_total` **— the counters exist and emit zero-series; alert rules are defined in `docs/22` with triage procedures in `docs/26-runbook.md`; no alerting backend is wired**
+- cost tracking and rate-of-change alerting **— token and model-call counters are emitted; the cost rollup is not**
+- error classification **— `error_name` / `error_code` fields on unhandled-error log lines are implemented**
+- incident response playbook, with a runbook entry per page **— `docs/26-runbook.md`**
 - policy review workflows
 
 See `docs/22-observability.md`.

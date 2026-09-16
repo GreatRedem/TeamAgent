@@ -8,6 +8,7 @@ import { executeToolCall } from "../../modules/tools/runtime.js";
 import type { ToolHandlerDeps } from "../../modules/tools/registry.js";
 import { retrieveForAgent } from "../../modules/knowledge/service.js";
 import { writeAudit } from "../../modules/audit/log.js";
+import { incrementMetric, observeHistogram } from "../../observability/metrics.js";
 import { assembleMessages, minTrust, type ContextItem } from "./context.js";
 import { checkBudgets, type BudgetUsage, type RunBudgets } from "./budgets.js";
 
@@ -236,6 +237,7 @@ async function driveLoop(
     );
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), remainingMs);
+    const invokeStartedAtMs = now().getTime();
     let result;
     try {
       result = await deps.provider.invoke({
@@ -246,6 +248,18 @@ async function driveLoop(
       });
     } catch (error) {
       clearTimeout(timeout);
+      // Provider degradation (docs/22): latency and status per provider are
+      // the first signal a failing gateway shows, before runs start failing.
+      observeHistogram(
+        "model_call_duration_seconds",
+        { provider: request.model.provider },
+        (now().getTime() - invokeStartedAtMs) / 1000,
+      );
+      incrementMetric("model_calls_total", {
+        provider: request.model.provider,
+        model: request.model.name,
+        status: "error",
+      });
       const message =
         error instanceof GatewayError
           ? `${error.code}: ${error.message}`
@@ -253,6 +267,38 @@ async function driveLoop(
       return { status: "failed", error: message, usage, transcript };
     }
     clearTimeout(timeout);
+    observeHistogram(
+      "model_call_duration_seconds",
+      { provider: request.model.provider },
+      (now().getTime() - invokeStartedAtMs) / 1000,
+    );
+    incrementMetric("model_calls_total", {
+      provider: request.model.provider,
+      model: request.model.name,
+      status: "ok",
+    });
+    if (result.usage.inputTokens > 0) {
+      incrementMetric(
+        "tokens_consumed_total",
+        {
+          provider: request.model.provider,
+          model: request.model.name,
+          direction: "input",
+        },
+        result.usage.inputTokens,
+      );
+    }
+    if (result.usage.outputTokens > 0) {
+      incrementMetric(
+        "tokens_consumed_total",
+        {
+          provider: request.model.provider,
+          model: request.model.name,
+          direction: "output",
+        },
+        result.usage.outputTokens,
+      );
+    }
 
     budgetUsage.modelIterations += 1;
     usage.inputTokens += result.usage.inputTokens;
