@@ -4,9 +4,9 @@ This document is the concrete checklist for turning NuraAI from a well-specified
 
 ## Executive Summary
 
-The current repository contains strong domain modeling, security reasoning, API contracts, and architecture drafting. That means the project is in a solid planning and MVP-readiness stage.
+The current repository contains strong domain modeling, security reasoning, API contracts, and an implemented, tested API core. Phases 1–6 are substantially complete, the injection containment suite covers every current ingress, and phase 7 observability is wired through logs, metrics, traces, cost rollups, and incident triage.
 
-It is not yet in a production-readiness stage, because the missing pieces are operational and engineering-grade, not conceptual. Production requires real implementation, validation, observability, deployment automation, and strict trust enforcement in code and infrastructure.
+It is not yet in a production-readiness stage. The remaining gaps are deployment automation, dashboards, alerting-backend wiring, tail-based trace sampling, and infrastructure-grade validation around the implemented controls.
 
 ## Must-Have Production Items
 
@@ -22,7 +22,7 @@ Required before production:
 - workflow execution engine
 - knowledge retrieval service
 
-Status: substantially present for phases 1–6 and covered by the PGlite test suite — backend services, migrations, wallet auth, permission and trust enforcement, the tool runtime, knowledge retrieval, and the workflow engine with schedule triggers and the queue worker. Still missing: operational visibility (phase 7 — tracing export, dashboards, alerting), deployment automation, and the injection containment suite across every ingress path.
+Status: substantially present for phases 1–7 and covered by the PGlite test suite — backend services, migrations, wallet auth, permission and trust enforcement, the tool runtime, knowledge retrieval, the workflow engine with schedule triggers and the queue worker, plus structured logs, metrics, queue-boundary tracing, security signals, cost rollups, and injection containment across every current ingress. Still missing: deployment automation, dashboards, alerting-backend wiring, and tail-based trace sampling.
 
 ### 2. Database migration system
 
@@ -95,7 +95,7 @@ Production needs:
 - trace IDs propagated across the queue boundary **— implemented: ALS trace context restored per job, asserted by test**
 - metrics, with no high-cardinality labels such as team_id **— implemented: registry rejects unregistered labels; `/metrics` on API and worker**
 - security signal metrics: denied tool calls, destination rejections, auth failures **— implemented, wired at each decision point**
-- cost tracking per team and agent **— not implemented; token/model counters are the substrate**
+- cost tracking per team and agent **— implemented: hourly `cost_rollups` by team, agent, and model; rate-of-change alerting remains backend work**
 - dashboards **— not implemented**
 - alerting, with a runbook entry per page **— runbook exists (`docs/26-runbook.md`); no alerting backend wired**
 - uptime checks
@@ -288,4 +288,4 @@ The next milestone should be:
 
 “working MVP with security enforcement, automated tests, observable runtime, and deployment pipeline.”
 
-Once this is complete, the system can move from design maturity to production readiness.
+The security enforcement, automated tests, and observable runtime are now substantially present. Once deployment automation, dashboards, alerting, and the remaining infrastructure gates are complete, the system can move from implementation maturity to production readiness.

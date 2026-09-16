@@ -176,7 +176,7 @@ What can genuinely wait: multi-provider model routing, branching and conditional
 
 ## Suggested Next Steps
 
-Steps 1–6 are done — the domain model is settled, `docs/19-tech-stack.md` closes the stack, `docs/14-database.md` is the schema reference, and phases 1–6 are implemented and tested (workflow schedule triggers, the scheduler tick, and the queue-boundary rules of `docs/23-job-queue.md` included). What remains is the operational layer and the adversarial suite.
+Steps 1–7 are done — the domain model is settled, `docs/19-tech-stack.md` closes the stack, `docs/14-database.md` is the schema reference, and phases 1–7 are implemented and tested (including workflow schedule triggers, the scheduler tick, queue-boundary rules, operational metrics and traces, cost rollups, and injection containment). What remains is production hardening and the presentation layer: deployment automation, dashboards, alerting-backend wiring, and tail-based trace sampling.
 
 1. ~~Scaffold the backend, with environment validation at startup and health checks.~~ **Done.**
 2. ~~Generate the first migrations from the Drizzle schema modules, including the R1–R5 constraints, and stand up the PGlite test loop.~~ **Done.**

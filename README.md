@@ -83,6 +83,7 @@ flowchart LR
 - [docs/23-job-queue.md](docs/23-job-queue.md) — Database-backed queue, leases, and scheduling
 - [docs/24-ui-standards.md](docs/24-ui-standards.md) — Design system, the quarantine primitive, RTL, and accessibility
 - [docs/25-ui-information.md](docs/25-ui-information.md) — Screens, what each must show, and the security-critical views
+- [docs/26-runbook.md](docs/26-runbook.md) — Incident triage procedures for observability and security pages
 
 ## Stack
 
@@ -108,7 +109,7 @@ npm run build
 npm run start:api
 ```
 
-The API requires a validated production environment. Use [apps/api/.env.production.example](apps/api/.env.production.example) as the template for deployment configuration. The frontend is a static Vite build in `apps/web/dist` and should be served by nginx.
+The API requires a validated production environment. Use [apps/api/.env.example](apps/api/.env.example) as the template for deployment configuration. The frontend is a static Vite build in `apps/web/dist` and should be served by nginx.
 
 ## Recommended Delivery Strategy
 
@@ -149,14 +150,14 @@ The goal is containment, not prevention: the design assumes injection will succe
 
 ## Project Status
 
-Design complete, implementation scaffold started. The repository now contains the API and web build entry points plus production configuration templates, but core product modules, database migrations, authentication, runtime enforcement, tests, and deployment automation are still incomplete.
+The repository contains an implemented and tested API core for phases 1–6, including migrations, wallet authentication, tenant and trust enforcement, tool execution, knowledge retrieval, workflows, and the database-backed queue. Phase 7 observability is also wired for structured logs, metrics, queue-boundary tracing, security signals, cost rollups, and incident triage; deployment automation, dashboards, and an alerting backend remain outstanding.
 
 The stack is closed ([docs/19-tech-stack.md](docs/19-tech-stack.md)), the schema is specified ([docs/14-database.md](docs/14-database.md)), and the security model that constrains the runtime is written down ([docs/17-threat-model.md](docs/17-threat-model.md)).
 
-[docs/18-production-checklist.md](docs/18-production-checklist.md) is the honest assessment of what is missing.
+[docs/18-production-checklist.md](docs/18-production-checklist.md) is the honest assessment of the remaining production work.
 
 ## Next Step
 
 Build the MVP, in the order set out in [docs/13-roadmap.md](docs/13-roadmap.md).
 
-The next milestone is **not** "production launch." It is a working MVP with security enforcement, automated tests, an observable runtime, and a deployment pipeline. One sequencing note worth repeating from the roadmap: the trust-gated capability matrix is a pure function with no I/O, and it should be written and fully tested _before_ there is an agent runtime to attach it to.
+The next milestone is **not** "production launch." It is a working MVP with security enforcement, automated tests, an observable runtime, and a deployment pipeline. The trust-gated capability matrix and injection containment suite are already implemented and tested; the remaining path is production hardening, deployment automation, and operational presentation (dashboards and alerting).

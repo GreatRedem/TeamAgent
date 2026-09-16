@@ -108,7 +108,7 @@ Three of the relationships above are **logical, not foreign keys**, and the diag
 
 ## Table Reference
 
-33 tables in twelve groups.
+34 tables in twelve groups.
 
 ### Identity — `users`, `user_identities`, `auth_nonces`, `refresh_tokens`
 
