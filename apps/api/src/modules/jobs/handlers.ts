@@ -2,6 +2,7 @@ import type { AnyDb } from "../../db/db.js";
 import type { JobHandler } from "./worker.js";
 import { workflowTriggerHandler } from "../workflows/trigger.js";
 import type { WorkflowRuntimeDeps } from "../workflows/service.js";
+import { pruneTerminalJobs } from "./cleanup.js";
 
 /**
  * Every queue name the runtime enqueues into, with the handler that owns it.
@@ -12,8 +13,21 @@ import type { WorkflowRuntimeDeps } from "../workflows/service.js";
 export function jobHandlers(
   database: AnyDb,
   runtime: WorkflowRuntimeDeps,
+  options: {
+    /** Jobs-table retention knobs (docs/23 Cleanup); tests pass short ones. */
+    cleanup?: {
+      succeededRetentionMs?: number;
+      failedRetentionMs?: number;
+    };
+  } = {},
 ): Record<string, JobHandler> {
   return {
     workflow_trigger: workflowTriggerHandler(database, runtime),
+    // Docs/23: cleanup runs as a scheduled job in this same queue. It is a
+    // handler like any other, so it inherits the worker's lease, retries,
+    // and dead-lettering — a cleanup run that fails is visible, not silent.
+    jobs_cleanup: async () => {
+      await pruneTerminalJobs(database, options.cleanup);
+    },
   };
 }

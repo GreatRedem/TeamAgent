@@ -40,6 +40,13 @@ const Env = z.object({
   QUEUE_LEASE_SECONDS: z.coerce.number().int().positive().default(600),
   QUEUE_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
 
+  // Jobs-table retention (docs/23 Cleanup): succeeded rows are deleted
+  // after a short retention, dead/failed rows kept longer as diagnostics.
+  JOBS_SUCCEEDED_RETENTION_HOURS: z.coerce.number().int().positive().default(24),
+  JOBS_FAILED_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
+  // When the cleanup job fires (server-local time, like every cron here).
+  JOBS_CLEANUP_CRON: z.string().min(1).default("17 3 * * *"),
+
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional().or(z.literal("")),
   OTEL_SERVICE_NAME: z.string().default("nuraai-api"),

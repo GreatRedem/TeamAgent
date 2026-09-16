@@ -7,6 +7,7 @@ import { schedulerTick } from "./modules/jobs/scheduler.js";
 import { jobHandlers } from "./modules/jobs/handlers.js";
 import { runWorker } from "./modules/jobs/worker.js";
 import { reapExpiredJobs } from "./modules/jobs/queue.js";
+import { ensureCleanupSchedule } from "./modules/jobs/cleanup.js";
 import { incrementMetric, renderMetrics } from "./observability/metrics.js";
 import { collectQueueMetrics } from "./observability/queue.js";
 
@@ -32,6 +33,11 @@ const runtime = {
 
 async function main(): Promise<void> {
   const controller = new AbortController();
+
+  // Jobs-table retention (docs/23 Cleanup): the schedule row is created
+  // idempotently at startup and fires the jobs_cleanup handler through the
+  // normal scheduler -> queue -> worker path.
+  await ensureCleanupSchedule(db, { cron: config.JOBS_CLEANUP_CRON });
 
   // The scheduler cadence is one to two seconds per docs/23. `setInterval`
   // is enough: ticks that overlap are safe (the advisory lock skips the
@@ -62,7 +68,12 @@ async function main(): Promise<void> {
       workerId,
       pollIntervalMs,
       leaseMs,
-      handlers: jobHandlers(db, runtime),
+      handlers: jobHandlers(db, runtime, {
+        cleanup: {
+          succeededRetentionMs: config.JOBS_SUCCEEDED_RETENTION_HOURS * 3_600_000,
+          failedRetentionMs: config.JOBS_FAILED_RETENTION_DAYS * 86_400_000,
+        },
+      }),
     },
     controller.signal,
   );
