@@ -5,6 +5,7 @@ import { db } from "./db/db.js";
 import { RateLimiter } from "./modules/auth/rate-limit.js";
 import { parseDurationSeconds } from "./modules/auth/tokens.js";
 import { registerApi } from "./modules/api.js";
+import { registerHealthRoutes } from "./modules/health.js";
 import { modelProviderFromConfig } from "./runtime/model/provider.js";
 
 export const app = Fastify({
@@ -59,42 +60,9 @@ app.addHook("onClose", async () => {
   await pool.end();
 });
 
-/**
- * Health checks, three of them, deliberately.
- *
- * docs/22-observability.md: a liveness probe that fails on a database blip
- * restarts healthy processes during an incident and turns a degradation into
- * an outage. So liveness checks nothing but the process.
- */
-
-// Liveness: the process is running. No dependency checks. Ever.
-app.get("/health/live", async () => ({ status: "ok" }));
-
-// Readiness: dependencies reachable, migrations applied, configuration valid.
-// Fails a rolling deploy before it takes traffic.
-app.get("/health/ready", async (_request, reply) => {
-  const checks: Record<string, "ok" | "failed"> = {
-    config: "ok",
-    database: "failed",
-  };
-
-  try {
-    await checkDatabase();
-    checks.database = "ok";
-  } catch (error) {
-    app.log.warn({ err: error }, "database readiness check failed");
-  }
-
-  const ready = Object.values(checks).every((c) => c === "ok");
-  return reply.code(ready ? 200 : 503).send({ status: ready ? "ready" : "not_ready", checks });
-});
-
-// Startup: the environment contract parsed and the process got this far.
-// src/config.ts exits before this is reachable if it did not.
-app.get("/health/startup", async () => ({
-  status: "started",
-  service: config.OTEL_SERVICE_NAME,
-}));
+// Liveness / readiness / startup (docs/22): registered here on the
+// production app and exercised verbatim by the e2e suite.
+await registerHealthRoutes(app, { checkDatabase, serviceName: config.OTEL_SERVICE_NAME });
 
 // Product routes. The API contract is docs/15-api.md; the trust model that
 // constrains it is docs/17-threat-model.md.
