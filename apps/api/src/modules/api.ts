@@ -5,6 +5,7 @@ import { agentRoutes } from "./agents/routes.js";
 import { approvalRoutes } from "./approvals/routes.js";
 import { authRoutes } from "./auth/routes.js";
 import type { ApiDeps } from "./deps.js";
+import { knowledgeRoutes } from "./knowledge/routes.js";
 import { sourceRoutes } from "./sources/routes.js";
 import { teamRoutes } from "./teams/routes.js";
 import { toolRoutes } from "./tools/routes.js";
@@ -29,6 +30,7 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
   await apiKeyRoutes(app, deps);
   await agentRoutes(app, deps);
   await approvalRoutes(app, deps);
+  await knowledgeRoutes(app, deps);
   await sourceRoutes(app, deps);
   await toolRoutes(app, deps);
   await userRoutes(app, deps);

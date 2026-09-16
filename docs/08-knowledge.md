@@ -78,7 +78,7 @@ The effective trust of a run is the **minimum** over everything in its context. 
 4. Selected content is injected into context, each item carrying its trust level and origin.
 5. Model output is generated using that context.
 
-**Schema gap:** ranked semantic retrieval needs a chunk and embedding table, and `docs/14-database.md` does not define one yet. Steps 2 and 3 are not implementable as written until it exists — Phase 5 work, left out deliberately rather than guessed at.
+**Schema note:** ranked retrieval runs over the `knowledge_chunks` table with keyword overlap. Semantic ranking still needs an embedding column (`pgvector` + an embedding provider), which is deliberately deferred — see `docs/14-database.md`. Steps 2 and 3 above are keyword-ranked until then.
 
 ## Security Requirements
 

@@ -182,6 +182,7 @@ interface ResumeContext {
     model: { id: string; provider: string; name: string; version: string };
     systemPrompt: string | null;
     permissionNames: string[];
+    knowledgeBaseIds: string[];
     budgetsRaw: unknown;
     ingressTrust: ContextTrustLevel;
   };
@@ -224,6 +225,28 @@ function parseResumeState(output: unknown): SuspendedState | null {
     if (item === null) return null;
     items.push(item);
   }
+  const refs: SuspendedState["knowledge"] = [];
+  const rawKnowledge = (resume as Record<string, unknown>)["knowledge"];
+  if (rawKnowledge !== undefined) {
+    if (!Array.isArray(rawKnowledge)) return null;
+    for (const entry of rawKnowledge) {
+      if (!isRecord(entry)) return null;
+      const ref = entry as Record<string, unknown>;
+      if (typeof ref["itemId"] !== "string" || typeof ref["chunkId"] !== "string") return null;
+      if (
+        ref["trust"] !== "trusted" &&
+        ref["trust"] !== "user_input" &&
+        ref["trust"] !== "untrusted"
+      ) {
+        return null;
+      }
+      refs.push({
+        itemId: ref["itemId"] as string,
+        chunkId: ref["chunkId"] as string,
+        trust: ref["trust"] as ContextTrustLevel,
+      });
+    }
+  }
   if (
     typeof inputTokens !== "number" ||
     typeof outputTokens !== "number" ||
@@ -244,6 +267,7 @@ function parseResumeState(output: unknown): SuspendedState | null {
   return {
     transcript: items,
     usage: { inputTokens, outputTokens },
+    knowledge: refs,
     modelIterations,
     toolCallsMade,
     elapsedMs,
@@ -270,7 +294,14 @@ function parseSnapshot(snapshot: unknown): ResumeContext["snapshot"] | null {
   if (trust !== "trusted" && trust !== "user_input" && trust !== "untrusted") return null;
   const permissions = snapshot["permissions"];
   const systemPrompt = snapshot["system_prompt"];
+  const knowledgeBases = snapshot["knowledge_bases"];
   if (!Array.isArray(permissions) || !permissions.every((p) => typeof p === "string")) return null;
+  if (
+    knowledgeBases !== undefined &&
+    (!Array.isArray(knowledgeBases) || !knowledgeBases.every((b) => typeof b === "string"))
+  ) {
+    return null;
+  }
   if (systemPrompt !== null && systemPrompt !== undefined && typeof systemPrompt !== "string") {
     return null;
   }
@@ -278,6 +309,7 @@ function parseSnapshot(snapshot: unknown): ResumeContext["snapshot"] | null {
     model: { id, provider, name, version },
     systemPrompt: typeof systemPrompt === "string" ? systemPrompt : null,
     permissionNames: permissions as string[],
+    knowledgeBaseIds: Array.isArray(knowledgeBases) ? (knowledgeBases as string[]) : [],
     budgetsRaw: snapshot["budgets"],
     ingressTrust: trust,
   };
@@ -386,6 +418,7 @@ function buildLoopRequest(
     origin: ctx.origin,
     ingressTrust: ctx.snapshot.ingressTrust,
     inputMessages: [],
+    knowledgeBaseIds: ctx.snapshot.knowledgeBaseIds,
     budgets: parseBudgets(ctx.snapshot.budgetsRaw),
     actor,
     ip,
@@ -514,6 +547,7 @@ export async function approveApproval(
       inputTokens: ctx.state.usage.inputTokens,
       outputTokens: ctx.state.usage.outputTokens,
     },
+    knowledge: ctx.state.knowledge,
     modelIterations: ctx.state.modelIterations,
     toolCallsMade: ctx.state.toolCallsMade + 1,
     elapsedMs: ctx.state.elapsedMs,

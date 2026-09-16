@@ -201,7 +201,10 @@ export async function persistOutcome(
       .update(agentRuns)
       .set({
         status: "succeeded",
-        output: { text: outcome.finalText } as Record<string, unknown>,
+        output: { text: outcome.finalText, knowledge: outcome.knowledge } as Record<
+          string,
+          unknown
+        >,
         tokenUsage: summarizeUsage(outcome.usage),
         completedAt: now,
       })
@@ -216,6 +219,7 @@ export async function persistOutcome(
         output: {
           resume: {
             transcript: outcome.transcript,
+            knowledge: outcome.knowledge,
             inputTokens: outcome.usage.inputTokens,
             outputTokens: outcome.usage.outputTokens,
             modelIterations: outcome.suspended.modelIterations,
@@ -378,6 +382,7 @@ export async function startRun(
       origin: input.sourceId ?? null,
       ingressTrust,
       inputMessages: input.messages,
+      knowledgeBaseIds: grants.knowledgeBaseIds,
       budgets,
       actor: { type: input.principal.kind, id: input.principal.userId ?? input.principal.apiKeyId },
       ip: input.ip ?? null,

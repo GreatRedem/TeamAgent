@@ -6,6 +6,7 @@ import type { ContextTrustLevel } from "../policy/capability.js";
 import { GatewayError, type GatewayTool, type ModelProvider } from "../model/gateway.js";
 import { executeToolCall } from "../../modules/tools/runtime.js";
 import type { ToolHandlerDeps } from "../../modules/tools/registry.js";
+import { retrieveForAgent } from "../../modules/knowledge/service.js";
 import { writeAudit } from "../../modules/audit/log.js";
 import { assembleMessages, minTrust, type ContextItem } from "./context.js";
 import { checkBudgets, type BudgetUsage, type RunBudgets } from "./budgets.js";
@@ -35,6 +36,8 @@ export interface LoopRequest {
   origin: string | null;
   ingressTrust: ContextTrustLevel;
   inputMessages: Array<{ role: "user" | "assistant"; content: string }>;
+  /** Bases the agent may read; empty skips retrieval with zero overhead. */
+  knowledgeBaseIds: string[];
   budgets: RunBudgets;
   actor: { type: "user" | "api_key"; id: string | null };
   ip: string | null;
@@ -56,6 +59,13 @@ export interface LoopUsage {
   outputTokens: number;
 }
 
+/** Traceability for T3: which retrieved chunks entered the run, and at what trust. */
+export interface RetrievedRef {
+  itemId: string;
+  chunkId: string;
+  trust: ContextTrustLevel;
+}
+
 /**
  * Suspended loop state, persisted on the run row (`output.resume`) so a
  * later approval decision continues exactly where the run stopped — same
@@ -65,6 +75,7 @@ export interface LoopUsage {
 export interface SuspendedState {
   transcript: LoopTranscript;
   usage: LoopUsage;
+  knowledge: RetrievedRef[];
   modelIterations: number;
   toolCallsMade: number;
   /** Active execution time banked before suspension. */
@@ -75,19 +86,27 @@ export interface SuspendedState {
 }
 
 export type LoopOutcome =
-  | { status: "succeeded"; finalText: string; usage: LoopUsage; transcript: LoopTranscript }
+  | {
+      status: "succeeded";
+      finalText: string;
+      usage: LoopUsage;
+      transcript: LoopTranscript;
+      knowledge: RetrievedRef[];
+    }
   | {
       status: "waiting_for_approval";
       approvalId: string;
       toolCallId: string;
       usage: LoopUsage;
       transcript: LoopTranscript;
-      suspended: Omit<SuspendedState, "transcript" | "usage">;
+      knowledge: RetrievedRef[];
+      suspended: Omit<SuspendedState, "transcript" | "usage" | "knowledge">;
     }
   | { status: "budget_exceeded"; reason: string; usage: LoopUsage; transcript: LoopTranscript }
   | { status: "failed"; error: string; usage: LoopUsage; transcript: LoopTranscript };
 
 const TRIGGERING_CONTENT_MAX = 2000;
+const RETRIEVAL_TOP_K = 3;
 
 function lastUserContent(transcript: LoopTranscript): string | null {
   for (let i = transcript.length - 1; i >= 0; i -= 1) {
@@ -110,18 +129,52 @@ function lastUserContent(transcript: LoopTranscript): string | null {
  */
 export async function executeRunLoop(deps: LoopDeps, request: LoopRequest): Promise<LoopOutcome> {
   const now = deps.now ?? (() => new Date());
+  const transcript: LoopTranscript = request.inputMessages.map((m) => ({
+    role: m.role,
+    trust: request.ingressTrust,
+    origin: `ingress:${request.ingressTrust}`,
+    content: m.content,
+  }));
+  let trust = request.ingressTrust;
+
+  // Retrieval happens once, before the first inference, over the agent's
+  // granted bases only. Each chunk carries its item's own trust level, and
+  // the run taints to the minimum — one untrusted chunk taints everything.
+  // Resumes restore the transcript (chunks included) and never re-retrieve.
+  let knowledge: RetrievedRef[] = [];
+  if (request.knowledgeBaseIds.length > 0) {
+    const lastUser = [...request.inputMessages].reverse().find((m) => m.role === "user");
+    if (lastUser !== undefined) {
+      const hits = await retrieveForAgent(deps.db, {
+        teamId: request.teamId,
+        agentId: request.agent.id,
+        query: lastUser.content,
+        limit: RETRIEVAL_TOP_K,
+      });
+      for (const hit of hits) {
+        // Items only ever hold trusted|untrusted; anything else fails
+        // closed to untrusted rather than inheriting caller trust.
+        const itemTrust: ContextTrustLevel = hit.trustLevel === "trusted" ? "trusted" : "untrusted";
+        transcript.push({
+          role: "user",
+          trust: itemTrust,
+          origin: `knowledge:${hit.baseName} / ${hit.title ?? "untitled"}`,
+          content: hit.content,
+        });
+        knowledge.push({ itemId: hit.itemId, chunkId: hit.chunkId, trust: itemTrust });
+      }
+      trust = minTrust(trust, ...knowledge.map((k) => k.trust));
+    }
+  }
+
   const state: SuspendedState = {
-    transcript: request.inputMessages.map((m) => ({
-      role: m.role,
-      trust: request.ingressTrust,
-      origin: `ingress:${request.ingressTrust}`,
-      content: m.content,
-    })),
+    transcript,
     usage: { inputTokens: 0, outputTokens: 0 },
+    knowledge,
     modelIterations: 0,
     toolCallsMade: 0,
     elapsedMs: 0,
-    trust: request.ingressTrust,
+    trust,
     requestingUserId: request.ingressTrust === "user_input" ? request.actor.id : null,
   };
 
@@ -161,7 +214,7 @@ async function driveLoop(
 ): Promise<LoopOutcome> {
   const db = deps.db;
   const now = deps.now ?? (() => new Date());
-  const { transcript, usage } = state;
+  const { transcript, usage, knowledge } = state;
   const budgetUsage: BudgetUsage = {
     modelIterations: state.modelIterations,
     toolCalls: state.toolCallsMade,
@@ -212,7 +265,7 @@ async function driveLoop(
     }
 
     if (result.toolCall === null) {
-      return { status: "succeeded", finalText: result.text ?? "", usage, transcript };
+      return { status: "succeeded", finalText: result.text ?? "", usage, transcript, knowledge };
     }
 
     const requested = result.toolCall;
@@ -294,6 +347,7 @@ async function driveLoop(
         toolCallId: outcome.toolCallId,
         usage,
         transcript,
+        knowledge,
         suspended: {
           modelIterations: budgetUsage.modelIterations,
           toolCallsMade: budgetUsage.toolCalls,

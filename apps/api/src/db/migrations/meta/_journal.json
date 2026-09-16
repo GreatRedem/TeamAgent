@@ -15,6 +15,13 @@
       "when": 1789546195583,
       "tag": "0001_panoramic_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789550892093,
+      "tag": "0002_secret_miss_america",
+      "breakpoints": true
     }
   ]
 }

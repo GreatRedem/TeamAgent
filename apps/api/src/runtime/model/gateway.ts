@@ -85,6 +85,7 @@ export class ScriptedProvider implements ModelProvider {
   readonly name = "scripted";
   private calls = 0;
   private script: GatewayResult[];
+  private seen: GatewayInvoke[] = [];
 
   constructor(script: GatewayResult[]) {
     if (script.length === 0) throw new Error("ScriptedProvider requires at least one result.");
@@ -95,14 +96,22 @@ export class ScriptedProvider implements ModelProvider {
     return this.calls;
   }
 
-  /** Replace the script between tests; zeroes the call count. */
+  /** Every invocation received, so tests can assert what entered the context. */
+  get lastInput(): GatewayInvoke | null {
+    const last = this.seen[this.seen.length - 1];
+    return last ?? null;
+  }
+
+  /** Replace the script between tests; zeroes the call count and history. */
   reset(script: GatewayResult[]): void {
     if (script.length === 0) throw new Error("ScriptedProvider requires at least one result.");
     this.script = [...script];
     this.calls = 0;
+    this.seen = [];
   }
 
-  async invoke(_input: GatewayInvoke): Promise<GatewayResult> {
+  async invoke(input: GatewayInvoke): Promise<GatewayResult> {
+    this.seen.push(input);
     const result = this.script[Math.min(this.calls, this.script.length - 1)];
     this.calls += 1;
     return {

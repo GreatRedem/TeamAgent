@@ -410,6 +410,7 @@ describe("migration structure (drift guard)", () => {
     "tools",
     "knowledge_bases",
     "knowledge_items",
+    "knowledge_chunks",
     "agents",
     "agent_permissions",
     "agent_tools",
@@ -428,13 +429,13 @@ describe("migration structure (drift guard)", () => {
     "audit_logs",
   ];
 
-  it("migrates all 33 domain tables", async () => {
+  it("migrates all 34 domain tables", async () => {
     const res = await t.db.$client.query(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
     );
     const rows = res.rows as Array<{ table_name: string }>;
     const names = new Set(rows.map((r) => r.table_name));
-    expect(expectedTables).toHaveLength(33);
+    expect(expectedTables).toHaveLength(34);
     for (const table of expectedTables) {
       expect(names.has(table)).toBe(true);
     }

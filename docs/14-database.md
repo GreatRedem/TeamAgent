@@ -168,11 +168,13 @@ The earlier `owner_type` / `owner_id` pair on `sources` has been removed. It was
 
 `risk_tier` is `NOT NULL` with no default. `docs/17` forbids an implicit `read_only` default, because a tool that silently defaults to the safest tier is exactly the failure mode the tiering exists to prevent.
 
-### Knowledge — `knowledge_bases`, `knowledge_items`
+### Knowledge — `knowledge_bases`, `knowledge_items`, `knowledge_chunks`
 
 `knowledge_items.trust_level` defaults to `untrusted`. Trust is asserted by a named human (`trusted_by`, `trusted_at`), never inferred by the ingestion pipeline from a domain name or file type. `ingested_from` and `ingested_by` make a poisoned corpus traceable after the fact.
 
-**Known gap:** there is no chunk or embedding table yet, so the ranked semantic retrieval described in `docs/08-knowledge.md` is not yet implementable. That is Phase 5 work; it was left out deliberately rather than guessed at. When it lands, `pgvector` gives it a native home in the same database as everything else — one of the concrete dividends of committing to a single engine, since vector search is where a portable schema would have stopped being portable.
+`knowledge_chunks` holds the retrieval unit: items are chunked synchronously at ingestion, and each chunk inherits its item's trust live at retrieval time. Ranking is keyword overlap for now.
+
+**Remaining gap:** no embedding column yet, so the ranked *semantic* retrieval described in `docs/08-knowledge.md` is still ahead. Vectors need `pgvector` on the server plus an embedding provider, and the PGlite test loop cannot load the extension — so shipping an untestable column would be worse than waiting. When it lands, `pgvector` gives it a native home in the same database as everything else — one of the concrete dividends of committing to a single engine, since vector search is where a portable schema would have stopped being portable. The chunk rows the vectors will attach to already exist.
 
 ### Agents — `agents`, `agent_permissions`, `agent_tools`, `agent_knowledge_bases`, `agent_sources`
 
@@ -287,7 +289,7 @@ Unscoped rows in `user_permission_grants` and `agent_permissions` rely on `UNIQU
 
 1. **Postgres RLS.** Recommended as defense in depth in `docs/17` C12, but it requires a per-transaction team-context convention across the entire codebase. Cheap to adopt now, expensive to retrofit. Not yet decided.
 2. **Conversations and messages.** `docs/15-api.md` accepts a `messages[]` array and the permission catalogue is full of `message.*`, but multi-turn state currently has nowhere to live except `agent_runs.input_payload`. A `conversations` / `messages` pair is probably needed before the first interactive agent ships.
-3. **Knowledge chunks and embeddings.** See the Knowledge section above.
+3. **Knowledge embeddings.** Chunks exist; the vector column does not. See the Knowledge section above.
 4. **Retention.** `tool_calls.arguments` and `.result` hold the richest forensic data and the most sensitive payloads. This intersects with the unresolved GDPR erasure-versus-audit-retention question.
 5. **Soft delete.** Several tables carry a `deleted` or `archived` status while their foreign keys cascade on hard delete. The two models coexist today; one should be chosen deliberately.
 
