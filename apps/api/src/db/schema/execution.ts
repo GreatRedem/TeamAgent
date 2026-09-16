@@ -45,6 +45,10 @@ export const agentRuns = pgTable(
  * Provenance-aware execution record. Rows are written BEFORE execution and
  * updated after, so a crash mid-call still leaves evidence. Denied and
  * pending attempts are recorded, not just successful ones (docs/17 C11).
+ *
+ * agent_run_id is nullable: direct human execution (docs/15-api.md section
+ * 9) is recorded here exactly like a model-requested call, and it has no
+ * agent run. Phase 4 always sets it.
  */
 export const toolCalls = pgTable(
   "tool_calls",
@@ -53,9 +57,7 @@ export const toolCalls = pgTable(
     teamId: uuid("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
-    agentRunId: uuid("agent_run_id")
-      .notNull()
-      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    agentRunId: uuid("agent_run_id").references(() => agentRuns.id, { onDelete: "cascade" }),
     toolId: uuid("tool_id").references(() => tools.id, { onDelete: "set null" }),
     toolName: text("tool_name").notNull(),
     arguments: jsonb("arguments").$type<Record<string, unknown>>(),

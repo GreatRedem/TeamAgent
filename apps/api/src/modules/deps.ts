@@ -2,6 +2,7 @@ import type { AnyDb } from "../db/db.js";
 import type { ContractSignatureVerifier } from "./auth/verify.js";
 import type { SiweConfig } from "./auth/siwe.js";
 import { RateLimiter } from "./auth/rate-limit.js";
+import type { ToolHandlerDeps } from "./tools/registry.js";
 
 export interface ApiDeps {
   db: AnyDb;
@@ -15,6 +16,8 @@ export interface ApiDeps {
   nonceLimiter: RateLimiter;
   verifyLimiter: RateLimiter;
   contractVerifier?: ContractSignatureVerifier;
+  /** Overridden in tests; production uses the real SSRF-pinned handlers. */
+  toolHandlerDeps?: Partial<ToolHandlerDeps>;
 }
 
 export function testDeps(db: AnyDb, overrides: Partial<ApiDeps> = {}): ApiDeps {

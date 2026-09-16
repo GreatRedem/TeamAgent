@@ -71,6 +71,23 @@ export function fail(reply: FastifyReply, error: unknown): FastifyReply {
       request_id: randomUUID(),
     });
   }
+  // Framework errors with a 4xx status (body parsing, validation, routing)
+  // keep their status and message; anything else is an opaque 500.
+  const statusCode = (error as { statusCode?: unknown }).statusCode;
+  const code = (error as { code?: unknown }).code;
+  const message = (error as { message?: unknown }).message;
+  if (typeof statusCode === "number" && statusCode >= 400 && statusCode < 500) {
+    return reply.code(statusCode).send({
+      success: false,
+      data: null,
+      error: {
+        code: typeof code === "string" ? code : "INVALID_REQUEST",
+        message: typeof message === "string" ? message : "The request was invalid.",
+        details: {},
+      },
+      request_id: randomUUID(),
+    });
+  }
   reply.log.error({ err: error }, "unhandled error");
   return reply.code(500).send({
     success: false,
