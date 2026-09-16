@@ -9,6 +9,25 @@ The alert rules from `docs/22-observability.md`, each with a triage procedure. A
 3. For anything an agent or workflow touched, resolve `trace_id` into `audit_logs` / `tool_calls` / `agent_runs` — one `trace_id` spans the HTTP request, the queue row, and the run.
 4. If the page involves a specific request, the response envelope's `request_id` is the log line's `request_id`. Never grep by message text.
 
+## Trace-backed triage
+
+When a page names a `trace_id` (or a run/tool call row carries one), the trace is the fastest route from signal to cause. Spans are exported when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; a trace search by the `trace_id` attribute lands next to the transactional records. The span names and the attributes a query can filter on:
+
+| Span | Attributes | What it answers |
+|---|---|---|
+| `agent.run` | `team_id`, `agent_id`, `run_id`, `trust_level`, `ingress`, `trace_id` | The run's total wall clock and trust ceiling; entry point for anything an agent did |
+| `worker.job` | `queue`, `job_id`, `team_id`, `attempt`, `trace_id` | Queue-boundary child of the causing request/run — handler duration, retry attempts |
+| `tool.execute` | `team_id`, `tool`, `risk_tier`, `decision`, `trust_level`, `trace_id` | Per-attempt latency and the C2 decision; `decision="denied"` spans are the injection triage entry |
+| `model.call` | `team_id`, `provider`, `model`, `trace_id` | Provider latency and token attributes for cost questions |
+| `knowledge.retrieve` | `team_id`, `agent_id`, `trace_id` | Retrieval latency; consult `knowledge_items`/`tool_calls` for which bases fed the hits |
+
+Error-rate analysis from spans, complementing the log-field queries above:
+
+- **Error spans, not just error logs.** A `tool.execute` span with `status=error` names the failing tool and the decision attributes at that moment — filter by `tool` and `decision`, then open the exception event for the stack. A denial that *shouldn't* be one is triaged from the span's `risk_tier`/`trust_level` pair, no DB query needed.
+- **Which run was slow, not just which route.** `http_request_duration_ms` p95 says the run-start route is slow; the `agent.run` spans under those requests say which agents and which phase (`model.call` vs `knowledge.retrieve` vs `tool.execute`) consumed it. Compare child-span duration sums against the parent to distinguish provider latency from our overhead.
+- **Trace an incident's blast radius.** From one confirmed malicious payload's `trace_id`: its `worker.job` span names the queue row; the `tool.execute` children list every attempted egress with decisions; the `agent.run` attributes give the team. The same tree answers "what did this inbound message actually do" — the question docs/22 says two unlinked traces cannot.
+- **Alert-driven span queries.** When `tool_calls_denied_total` pages, query `tool.execute` spans with `decision="denied"` in the window grouped by `tool` and `agent_id` — one agent varying wording against one tool is the T4 injection signature from the section below, now visible without reading rows.
+
 ## Pages
 
 ### Should-be-zero security pages
@@ -35,6 +54,10 @@ The alert rules from `docs/22-observability.md`, each with a triage procedure. A
 ### Dependency pages
 
 - `model_calls_total{status="error"}` rate rising, or `model_call_duration_seconds` climbing: provider degradation. Check whether errors carry `MODEL_TIMEOUT` (retryable, provider slow) or `MODEL_PROTOCOL_ERROR` (provider breaking contract). Runs fail closed; nothing needs rolling back, but page the provider and consider draining to maintenance mode if the provider is the only live one.
+
+### Cost pages
+
+- Team cost rate above a ceiling: `cost_rollups` is the per-team query surface (docs/22 keeps `team_id` out of metric labels on purpose). Rate of change, not absolute value, is the signal — compare the current hour bucket against the trailing same-size window: doubling hour over hour is the page, a large steady bill is not. Break the change down by `model_provider`/`model_name` (new model? price tier?) and `agent_id` (one runaway agent?), then check `run_budget_exceeded_total{limit_type}` — a runaway loop usually trips a budget eventually; if it does not, the budgets were never set. Cross-reference the suspect `trace_id`s from `agent_runs` in the window and read the spans: a loop shows as repeated `model.call` children under one `agent.run`.
 
 ## After the page
 

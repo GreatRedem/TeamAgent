@@ -3,6 +3,7 @@ import type { JobHandler } from "./worker.js";
 import { workflowTriggerHandler } from "../workflows/trigger.js";
 import type { WorkflowRuntimeDeps } from "../workflows/service.js";
 import { pruneTerminalJobs } from "./cleanup.js";
+import { rollupCosts } from "./cost-rollup.js";
 
 /**
  * Every queue name the runtime enqueues into, with the handler that owns it.
@@ -19,6 +20,11 @@ export function jobHandlers(
       succeededRetentionMs?: number;
       failedRetentionMs?: number;
     };
+    /** Cost-rollup knobs (docs/22 Cost); tests pass small buckets. */
+    costRollup?: {
+      bucketSeconds?: number;
+      lookbackMs?: number;
+    };
   } = {},
 ): Record<string, JobHandler> {
   return {
@@ -28,6 +34,11 @@ export function jobHandlers(
     // and dead-lettering — a cleanup run that fails is visible, not silent.
     jobs_cleanup: async () => {
       await pruneTerminalJobs(database, options.cleanup);
+    },
+    // docs/22 Cost: token totals per team/agent/model into cost_rollups.
+    // A scheduled job like cleanup — visible when it fails, lease-protected.
+    jobs_cost_rollup: async () => {
+      await rollupCosts(database, options.costRollup);
     },
   };
 }

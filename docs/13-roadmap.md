@@ -138,7 +138,7 @@ This is the phase where `docs/17-threat-model.md` stops being a document and bec
 - distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id` **— implemented, including OTLP/HTTP span export behind `OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset) and spans at the docs/22 boundaries (agent run, model call, retrieval, tool execution with decision attributes, worker job) via `observability/spans.ts`; tail-based sampling for denials/approvals remains the backend's policy**
 - metrics and dashboards, including the security signal dashboard **— the security signal counters, RED per-route series, and a `/metrics` scrape endpoint (API and worker) are implemented; dashboards are not**
 - alerts on the signals that should be zero in healthy operation — `refresh_token_reuse_total`, `cross_team_access_denied_total`, `destination_denied_total` **— the counters exist and emit zero-series; alert rules are defined in `docs/22` with triage procedures in `docs/26-runbook.md`; no alerting backend is wired**
-- cost tracking and rate-of-change alerting **— token and model-call counters are emitted; the cost rollup is not**
+- cost tracking and rate-of-change alerting **— token and model-call counters are emitted; the periodic rollup is implemented (`cost_rollups` table, hourly token totals per team/agent/model via the `jobs_cost_rollup` scheduled job); the rate-of-change alert rule itself remains alerting-backend work**
 - error classification **— `error_name` / `error_code` fields on unhandled-error log lines are implemented**
 - incident response playbook, with a runbook entry per page **— `docs/26-runbook.md`**
 - policy review workflows

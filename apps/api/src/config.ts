@@ -46,6 +46,8 @@ const Env = z.object({
   JOBS_FAILED_RETENTION_DAYS: z.coerce.number().int().positive().default(14),
   // When the cleanup job fires (server-local time, like every cron here).
   JOBS_CLEANUP_CRON: z.string().min(1).default("17 3 * * *"),
+  // Cost rollup (docs/22 Cost): hourly token totals per team/agent/model.
+  JOBS_COST_ROLLUP_CRON: z.string().min(1).default("23 * * * *"),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional().or(z.literal("")),

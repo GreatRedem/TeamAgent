@@ -8,6 +8,7 @@ import { jobHandlers } from "./modules/jobs/handlers.js";
 import { runWorker } from "./modules/jobs/worker.js";
 import { reapExpiredJobs } from "./modules/jobs/queue.js";
 import { ensureCleanupSchedule } from "./modules/jobs/cleanup.js";
+import { ensureCostRollupSchedule } from "./modules/jobs/cost-rollup.js";
 import { incrementMetric, renderMetrics } from "./observability/metrics.js";
 import { collectQueueMetrics } from "./observability/queue.js";
 import { startTracing, shutdownTracing } from "./observability/tracing.js";
@@ -47,6 +48,11 @@ async function main(): Promise<void> {
   // idempotently at startup and fires the jobs_cleanup handler through the
   // normal scheduler -> queue -> worker path.
   await ensureCleanupSchedule(db, { cron: config.JOBS_CLEANUP_CRON });
+
+  // Cost rollup (docs/22 Cost): same pattern — an idempotent schedule row
+  // firing the jobs_cost_rollup handler; token totals per team/agent/model
+  // land in cost_rollups, never in metric labels.
+  await ensureCostRollupSchedule(db, { cron: config.JOBS_COST_ROLLUP_CRON });
 
   // The scheduler cadence is one to two seconds per docs/23. `setInterval`
   // is enough: ticks that overlap are safe (the advisory lock skips the
