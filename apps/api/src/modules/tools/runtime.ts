@@ -22,6 +22,12 @@ export interface ToolExecutionRequest {
   contextTrust: ContextTrustLevel;
   /** Resolved grants of the invoking principal (human now, agent in Phase 4). */
   callerPermissions: string[];
+  /**
+   * Resolved grants of the requesting human, for the `user_input` x `write`
+   * cell. Set on the agent path (the run carries whose message started it);
+   * absent on the direct human path, where the caller acts for themselves.
+   */
+  onBehalfOfPermissions?: string[];
   /** Null for direct human execution; set for agent-run tool calls. */
   agentRunId?: string | null;
   origin?: string | null;
@@ -72,13 +78,18 @@ export async function executeToolCall(
     request.callerPermissions.includes("tool.execute") &&
     request.callerPermissions.includes(definition.requiredPermission);
   const effectiveTier = maxRiskTier("read_only", tool.riskTier as RiskTier);
+  const behalfOfGrant =
+    request.onBehalfOfPermissions === undefined
+      ? agentHasGrant
+      : request.onBehalfOfPermissions.includes(definition.requiredPermission);
   const verdict = decideCapability({
     contextTrust: request.contextTrust,
     riskTier: effectiveTier,
     agentHasGrant,
     // Direct human callers act for themselves; the agent path passes the
-    // interactive user's grants separately (Phase 4).
-    requestingUserHasGrant: agentHasGrant,
+    // interactive user's grants separately so the `user_input` x `write`
+    // cell resolves against the human, never the agent alone.
+    requestingUserHasGrant: behalfOfGrant,
   });
 
   const toolCallId = randomUUID();
@@ -101,6 +112,7 @@ export async function executeToolCall(
       error: string | null;
       decision: string;
       decisionReason: string;
+      resolvedDestination: string | null;
     }>,
   ): Promise<void> {
     await database
@@ -110,6 +122,7 @@ export async function executeToolCall(
         error: patch.error ?? null,
         decision: patch.decision ?? verdict.decision,
         decisionReason: patch.decisionReason ?? verdict.reason,
+        resolvedDestination: patch.resolvedDestination ?? null,
         completedAt: new Date(),
       })
       .where(eq(toolCalls.id, toolCallId));
@@ -130,13 +143,20 @@ export async function executeToolCall(
     return { decision: "denied", toolCallId, reason: "invalid-arguments" };
   }
 
+  // Destination resolution (docs/17 C3) applies when the caller proposes a
+  // destination. Tools whose addressing is intrinsic to their arguments —
+  // a URL to fetch — propose none and are governed by their in-handler
+  // controls (C8 SSRF vetting), not by the send-destination allowlist.
+  let resolvedDestination: string | null = null;
   if (
     definition.egress &&
     request.destinationPolicy !== undefined &&
-    request.destinationPolicy !== null
+    request.destinationPolicy !== null &&
+    request.proposedDestination !== undefined &&
+    request.proposedDestination !== null
   ) {
     const resolution = resolveDestination({
-      proposed: request.proposedDestination ?? "",
+      proposed: request.proposedDestination,
       allowedDestinations: request.destinationPolicy.allowedDestinations,
       canInitiate: request.destinationPolicy.canInitiate,
       origin: request.origin,
@@ -145,6 +165,7 @@ export async function executeToolCall(
       await finalize({ decision: "denied", decisionReason: resolution.reason });
       return { decision: "denied", toolCallId, reason: resolution.reason };
     }
+    resolvedDestination = request.proposedDestination;
   }
 
   const controller = new AbortController();
@@ -157,7 +178,7 @@ export async function executeToolCall(
       deps: { ...defaultToolHandlerDeps, ...request.handlerDeps },
       signal,
     });
-    await finalize({ result: output as Record<string, unknown> });
+    await finalize({ result: output as Record<string, unknown>, resolvedDestination });
     // Tool output is always untrusted, unconditionally (docs/17 T4).
     return { decision: "allowed", toolCallId, output, outputTrust: "untrusted" };
   } catch (error) {

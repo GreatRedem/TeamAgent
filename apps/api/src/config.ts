@@ -48,6 +48,13 @@ const Env = z.object({
   APPROVAL_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   APPROVAL_NOTIFY_CHANNEL: z.string().optional().or(z.literal("")),
 
+  // Model gateway -- single OpenAI-compatible provider for the MVP
+  // (docs/13-roadmap.md). Absent in environments that never start runs;
+  // a run then fails with MODEL_MISCONFIGURED rather than hanging.
+  MODEL_BASE_URL: z.string().url().optional().or(z.literal("")),
+  MODEL_API_KEY: z.string().optional().or(z.literal("")),
+  MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(60000),
+
   DEFAULT_LOCALE: z.string().default("en"),
   SUPPORTED_LOCALES: z.string().default("en,fa"),
 });

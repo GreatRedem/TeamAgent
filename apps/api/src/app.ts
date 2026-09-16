@@ -4,6 +4,7 @@ import { checkDatabase, pool } from "./db/pool.js";
 import { db } from "./db/db.js";
 import { RateLimiter } from "./modules/auth/rate-limit.js";
 import { parseDurationSeconds } from "./modules/auth/tokens.js";
+import { OpenAIChatProvider, UnconfiguredProvider } from "./runtime/model/gateway.js";
 import { registerApi } from "./modules/api.js";
 
 export const app = Fastify({
@@ -112,4 +113,19 @@ await registerApi(app, {
   keyPrefix: "nk_live",
   nonceLimiter: new RateLimiter(10, 60_000),
   verifyLimiter: new RateLimiter(30, 60_000),
+  // Single provider integration for the MVP. Without credentials the gateway
+  // fails runs loudly at invocation time; deployments that never start runs
+  // are unaffected.
+  modelProvider:
+    config.MODEL_BASE_URL !== undefined &&
+    config.MODEL_BASE_URL !== "" &&
+    config.MODEL_API_KEY !== undefined &&
+    config.MODEL_API_KEY !== ""
+      ? new OpenAIChatProvider({
+          baseUrl: config.MODEL_BASE_URL,
+          apiKey: config.MODEL_API_KEY,
+          timeoutMs: config.MODEL_TIMEOUT_MS,
+        })
+      : new UnconfiguredProvider(),
+  approvalTtlSeconds: config.APPROVAL_TTL_SECONDS,
 });

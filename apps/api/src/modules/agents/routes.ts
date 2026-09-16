@@ -15,6 +15,7 @@ import {
   replaceAgentTools,
   updateAgent,
 } from "./service.js";
+import { getRun, startRun } from "./runs.js";
 
 const CreateAgentBody = z.object({
   name: z.string().min(1).max(200),
@@ -47,6 +48,23 @@ const SourcesBody = z.object({
       }),
     )
     .max(100),
+});
+const RunBody = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1).max(8000),
+      }),
+    )
+    .min(1)
+    .max(50),
+  context: z
+    .object({
+      source_id: z.string().uuid().optional(),
+    })
+    .optional(),
+  idempotency_key: z.string().min(1).max(200).optional(),
 });
 
 function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
@@ -228,6 +246,56 @@ export async function agentRoutes(app: FastifyInstance, deps: ApiDeps): Promise<
         ...meta(request),
       });
       return ok(reply, await getGrants(deps.db, teamId, agentId));
+    },
+  );
+
+  app.post(
+    "/teams/:teamId/agents/:agentId/run",
+    { preHandler: [auth, scope, use] },
+    async (request, reply) => {
+      const { teamId, agentId } = request.params as { teamId: string; agentId: string };
+      const body = parseBody(RunBody, request.body);
+      const result = await startRun(
+        deps.db,
+        {
+          provider: deps.modelProvider,
+          toolHandlerDeps: deps.toolHandlerDeps,
+          approvalTtlSeconds: deps.approvalTtlSeconds,
+        },
+        {
+          teamId,
+          agentId,
+          principal: {
+            kind: request.principal.kind,
+            userId: request.principal.userId,
+            apiKeyId: request.principal.apiKeyId,
+            ingressTrust: request.principal.ingressTrust,
+            memberships: request.principal.memberships.map((m) => ({
+              teamId: m.teamId,
+              permissions: m.permissions,
+            })),
+          },
+          messages: body.messages,
+          sourceId: body.context?.source_id ?? null,
+          idempotencyKey: body.idempotency_key ?? null,
+          actorId: request.principal.userId,
+          ...meta(request),
+        },
+      );
+      return ok(reply, { run_id: result.runId, status: result.status, trace_id: result.traceId });
+    },
+  );
+
+  app.get(
+    "/teams/:teamId/agents/:agentId/runs/:runId",
+    { preHandler: [auth, scope, use] },
+    async (request, reply) => {
+      const { teamId, agentId, runId } = request.params as {
+        teamId: string;
+        agentId: string;
+        runId: string;
+      };
+      return ok(reply, await getRun(deps.db, teamId, agentId, runId, meta(request)));
     },
   );
 }
