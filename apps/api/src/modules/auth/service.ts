@@ -5,6 +5,7 @@ import { refreshTokens, userIdentities, users } from "../../db/schema/index.js";
 import type { AnyDb } from "../../db/db.js";
 import { AppError, unauthorized } from "../../lib/http.js";
 import { writeAudit } from "../audit/log.js";
+import { incrementMetric } from "../../observability/metrics.js";
 import { consumeNonce } from "./nonces.js";
 import { parseAndValidateSiweMessage, type SiweConfig } from "./siwe.js";
 import { hashToken, newOpaqueToken, signAccessToken } from "./tokens.js";
@@ -42,6 +43,12 @@ async function denial(
   reason: string,
   statusCode: number,
 ): Promise<AppError> {
+  // docs/22 security signals: sign-in failures by reason, with EIP-1271
+  // tracked separately (W4). A domain_mismatch spike is W2 phishing.
+  incrementMetric("auth_failures_total", { reason });
+  if (reason === "BAD_SIGNATURE") {
+    incrementMetric("eip1271_failures_total");
+  }
   await writeAudit(database, {
     actorType: "anonymous",
     action: "auth.wallet.verify",
@@ -206,6 +213,8 @@ export async function refreshSession(
       sql`UPDATE users SET token_version = token_version + 1 WHERE id = ${row.userId}`,
     );
     await revokeFamily(database, row.familyId, now);
+    // docs/22: should be exactly zero — this is confirmed token theft.
+    incrementMetric("refresh_token_reuse_total");
     await writeAudit(database, {
       actorType: "user",
       actorId: row.userId,

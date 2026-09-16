@@ -5,6 +5,7 @@ import type { AnyDb } from "../../db/db.js";
 import { badRequest, notFound } from "../../lib/http.js";
 import { writeAudit } from "../audit/log.js";
 import { hashToken } from "../auth/tokens.js";
+import { incrementMetric } from "../../observability/metrics.js";
 
 export type KeyCeiling = "untrusted" | "user_input";
 
@@ -73,6 +74,11 @@ export async function issueApiKey(database: AnyDb, input: IssueKeyInput): Promis
     boundUserId,
     expiresAt: input.expiresAt ?? null,
   });
+  if (ceiling === "user_input") {
+    // T16: the one lever that moves work out of the untrusted row of the
+    // capability matrix. Every occurrence deserves a human look (docs/22).
+    incrementMetric("apikey_trust_ceiling_raised_total");
+  }
 
   await writeAudit(database, {
     teamId: input.teamId,

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { FastifyReply } from "fastify";
 
 /** Domain error with a stable API code and HTTP status (docs/15-api.md). */
@@ -53,12 +52,16 @@ export function rateLimited(message = "Too many requests."): AppError {
   return new AppError("RATE_LIMITED", 429, message);
 }
 
+/**
+ * request_id is the same id Fastify logged for the request (docs/22): one
+ * correlation id across the log line and the response envelope, not two.
+ */
 export function ok(reply: FastifyReply, data: unknown): FastifyReply {
   return reply.send({
     success: true,
     data,
     error: null,
-    request_id: randomUUID(),
+    request_id: reply.request.id,
   });
 }
 
@@ -68,7 +71,7 @@ export function fail(reply: FastifyReply, error: unknown): FastifyReply {
       success: false,
       data: null,
       error: { code: error.code, message: error.message, details: error.details },
-      request_id: randomUUID(),
+      request_id: reply.request.id,
     });
   }
   // Framework errors with a 4xx status (body parsing, validation, routing)
@@ -85,7 +88,7 @@ export function fail(reply: FastifyReply, error: unknown): FastifyReply {
         message: typeof message === "string" ? message : "The request was invalid.",
         details: {},
       },
-      request_id: randomUUID(),
+      request_id: reply.request.id,
     });
   }
   reply.log.error({ err: error }, "unhandled error");
@@ -93,6 +96,6 @@ export function fail(reply: FastifyReply, error: unknown): FastifyReply {
     success: false,
     data: null,
     error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred.", details: {} },
-    request_id: randomUUID(),
+    request_id: reply.request.id,
   });
 }

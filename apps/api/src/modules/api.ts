@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { fail } from "../lib/http.js";
+import { observabilityPlugin } from "../observability/http.js";
 import { apiKeyRoutes } from "./api-keys/routes.js";
 import { agentRoutes } from "./agents/routes.js";
 import { approvalRoutes } from "./approvals/routes.js";
@@ -25,6 +26,10 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
       done(error as Error, undefined);
     }
   });
+
+  // Trace context, structured request logs, and /metrics. First, so every
+  // route runs inside a request-scoped trace (docs/22).
+  await observabilityPlugin(app);
 
   await authRoutes(app, deps);
   await teamRoutes(app, deps);

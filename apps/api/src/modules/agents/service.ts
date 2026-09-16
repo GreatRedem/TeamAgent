@@ -15,6 +15,7 @@ import {
 import type { AnyDb } from "../../db/db.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/http.js";
 import { writeAudit } from "../audit/log.js";
+import { incrementMetric } from "../../observability/metrics.js";
 
 export interface AgentMeta {
   actorId: string | null;
@@ -273,6 +274,8 @@ export async function replaceAgentPermissions(
         throw badRequest("UNKNOWN_PERMISSION", "One of the permissions does not exist.");
       }
       if (permission.riskTier === "admin" || permission.appliesTo === "user") {
+        // R3 firing: something tried to give an agent admin capability.
+        incrementMetric("agent_permission_grant_rejected_total");
         throw forbidden("Agents may not hold admin-tier or user-only permissions (R3).");
       }
     }
@@ -295,6 +298,8 @@ export async function replaceAgentPermissions(
     }
   } catch (error) {
     if (isR3Violation(error)) {
+      // The database trigger caught the race the API check missed.
+      incrementMetric("agent_permission_grant_rejected_total");
       throw forbidden("Agents may not hold admin-tier or user-only permissions (R3).");
     }
     throw error;

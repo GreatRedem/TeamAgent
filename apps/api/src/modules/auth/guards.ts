@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { AnyDb } from "../../db/db.js";
 import { forbidden, notFound, unauthorized } from "../../lib/http.js";
+import { incrementMetric } from "../../observability/metrics.js";
 import { resolvePrincipal, type Principal } from "./principal.js";
 
 declare module "fastify" {
@@ -45,7 +46,11 @@ export function teamScope() {
     const principal = request.principal;
     const inScope =
       principal.memberships.some((m) => m.teamId === teamId) || principal.keyTeamId === teamId;
-    if (!inScope) throw notFound("Team");
+    if (!inScope) {
+      // docs/22: should be zero — any non-zero value is a bug or a probe.
+      incrementMetric("cross_team_access_denied_total");
+      throw notFound("Team");
+    }
   };
 }
 

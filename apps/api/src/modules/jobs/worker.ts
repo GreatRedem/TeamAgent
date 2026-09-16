@@ -1,5 +1,6 @@
 import { claimJob, completeJob, failJob, heartbeatJob, type QueueJob } from "./queue.js";
 import type { AnyDb } from "../../db/db.js";
+import { runWithJobTrace } from "../../observability/trace.js";
 
 export type JobHandler = (job: QueueJob) => Promise<void>;
 
@@ -49,7 +50,12 @@ export async function processOne(options: WorkerOptions): Promise<ProcessResult>
     if (handler === undefined) {
       throw new Error(`no handler registered for queue ${job.queue}`);
     }
-    await handler(job);
+    // Queue boundary (docs/22): restore the enqueuer's trace so everything
+    // the handler does lands in the trace that caused the job. The job row
+    // is where the context crossed; AsyncLocalStorage re-scopes it here.
+    await runWithJobTrace(job, async () => {
+      await handler(job);
+    });
     return (await completeJob(options.database, {
       jobId: job.id,
       workerId: options.workerId,

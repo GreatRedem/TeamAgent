@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import {
   agentKnowledgeBases,
@@ -24,7 +24,11 @@ import {
 import { parseBudgets } from "../../runtime/agent-runtime/budgets.js";
 import type { ToolHandlerDeps } from "../tools/registry.js";
 import { writeAudit } from "../audit/log.js";
+import { incrementMetric } from "../../observability/metrics.js";
+import { currentTrace, newTraceId } from "../../observability/trace.js";
 import type { AgentMeta } from "./service.js";
+
+export { newTraceId };
 
 export interface RunPrincipal {
   kind: "user" | "api_key";
@@ -52,10 +56,6 @@ export interface StartRunInput extends AgentMeta {
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { cause?: { code?: unknown } }).cause?.code === "23505";
-}
-
-export function newTraceId(): string {
-  return `trace_${randomBytes(8).toString("hex")}`;
 }
 
 async function requireActiveAgent(database: AnyDb, teamId: string, agentId: string) {
@@ -285,7 +285,10 @@ export async function startRun(
   const grants = await resolveGrants(database, input.teamId, input.agentId);
   const membership = input.principal.memberships.find((m) => m.teamId === input.teamId);
   const requestingUserPermissions = membership ? membership.permissions : [];
-  const traceId = newTraceId();
+  // Adopt the ambient trace — the HTTP request or the restored job context —
+  // so the run's tool calls and audit rows share one trace_id with whatever
+  // caused it (docs/22: the queue boundary is where tracing breaks).
+  const traceId = currentTrace().traceId;
   const budgets = parseBudgets(agent.budgets);
 
   // T13: pin the resolved configuration that produces this run. No secrets:
@@ -391,6 +394,7 @@ export async function startRun(
   );
 
   const completedAt = new Date();
+  incrementMetric("agent_runs_total", { status: outcome.status });
   await persistOutcome(database, runId, outcome, completedAt);
   await writeAudit(database, {
     teamId: input.teamId,

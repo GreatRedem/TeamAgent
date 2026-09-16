@@ -19,9 +19,11 @@ import {
 } from "../../runtime/policy/capability.js";
 import { minTrust } from "../../runtime/agent-runtime/context.js";
 import { executeToolCall } from "../tools/runtime.js";
-import { getRun as getAgentRun, newTraceId, startRun, type RuntimeDeps } from "../agents/runs.js";
+import { currentTrace } from "../../observability/trace.js";
+import { getRun as getAgentRun, startRun, type RuntimeDeps } from "../agents/runs.js";
 import type { AgentMeta } from "../agents/service.js";
 import { writeAudit } from "../audit/log.js";
+import { incrementMetric } from "../../observability/metrics.js";
 import { assertValidScheduleCron, syncWorkflowSchedule } from "./schedule.js";
 import { setWorkflowCurrentVersion } from "./versions.js";
 import { collectStepReferences, renderTemplate, TemplateReferenceError } from "./template.js";
@@ -869,7 +871,9 @@ export async function startWorkflowRun(
       : DEFAULT_TIMEOUT_SECONDS) * 1000;
 
   const runId = randomUUID();
-  const traceId = input.traceId ?? newTraceId();
+  // Explicit override (queue trigger) wins; otherwise adopt the ambient
+  // trace so manual runs share the triggering request's trace_id.
+  const traceId = input.traceId ?? currentTrace().traceId;
   // Nothing legitimately starts a workflow at trusted trust: manual triggers
   // carry the caller's ingress label (user_input at most), and every other
   // trigger path is untrusted. Fail closed rather than threading a trusted
@@ -991,6 +995,11 @@ export async function startWorkflowRun(
       completedAt,
     })
     .where(eq(workflowRuns.id, runId));
+  incrementMetric("workflow_runs_total", {
+    status: runStatus,
+    trigger_source:
+      input.principal.userId === null && input.principal.apiKeyId === null ? "schedule" : "manual",
+  });
   await writeAudit(database, {
     teamId: input.teamId,
     actorType: "workflow",

@@ -10,6 +10,7 @@ import {
   type RiskTier,
 } from "../../runtime/policy/capability.js";
 import { resolveDestination } from "./destinations.js";
+import { incrementMetric } from "../../observability/metrics.js";
 import { defaultToolHandlerDeps, getBuiltinTool, type ToolHandlerDeps } from "./registry.js";
 import { validateToolArguments } from "./validation.js";
 
@@ -143,6 +144,13 @@ export async function executeToolCall(
   }
 
   if (verdict.decision !== "allowed") {
+    // docs/22 security signals: the denied rate is the observable signature
+    // of a misconfigured agent or an active injection attempt.
+    if (verdict.decision === "denied") {
+      incrementMetric("tool_calls_denied_total");
+    } else if (verdict.decision === "approval_required") {
+      incrementMetric("approval_requests_total", { context_trust_level: request.contextTrust });
+    }
     await finalize({});
     return { decision: verdict.decision, toolCallId, reason: verdict.reason };
   }
@@ -176,6 +184,8 @@ export async function executeToolCall(
       origin: request.origin,
     });
     if (!resolution.allowed) {
+      // C3 doing its job: near zero in normal operation.
+      incrementMetric("destination_denied_total");
       await finalize({ decision: "denied", decisionReason: resolution.reason });
       return { decision: "denied", toolCallId, reason: resolution.reason };
     }
