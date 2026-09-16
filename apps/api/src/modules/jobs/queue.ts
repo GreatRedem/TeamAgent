@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AnyDb } from "../../db/db.js";
 import { jobs } from "../../db/schema/index.js";
+import { observeHistogram } from "../../observability/metrics.js";
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "dead";
 
@@ -117,7 +118,21 @@ export async function claimJob(
     RETURNING ${JOB_COLUMNS}
   `);
   const row = (rows as unknown as { rows: JobRow[] }).rows[0];
-  return row === undefined ? null : asJob(row);
+  if (row === undefined) return null;
+  // Enqueue-to-claim wait (docs/22): run_at is the earliest moment the job
+  // should run and the claim filter guarantees run_at <= now, so the
+  // difference is the wait itself — including retry backoff, which is why
+  // the label stays on the queue, not the failure. The reaper resets run_at
+  // on reclaim, so a reaped job's wait measures its second attempt.
+  // Raw SQL returns timestamps as strings under PGlite (dates parse as Date
+  // under node-postgres), so normalize before arithmetic.
+  const runAt = row.runAt instanceof Date ? row.runAt : new Date(row.runAt);
+  observeHistogram(
+    "queue_wait_seconds",
+    { queue: row.queue },
+    Math.max(0, (now.getTime() - runAt.getTime()) / 1000),
+  );
+  return asJob(row);
 }
 
 export async function heartbeatJob(

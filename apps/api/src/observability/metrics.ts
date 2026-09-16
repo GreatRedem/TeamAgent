@@ -88,6 +88,9 @@ const HISTOGRAM_BUCKETS: Record<string, readonly number[]> = {
   http_request_duration_ms: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000],
   // Job durations, up to a deliberately over-length lease (10m default lease).
   job_duration_seconds: [0.1, 0.5, 1, 5, 15, 60, 300, 900, 3600],
+  // Enqueue-to-claim wait. The low end matters most: starvation shows as
+  // mass moving from the sub-second buckets into the seconds/minutes ones.
+  queue_wait_seconds: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 300],
   // Model calls: provider latency, usually the first dependency to degrade.
   model_call_duration_seconds: [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120],
 };
@@ -95,12 +98,15 @@ const HISTOGRAM_BUCKETS: Record<string, readonly number[]> = {
 const HISTOGRAM_LABELS: Record<string, readonly string[]> = {
   http_request_duration_ms: ["route"],
   job_duration_seconds: ["queue"],
+  queue_wait_seconds: ["queue"],
   model_call_duration_seconds: ["provider"],
 };
 
 const HISTOGRAM_HELP: Record<string, string> = {
   http_request_duration_ms: "Request latency by templated route (RED duration).",
   job_duration_seconds: "Job execution duration by queue, claim to terminal write.",
+  queue_wait_seconds:
+    "Enqueue to claim wait by queue. Rising wait with flat depth means too few workers.",
   model_call_duration_seconds: "Model provider latency. Provider degradation shows here first.",
 };
 

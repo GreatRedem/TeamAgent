@@ -273,6 +273,36 @@ describe("service-health and queue signals", () => {
     expect(text).toContain('job_duration_seconds_count{queue="metrics_retry"} 2');
   });
 
+  it("measures enqueue-to-claim wait at the claim path", async () => {
+    const { enqueueJob, claimJob } = await import("../modules/jobs/queue.js");
+
+    // Backdated run_at: this job waited ~2s before a worker claimed it.
+    await enqueueJob(t.db, {
+      queue: "wait_test",
+      payload: {},
+      runAt: new Date(Date.now() - 2000),
+    });
+    const claimed = await claimJob(t.db, { workerId: "wait-worker", queue: "wait_test" });
+    expect(claimed?.queue).toBe("wait_test");
+
+    // Freshly enqueued: claimed immediately, so the wait stays sub-second.
+    await enqueueJob(t.db, { queue: "wait_test", payload: {} });
+    const fresh = await claimJob(t.db, { workerId: "wait-worker", queue: "wait_test" });
+    expect(fresh?.queue).toBe("wait_test");
+
+    const text = renderMetrics();
+    // Cumulative buckets: the fresh job sits at or under le=1; both jobs
+    // (fresh + ~2s wait) are counted by le=2.5.
+    expect(text).toContain('queue_wait_seconds_bucket{queue="wait_test",le="1"} 1');
+    expect(text).toContain('queue_wait_seconds_bucket{queue="wait_test",le="2.5"} 2');
+    expect(text).toContain('queue_wait_seconds_count{queue="wait_test"} 2');
+
+    // Nothing due in this queue: no claim, no observation.
+    const idle = await claimJob(t.db, { workerId: "wait-worker", queue: "wait_test" });
+    expect(idle).toBeNull();
+    expect(metricValue("jobs_total", { queue: "wait_test", status: "succeeded" })).toBe(0);
+  });
+
   it("counts model calls, tokens, and budget terminations from a run", async () => {
     // Integration through the real run path: a scripted provider that always
     // requests a tool drives the loop into the tool-call budget.
