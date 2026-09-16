@@ -15,6 +15,7 @@ export const workflows = pgTable("workflows", {
     .notNull()
     .references(() => teams.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  description: text("description"),
   currentVersionId: uuid("current_version_id"),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),

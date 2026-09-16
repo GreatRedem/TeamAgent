@@ -10,6 +10,7 @@ import { sourceRoutes } from "./sources/routes.js";
 import { teamRoutes } from "./teams/routes.js";
 import { toolRoutes } from "./tools/routes.js";
 import { userRoutes } from "./users/routes.js";
+import { workflowRoutes } from "./workflows/routes.js";
 
 export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<void> {
   app.setErrorHandler((error, _request, reply) => fail(reply, error));
@@ -34,4 +35,5 @@ export async function registerApi(app: FastifyInstance, deps: ApiDeps): Promise<
   await sourceRoutes(app, deps);
   await toolRoutes(app, deps);
   await userRoutes(app, deps);
+  await workflowRoutes(app, deps);
 }
