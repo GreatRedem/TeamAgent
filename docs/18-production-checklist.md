@@ -22,7 +22,7 @@ Required before production:
 - workflow execution engine
 - knowledge retrieval service
 
-Status: not present yet.
+Status: substantially present for phases 1–6 and covered by the PGlite test suite — backend services, migrations, wallet auth, permission and trust enforcement, the tool runtime, knowledge retrieval, and the workflow engine with schedule triggers and the queue worker. Still missing: operational visibility (phase 7 — tracing export, dashboards, alerting), deployment automation, and the injection containment suite across every ingress path.
 
 ### 2. Database migration system
 
@@ -272,7 +272,7 @@ The repository is currently at the level of:
 - strong product design
 - strong architecture review
 - strong security reasoning
-- MVP-ready planning
+- an implemented, tested core (phases 1–6) rather than planning alone
 
 It is not yet at the level of:
 - fully verified production system

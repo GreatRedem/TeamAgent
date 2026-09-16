@@ -135,8 +135,8 @@ This is the phase where `docs/17-threat-model.md` stops being a document and bec
 - Make the security controls from earlier phases observable.
 
 ### Deliverables
-- distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id`
-- metrics and dashboards, including the security signal dashboard
+- distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id` **— trace propagation and the asserting test are implemented; span export to a tracing backend is not**
+- metrics and dashboards, including the security signal dashboard **— the security signal counters and a `/metrics` scrape endpoint are implemented; dashboards are not**
 - alerts on the signals that should be zero in healthy operation — `refresh_token_reuse_total`, `cross_team_access_denied_total`, `destination_denied_total`
 - cost tracking and rate-of-change alerting
 - error classification
@@ -176,14 +176,14 @@ What can genuinely wait: multi-provider model routing, branching and conditional
 
 ## Suggested Next Steps
 
-The first three of these are done — the domain model is settled, `docs/19-tech-stack.md` closes the stack, and `docs/14-database.md` is the schema reference. What remains is code.
+Steps 1–6 are done — the domain model is settled, `docs/19-tech-stack.md` closes the stack, `docs/14-database.md` is the schema reference, and phases 1–6 are implemented and tested (workflow schedule triggers, the scheduler tick, and the queue-boundary rules of `docs/23-job-queue.md` included). What remains is the operational layer and the adversarial suite.
 
-1. Scaffold the backend, with environment validation at startup and health checks.
-2. Generate the first migrations from the Drizzle schema modules, including the R1–R5 constraints, and stand up the PGlite test loop.
-3. Implement wallet auth and team membership, with the W1–W8 tests.
-4. Seed the permission catalogue with tiers, and implement the C2 policy decision as a pure function with all twelve cells tested — before anything calls a model.
-5. Add a minimal agent runtime and one source integration, with the policy decision point wired into the tool path from the first commit.
-6. Validate the first workflow and knowledge retrieval path, including trust inheritance across steps.
+1. ~~Scaffold the backend, with environment validation at startup and health checks.~~ **Done.**
+2. ~~Generate the first migrations from the Drizzle schema modules, including the R1–R5 constraints, and stand up the PGlite test loop.~~ **Done.**
+3. ~~Implement wallet auth and team membership, with the W1–W8 tests.~~ **Done.**
+4. ~~Seed the permission catalogue with tiers, and implement the C2 policy decision as a pure function with all twelve cells tested — before anything calls a model.~~ **Done.**
+5. ~~Add a minimal agent runtime and one source integration, with the policy decision point wired into the tool path from the first commit.~~ **Done.**
+6. ~~Validate the first workflow and knowledge retrieval path, including trust inheritance across steps.~~ **Done.**
 7. Run the injection containment suite against every ingress path, then expand.
 
 Step 4 before step 5 is deliberate. The capability matrix is a pure function with no I/O — it should be the fastest test in the suite and it should exist before there is a runtime to bolt it onto.
