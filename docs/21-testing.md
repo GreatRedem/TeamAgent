@@ -121,11 +121,11 @@ These hold whether or not the model was fooled, which makes them deterministic a
 
 Maintain a corpus of payloads — direct instruction override, data exfiltration requests, markdown image side channels (T6), tool-output-borne instructions (T4), and tool-argument injection attempts (T10) — and run it through **every** ingress:
 
-- interactive message
-- inbound source webhook
-- retrieved knowledge
-- tool output
-- **API key submission**, at both trust ceilings (T16)
+- interactive message **— `src/security/injection.test.ts`**
+- inbound source webhook **— the HMAC gate (T7) is tested against payload bodies; a body that verifies reaches the runtime as untrusted content, covered by the relay case**
+- retrieved knowledge **— poisoned-but-retrievable item, T3 taint asserted**
+- tool output **— second-stage payload in the handler result, T4 asserted**
+- **API key submission**, at both trust ceilings (T16) **— untrusted ceiling and user_input ceiling both covered**
 
 The API key path is the one most likely to be forgotten, because it looks like an authenticated internal call rather than an ingress. It is the ingress a relay integration uses, and the corpus has to reach it.
 

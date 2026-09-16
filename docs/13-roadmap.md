@@ -184,7 +184,7 @@ Steps 1–6 are done — the domain model is settled, `docs/19-tech-stack.md` cl
 4. ~~Seed the permission catalogue with tiers, and implement the C2 policy decision as a pure function with all twelve cells tested — before anything calls a model.~~ **Done.**
 5. ~~Add a minimal agent runtime and one source integration, with the policy decision point wired into the tool path from the first commit.~~ **Done.**
 6. ~~Validate the first workflow and knowledge retrieval path, including trust inheritance across steps.~~ **Done.**
-7. Run the injection containment suite against every ingress path, then expand.
+7. ~~Run the injection containment suite against every ingress path, then expand.~~ **Done.** The payload corpus (`src/security/corpus.ts`) runs through every existing ingress — untrusted API-key submission, user_input-ceiling keys (T16), interactive relay, retrieved knowledge (T3), and tool output (T4) — with the containment invariants asserted against persisted rows, plus the webhook HMAC gate (T7). "Then expand" is standing: new ingress paths add their corpus case in `src/security/injection.test.ts`.
 
 Step 4 before step 5 is deliberate. The capability matrix is a pure function with no I/O — it should be the fastest test in the suite and it should exist before there is a runtime to bolt it onto.
 
