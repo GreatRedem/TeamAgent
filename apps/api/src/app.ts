@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { config } from "./config.js";
+import { checkDatabase, pool } from "./db/pool.js";
 
 export const app = Fastify({
   // The proxy address, never `true`. Without this, request.ip is nginx on
@@ -49,6 +50,10 @@ export const app = Fastify({
   bodyLimit: 1_048_576,
 });
 
+app.addHook("onClose", async () => {
+  await pool.end();
+});
+
 /**
  * Health checks, three of them, deliberately.
  *
@@ -63,11 +68,17 @@ app.get("/health/live", async () => ({ status: "ok" }));
 // Readiness: dependencies reachable, migrations applied, configuration valid.
 // Fails a rolling deploy before it takes traffic.
 app.get("/health/ready", async (_request, reply) => {
-  const checks: Record<string, "ok" | "failed"> = {};
+  const checks: Record<string, "ok" | "failed"> = {
+    config: "ok",
+    database: "failed",
+  };
 
-  // TODO(phase 1): real checks once the database module exists --
-  // SELECT 1, and assert the migration head matches the committed migrations.
-  checks.config = "ok";
+  try {
+    await checkDatabase();
+    checks.database = "ok";
+  } catch (error) {
+    app.log.warn({ err: error }, "database readiness check failed");
+  }
 
   const ready = Object.values(checks).every((c) => c === "ok");
   return reply.code(ready ? 200 : 503).send({ status: ready ? "ready" : "not_ready", checks });
