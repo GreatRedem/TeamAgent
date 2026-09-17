@@ -55,3 +55,237 @@
     direction: ltr;
   }
 }
+
+@layer components {
+  /* ---- Shell (docs/25: team scope always visible) ---- */
+
+  .shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-inline-size: 70rem;
+    margin-inline: auto;
+  }
+
+  .shell-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-block-end: 0.75rem;
+    border-block-end: 1px solid var(--rule);
+  }
+
+  .shell-brand {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .shell-spacer {
+    flex: 1;
+  }
+
+  .shell-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nav-link {
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+    padding-block: 0.25rem;
+    padding-inline: 0.625rem;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .nav-link:hover {
+    color: var(--ink);
+  }
+
+  .nav-link-active {
+    color: var(--ink);
+    border-color: var(--rule);
+    background: var(--recess);
+  }
+
+  /* The only badge in the product (docs/25): an unnoticed approval becomes a
+     denial silently, so it is read at a glance. Amber (--signal family) via
+     the recess surface keeps it loud without reading as an error. */
+  .approvals-badge {
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding-block: 0.125rem;
+    padding-inline: 0.75rem;
+    background: var(--recess);
+    font-size: 0.875rem;
+  }
+
+  .wallet-chip {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .team-switcher select,
+  .locale-switch select {
+    font: inherit;
+    color: inherit;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 0.25rem;
+    padding-block: 0.25rem;
+    padding-inline: 0.5rem;
+  }
+
+  /* ---- Screens and panels ---- */
+
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .screen h1 {
+    font-size: 1.5rem;
+    line-height: 1.25;
+    margin-block: 0;
+  }
+
+  .screen h2 {
+    font-size: 1.125rem;
+    margin-block: 0.75rem 0;
+  }
+
+  .screen-subtitle {
+    color: var(--muted);
+    margin-block: 0;
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 0.375rem;
+    padding: 0.875rem 1rem;
+  }
+
+  /* An empty security view is good news and reads that way (docs/24). */
+  .panel-good {
+    background: var(--recess);
+  }
+
+  .panel-good-title {
+    margin-block: 0;
+    font-weight: 600;
+  }
+
+  .panel-help {
+    color: var(--muted);
+    margin-block: 0.25rem;
+  }
+
+  /* ---- Buttons ---- */
+
+  .button {
+    font: inherit;
+    border: 1px solid var(--rule);
+    border-radius: 0.25rem;
+    padding-block: 0.375rem;
+    padding-inline: 0.875rem;
+    min-block-size: 24px;
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .button-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
+    font-weight: 600;
+  }
+
+  .button-quiet {
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+  }
+
+  .button:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  @media (pointer: coarse) {
+    :where(button, select) {
+      min-block-size: 44px;
+    }
+  }
+
+  /* ---- Sign-in ---- */
+
+  .signin {
+    display: grid;
+    place-items: center;
+    min-block-size: 60dvh;
+  }
+
+  .signin-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    max-inline-size: 26rem;
+    padding: 1.5rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.5rem;
+  }
+
+  .signin-card h1 {
+    font-size: 1.5rem;
+    line-height: 1.25;
+    margin-block: 0;
+  }
+
+  .signin-statement {
+    margin-block: 0;
+    font-weight: 600;
+  }
+
+  .signin-domain {
+    margin-block: 0;
+    color: var(--muted);
+  }
+
+  .signin-error {
+    margin-block: 0;
+    color: var(--ink);
+    background: var(--recess);
+    border: 1px solid var(--rule);
+    border-radius: 0.25rem;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .signin-note {
+    margin-block: 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+}
+
+@layer utilities {
+  .visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}

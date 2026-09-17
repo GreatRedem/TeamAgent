@@ -1,21 +1,20 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { createI18n } from "./i18n/index.js";
+import { AppRoot } from "./app/root.js";
 import "./index.css";
-
-function App() {
-  return (
-    <main>
-      <h1>NuraAI</h1>
-      <p>Web app scaffold ready for the MVP.</p>
-    </main>
-  );
-}
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root not found");
 
-ReactDOM.createRoot(root).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+async function boot(): Promise<void> {
+  const i18n = await createI18n();
+  root!.classList.add("booted");
+  ReactDOM.createRoot(root!).render(
+    <React.StrictMode>
+      <AppRoot i18n={i18n} />
+    </React.StrictMode>,
+  );
+}
+
+void boot();

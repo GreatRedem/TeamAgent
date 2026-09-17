@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "NuraAI"
+  },
+  "nav": {
+    "overview": "Overview",
+    "agents": "Agents",
+    "sources": "Sources",
+    "knowledge": "Knowledge",
+    "workflows": "Workflows",
+    "approvals": "Approvals",
+    "runs": "Runs",
+    "audit": "Audit",
+    "settings": "Settings",
+    "main": "Main navigation"
+  },
+  "header": {
+    "approvalsPending": "{{count}} approvals waiting",
+    "approvalsNone": "Approvals",
+    "teamSwitcherLabel": "Active team",
+    "walletLabel": "Connected wallet",
+    "signOut": "Sign out"
+  },
+  "signin": {
+    "title": "Sign in to NuraAI",
+    "connect": "Connect wallet",
+    "connecting": "Waiting for the wallet…",
+    "noProvider": "No Ethereum wallet was found in this browser. Install a wallet extension and try again.",
+    "requestNonce": "Requesting sign-in challenge…",
+    "checkWallet": "The wallet is asking you to read and approve a message.",
+    "readCarefully": "Before approving, check that the domain is {{domain}}. A signature here never sends a transaction and never costs gas.",
+    "verifying": "Verifying the signature…",
+    "signMessage": "Sign message",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "smartWalletNotice": "Smart-contract wallets verify through a chain call and can take longer. On timeout the sign-in is refused; retrying will not change the outcome.",
+    "expired": "The sign-in challenge expired. Start again to get a new one.",
+    "domainMismatch": "The sign-in message does not match this site. Stop and contact support if you did not start this.",
+    "signatureFailed": "The signature could not be verified.",
+    "errorTitle": "Sign-in failed",
+    "lostWallet": "A lost wallet is a lost account. There is no reset path, so back up the recovery phrase before continuing.",
+    "firstHeading": "Connect a wallet to continue",
+    "statement": "Sign in to NuraAI. This request will not trigger a transaction or cost any gas."
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Activity, spend, and security signals for {{team}}.",
+    "empty": "No activity yet this period.",
+    "signals": "Security signals",
+    "signalsGood": "No denied calls in this period",
+    "signalsGoodHelp": "Denials are the access controls working as designed, so an empty list is good news."
+  },
+  "placeholder": {
+    "title": "{{name}}",
+    "body": "This area is not built yet. The API surface for it exists; the screen arrives with its slice of the console.",
+    "detail": "Screen inventory and the security-critical views are specified in docs/25-ui-information.md."
+  },
+  "errors": {
+    "generic": "Something went wrong loading this view. Try again.",
+    "withRequestId": "Something went wrong loading this view. Try again. Reference: {{requestId}}",
+    "sessionExpired": "Your session expired. Sign in again.",
+    "denied": "This action needs approval because the request came from an untrusted source.",
+    "forbidden": "You do not have access to this resource."
+  },
+  "locale": {
+    "switch": "Switch language",
+    "en": "English",
+    "fa": "فارسی"
+  }
+}
