@@ -37,7 +37,9 @@ The model fills these fields in, and on untrusted context it is filling them in 
 | An unbounded integer | A **bounded** one |
 | Shell arguments | Nothing. Do not build this tool with model-supplied text |
 
-Validate against `input_schema` before execution. Fastify's JSON Schema validation serves both HTTP routes and tool arguments, so this is one code path rather than two.
+Validate against `input_schema` before execution — `modules/tools/validation.ts`, Ajv, fail closed on a schema that does not compile.
+
+This is deliberately not the mechanism the HTTP routes use. Routes validate with `zod` schemas in code; a tool's `input_schema` is JSON Schema stored on the tool row, so registration is where the constraint is declared and the runtime is where it is enforced. Do not reach for the route schemas here.
 
 ## 3. If it reaches the network, add egress controls (C8)
 

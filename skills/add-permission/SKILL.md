@@ -69,7 +69,7 @@ python skills/docs-check/check.py
 
 ## Removing or retiering
 
-**Removing** — delete the row, decrement both counts, and grep for the name across `docs/` and `.claude/`. A permission cited in `15` or `21` after removal is a broken reference the counts will not catch.
+**Removing** — delete the row, decrement both counts, and grep for the name across `docs/` and `skills/`. A permission cited in `15`, `21`, or a skill after removal is a broken reference the counts will not catch.
 
 **Retiering upward** (`read_only` → `write`, or anything → `admin`) is a behaviour change, not an edit. Existing grants keep working but start requiring approval, or stop working entirely if the new tier is `admin` and an agent holds it — R3 will reject the row on the next write. Say so in the change, and check whether any seeded role mapping now needs adjusting.
 

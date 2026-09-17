@@ -440,7 +440,7 @@ For the first version, keep the backend strictly focused on:
 
 <!-- docs-check: allow sqlite -->
 
-- Fastify + TypeScript. Native JSON Schema validation serves both HTTP routes and tool-argument validation (`docs/17-threat-model.md` C7), keeping one validation path rather than two.
+- Fastify + TypeScript. `zod` validates every route body and query, and tool arguments are validated against the `input_schema` JSON Schema on the tool row (`docs/17-threat-model.md` C7) — the two are separate on purpose, since a tool's schema is stored data rather than route code.
 - PostgreSQL, and only PostgreSQL, for all relational data in every environment. It is the only mainstream engine that can enforce invariants R3 and R4 — the two security rules from `docs/17-threat-model.md` — in the database rather than in application code, and a second engine would mean an environment where they are enforced more weakly than in production.
 - Drizzle for the schema and migrations, defined in code under `app/infra/db/` using `drizzle-orm/pg-core`. With one engine the schema is free to use native `uuid` and `jsonb`, partial indexes, triggers, and `SKIP LOCKED` rather than a portable subset. See `docs/14-database.md`.
 - PGlite for local development and tests: real Postgres in-process, no server and no container, so schema tests run in about a second in CI. This is what replaced SQLite, and it tests the production engine rather than an approximation of it.

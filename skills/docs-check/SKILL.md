@@ -5,7 +5,7 @@ description: Verify cross-document consistency across the NuraAI docs — broken
 
 # Docs consistency check
 
-The docs are 25 interlocking files that reference each other by identifier (`T16`, `C2`, `R3`, `W4`) and by count ("48 permissions", "33 tables in twelve groups"). They drift. This has happened repeatedly: a permission added to the catalogue without updating the count in `14`, a control cited before it was written, a decision reversed in one doc and left standing in three others.
+The docs are 26 files, plus the README, that reference each other by identifier (`T16`, `C2`, `R3`, `W4`) and by count ("48 permissions", "34 tables in twelve groups"). They drift. This has happened repeatedly: a permission added to the catalogue without updating the count in `14`, a control cited before it was written, a decision reversed in one doc and left standing in three others.
 
 Run the checker first, then read for the things a script cannot see.
 
@@ -28,13 +28,14 @@ It checks:
 | Permission count | `07`'s table rows vs its stated count vs `14`'s `N-entry` reference |
 | Table count | `14`'s group headings vs its stated "N tables in M groups" |
 | README index | A doc that exists but is not listed |
+| Skill frontmatter | A skill whose `name` does not match its directory, so it will not load |
 | Reversed decisions | A banned phrase reappearing — see below |
 
 ## 2. Reversed decisions
 
 <!-- docs-check: allow encrypt -->
 
-`BANNED` in `check.py` lists decisions that were made, reversed, and must not creep back — the second database engine, the inverted tool/model call order, "encrypt at rest" for credentials that are hashed, and others.
+`BANNED` in `check.py` lists decisions that were made, reversed, and must not creep back — the second database engine, the inverted tool/model call order, "encrypt at rest" for credentials that are hashed, the single shared validation path that turned out to be zod on routes and Ajv on tool arguments, and others.
 
 **When you resolve a contradiction, add an entry.** That is what stops the same mistake returning in six months. An entry is `(key, regex, why)`.
 

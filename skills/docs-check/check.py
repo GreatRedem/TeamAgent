@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cross-document consistency checks for the NuraAI docs.
 
-Run from the repository root:  python .claude/skills/docs-check/check.py
+Run from the repository root:  python skills/docs-check/check.py
 Exit code 0 = clean, 1 = problems found.
 """
 import io
@@ -38,6 +38,10 @@ BANNED = [
      'no broker; job_schedules plus advisory lock (23)'),
     ('validate-untrusted', r'normalized or validated before use',
      'untrusted content is contained, not validated (17 C6)'),
+    ('one-validation-path', r'one validation path rather than two|'
+     r'one code path rather than two|native JSON Schema',
+     'routes validate with zod, tool arguments with Ajv against the stored '
+     'input_schema; the two paths are deliberately not one (19)'),
 ]
 
 # A section may legitimately discuss a reversed decision in order to explain why

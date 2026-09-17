@@ -10,10 +10,10 @@ Use the repository documentation as the design authority, especially `docs/10-ar
 ## Rules
 
 - Keep the API, worker runtime, workflow engine, and integration adapters as explicit boundaries.
-- Put domain behavior in `apps/api/src/modules/<domain>`; keep transport wiring in routes and shared infrastructure in `lib` or `services`.
-- Keep cross-package contracts in `packages/shared`; do not import application internals into shared code.
+- Put domain behavior in `apps/api/src/modules/<domain>` — `routes.ts` for the HTTP surface and `service.ts` for the logic, with any further file named after the concern it owns. Cross-cutting infrastructure is `apps/api/src/lib`; the web app is a separate build artifact and nginx serves it.
+- There is no shared package yet. Workspaces are declared for `apps/*` and `packages/*`, so a contract two applications both need belongs in `packages/shared` the day it exists; until then it lives in `apps/api/src/lib`, and application internals never move into shared code.
 - Treat teams as the tenant boundary. Every tenant-scoped operation must carry and verify `team_id`.
-- Do not add Redis, a message broker, or a second datastore without updating the architecture decision records.
+- Do not add Redis, a message broker, or a second datastore. That decision is written down rather than implicit — `docs/19-tech-stack.md` for the engine, `docs/23-job-queue.md` for the broker — so changing it means changing those documents first.
 - Prefer a small vertical slice that is executable and tested over placeholder modules.
 
 ## Before editing

@@ -78,7 +78,9 @@ Audit rows are **transactional writes**, never log lines, and never sampled (`22
 
 ## Validation
 
-Fastify JSON Schema on the route. The same mechanism validates tool arguments, which keeps one validation path rather than two.
+`zod` on the route: parse the body and query at the boundary and return `INVALID_INPUT` with the issues mapped into `details` (`lib/http.ts`).
+
+Tool arguments validate with a different mechanism on purpose — Ajv against the JSON Schema stored on the tool row (`modules/tools/validation.ts`, `docs/06-tool.md` C7). That schema is data rather than route code, so the two are deliberately not one object; do not try to route tool arguments through a route's zod schema.
 
 Validate the narrowest types the field allows — enums over free strings, bounded integers, allowlisted identifiers.
 
@@ -101,6 +103,7 @@ If you add a section, renumber the rest and update the Resource Groups list at t
 - [ ] Team-scoped, or a stated reason why not
 - [ ] Envelope with `request_id`
 - [ ] Cursor pagination if it lists
+- [ ] Body and query parsed with a zod schema at the boundary
 - [ ] Permission stated, resolved per request
 - [ ] Cross-team access returns `NOT_FOUND`
 - [ ] Trust label assigned if it accepts content

@@ -51,9 +51,11 @@ These sit on the line and should be assigned deliberately rather than assumed:
 
 ## Backend
 
-**Fastify** over Express: native JSON Schema validation on every route, meaningfully faster, and a plugin/encapsulation model that maps cleanly onto the module boundaries in `docs/16-backend-architecture.md`.
+**Fastify** over Express: per-route schema validation, meaningfully faster, and a plugin/encapsulation model that maps cleanly onto the module boundaries in `docs/16-backend-architecture.md`.
 
-Schema validation is not incidental here. `docs/06-tool.md` and `docs/17-threat-model.md` C7 both require that tool inputs be validated against a declared schema before execution. Using the same validation mechanism for HTTP routes and tool arguments keeps one code path rather than two.
+Schema validation is not incidental here. `docs/06-tool.md` and `docs/17-threat-model.md` C7 both require that tool inputs be validated against a declared schema before execution.
+
+The two surfaces validate with **different** mechanisms, and that is the settled design rather than an oversight. Routes parse with **zod** schemas written in code, which infer their own TypeScript types. Tool arguments are checked against the `input_schema` **JSON Schema** stored on the tool row (`apps/api/src/modules/tools/validation.ts`, Ajv), because a tool's contract arrives as data at registration time and cannot be a route module. One mechanism serving both was the earlier assumption; the implemented system has two.
 
 Suggested plugins:
 
@@ -61,7 +63,7 @@ Suggested plugins:
 - `@fastify/rate-limit` — in-process counters; per-instance, not global (`docs/23-job-queue.md`)
 - `@fastify/under-pressure` — shed load rather than queueing indefinitely
 - `@fastify/sensible` — standard error shapes
-- `zod` or TypeBox — one source of truth for runtime validation and TypeScript types
+- `zod` — route schemas and the TypeScript types they infer, from one definition. Not used for tool `input_schema`, which is JSON Schema on the tool row
 
 No `@fastify/cors`. No HTTPS options.
 
