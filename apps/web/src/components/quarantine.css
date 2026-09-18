@@ -1,0 +1,43 @@
+@layer components {
+  .quarantine {
+    min-inline-size: 0;
+    border: 0.125rem solid var(--muted);
+    background: var(--recess);
+    padding-block: 0.5rem;
+    padding-inline: 0.75rem;
+    text-align: start;
+  }
+
+  .quarantine-origin,
+  .quarantine-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .quarantine pre {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-block-size: 14rem;
+    overflow: auto;
+    border-inline-start: 0.1875rem solid var(--muted);
+    padding-inline-start: 0.75rem;
+    margin-block: 0.5rem;
+    direction: ltr;
+    unicode-bidi: plaintext;
+  }
+
+  .quarantine pre:focus-visible {
+    outline: 0.125rem solid var(--accent);
+    outline-offset: 0.1875rem;
+  }
+
+  @media (forced-colors: active) {
+    .quarantine {
+      border-color: CanvasText;
+    }
+  }
+}

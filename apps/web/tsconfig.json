@@ -10,7 +10,14 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "vitest": ["../api/node_modules/vitest", "../../node_modules/vitest"],
+      "vitest/config": [
+        "../api/node_modules/vitest/config.d.ts",
+        "../../node_modules/vitest/config.d.ts"
+      ]
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "vitest.config.ts"]
 }

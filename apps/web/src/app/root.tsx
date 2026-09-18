@@ -5,6 +5,11 @@ import type { i18n as I18n } from "i18next";
 import { AppShell, type ScreenKey } from "../components/app-shell.js";
 import { LiveRegionsProvider } from "../components/live-regions.js";
 import { OverviewScreen } from "../features/overview/overview.js";
+import { AgentsScreen } from "../features/agents/agents.js";
+import { SourcesScreen } from "../features/sources/sources.js";
+import { KnowledgeScreen } from "../features/knowledge/knowledge.js";
+import { ApprovalsBadge, ApprovalsScreen } from "../features/approvals/approvals.js";
+import { ApprovalsProvider } from "../features/approvals/provider.js";
 import { PlaceholderScreen } from "../features/placeholder/placeholder.js";
 import { SignInScreen } from "../features/signin/sign-in.js";
 import { SessionProvider, useSession } from "../features/session/session.js";
@@ -33,7 +38,7 @@ export function AppRoot({ i18n }: { i18n: I18n }): ReactNode {
 }
 
 function Screens(): ReactNode {
-  const { state } = useSession();
+  const { state, http } = useSession();
   const { t } = useTranslation();
   const [screen, setScreen] = useState<ScreenKey>("overview");
 
@@ -57,12 +62,30 @@ function Screens(): ReactNode {
   }
 
   return (
-    <AppShell active={screen} onNavigate={setScreen}>
-      {screen === "overview" ? (
-        <OverviewScreen />
-      ) : (
-        <PlaceholderScreen screen={screen} />
-      )}
-    </AppShell>
+    <ApprovalsProvider
+      key={`${state.user.id}:${state.activeTeam.id}`}
+      http={http}
+      teamId={state.activeTeam.id}
+    >
+      <AppShell
+        active={screen}
+        onNavigate={setScreen}
+        headerSlot={<ApprovalsBadge onNavigate={() => setScreen("approvals")} />}
+      >
+        {screen === "overview" ? (
+          <OverviewScreen />
+        ) : screen === "agents" ? (
+          <AgentsScreen />
+        ) : screen === "sources" ? (
+          <SourcesScreen />
+        ) : screen === "knowledge" ? (
+          <KnowledgeScreen />
+        ) : screen === "approvals" ? (
+          <ApprovalsScreen />
+        ) : (
+          <PlaceholderScreen screen={screen} />
+        )}
+      </AppShell>
+    </ApprovalsProvider>
   );
 }

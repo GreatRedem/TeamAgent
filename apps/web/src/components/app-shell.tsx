@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAnnouncer, VisuallyHidden } from "./live-regions.js";
 import { useSession } from "../features/session/session.js";
 import { truncateAddress } from "../lib/format.js";
-import { changeLocale, currentLocale, isRtl, SUPPORTED_LOCALES, type Locale } from "../i18n/index.js";
+import { changeLocale, currentLocale, SUPPORTED_LOCALES, type Locale } from "../i18n/index.js";
 import { i18n } from "../i18n/instance.js";
 
 /**
@@ -110,7 +110,10 @@ export function AppShell({ active, onNavigate, headerSlot, children }: AppShellP
 
         <label className="locale-switch">
           <VisuallyHidden>{t("locale.switch")}</VisuallyHidden>
-          <select value={currentLocale(i18n)} onChange={(event) => onLocaleChange(event.target.value as Locale)}>
+          <select
+            value={currentLocale(i18n)}
+            onChange={(event) => onLocaleChange(event.target.value as Locale)}
+          >
             {SUPPORTED_LOCALES.map((code) => (
               <option key={code} value={code}>
                 {t(`locale.${code}`)}

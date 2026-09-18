@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { ApiError } from "../../lib/api.js";
 import {
@@ -76,7 +84,8 @@ export function useSession(): SessionContextValue {
  * it is a security control rather than decoration, and the sign-in screen
  * shows the same text before the wallet prompt so nothing is a surprise.
  */
-const SIWE_STATEMENT = "Sign in to NuraAI. This request will not trigger a transaction or cost any gas.";
+const SIWE_STATEMENT =
+  "Sign in to NuraAI. This request will not trigger a transaction or cost any gas.";
 const NONCE_TTL_MS = 5 * 60 * 1000;
 
 export function SessionProvider({ children }: { children: ReactNode }): ReactNode {
@@ -127,7 +136,10 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
       const refreshToken = tokensRef.current.refreshToken;
       if (refreshToken === null) return null;
       try {
-        const http = new Http(() => null, () => Promise.resolve(null));
+        const http = new Http(
+          () => null,
+          () => Promise.resolve(null),
+        );
         const next = await refreshSession(http, refreshToken);
         applyTokens(next);
         return next.accessToken;
@@ -176,7 +188,10 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
       const address = await connectWallet();
 
       setStep("requesting-nonce");
-      const nonceHttp = new Http(() => null, () => Promise.resolve(null));
+      const nonceHttp = new Http(
+        () => null,
+        () => Promise.resolve(null),
+      );
       const { nonce, expiresAt } = await requestWalletNonce(nonceHttp, address);
       if (new Date(expiresAt).getTime() <= Date.now()) {
         throw new ApiError("NONCE_EXPIRED", 400, "The nonce expired before use.", null);
@@ -191,7 +206,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
         // Chain id is validated server-side against SIWE_CHAIN_ID, which the
         // message's Chain ID line must match exactly. It is a build-time
         // public value inlined by vite (see config.js), never a secret.
-        chainId: CHAIN_ID,
+        chainId: SIWE_CHAIN_ID,
         statement: SIWE_STATEMENT,
         issuedAt: new Date(),
         expirationTime: new Date(Date.now() + NONCE_TTL_MS),
@@ -213,7 +228,10 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
     const refreshToken = tokensRef.current.refreshToken;
     if (refreshToken !== null) {
       try {
-        const http = new Http(() => null, () => Promise.resolve(null));
+        const http = new Http(
+          () => null,
+          () => Promise.resolve(null),
+        );
         await logout(http, refreshToken);
       } catch {
         // Revocation is server-side cleanup; the local session ends regardless.
@@ -232,7 +250,10 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
     });
   }, []);
 
-  const http = useMemo(() => new Http(() => tokensRef.current.accessToken, refreshWithLock), [refreshWithLock]);
+  const http = useMemo(
+    () => new Http(() => tokensRef.current.accessToken, refreshWithLock),
+    [refreshWithLock],
+  );
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -253,7 +274,8 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
 
 function classifySignInError(caught: unknown): SignInError {
   if (caught instanceof Error) {
-    if (caught.message === "no-provider" || caught.message === "no-accounts") return { kind: "no-provider" };
+    if (caught.message === "no-provider" || caught.message === "no-accounts")
+      return { kind: "no-provider" };
     // User closed the wallet prompt: retryable, and not an API failure.
     if (caught.message === "user rejected" || (caught as { code?: number }).code === 4001) {
       return { kind: "wallet-rejected" };

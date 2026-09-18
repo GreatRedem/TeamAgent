@@ -36,7 +36,12 @@ export function SignInScreen(): ReactNode {
 
         {error !== null ? <SignInErrorNote error={error} onRetry={resetError} /> : null}
 
-        <button type="button" className="button button-primary" disabled={busy} onClick={() => void signIn()}>
+        <button
+          type="button"
+          className="button button-primary"
+          disabled={busy}
+          onClick={() => void signIn()}
+        >
           {step === null
             ? t("signin.connect")
             : step === "connecting"
@@ -55,7 +60,13 @@ export function SignInScreen(): ReactNode {
   );
 }
 
-function SignInErrorNote({ error, onRetry }: { error: SignInError; onRetry: () => void }): ReactNode {
+function SignInErrorNote({
+  error,
+  onRetry,
+}: {
+  error: SignInError;
+  onRetry: () => void;
+}): ReactNode {
   const { t } = useTranslation();
   const key =
     error.kind === "no-provider"

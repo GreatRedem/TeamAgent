@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "npm --workspace @nuraai/api exec --no -- vitest run --root ../web",
     "preview": "vite preview"
   },
   "dependencies": {

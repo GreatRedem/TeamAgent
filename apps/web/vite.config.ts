@@ -17,6 +17,7 @@ export default defineConfig(() => {
   const apiBaseUrl = process.env.VITE_API_BASE_URL ?? "";
 
   return {
+    envDir: false as const,
     plugins: [react()],
     define: {
       __API_BASE_URL__: JSON.stringify(apiBaseUrl),

@@ -83,7 +83,9 @@ function writeJson(key: string, value: unknown): void {
 export const tokenStore = {
   read(): StoredTokens | null {
     const value = readJson<StoredTokens>(TOKEN_KEY);
-    return value !== null && typeof value.accessToken === "string" && typeof value.refreshToken === "string"
+    return value !== null &&
+      typeof value.accessToken === "string" &&
+      typeof value.refreshToken === "string"
       ? value
       : null;
   },
@@ -102,7 +104,9 @@ export const tokenStore = {
 
 export function readActiveTeam(): ActiveTeam | null {
   const value = readJson<ActiveTeam>(TEAM_KEY);
-  return value !== null && typeof value.id === "string" && typeof value.name === "string" ? value : null;
+  return value !== null && typeof value.id === "string" && typeof value.name === "string"
+    ? value
+    : null;
 }
 
 export function writeActiveTeam(team: ActiveTeam): void {
