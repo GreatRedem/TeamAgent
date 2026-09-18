@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   auditLogs,
+  knowledgeBases,
   knowledgeChunks,
   knowledgeItems,
   models,
   permissions,
   roles,
+  rolePermissions,
+  teamMembers,
   toolCalls,
   tools,
 } from "../../db/schema/index.js";
@@ -195,6 +198,439 @@ describe("knowledge bases and items", () => {
   });
 });
 
+describe("knowledge item reads", () => {
+  let readBaseId: string;
+  let emptyBaseId: string;
+  let foreignTeamId: string;
+  let foreignBaseId: string;
+  let foreignItemId: string;
+  let itemId: string;
+  const content = ` \t\r\n${"Full review text with  spaces.\n\t".repeat(2000)}\r\n  `;
+  const metadata = { tags: ["review", "manual"], nested: { enabled: true, count: 3 }, empty: null };
+
+  function itemsUrl(base = readBaseId, team = f.teamId): string {
+    return `/teams/${team}/knowledge/${base}/items`;
+  }
+
+  async function read(url: string, token = f.memberUser.accessToken) {
+    return f.app.inject({ method: "GET", url, headers: authHeader(token) });
+  }
+
+  function encodeCursor(value: unknown): string {
+    return Buffer.from(JSON.stringify(value)).toString("base64url");
+  }
+
+  beforeAll(async () => {
+    readBaseId = randomUUID();
+    emptyBaseId = randomUUID();
+    await f.t.db.insert(knowledgeBases).values([
+      { id: readBaseId, teamId: f.teamId, name: "Review reads" },
+      { id: emptyBaseId, teamId: f.teamId, name: "Empty reads" },
+    ]);
+    const created = await f.app.inject({
+      method: "POST",
+      url: itemsUrl(),
+      headers: authHeader(f.owner.accessToken),
+      payload: { title: "Full document", content, metadata, ingested_from: "manual-import" },
+    });
+    expect(created.statusCode).toBe(200);
+    itemId = (created.json() as { data: { id: string } }).data.id;
+    const team = await f.app.inject({
+      method: "POST",
+      url: "/teams",
+      headers: authHeader(f.owner.accessToken),
+      payload: { name: "Other knowledge tenant" },
+    });
+    foreignTeamId = (team.json() as { data: { id: string } }).data.id;
+    foreignBaseId = randomUUID();
+    foreignItemId = randomUUID();
+    await f.t.db
+      .insert(knowledgeBases)
+      .values({ id: foreignBaseId, teamId: foreignTeamId, name: "Foreign reads" });
+    await f.t.db.insert(knowledgeItems).values({
+      id: foreignItemId,
+      teamId: foreignTeamId,
+      knowledgeBaseId: foreignBaseId,
+      content: "Other tenant document",
+    });
+  });
+
+  it("paginates exact PostgreSQL microseconds and tied dates without missing or duplicate items", async () => {
+    const paginationBaseId = randomUUID();
+    await f.t.db
+      .insert(knowledgeBases)
+      .values({ id: paginationBaseId, teamId: f.teamId, name: "Microseconds" });
+    const ids = [1, 2, 3, 4, 5, 6].map(
+      (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+    );
+    const timestamps = ["123999", "123999", "123998", "123001", "123000", "122999"];
+    for (const [index, id] of ids.entries()) {
+      const timestamp = `2026-09-17T12:00:00.${timestamps[index]}Z`;
+      await f.t.db.insert(knowledgeItems).values({
+        id,
+        teamId: f.teamId,
+        knowledgeBaseId: paginationBaseId,
+        content: "Pagination fixture",
+        createdAt: sql`${timestamp}::timestamptz`,
+      });
+    }
+    const expected = [ids[1], ids[0], ids[2], ids[3], ids[4], ids[5]];
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < ids.length; page += 1) {
+      const response = await read(
+        `${itemsUrl(paginationBaseId)}?limit=1${cursor === null ? "" : `&cursor=${cursor}`}`,
+      );
+      expect(response.statusCode).toBe(200);
+      const data = (
+        response.json() as {
+          data: {
+            items: Array<{ id: string; created_at: string }>;
+            next_cursor: string | null;
+            has_more: boolean;
+          };
+        }
+      ).data;
+      expect(data.items).toHaveLength(1);
+      expect(data.items[0]?.id).toBe(expected[page]);
+      seen.push(data.items[0]!.id);
+      expect(data.has_more).toBe(page < ids.length - 1);
+      if (data.has_more) {
+        expect(typeof data.next_cursor).toBe("string");
+        const decoded = JSON.parse(
+          Buffer.from(data.next_cursor!, "base64url").toString("utf8"),
+        ) as { created_at: string };
+        expect(decoded.created_at).toBe(data.items[0]?.created_at);
+      } else {
+        expect(data.next_cursor).toBeNull();
+      }
+      cursor = data.next_cursor;
+    }
+    expect(seen).toEqual(expected);
+    expect(new Set(seen).size).toBe(ids.length);
+  });
+
+  it("returns explicit summary and detail contracts with full unmodified content", async () => {
+    const detail = await read(`${itemsUrl()}/${itemId}`);
+    expect(detail.statusCode).toBe(200);
+    const row = (
+      await f.t.db.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId))
+    )[0]!;
+    const summary = {
+      id: itemId,
+      knowledge_base_id: readBaseId,
+      title: "Full document",
+      trust_level: "untrusted",
+      trusted_by: null,
+      trusted_at: null,
+      ingested_from: "manual-import",
+      ingested_by: f.owner.userId,
+      created_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/),
+    };
+    expect(detail.json()).toEqual({
+      success: true,
+      data: { ...summary, content, metadata },
+      error: null,
+      request_id: expect.any(String),
+    });
+    expect(
+      new Date((detail.json() as { data: { created_at: string } }).data.created_at).toISOString(),
+    ).toBe(row.createdAt.toISOString());
+    const list = await read(itemsUrl());
+    expect(list.statusCode).toBe(200);
+    expect(list.json()).toEqual({
+      success: true,
+      data: { items: [summary], next_cursor: null, has_more: false },
+      error: null,
+      request_id: expect.any(String),
+    });
+  });
+
+  it("preserves null title, metadata, origin and ingestion identity and distinguishes empty metadata", async () => {
+    for (const value of [null, {}]) {
+      const id = randomUUID();
+      await f.t.db.insert(knowledgeItems).values({
+        id,
+        teamId: f.teamId,
+        knowledgeBaseId: readBaseId,
+        content: " nullable \n",
+        metadata: value,
+      });
+      const response = await read(`${itemsUrl()}/${id}`);
+      expect(response.statusCode).toBe(200);
+      const summary = {
+        id,
+        knowledge_base_id: readBaseId,
+        title: null,
+        trust_level: "untrusted",
+        trusted_by: null,
+        trusted_at: null,
+        ingested_from: null,
+        ingested_by: null,
+        created_at: expect.any(String),
+      };
+      expect((response.json() as { data: unknown }).data).toEqual({
+        ...summary,
+        content: " nullable \n",
+        metadata: value,
+      });
+      const list = await read(itemsUrl());
+      expect((list.json() as { data: { items: unknown[] } }).data.items).toContainEqual(summary);
+    }
+  });
+
+  it("reads live trust and revoke attribution without changing ingestion attribution", async () => {
+    for (const trusted of [true, false]) {
+      const marked = await f.app.inject({
+        method: "POST",
+        url: `${itemsUrl()}/${itemId}/trust`,
+        headers: authHeader(f.owner.accessToken),
+        payload: { trusted },
+      });
+      expect(marked.statusCode).toBe(200);
+      const stored = (
+        await f.t.db.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId))
+      )[0]!;
+      const expected = {
+        trust_level: trusted ? "trusted" : "untrusted",
+        trusted_by: trusted ? f.owner.userId : null,
+        trusted_at: trusted ? expect.any(String) : null,
+        ingested_by: f.owner.userId,
+        ingested_from: "manual-import",
+      };
+      const detail = await read(`${itemsUrl()}/${itemId}`);
+      expect(detail.statusCode).toBe(200);
+      const data = (detail.json() as { data: { trusted_at: string | null } }).data;
+      expect(data).toMatchObject({ ...expected, content, metadata });
+      expect(data.trusted_at === null ? null : new Date(data.trusted_at).toISOString()).toBe(
+        stored.trustedAt?.toISOString() ?? null,
+      );
+      const list = await read(itemsUrl());
+      expect(
+        (list.json() as { data: { items: Array<{ id: string }> } }).data.items.find(
+          (item) => item.id === itemId,
+        ),
+      ).toMatchObject(expected);
+    }
+  });
+
+  it("requires authentication and live knowledge.read rather than knowledge.write", async () => {
+    const user = await signInFresh(f.app);
+    const roleId = randomUUID();
+    await f.t.db
+      .insert(roles)
+      .values({ id: roleId, teamId: f.teamId, name: "Knowledge write only" });
+    await f.t.db
+      .insert(teamMembers)
+      .values({ id: randomUUID(), teamId: f.teamId, userId: user.userId, roleId });
+    await f.t.db
+      .insert(rolePermissions)
+      .values({ id: randomUUID(), roleId, permissionId: await permissionId(f, "knowledge.write") });
+    const readGrantId = randomUUID();
+    for (const url of [itemsUrl(), `${itemsUrl()}/${itemId}`]) {
+      const anonymous = await f.app.inject({ method: "GET", url });
+      expect(anonymous.statusCode).toBe(401);
+      expect(anonymous.json()).toMatchObject({
+        success: false,
+        data: null,
+        error: { code: "UNAUTHORIZED" },
+      });
+      const denied = await read(url, user.accessToken);
+      expect(denied.statusCode).toBe(403);
+      expect(denied.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
+    }
+    await f.t.db
+      .insert(rolePermissions)
+      .values({ id: readGrantId, roleId, permissionId: await permissionId(f, "knowledge.read") });
+    for (const url of [itemsUrl(), `${itemsUrl()}/${itemId}`])
+      expect((await read(url, user.accessToken)).statusCode).toBe(200);
+    await f.t.db.delete(rolePermissions).where(eq(rolePermissions.id, readGrantId));
+    for (const url of [itemsUrl(), `${itemsUrl()}/${itemId}`])
+      expect((await read(url, user.accessToken)).statusCode).toBe(403);
+  });
+
+  it("returns NOT_FOUND for missing, wrong-base and cross-team resources", async () => {
+    const missing = randomUUID();
+    const urls = [
+      itemsUrl(missing),
+      `${itemsUrl(missing)}/${itemId}`,
+      `${itemsUrl()}/${missing}`,
+      `${itemsUrl(emptyBaseId)}/${itemId}`,
+      itemsUrl(foreignBaseId),
+      `${itemsUrl(foreignBaseId)}/${foreignItemId}`,
+      `${itemsUrl()}/${foreignItemId}`,
+      itemsUrl(foreignBaseId, foreignTeamId),
+      `${itemsUrl(foreignBaseId, foreignTeamId)}/${foreignItemId}`,
+    ];
+    for (const url of urls) {
+      const response = await read(url);
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toMatchObject({
+        success: false,
+        data: null,
+        error: { code: "NOT_FOUND" },
+      });
+    }
+    const inconsistentId = randomUUID();
+    await f.t.db.insert(knowledgeItems).values({
+      id: inconsistentId,
+      teamId: foreignTeamId,
+      knowledgeBaseId: readBaseId,
+      content: "Inconsistent legacy tenant",
+    });
+    const detail = await read(`${itemsUrl()}/${inconsistentId}`);
+    expect(detail.statusCode).toBe(404);
+    const list = await read(itemsUrl());
+    expect(
+      (list.json() as { data: { items: Array<{ id: string }> } }).data.items.some(
+        (item) => item.id === inconsistentId,
+      ),
+    ).toBe(false);
+    const foreignBase = await read(itemsUrl(foreignBaseId), f.owner.accessToken);
+    expect(foreignBase.statusCode).toBe(404);
+    const foreignDetail = await read(
+      `${itemsUrl(foreignBaseId)}/${foreignItemId}`,
+      f.owner.accessToken,
+    );
+    expect(foreignDetail.statusCode).toBe(404);
+  });
+
+  it("returns an empty page and enforces default 50 and maximum 200", async () => {
+    const empty = await read(itemsUrl(emptyBaseId));
+    expect(empty.statusCode).toBe(200);
+    expect((empty.json() as { data: unknown }).data).toEqual({
+      items: [],
+      next_cursor: null,
+      has_more: false,
+    });
+    const largeBase = randomUUID();
+    await f.t.db
+      .insert(knowledgeBases)
+      .values({ id: largeBase, teamId: f.teamId, name: "Large read list" });
+    await f.t.db.insert(knowledgeItems).values(
+      Array.from({ length: 201 }, () => ({
+        id: randomUUID(),
+        teamId: f.teamId,
+        knowledgeBaseId: largeBase,
+        content: "List cap",
+      })),
+    );
+    for (const [query, count] of [
+      ["", 50],
+      ["?limit=200", 200],
+    ] as const) {
+      const first = await read(`${itemsUrl(largeBase)}${query}`);
+      expect(first.statusCode).toBe(200);
+      const page = (
+        first.json() as {
+          data: { items: Array<{ id: string }>; has_more: boolean; next_cursor: string };
+        }
+      ).data;
+      expect(page.items).toHaveLength(count);
+      expect(page.has_more).toBe(true);
+      const last = await read(`${itemsUrl(largeBase)}?limit=200&cursor=${page.next_cursor}`);
+      const remainder = (
+        last.json() as {
+          data: { items: Array<{ id: string }>; has_more: boolean; next_cursor: null };
+        }
+      ).data;
+      expect(remainder.items).toHaveLength(201 - count);
+      expect(remainder.has_more).toBe(false);
+      expect(remainder.next_cursor).toBeNull();
+      expect(new Set([...page.items, ...remainder.items].map((item) => item.id)).size).toBe(201);
+    }
+  });
+
+  it.each([
+    "",
+    "0",
+    "-1",
+    "201",
+    "1.5",
+    "1e2",
+    "abc",
+    " 2",
+    "2 ",
+    "01",
+    "999999999999999999999",
+    "2&limit=3",
+  ])("rejects malformed limit %j with controlled INVALID_INPUT", async (limit) => {
+    const response = await read(
+      `${itemsUrl()}?limit=${limit === "2&limit=3" ? limit : encodeURIComponent(limit)}`,
+    );
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      success: false,
+      data: null,
+      error: { code: "INVALID_INPUT" },
+    });
+  });
+
+  it("rejects malformed, invalid-date, invalid-uuid and foreign-scope cursors", async () => {
+    const valid = {
+      version: 1,
+      team_id: f.teamId,
+      knowledge_base_id: readBaseId,
+      id: itemId,
+      created_at: "2026-09-17T12:00:00.123456Z",
+    };
+    const cursors = [
+      "",
+      "not-a-cursor",
+      "*",
+      "a".repeat(1025),
+      Buffer.from("{").toString("base64url"),
+      encodeCursor(null),
+      encodeCursor([]),
+      encodeCursor({}),
+      `${encodeCursor(valid)}=`,
+      ...[
+        { id: "invalid" },
+        { id: "1" },
+        { created_at: "2026-02-30T12:00:00.123456Z" },
+        { created_at: "2026-09-17T25:00:00.123456Z" },
+        { created_at: "2026-09-17T12:00:00.123Z" },
+        { created_at: "2026-09-17T12:00:00.123456+00:00" },
+        { created_at: "infinity" },
+        { created_at: "0000-01-01T00:00:00.000000Z" },
+        { created_at: null },
+        { version: 2 },
+        { extra: true },
+        { team_id: foreignTeamId },
+        { knowledge_base_id: emptyBaseId },
+        { team_id: "invalid" },
+        { knowledge_base_id: "invalid" },
+      ].map((change) => encodeCursor({ ...valid, ...change })),
+    ];
+    for (const cursor of cursors) {
+      const response = await read(`${itemsUrl()}?cursor=${encodeURIComponent(cursor)}`);
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        success: false,
+        data: null,
+        error: { code: "INVALID_CURSOR" },
+      });
+    }
+    const duplicate = await read(
+      `${itemsUrl()}?cursor=${encodeCursor(valid)}&cursor=${encodeCursor(valid)}`,
+    );
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json()).toMatchObject({ error: { code: "INVALID_INPUT" } });
+  });
+
+  it("validates resource UUIDs before database queries", async () => {
+    for (const url of [
+      itemsUrl("invalid"),
+      `${itemsUrl("invalid")}/${itemId}`,
+      `${itemsUrl()}/invalid`,
+    ]) {
+      const response = await read(url);
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ error: { code: "INVALID_INPUT" } });
+    }
+  });
+});
+
 describe("trust marking", () => {
   let itemId: string;
 
@@ -236,7 +672,13 @@ describe("trust marking", () => {
     const audits = await f.t.db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.teamId, f.teamId), eq(auditLogs.action, "knowledge.item.trust")));
+      .where(
+        and(
+          eq(auditLogs.teamId, f.teamId),
+          eq(auditLogs.action, "knowledge.item.trust"),
+          eq(auditLogs.resourceId, itemId),
+        ),
+      );
     expect(audits.filter((a) => a.outcome === "allowed")).toHaveLength(2);
   });
 

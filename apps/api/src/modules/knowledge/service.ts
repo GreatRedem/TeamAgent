@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   agentKnowledgeBases,
   agents,
@@ -91,6 +92,159 @@ export async function listBases(database: AnyDb, teamId: string): Promise<unknow
 
 export async function getBase(database: AnyDb, teamId: string, baseId: string): Promise<unknown> {
   return toBaseJson(await requireBase(database, teamId, baseId));
+}
+
+export interface KnowledgeItemSummary {
+  id: string;
+  knowledge_base_id: string;
+  title: string | null;
+  trust_level: string;
+  trusted_by: string | null;
+  trusted_at: string | null;
+  ingested_from: string | null;
+  ingested_by: string | null;
+  created_at: string;
+}
+
+export interface KnowledgeItemDetail extends KnowledgeItemSummary {
+  content: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface KnowledgeItemPage {
+  items: KnowledgeItemSummary[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+const itemSummarySelection = {
+  id: knowledgeItems.id,
+  knowledge_base_id: knowledgeItems.knowledgeBaseId,
+  title: knowledgeItems.title,
+  trust_level: knowledgeItems.trustLevel,
+  trusted_by: knowledgeItems.trustedBy,
+  trusted_at: sql<
+    string | null
+  >`to_char(${knowledgeItems.trustedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+  ingested_from: knowledgeItems.ingestedFrom,
+  ingested_by: knowledgeItems.ingestedBy,
+  created_at: sql<string>`to_char(${knowledgeItems.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+};
+
+const ItemCursor = z
+  .object({
+    version: z.literal(1),
+    team_id: z.string().uuid(),
+    knowledge_base_id: z.string().uuid(),
+    id: z.string().uuid(),
+    created_at: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/)
+      .refine((value) => {
+        const milliseconds = value.replace(/\d{3}Z$/, "Z");
+        const date = new Date(milliseconds);
+        return (
+          Number.isFinite(date.getTime()) &&
+          date.getUTCFullYear() >= 1 &&
+          date.toISOString() === milliseconds
+        );
+      }),
+  })
+  .strict();
+
+function decodeItemCursor(
+  value: string,
+  teamId: string,
+  baseId: string,
+): z.infer<typeof ItemCursor> {
+  try {
+    if (value.length === 0 || value.length > 1024 || !/^[A-Za-z0-9_-]+$/.test(value)) {
+      throw new Error("Invalid encoding");
+    }
+    const decoded = Buffer.from(value, "base64url");
+    if (decoded.toString("base64url") !== value) throw new Error("Invalid encoding");
+    const cursor = ItemCursor.parse(JSON.parse(decoded.toString("utf8")));
+    if (cursor.team_id !== teamId || cursor.knowledge_base_id !== baseId) {
+      throw new Error("Invalid scope");
+    }
+    return cursor;
+  } catch {
+    throw badRequest("INVALID_CURSOR", "The knowledge item cursor is invalid.");
+  }
+}
+
+export async function listItems(
+  database: AnyDb,
+  input: { teamId: string; baseId: string; limit?: number; cursor?: string },
+): Promise<KnowledgeItemPage> {
+  const limit = input.limit ?? 50;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+    throw badRequest("INVALID_INPUT", "Limit must be an integer between 1 and 200.");
+  }
+  await requireBase(database, input.teamId, input.baseId);
+  const cursor =
+    input.cursor === undefined
+      ? undefined
+      : decodeItemCursor(input.cursor, input.teamId, input.baseId);
+  const rows = await database
+    .select(itemSummarySelection)
+    .from(knowledgeItems)
+    .where(
+      and(
+        eq(knowledgeItems.teamId, input.teamId),
+        eq(knowledgeItems.knowledgeBaseId, input.baseId),
+        cursor === undefined
+          ? undefined
+          : sql`(${knowledgeItems.createdAt}, ${knowledgeItems.id}) < (${cursor.created_at}::timestamptz, ${cursor.id}::uuid)`,
+      ),
+    )
+    .orderBy(desc(knowledgeItems.createdAt), desc(knowledgeItems.id))
+    .limit(limit + 1);
+  const items = rows.slice(0, limit);
+  const hasMore = rows.length > limit;
+  const last = items.at(-1);
+  return {
+    items,
+    next_cursor:
+      hasMore && last !== undefined
+        ? Buffer.from(
+            JSON.stringify({
+              version: 1,
+              team_id: input.teamId,
+              knowledge_base_id: input.baseId,
+              id: last.id,
+              created_at: last.created_at,
+            }),
+          ).toString("base64url")
+        : null,
+    has_more: hasMore,
+  };
+}
+
+export async function getItem(
+  database: AnyDb,
+  teamId: string,
+  baseId: string,
+  itemId: string,
+): Promise<KnowledgeItemDetail> {
+  await requireBase(database, teamId, baseId);
+  const rows = await database
+    .select({
+      ...itemSummarySelection,
+      content: knowledgeItems.content,
+      metadata: knowledgeItems.metadata,
+    })
+    .from(knowledgeItems)
+    .where(
+      and(
+        eq(knowledgeItems.teamId, teamId),
+        eq(knowledgeItems.knowledgeBaseId, baseId),
+        eq(knowledgeItems.id, itemId),
+      ),
+    );
+  const item = rows[0];
+  if (item === undefined) throw notFound("Knowledge item");
+  return item;
 }
 
 export async function createItem(

@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { config } from "./config.js";
 import { checkDatabase, pool } from "./db/pool.js";
+import { checkMigrations } from "./db/check-migrations.js";
 import { db } from "./db/db.js";
 import { RateLimiter } from "./modules/auth/rate-limit.js";
 import { parseDurationSeconds } from "./modules/auth/tokens.js";
@@ -62,7 +63,11 @@ app.addHook("onClose", async () => {
 
 // Liveness / readiness / startup (docs/22): registered here on the
 // production app and exercised verbatim by the e2e suite.
-await registerHealthRoutes(app, { checkDatabase, serviceName: config.OTEL_SERVICE_NAME });
+await registerHealthRoutes(app, {
+  checkDatabase,
+  checkMigrations: () => checkMigrations(db),
+  serviceName: config.OTEL_SERVICE_NAME,
+});
 
 // Product routes. The API contract is docs/15-api.md; the trust model that
 // constrains it is docs/17-threat-model.md.

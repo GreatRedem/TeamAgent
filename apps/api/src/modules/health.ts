@@ -15,6 +15,7 @@ export async function registerHealthRoutes(
   app: FastifyInstance,
   deps: {
     checkDatabase: () => Promise<void>;
+    checkMigrations: () => Promise<void>;
     serviceName: string;
   },
 ): Promise<void> {
@@ -27,6 +28,7 @@ export async function registerHealthRoutes(
     const checks: Record<string, "ok" | "failed"> = {
       config: "ok",
       database: "failed",
+      migrations: "failed",
     };
 
     try {
@@ -34,6 +36,13 @@ export async function registerHealthRoutes(
       checks.database = "ok";
     } catch (error) {
       app.log.warn({ err: error }, "database readiness check failed");
+    }
+
+    try {
+      await deps.checkMigrations();
+      checks.migrations = "ok";
+    } catch (error) {
+      app.log.warn({ err: error }, "migration readiness check failed");
     }
 
     const ready = Object.values(checks).every((c) => c === "ok");

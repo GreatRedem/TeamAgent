@@ -7,7 +7,9 @@ import {
   createBase,
   createItem,
   getBase,
+  getItem,
   listBases,
+  listItems,
   searchKnowledge,
   setItemTrust,
 } from "./service.js";
@@ -22,6 +24,20 @@ const CreateItemBody = z.object({
   content: z.string().min(1).max(100_000),
   metadata: z.record(z.string(), z.unknown()).optional(),
   ingested_from: z.string().min(1).max(2000).optional(),
+});
+const ItemReadParams = z.object({
+  teamId: z.string().uuid(),
+  knowledgeId: z.string().uuid(),
+});
+const ItemDetailParams = ItemReadParams.extend({ itemId: z.string().uuid() });
+const ItemListQuery = z.object({
+  limit: z
+    .string()
+    .regex(/^[1-9]\d{0,2}$/)
+    .transform(Number)
+    .pipe(z.number().max(200))
+    .optional(),
+  cursor: z.string().optional(),
 });
 const TrustBody = z.object({ trusted: z.boolean() });
 const SearchBody = z.object({
@@ -41,6 +57,19 @@ function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
     }
     throw error;
   }
+}
+
+function parseReadInput<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw badRequest("INVALID_INPUT", "The request parameters are invalid.", {
+      issues: result.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+  }
+  return result.data;
 }
 
 function meta(request: { ip: string; headers: Record<string, unknown> }): {
@@ -91,6 +120,25 @@ export async function knowledgeRoutes(app: FastifyInstance, deps: ApiDeps): Prom
     async (request, reply) => {
       const { teamId, knowledgeId } = request.params as { teamId: string; knowledgeId: string };
       return ok(reply, await getBase(deps.db, teamId, knowledgeId));
+    },
+  );
+
+  app.get(
+    "/teams/:teamId/knowledge/:knowledgeId/items",
+    { preHandler: [auth, scope, read] },
+    async (request, reply) => {
+      const { teamId, knowledgeId } = parseReadInput(ItemReadParams, request.params);
+      const query = parseReadInput(ItemListQuery, request.query);
+      return ok(reply, await listItems(deps.db, { teamId, baseId: knowledgeId, ...query }));
+    },
+  );
+
+  app.get(
+    "/teams/:teamId/knowledge/:knowledgeId/items/:itemId",
+    { preHandler: [auth, scope, read] },
+    async (request, reply) => {
+      const { teamId, knowledgeId, itemId } = parseReadInput(ItemDetailParams, request.params);
+      return ok(reply, await getItem(deps.db, teamId, knowledgeId, itemId));
     },
   );
 

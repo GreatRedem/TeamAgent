@@ -36,6 +36,24 @@ export interface ApprovalFilters {
 
 type ApprovalRow = typeof approvalRequests.$inferSelect;
 
+export interface ApprovalView {
+  id: string;
+  status: string;
+  run_id: string | null;
+  agent: { id: string; name: string | null } | null;
+  proposed_action: ApprovalRow["proposedAction"];
+  context_trust_level: string | null;
+  triggering_content: string | null;
+  triggering_origin: unknown;
+  expires_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  created_at: string;
+  trace_id: string | null;
+  tool_call_id: string | null;
+  decision_reason: string | null;
+}
+
 function parseOrigin(raw: string | null): unknown {
   if (raw === null) return null;
   try {
@@ -57,16 +75,33 @@ async function toApprovalView(
   database: AnyDb,
   teamId: string,
   approval: ApprovalRow,
-): Promise<unknown> {
-  const runRows = await database
-    .select({ agentId: agentRuns.agentId })
-    .from(agentRuns)
-    .where(and(eq(agentRuns.id, approval.agentRunId ?? ""), eq(agentRuns.teamId, teamId)));
-  const agentId = runRows[0]?.agentId ?? null;
-  const callRows =
-    approval.toolCallId === null
+): Promise<ApprovalView> {
+  const runRows =
+    approval.agentRunId === null
       ? []
-      : await database.select().from(toolCalls).where(eq(toolCalls.id, approval.toolCallId));
+      : await database
+          .select({ id: agentRuns.id, agentId: agentRuns.agentId, traceId: agentRuns.traceId })
+          .from(agentRuns)
+          .where(and(eq(agentRuns.id, approval.agentRunId), eq(agentRuns.teamId, teamId)));
+  const run = runRows[0];
+  const agentId = run?.agentId ?? null;
+  const callRows =
+    approval.toolCallId === null || run === undefined
+      ? []
+      : await database
+          .select({
+            id: toolCalls.id,
+            contextTrustLevel: toolCalls.contextTrustLevel,
+            decisionReason: toolCalls.decisionReason,
+          })
+          .from(toolCalls)
+          .where(
+            and(
+              eq(toolCalls.id, approval.toolCallId),
+              eq(toolCalls.teamId, teamId),
+              eq(toolCalls.agentRunId, run.id),
+            ),
+          );
   const call = callRows[0];
   return {
     id: approval.id,
@@ -81,6 +116,10 @@ async function toApprovalView(
     expires_at: approval.expiresAt.toISOString(),
     decided_by: approval.decidedBy,
     decided_at: approval.decidedAt ? approval.decidedAt.toISOString() : null,
+    created_at: approval.createdAt.toISOString(),
+    trace_id: run?.traceId ?? null,
+    tool_call_id: call?.id ?? null,
+    decision_reason: call?.decisionReason ?? null,
   };
 }
 
@@ -88,7 +127,7 @@ export async function listApprovals(
   database: AnyDb,
   teamId: string,
   filters: ApprovalFilters,
-): Promise<unknown[]> {
+): Promise<ApprovalView[]> {
   let runIds: string[] | null = null;
   if (filters.agentId !== undefined) {
     const runs = await database
@@ -110,10 +149,7 @@ export async function listApprovals(
     );
   let views = await Promise.all(rows.map((r) => toApprovalView(database, teamId, r)));
   if (filters.contextTrustLevel !== undefined) {
-    views = views.filter(
-      (v) =>
-        (v as { context_trust_level?: unknown }).context_trust_level === filters.contextTrustLevel,
-    );
+    views = views.filter((v) => v.context_trust_level === filters.contextTrustLevel);
   }
   return views;
 }
@@ -122,7 +158,7 @@ export async function getApproval(
   database: AnyDb,
   teamId: string,
   approvalId: string,
-): Promise<unknown> {
+): Promise<ApprovalView> {
   const rows = await database
     .select()
     .from(approvalRequests)

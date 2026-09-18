@@ -14,5 +14,12 @@
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["tests"]
+  "exclude": [
+    "tests",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/db/harness.ts",
+    "src/modules/test-app.ts",
+    "src/security/corpus.ts"
+  ]
 }

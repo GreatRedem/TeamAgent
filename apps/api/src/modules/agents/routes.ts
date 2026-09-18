@@ -7,6 +7,7 @@ import {
   createAgent,
   deleteAgent,
   getAgent,
+  getAgentCatalogs,
   getGrants,
   listAgents,
   replaceAgentKnowledge,
@@ -120,6 +121,14 @@ export async function agentRoutes(app: FastifyInstance, deps: ApiDeps): Promise<
     const { teamId } = request.params as { teamId: string };
     return ok(reply, { agents: await listAgents(deps.db, teamId) });
   });
+
+  app.get(
+    "/teams/:teamId/agents/catalogs",
+    { preHandler: [auth, scope, edit] },
+    async (_request, reply) => {
+      return ok(reply, await getAgentCatalogs(deps.db));
+    },
+  );
 
   app.get(
     "/teams/:teamId/agents/:agentId",

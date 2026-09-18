@@ -79,6 +79,182 @@ async function createAgent(token: string, payload: Record<string, unknown>): Pro
   return (res.json() as { data: { id: string } }).data.id;
 }
 
+describe("agent catalogs", () => {
+  it("returns active model metadata in the standard envelope", async () => {
+    const activeId = randomUUID();
+    await t.t.db.insert(models).values([
+      {
+        id: activeId,
+        provider: "catalog-provider",
+        name: "catalog-active",
+        version: "1",
+        capabilities: { chat: true },
+      },
+      {
+        id: randomUUID(),
+        provider: "catalog-provider",
+        name: "catalog-disabled",
+        version: "1",
+        status: "disabled",
+      },
+      {
+        id: randomUUID(),
+        provider: "catalog-provider",
+        name: "catalog-deprecated",
+        version: "1",
+        status: "deprecated",
+      },
+    ]);
+    const res = await t.app.inject({
+      method: "GET",
+      url: `/teams/${teamId}/agents/catalogs`,
+      headers: authHeader(managerUser.accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      success: true,
+      data: {
+        models: [
+          { id: activeId, name: "catalog-active", provider: "catalog-provider", status: "active" },
+        ],
+        permissions: expect.any(Array),
+      },
+      error: null,
+      request_id: expect.any(String),
+    });
+  });
+
+  it("returns permission metadata including null descriptions and excludes unsafe permissions", async () => {
+    const agentOnlyId = randomUUID();
+    const adminBothId = randomUUID();
+    const adminAgentId = randomUUID();
+    await t.t.db.insert(permissions).values([
+      {
+        id: agentOnlyId,
+        name: "catalog.read",
+        resource: "catalog",
+        action: "read",
+        riskTier: "read_only",
+        appliesTo: "agent",
+        description: null,
+      },
+      {
+        id: adminBothId,
+        name: "catalog.manage",
+        resource: "catalog",
+        action: "manage",
+        riskTier: "admin",
+        appliesTo: "both",
+      },
+      {
+        id: adminAgentId,
+        name: "catalog.admin",
+        resource: "catalog",
+        action: "admin",
+        riskTier: "admin",
+        appliesTo: "agent",
+      },
+    ]);
+    const res = await t.app.inject({
+      method: "GET",
+      url: `/teams/${teamId}/agents/catalogs`,
+      headers: authHeader(managerUser.accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const data = res.json() as {
+      data: {
+        permissions: Array<{
+          id: string;
+          name: string;
+          description: string | null;
+          risk_tier: string;
+        }>;
+      };
+    };
+    const rows = await t.t.db.select().from(permissions).orderBy(permissions.name, permissions.id);
+    expect(data.data.permissions).toEqual(
+      rows
+        .filter((p) => p.riskTier !== "admin" && ["agent", "both"].includes(p.appliesTo))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          risk_tier: p.riskTier,
+        })),
+    );
+    expect(data.data.permissions).toEqual(
+      expect.arrayContaining([
+        { id: agentOnlyId, name: "catalog.read", description: null, risk_tier: "read_only" },
+        {
+          id: await permissionId("message.reply"),
+          name: "message.reply",
+          description: "Reply on the conversation the request arrived on",
+          risk_tier: "reply",
+        },
+        {
+          id: await permissionId("message.send"),
+          name: "message.send",
+          description: "Send to a destination other than the origin",
+          risk_tier: "write",
+        },
+      ]),
+    );
+    const ids = data.data.permissions.map((p) => p.id);
+    for (const id of [
+      adminBothId,
+      adminAgentId,
+      await permissionId("team.manage"),
+      await permissionId("settings.view"),
+    ]) {
+      expect(ids).not.toContain(id);
+    }
+  });
+
+  it("requires authentication", async () => {
+    const res = await t.app.inject({ method: "GET", url: `/teams/${teamId}/agents/catalogs` });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({
+      success: false,
+      data: null,
+      error: { code: "UNAUTHORIZED" },
+    });
+  });
+
+  it("denies members with agent.use but without agent.edit", async () => {
+    const res = await t.app.inject({
+      method: "GET",
+      url: `/teams/${teamId}/agents/catalogs`,
+      headers: authHeader(memberUser.accessToken),
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ success: false, data: null, error: { code: "FORBIDDEN" } });
+  });
+
+  it("hides foreign teams even when the caller can edit agents in another team", async () => {
+    const created = await t.app.inject({
+      method: "POST",
+      url: "/teams",
+      headers: authHeader(outsider.accessToken),
+      payload: { name: "Foreign Catalog Team" },
+    });
+    expect(created.statusCode).toBe(200);
+    const foreignTeamId = (created.json() as { data: { id: string } }).data.id;
+    for (const requestedTeamId of [foreignTeamId, randomUUID()]) {
+      const res = await t.app.inject({
+        method: "GET",
+        url: `/teams/${requestedTeamId}/agents/catalogs`,
+        headers: authHeader(managerUser.accessToken),
+      });
+      expect(res.statusCode).toBe(404);
+      expect(res.json()).toMatchObject({
+        success: false,
+        data: null,
+        error: { code: "NOT_FOUND", message: "Team not found.", details: {} },
+      });
+    }
+  });
+});
+
 describe("agent CRUD", () => {
   it("gates creation on agent.create and validates the name", async () => {
     const denied = await t.app.inject({

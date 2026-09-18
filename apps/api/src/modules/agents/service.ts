@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import {
   agentKnowledgeBases,
   agentPermissions,
@@ -131,6 +131,34 @@ export async function createAgent(
 export async function listAgents(database: AnyDb, teamId: string): Promise<unknown[]> {
   const rows = await database.select().from(agents).where(eq(agents.teamId, teamId));
   return rows.map(toAgentJson);
+}
+
+export async function getAgentCatalogs(database: AnyDb) {
+  const [modelRows, permissionRows] = await Promise.all([
+    database
+      .select({
+        id: models.id,
+        name: models.name,
+        provider: models.provider,
+        status: models.status,
+      })
+      .from(models)
+      .where(eq(models.status, "active"))
+      .orderBy(models.name, models.id),
+    database
+      .select({
+        id: permissions.id,
+        name: permissions.name,
+        description: permissions.description,
+        risk_tier: permissions.riskTier,
+      })
+      .from(permissions)
+      .where(
+        and(ne(permissions.riskTier, "admin"), inArray(permissions.appliesTo, ["agent", "both"])),
+      )
+      .orderBy(permissions.name, permissions.id),
+  ]);
+  return { models: modelRows, permissions: permissionRows };
 }
 
 export async function getAgent(database: AnyDb, teamId: string, agentId: string): Promise<unknown> {

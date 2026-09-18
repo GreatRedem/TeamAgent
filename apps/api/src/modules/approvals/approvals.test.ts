@@ -8,6 +8,7 @@ import {
   models,
   permissions,
   roles,
+  teams,
   toolCalls,
   tools,
 } from "../../db/schema/index.js";
@@ -500,5 +501,196 @@ describe("approvals", () => {
     expect(view["triggering_origin"]).toMatchObject({ ingress_trust: "untrusted" });
     expect(JSON.stringify(view["proposed_action"])).toContain("http.fetch");
     expect(typeof view["expires_at"]).toBe("string");
+
+    const [approval] = await f.t.db
+      .select()
+      .from(approvalRequests)
+      .where(eq(approvalRequests.id, approvalId));
+    if (approval === undefined || approval.agentRunId === null || approval.toolCallId === null) {
+      throw new Error("Missing persisted approval relationship");
+    }
+    const [run] = await f.t.db
+      .select()
+      .from(agentRuns)
+      .where(eq(agentRuns.id, approval.agentRunId));
+    const [call] = await f.t.db
+      .select()
+      .from(toolCalls)
+      .where(eq(toolCalls.id, approval.toolCallId));
+    expect(run?.traceId).toEqual(expect.any(String));
+    expect(call?.decisionReason).toBe("write-requires-approval-on-untrusted");
+    expect(view).toEqual({
+      id: approvalId,
+      status: approval.status,
+      run_id: approval.agentRunId,
+      agent: { id: f.agentId, name: "Gated Runner" },
+      proposed_action: approval.proposedAction,
+      context_trust_level: call?.contextTrustLevel,
+      triggering_content: approval.triggeringContent,
+      triggering_origin: JSON.parse(approval.triggeringOrigin ?? "null"),
+      expires_at: approval.expiresAt.toISOString(),
+      decided_by: approval.decidedBy,
+      decided_at: null,
+      created_at: approval.createdAt.toISOString(),
+      trace_id: run?.traceId,
+      tool_call_id: call?.id,
+      decision_reason: call?.decisionReason,
+    });
+    expect(items.find((a) => a.id === approvalId)).toEqual(view);
+  });
+
+  it("returns null metadata for absent relationships and nullable persisted values", async () => {
+    const { runId, approvalId } = await suspendRun([
+      toolResult(f.writeToolId, "http.fetch", { url: "https://example.com/" }),
+      finalResult("never reached"),
+    ]);
+    await f.t.db.update(agentRuns).set({ traceId: null }).where(eq(agentRuns.id, runId));
+    await f.t.db
+      .update(toolCalls)
+      .set({ decisionReason: null })
+      .where(eq(toolCalls.agentRunId, runId));
+    const [approval] = await f.t.db
+      .select()
+      .from(approvalRequests)
+      .where(eq(approvalRequests.id, approvalId));
+    for (const detached of [false, true]) {
+      if (detached) {
+        await f.t.db
+          .update(approvalRequests)
+          .set({ agentRunId: null, toolCallId: null })
+          .where(eq(approvalRequests.id, approvalId));
+      }
+      const response = await f.app.inject({
+        method: "GET",
+        url: `/teams/${f.teamId}/approvals/${approvalId}`,
+        headers: authHeader(f.managerUser.accessToken),
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data).toMatchObject({
+        created_at: approval?.createdAt.toISOString(),
+        trace_id: null,
+        tool_call_id: detached ? null : approval?.toolCallId,
+        decision_reason: null,
+        context_trust_level: detached ? null : "untrusted",
+        agent: detached ? null : { id: f.agentId, name: "Gated Runner" },
+      });
+    }
+  });
+
+  it("keeps read metadata scoped to the approval team and run relationship", async () => {
+    const { runId, approvalId } = await suspendRun([
+      toolResult(f.writeToolId, "http.fetch", { url: "https://example.com/" }),
+      finalResult("never reached"),
+    ]);
+    const foreignTeamId = randomUUID();
+    await f.t.db.insert(teams).values({
+      id: foreignTeamId,
+      name: "Other approval team",
+      ownerId: f.owner.userId,
+    });
+    const otherRunId = randomUUID();
+    await f.t.db.insert(agentRuns).values({
+      id: otherRunId,
+      teamId: f.teamId,
+      agentId: f.agentId,
+      traceId: "other-run-trace",
+    });
+    const [run] = await f.t.db.select().from(agentRuns).where(eq(agentRuns.id, runId));
+    const scenarios = [
+      { teamId: foreignTeamId, agentRunId: runId },
+      { teamId: f.teamId, agentRunId: otherRunId },
+      { teamId: f.teamId, agentRunId: null },
+    ];
+    for (const relationship of scenarios) {
+      const callId = randomUUID();
+      await f.t.db.insert(toolCalls).values({
+        id: callId,
+        ...relationship,
+        toolName: "fixture-tool",
+        contextTrustLevel: "trusted",
+        riskTier: "write",
+        decision: "approval_required",
+        decisionReason: "unrelated-reason",
+      });
+      await f.t.db
+        .update(approvalRequests)
+        .set({ toolCallId: callId })
+        .where(eq(approvalRequests.id, approvalId));
+      const response = await f.app.inject({
+        method: "GET",
+        url: `/teams/${f.teamId}/approvals/${approvalId}`,
+        headers: authHeader(f.managerUser.accessToken),
+      });
+      expect(response.statusCode).toBe(200);
+      const view = response.json().data;
+      expect(view).toMatchObject({
+        trace_id: run?.traceId,
+        tool_call_id: null,
+        decision_reason: null,
+        context_trust_level: null,
+      });
+      const list = await f.app.inject({
+        method: "GET",
+        url: `/teams/${f.teamId}/approvals`,
+        headers: authHeader(f.managerUser.accessToken),
+      });
+      expect(list.statusCode).toBe(200);
+      expect(
+        (list.json().data.approvals as Array<{ id: string }>).find((a) => a.id === approvalId),
+      ).toEqual(view);
+      const filtered = await f.app.inject({
+        method: "GET",
+        url: `/teams/${f.teamId}/approvals?context_trust_level=trusted`,
+        headers: authHeader(f.managerUser.accessToken),
+      });
+      expect(filtered.statusCode).toBe(200);
+      expect(filtered.json().data.approvals).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: approvalId })]),
+      );
+    }
+
+    await f.t.db
+      .update(agentRuns)
+      .set({ teamId: foreignTeamId })
+      .where(eq(agentRuns.id, otherRunId));
+    for (const agentRunId of [otherRunId, randomUUID(), null]) {
+      await f.t.db
+        .update(approvalRequests)
+        .set({ agentRunId })
+        .where(eq(approvalRequests.id, approvalId));
+      const response = await f.app.inject({
+        method: "GET",
+        url: `/teams/${f.teamId}/approvals/${approvalId}`,
+        headers: authHeader(f.managerUser.accessToken),
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data).toMatchObject({
+        agent: null,
+        trace_id: null,
+        tool_call_id: null,
+        decision_reason: null,
+        context_trust_level: null,
+      });
+    }
+
+    await f.t.db
+      .update(approvalRequests)
+      .set({ teamId: foreignTeamId })
+      .where(eq(approvalRequests.id, approvalId));
+    const hidden = await f.app.inject({
+      method: "GET",
+      url: `/teams/${f.teamId}/approvals/${approvalId}`,
+      headers: authHeader(f.managerUser.accessToken),
+    });
+    expect(hidden.statusCode).toBe(404);
+    const list = await f.app.inject({
+      method: "GET",
+      url: `/teams/${f.teamId}/approvals`,
+      headers: authHeader(f.managerUser.accessToken),
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json().data.approvals).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: approvalId })]),
+    );
   });
 });

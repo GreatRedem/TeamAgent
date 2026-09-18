@@ -433,10 +433,14 @@ describe("e2e journey: health surface", () => {
     // same module here so the suite exercises the real surface, with the
     // test database backing readiness instead of the configured pool.
     const { registerHealthRoutes } = await import("../../src/modules/health.js");
+    const { checkMigrations } = await import("../../src/db/check-migrations.js");
     const t = app.t;
     await registerHealthRoutes(app.app, {
       checkDatabase: async () => {
         await t.db.execute("select 1");
+      },
+      checkMigrations: async () => {
+        await checkMigrations(t.db);
       },
       serviceName: "nuraai-api-test",
     });
@@ -454,6 +458,7 @@ describe("e2e journey: health surface", () => {
     const ready = await env.http.inject({ method: "GET", url: "/health/ready" });
     expect(ready.statusCode).toBe(200);
     expect((ready.json() as { checks: Record<string, string> }).checks.database).toBe("ok");
+    expect((ready.json() as { checks: Record<string, string> }).checks.migrations).toBe("ok");
 
     const metrics = await env.http.inject({ method: "GET", url: "/metrics" });
     expect(metrics.statusCode).toBe(200);

@@ -1,4 +1,16 @@
 import { z } from "zod";
+import { parseDurationSeconds } from "./modules/auth/tokens.js";
+
+const duration = z.string().refine(
+  (value) => {
+    try {
+      return Number.isFinite(parseDurationSeconds(value));
+    } catch {
+      return false;
+    }
+  },
+  { message: "Expected an integer duration with unit s, m, h, or d." },
+);
 
 /**
  * The environment contract from docs/19-tech-stack.md.
@@ -28,8 +40,8 @@ const Env = z.object({
   DB_POOL_MAX: z.coerce.number().int().positive().default(20),
 
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 bytes"),
-  JWT_ACCESS_TTL: z.string().default("15m"),
-  REFRESH_TTL: z.string().default("30d"),
+  JWT_ACCESS_TTL: duration.default("15m"),
+  REFRESH_TTL: duration.default("30d"),
 
   SIWE_DOMAIN: z.string().min(1),
   SIWE_URI: z.string().url(),
@@ -88,6 +100,16 @@ function load(): Config {
   }
 
   const env = parsed.data;
+
+  if (env.NODE_ENV === "production" && new URL(env.SIWE_URI).protocol !== "https:") {
+    console.error("SIWE_URI must use HTTPS in production.");
+    process.exit(1);
+  }
+
+  if (Boolean(env.MODEL_BASE_URL) !== Boolean(env.MODEL_API_KEY?.trim())) {
+    console.error("MODEL_BASE_URL and MODEL_API_KEY must be configured together or both omitted.");
+    process.exit(1);
+  }
 
   // SIWE_DOMAIN must equal the browser origin exactly. A mismatch with
   // SIWE_URI means one of the two is wrong, and a permissive domain check is

@@ -5,15 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "node build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json",
-    "start": "node dist/index.js",
-    "start:production": "node --env-file=.env.production dist/index.js",
-    "start:worker": "node dist/worker.js",
-    "start:worker:production": "node --env-file=.env.production dist/worker.js",
-    "test": "vitest run",
+    "start": "node production.mjs api",
+    "start:production": "node production.mjs api",
+    "start:worker": "node production.mjs worker",
+    "start:worker:production": "node production.mjs worker",
+    "config:production": "node production.mjs config",
+    "test": "vitest run && node --test production.test.mjs",
+    "smoke:release": "node smoke-release.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate:production": "node production.mjs migrate"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
