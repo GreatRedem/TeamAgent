@@ -1,0 +1,27 @@
+[Unit]
+Description=NuraAI manual database migration
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=nuraai
+Group=nuraai
+WorkingDirectory=/opt/nuraai/current
+EnvironmentFile=/etc/nuraai/runtime.env
+ExecStartPre=/usr/bin/node /opt/nuraai/current/apps/api/production.mjs config
+ExecStart=/usr/bin/node /opt/nuraai/current/apps/api/production.mjs migrate
+Restart=no
+TimeoutStartSec=900
+TimeoutStopSec=120
+KillSignal=SIGTERM
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+StandardOutput=journal
+StandardError=journal

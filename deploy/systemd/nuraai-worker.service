@@ -1,0 +1,33 @@
+[Unit]
+Description=NuraAI background worker
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=nuraai
+Group=nuraai
+WorkingDirectory=/opt/nuraai/current
+EnvironmentFile=/etc/nuraai/runtime.env
+ExecStartPre=/usr/bin/node /opt/nuraai/current/apps/api/production.mjs config
+ExecStart=/usr/bin/node /opt/nuraai/current/apps/api/production.mjs worker
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=900
+KillSignal=SIGTERM
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

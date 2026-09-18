@@ -96,8 +96,8 @@ Production needs:
 - metrics, with no high-cardinality labels such as team_id **— implemented: registry rejects unregistered labels; `/metrics` on API and worker**
 - security signal metrics: denied tool calls, destination rejections, auth failures **— implemented, wired at each decision point**
 - cost tracking per team and agent **— implemented: hourly `cost_rollups` by team, agent, and model; rate-of-change alerting remains backend work**
-- dashboards **— not implemented**
-- alerting, with a runbook entry per page **— runbook exists (`docs/26-runbook.md`); no alerting backend wired**
+- dashboards **— ship as deploy artifacts (`deploy/observability/dashboards/`); operating Grafana remains host work**
+- alerting, with a runbook entry per page **— rules ship as deploy artifacts (`deploy/observability/nuraai.rules.yml`, runbook `docs/26-runbook.md`); operating Prometheus/Alertmanager and receivers remains host work**
 - uptime checks
 - incident response flow
 - runbook documentation **— `docs/26-runbook.md`**
