@@ -58,7 +58,7 @@ For a first production-friendly implementation, use:
 - a single database; the job queue lives in it, with no broker or cache alongside
 - object storage for files and documents
 - Secret Manager / Vault for credentials
-- OpenTelemetry for logs and tracing
+- Structured JSON logs plus an in-process Prometheus exposition; no span exporter
 
 ## Core Services
 

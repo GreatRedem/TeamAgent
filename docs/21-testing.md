@@ -161,7 +161,7 @@ reclaimed job                      -> handler is idempotent, no duplicate effect
 attempts exceeding max_attempts    -> status becomes 'dead', not retried forever
 run_at in the future               -> not claimed early
 NOTIFY unavailable                 -> polling still delivers the job
-trace_id                           -> worker span shares the enqueuer's trace
+trace_id                           -> worker restores the enqueuer's trace_id
 enqueue in a rolled-back txn       -> no job runs
 ```
 
@@ -173,9 +173,9 @@ Token spend, tool-call count, recursion depth, and wall-clock each get a test th
 
 ### 10. Secret leakage (T9)
 
-A structural test: run a representative workload with sentinel secret values loaded into every credential path, then scan every persisted artifact — `agent_runs`, `tool_calls`, `audit_logs`, log output, and trace spans — for those sentinels. Any hit fails the build.
+A structural test: run a representative workload with sentinel secret values loaded into every credential path, then scan every persisted artifact — `agent_runs`, `tool_calls`, `audit_logs`, and log output — for those sentinels. Any hit fails the build.
 
-This catches the realistic version of the bug, which is not "someone logged a password" but "an error object containing a config blob got serialized into a span attribute."
+This catches the realistic version of the bug, which is not "someone logged a password" but "an error object containing a config blob got serialized into a log field."
 
 ## Evals are not tests
 

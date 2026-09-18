@@ -135,7 +135,7 @@ This is the phase where `docs/17-threat-model.md` stops being a document and bec
 - Make the security controls from earlier phases observable.
 
 ### Deliverables
-- distributed tracing, including propagation across the queue boundary, with a test asserting the worker span shares the enqueuer's `trace_id` **— implemented, including OTLP/HTTP span export behind `OTEL_EXPORTER_OTLP_ENDPOINT` (off when unset) and spans at the docs/22 boundaries (agent run, model call, retrieval, tool execution with decision attributes, worker job) via `observability/spans.ts`; tail-based sampling for denials/approvals remains the backend's policy**
+- trace correlation, including propagation across the queue boundary, with a test asserting the worker restores the enqueuer's `trace_id` **— implemented via `trace_id` columns plus ambient ALS context (`observability/trace.ts`); there is deliberately no span exporter, so per-phase timing lives on histograms and `tool_calls` rows (docs/22)**
 - metrics and dashboards, including the security signal dashboard **— the security signal counters, RED per-route series, and a `/metrics` scrape endpoint (API and worker) are implemented; dashboards are not**
 - alerts on the signals that should be zero in healthy operation — `refresh_token_reuse_total`, `cross_team_access_denied_total`, `destination_denied_total` **— the counters exist and emit zero-series; alert rules are defined in `docs/22` with triage procedures in `docs/26-runbook.md`; no alerting backend is wired**
 - cost tracking and rate-of-change alerting **— token and model-call counters are emitted; the periodic rollup is implemented (`cost_rollups` table, hourly token totals per team/agent/model via the `jobs_cost_rollup` scheduled job); the rate-of-change alert rule itself remains alerting-backend work**
@@ -176,7 +176,7 @@ What can genuinely wait: multi-provider model routing, branching and conditional
 
 ## Suggested Next Steps
 
-Steps 1–7 are done — the domain model is settled, `docs/19-tech-stack.md` closes the stack, `docs/14-database.md` is the schema reference, and phases 1–7 are implemented and tested (including workflow schedule triggers, the scheduler tick, queue-boundary rules, operational metrics and traces, cost rollups, and injection containment). What remains is production hardening and the presentation layer: deployment automation, dashboards, alerting-backend wiring, and tail-based trace sampling.
+Steps 1–7 are done — the domain model is settled, `docs/19-tech-stack.md` closes the stack, `docs/14-database.md` is the schema reference, and phases 1–7 are implemented and tested (including workflow schedule triggers, the scheduler tick, queue-boundary rules, operational metrics and trace correlation, cost rollups, and injection containment). What remains is production hardening and the presentation layer: deployment automation, dashboards, and alerting-backend wiring.
 
 1. ~~Scaffold the backend, with environment validation at startup and health checks.~~ **Done.**
 2. ~~Generate the first migrations from the Drizzle schema modules, including the R1–R5 constraints, and stand up the PGlite test loop.~~ **Done.**

@@ -1,7 +1,6 @@
 import { claimJob, completeJob, failJob, heartbeatJob, type QueueJob } from "./queue.js";
 import type { AnyDb } from "../../db/db.js";
 import { incrementMetric, observeHistogram } from "../../observability/metrics.js";
-import { withSpan } from "../../observability/spans.js";
 import { runWithJobTrace } from "../../observability/trace.js";
 
 export type JobHandler = (job: QueueJob) => Promise<void>;
@@ -54,22 +53,9 @@ export async function processOne(options: WorkerOptions): Promise<ProcessResult>
       throw new Error(`no handler registered for queue ${job.queue}`);
     }
     // Queue boundary (docs/22): restore the enqueuer's trace so everything
-    // the handler does lands in the trace that caused the job. The job row
-    // is where the context crossed; AsyncLocalStorage re-scopes it here,
-    // and the handler's span becomes a child of the restored context.
-    await runWithJobTrace(job, async () => {
-      await withSpan(
-        "worker.job",
-        {
-          queue: job.queue,
-          job_id: job.id,
-          team_id: job.teamId ?? undefined,
-          attempt: job.attempts,
-          "operation.name": "worker_job",
-        },
-        () => handler(job),
-      );
-    });
+    // the handler does shares the trace_id that caused the job. The job row
+    // is where the context crossed; AsyncLocalStorage re-scopes it here.
+    await runWithJobTrace(job, () => handler(job));
     incrementMetric("jobs_total", { queue: job.queue, status: "succeeded" });
     observeHistogram(
       "job_duration_seconds",

@@ -167,7 +167,7 @@ Agent A (low privilege, exposed to untrusted input) produces output consumed by 
 
 Credentials placed in a system prompt, tool definition, config blob, or error message become readable by any successful injection. Traces and execution logs then replicate them outside the tenant boundary.
 
-**Controls:** C9. Secrets are referenced by `credential_ref` and resolved inside the tool runtime, after the model has produced its arguments. Secret values must never appear in `agent_runs`, `tool_calls`, `audit_logs`, or OpenTelemetry spans.
+**Controls:** C9. Secrets are referenced by `credential_ref` and resolved inside the tool runtime, after the model has produced its arguments. Secret values must never appear in `agent_runs`, `tool_calls`, `audit_logs`, or log lines.
 
 ### T10 — Tool argument injection
 
@@ -303,7 +303,7 @@ Resolve-then-connect with rebinding protection; deny RFC1918, loopback, link-loc
 
 ### C9 — Secrets never enter the model context
 
-Tools declare which credential they need by reference. The runtime injects the secret at call time, inside the tool sandbox, after arguments are fixed. Secret values are redacted from every persisted record and span.
+Tools declare which credential they need by reference. The runtime injects the secret at call time, inside the tool sandbox, after arguments are fixed. Secret values are redacted from every persisted record and log line.
 
 ### C10 — Per-run budgets
 
@@ -386,7 +386,7 @@ Stated plainly, because a threat model that claims completeness is not credible:
 - [ ] Webhook ingress verifies signatures and rejects replays.
 - [ ] Unattended workflows are restricted to the `read_only` and `reply` tiers.
 - [ ] HTTP and browser tools enforce SSRF controls including rebinding protection.
-- [ ] No secret value appears in any run record, tool call record, audit log, or trace.
+- [ ] No secret value appears in any run record, tool call record, audit log, or log line.
 - [ ] Every run has enforced token, tool-count, depth, and wall-clock budgets.
 - [ ] Approval requests display the triggering content and its origin.
 - [ ] Rendering surfaces strip or proxy outbound-referencing markup in agent output.

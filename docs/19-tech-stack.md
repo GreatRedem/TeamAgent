@@ -14,7 +14,7 @@ The stack decisions for NuraAI, and what each one costs. Earlier documents left 
 | Styling | **TailwindCSS** |
 | Internationalization | **react-i18next**, English and Persian, RTL-capable |
 | Job queue | A table in the same database — no broker |
-| Observability | OpenTelemetry |
+| Observability | Structured JSON logs + in-process Prometheus exposition; no span exporter |
 
 ## Explicitly Out of Scope
 
@@ -158,17 +158,10 @@ QUEUE_MAX_ATTEMPTS=5
 
 # Observability -- see docs/22-observability.md
 LOG_LEVEL=info
-OTEL_EXPORTER_OTLP_ENDPOINT=
-OTEL_SERVICE_NAME=nuraai-api   # api | worker | scheduler
-TRACE_SAMPLE_RATIO=0.1         # errors, denials, and approvals are always kept
 
 # Approvals -- see docs/17-threat-model.md C5
 APPROVAL_TTL_SECONDS=3600      # an expired approval is a denial
 APPROVAL_NOTIFY_CHANNEL=       # UNDECIDED: email cannot be assumed, see docs/20
-
-# i18n
-DEFAULT_LOCALE=en
-SUPPORTED_LOCALES=en,fa
 ```
 
 **Validate this at startup and exit if it is wrong.** Parse the environment through a schema before the server binds a port. A missing `JWT_SECRET` should stop the process, not surface as a 500 on the first login. A `SIWE_DOMAIN` that does not match the deployed origin silently breaks every sign-in and, worse, a permissive one accepts signatures obtained from another site — see `docs/20-authentication.md`.

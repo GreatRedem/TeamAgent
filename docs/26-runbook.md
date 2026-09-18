@@ -11,22 +11,22 @@ The alert rules from `docs/22-observability.md`, each with a triage procedure. A
 
 ## Trace-backed triage
 
-When a page names a `trace_id` (or a run/tool call row carries one), the trace is the fastest route from signal to cause. Spans are exported when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; a trace search by the `trace_id` attribute lands next to the transactional records. The span names and the attributes a query can filter on:
+When a page names a `trace_id` (or a run/tool call row carries one), the `trace_id` is the fastest route from signal to cause: one value joins the log lines, the queue row, and the transactional records. There is no span backend; the rows below are the query surface. Which row answers what:
 
-| Span | Attributes | What it answers |
+| Row | Key fields | What it answers |
 |---|---|---|
-| `agent.run` | `team_id`, `agent_id`, `run_id`, `trust_level`, `ingress`, `trace_id` | The run's total wall clock and trust ceiling; entry point for anything an agent did |
-| `worker.job` | `queue`, `job_id`, `team_id`, `attempt`, `trace_id` | Queue-boundary child of the causing request/run — handler duration, retry attempts |
-| `tool.execute` | `team_id`, `tool`, `risk_tier`, `decision`, `trust_level`, `trace_id` | Per-attempt latency and the C2 decision; `decision="denied"` spans are the injection triage entry |
-| `model.call` | `team_id`, `provider`, `model`, `trace_id` | Provider latency and token attributes for cost questions |
-| `knowledge.retrieve` | `team_id`, `agent_id`, `trace_id` | Retrieval latency; consult `knowledge_items`/`tool_calls` for which bases fed the hits |
+| `agent_runs` | `team_id`, `agent_id`, `status`, `context_trust_level`, `token_usage`, `trace_id` | The run's outcome, trust ceiling, and token totals; entry point for anything an agent did |
+| `jobs` | `queue`, `attempts`, `team_id`, `trace_id`, `last_error` | Queue-boundary child of the causing request/run — retry attempts and the fastest failure signal |
+| `tool_calls` | `team_id`, `tool`, `risk_tier`, `decision`, `decision_reason`, `context_trust_level`, `trace_id` | Per-attempt outcome and the C2 decision; `decision="denied"` rows are the injection triage entry |
+| `agent_runs.token_usage` + `model_call_duration_seconds` | `provider`, `model` | Provider latency and token attributes for cost questions |
+| `knowledge_items` + run transcript | `trust_level`, `ingested_from` | Which bases fed the hits behind a retrieval |
 
-Error-rate analysis from spans, complementing the log-field queries above:
+Error-rate analysis from rows, complementing the log-field queries above:
 
-- **Error spans, not just error logs.** A `tool.execute` span with `status=error` names the failing tool and the decision attributes at that moment — filter by `tool` and `decision`, then open the exception event for the stack. A denial that *shouldn't* be one is triaged from the span's `risk_tier`/`trust_level` pair, no DB query needed.
-- **Which run was slow, not just which route.** `http_request_duration_ms` p95 says the run-start route is slow; the `agent.run` spans under those requests say which agents and which phase (`model.call` vs `knowledge.retrieve` vs `tool.execute`) consumed it. Compare child-span duration sums against the parent to distinguish provider latency from our overhead.
-- **Trace an incident's blast radius.** From one confirmed malicious payload's `trace_id`: its `worker.job` span names the queue row; the `tool.execute` children list every attempted egress with decisions; the `agent.run` attributes give the team. The same tree answers "what did this inbound message actually do" — the question docs/22 says two unlinked traces cannot.
-- **Alert-driven span queries.** When `tool_calls_denied_total` pages, query `tool.execute` spans with `decision="denied"` in the window grouped by `tool` and `agent_id` — one agent varying wording against one tool is the T4 injection signature from the section below, now visible without reading rows.
+- **Error rows, not just error logs.** A `tool_calls` row with an error names the failing tool and the decision attributes at that moment — filter by `tool` and `decision`, then read the row's error. A denial that *shouldn't* be one is triaged from the row's `risk_tier`/`trust_level` pair.
+- **Which run was slow, not just which route.** `http_request_duration_ms` p95 says the run-start route is slow; `model_call_duration_seconds` by provider says whether the provider is the cause, and `job_duration_seconds` by queue says whether the worker is. Provider latency versus our overhead is a histogram comparison, not a span tree.
+- **Trace an incident's blast radius.** From one confirmed malicious payload's `trace_id`: the `jobs` row names the queue entry; the `tool_calls` rows list every attempted egress with decisions; the `agent_runs` row gives the team. The same join answers "what did this inbound message actually do".
+- **Alert-driven row queries.** When `tool_calls_denied_total` pages, query `tool_calls` with `decision="denied"` in the window grouped by `tool` and `agent_id` — one agent varying wording against one tool is the T4 injection signature from the section below.
 
 ## Pages
 
@@ -44,7 +44,7 @@ Error-rate analysis from spans, complementing the log-field queries above:
 
 ### Availability and performance pages
 
-- `http_requests_total{status_class="5xx"}` rate rising: read the unhandled-error log lines first — they carry `error_name` and `error_code`. One `error_name` dominating means a dependency, not a code path; correlate `trace_id` into the failing span.
+- `http_requests_total{status_class="5xx"}` rate rising: read the unhandled-error log lines first — they carry `error_name` and `error_code`. One `error_name` dominating means a dependency, not a code path; correlate `trace_id` into the failing `tool_calls` and `audit_logs` rows.
 - `http_request_duration_ms` p95 climbing on one route: RED says check that route's dependencies. If the route is agent or workflow start, the model gateway histogram (`model_call_duration_seconds`) usually moves first.
 - `queue_depth{status="queued"}` growing: enqueue rate exceeds drain rate. Compare `jobs_total{status}` outcomes per queue — if the worker is failing jobs, `job_retries_total` rises too; if the worker is idle, check worker liveness (`jobs_reclaimed_total` below).
 - `queue_depth{status="running"}` stuck high: handlers are long or workers died. `job_duration_seconds` tells which: durations still moving means long jobs, flat means dead workers.
@@ -57,7 +57,7 @@ Error-rate analysis from spans, complementing the log-field queries above:
 
 ### Cost pages
 
-- Team cost rate above a ceiling: `cost_rollups` is the per-team query surface (docs/22 keeps `team_id` out of metric labels on purpose). Rate of change, not absolute value, is the signal — compare the current hour bucket against the trailing same-size window: doubling hour over hour is the page, a large steady bill is not. Break the change down by `model_provider`/`model_name` (new model? price tier?) and `agent_id` (one runaway agent?), then check `run_budget_exceeded_total{limit_type}` — a runaway loop usually trips a budget eventually; if it does not, the budgets were never set. Cross-reference the suspect `trace_id`s from `agent_runs` in the window and read the spans: a loop shows as repeated `model.call` children under one `agent.run`.
+- Team cost rate above a ceiling: `cost_rollups` is the per-team query surface (docs/22 keeps `team_id` out of metric labels on purpose). Rate of change, not absolute value, is the signal — compare the current hour bucket against the trailing same-size window: doubling hour over hour is the page, a large steady bill is not. Break the change down by `model_provider`/`model_name` (new model? price tier?) and `agent_id` (one runaway agent?), then check `run_budget_exceeded_total{limit_type}` — a runaway loop usually trips a budget eventually; if it does not, the budgets were never set. Cross-reference the suspect `trace_id`s from `agent_runs` in the window and read the `tool_calls` rows: a loop shows as repeated model calls with climbing token usage under one run.
 
 ## After the page
 

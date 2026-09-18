@@ -17,7 +17,7 @@ These are two systems with two purposes, and merging them produces one that is b
 | Access | Broad engineering access | Restricted, itself audited |
 | Written by | Everything | The runtime, from the actual execution path |
 
-The practical consequence: **an audit record is never a log line.** `audit_logs` and `tool_calls` are transactional writes in the primary database. If the observability pipeline drops a span, you lose a debugging aid; if it drops an audit record, you lose the ability to answer what happened, and sampling would make that routine.
+The practical consequence: **an audit record is never a log line.** `audit_logs` and `tool_calls` are transactional writes in the primary database. If the metrics pipeline drops a series, you lose a debugging aid; if it drops an audit record, you lose the ability to answer what happened, and sampling would make that routine.
 
 Emit both. Correlate them with `trace_id`, which already exists on `agent_runs`, `workflow_runs`, `workflow_step_runs`, `tool_calls`, and `audit_logs`.
 
@@ -29,7 +29,7 @@ Three, with different lifetimes:
 - **`trace_id`** — one logical operation end to end, across the queue and into workers. This is the one that matters.
 - **`run_id`** — an `agent_runs` or `workflow_runs` row.
 
-Every log line, span, and database execution record carries all three that apply.
+Every log line and database execution record carries all three that apply.
 
 ### The queue boundary is where tracing breaks
 
@@ -37,7 +37,7 @@ Trace context propagates through HTTP automatically. It does **not** propagate t
 
 A workflow trigger produces an API span; the worker that actually runs the agent, calls the model, and sends the message produces an entirely separate trace. The interesting half of the operation — every model call, every tool execution, every egress — ends up disconnected from the request that caused it. When an incident asks "what did this inbound message actually do," the answer is two unlinked traces and a guess.
 
-Inject the trace context into the job payload on enqueue and restore it on dequeue, for every queue in the system. Then assert it: a test that enqueues a job and checks that the worker's span shares the enqueuer's `trace_id`. This breaks silently and is worth a test.
+Inject the trace context into the job payload on enqueue and restore it on dequeue, for every queue in the system. Then assert it: a test that enqueues a job and checks that the worker restores the enqueuer's `trace_id`. This breaks silently and is worth a test.
 
 ## Structured logs
 
@@ -146,45 +146,46 @@ Alert on *rate of change*, not absolute value. A team's spend tripling in an hou
 
 A time series is created for every unique label combination. `team_id` on a handful of metrics across a few thousand teams is millions of series, and it will take down the metrics backend before it takes down the application. This is one of the most common ways a well-intentioned observability setup becomes an outage.
 
-Keep metric labels low-cardinality and bounded — status, decision, tier, provider, route. High-cardinality dimensions belong in logs and traces, which are built for it, and per-team aggregates belong in a periodic rollup written to the database rather than in the metrics system.
+Keep metric labels low-cardinality and bounded — status, decision, tier, provider, route. High-cardinality dimensions belong in logs, which are built for it, and per-team aggregates belong in a periodic rollup written to the database rather than in the metrics system.
 
 ## Tracing
 
-Span the boundaries that can be slow or can fail:
+There is no span exporter. Correlation rides on `trace_id`, carried three
+ways, all asserted by tests:
 
 ```
-HTTP request
+HTTP request                       <- trace context established in a hook
   authenticate (token verify, principal context load)
   authorize    (permission resolution)
   handler
-    repository query
-    enqueue job                    <- inject trace context here
+    repository query                 <- trace_id written on every row
+    enqueue job                      <- inject trace context here
 --- queue boundary ---
 worker job                          <- restore trace context here
-  agent run
-    assemble context
-    knowledge retrieval
-    model call                      <- provider, model, tokens, latency
-    policy decision                 <- trust level, tier, decision, reason
-    tool execution                  <- tool, duration, outcome
-    egress                          <- destination resolution
+  agent run                          <- agent_runs.trace_id
+    knowledge retrieval              <- tool_calls rows carry trust + decision
+    model call                       <- model_call_duration_seconds histogram
+    policy decision                  <- tool_calls.decision + decision_reason
+    tool execution                   <- tool_calls rows, one per attempt
+    egress                           <- destination resolution on the row
 ```
 
-Span attributes carry `team_id`, `trust_level`, `decision`, `provider` — traces handle high cardinality, unlike metrics.
+`trace_id` is a column on `agent_runs`, `workflow_runs`,
+`workflow_step_runs`, `tool_calls`, `audit_logs`, and `jobs`, and a field
+on every log line in the execution path (`observability/trace.ts`:
+ambient context via `AsyncLocalStorage`, restored from the job row on the
+worker side). The queue-boundary rule from the section above still holds:
+the enqueuer writes the context, the worker restores it, and a test
+asserts the worker sees the enqueuer's `trace_id`. That test covers the
+context restoration, not spans — there are none.
 
-<!-- Implemented: apps/api/src/observability/spans.ts exposes withSpan(), built on the global
-     OTel API so call sites are unconditional (no-op without OTEL_EXPORTER_OTLP_ENDPOINT). Every
-     span carries the ambient trace_id/request_id as attributes, joining spans to the transactional
-     records (agent_runs, tool_calls, audit_logs) that share the correlation id. Wired at: agent
-     run (modules/agents/runs.ts), model call + knowledge retrieval + per-iteration
-     (runtime/agent-runtime/loop.ts), tool execution with the docs/22 decision attributes
-     (modules/tools/runtime.ts), worker job (modules/jobs/worker.ts). Spans are asserted against a
-     real SDK pipeline in observability/spans.test.ts — nesting, attributes, error status, and the
-     queue-boundary trace_id. Span export itself: observability/tracing.ts. Outstanding: span
-     export is a presentation layer — dashboards/alerting on traces, and tail sampling, remain
-     backend-side decisions. -->
-
-Sample aggressively for healthy traffic, but **always keep traces that contain a denial, an approval, a budget termination, or an error**. Tail-based sampling if the backend supports it. A trace of a successful, boring run is worth little; the trace of the one that got denied is the whole investigation.
+Per-phase timing that spans used to carry lives on with no exporter:
+provider latency on `model_call_duration_seconds{provider}`, handler
+duration on `job_duration_seconds{queue}`, request latency on
+`http_request_duration_ms{route}`, and per-attempt detail on the
+`tool_calls` rows (tool, tier, decision, reason, trust, timestamps).
+The audit tables are never sampled, so the record of a denied run is
+complete by construction — which is what tail sampling was for.
 
 ## Alerts
 

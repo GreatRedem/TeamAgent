@@ -62,9 +62,6 @@ const Env = z.object({
   JOBS_COST_ROLLUP_CRON: z.string().min(1).default("23 * * * *"),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
-  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional().or(z.literal("")),
-  OTEL_SERVICE_NAME: z.string().default("nuraai-api"),
-  TRACE_SAMPLE_RATIO: z.coerce.number().min(0).max(1).default(0.1),
 
   APPROVAL_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   APPROVAL_NOTIFY_CHANNEL: z.string().optional().or(z.literal("")),
@@ -75,14 +72,10 @@ const Env = z.object({
   MODEL_BASE_URL: z.string().url().optional().or(z.literal("")),
   MODEL_API_KEY: z.string().optional().or(z.literal("")),
   MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(60000),
-
-  DEFAULT_LOCALE: z.string().default("en"),
-  SUPPORTED_LOCALES: z.string().default("en,fa"),
 });
 
 export type Config = z.infer<typeof Env> & {
   siweOrigin: string;
-  supportedLocales: string[];
 };
 
 function load(): Config {
@@ -126,7 +119,6 @@ function load(): Config {
   return {
     ...env,
     siweOrigin: new URL(env.SIWE_URI).origin,
-    supportedLocales: env.SUPPORTED_LOCALES.split(",").map((s) => s.trim()),
   };
 }
 

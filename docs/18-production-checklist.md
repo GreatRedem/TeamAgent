@@ -4,9 +4,9 @@ This document is the concrete checklist for turning NuraAI from a well-specified
 
 ## Executive Summary
 
-The current repository contains strong domain modeling, security reasoning, API contracts, and an implemented, tested API core. Phases 1–6 are substantially complete, the injection containment suite covers every current ingress, and phase 7 observability is wired through logs, metrics, traces, cost rollups, and incident triage.
+The current repository contains strong domain modeling, security reasoning, API contracts, and an implemented, tested API core. Phases 1–6 are substantially complete, the injection containment suite covers every current ingress, and phase 7 observability is wired through logs, metrics, trace correlation, cost rollups, and incident triage.
 
-It is not yet in a production-readiness stage. The remaining gaps are deployment automation, dashboards, alerting-backend wiring, tail-based trace sampling, and infrastructure-grade validation around the implemented controls.
+It is not yet in a production-readiness stage. The remaining gaps are deployment automation, dashboards, alerting-backend wiring, and infrastructure-grade validation around the implemented controls.
 
 ## Must-Have Production Items
 
@@ -22,7 +22,7 @@ Required before production:
 - workflow execution engine
 - knowledge retrieval service
 
-Status: substantially present for phases 1–7 and covered by the PGlite test suite — backend services, migrations, wallet auth, permission and trust enforcement, the tool runtime, knowledge retrieval, the workflow engine with schedule triggers and the queue worker, plus structured logs, metrics, queue-boundary tracing, security signals, cost rollups, and injection containment across every current ingress. Still missing: deployment automation, dashboards, alerting-backend wiring, and tail-based trace sampling.
+Status: substantially present for phases 1–7 and covered by the PGlite test suite — backend services, migrations, wallet auth, permission and trust enforcement, the tool runtime, knowledge retrieval, the workflow engine with schedule triggers and the queue worker, plus structured logs, metrics, queue-boundary trace correlation, security signals, cost rollups, and injection containment across every current ingress. Still missing: deployment automation, dashboards, and alerting-backend wiring.
 
 ### 2. Database migration system
 
@@ -105,7 +105,6 @@ Production needs:
 Observability and the audit log are separate systems with separate retention and access rules. Audit records are transactional writes, never log lines, and are never sampled.
 
 Required tools:
-- OpenTelemetry
 - Prometheus
 - Grafana
 - Loki
@@ -230,7 +229,7 @@ Before production deployment, the project should pass these gates:
 ### Gate 4 — Observability
 - logs available
 - metrics visible
-- traces complete
+- trace correlation complete (logs + DB rows share trace_id)
 - alerts tested
 - dashboards reviewed
 

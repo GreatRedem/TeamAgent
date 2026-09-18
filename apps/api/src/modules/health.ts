@@ -8,7 +8,7 @@ import type { FastifyInstance } from "fastify";
  * checks nothing but the process.
  *
  * Dependencies are injected: the production entrypoint passes the real pool
- * check and the configured service name; the e2e suite passes its own, so
+ * checks and a service name; the e2e suite passes its own, so
  * this module stays importable outside a booted environment.
  */
 export async function registerHealthRoutes(

@@ -11,7 +11,6 @@ import { ensureCleanupSchedule } from "./modules/jobs/cleanup.js";
 import { ensureCostRollupSchedule } from "./modules/jobs/cost-rollup.js";
 import { incrementMetric, renderMetrics } from "./observability/metrics.js";
 import { collectQueueMetrics } from "./observability/queue.js";
-import { startTracing, shutdownTracing } from "./observability/tracing.js";
 
 /**
  * The background-work process (docs/23-job-queue.md): the scheduler tick,
@@ -35,14 +34,6 @@ const runtime = {
 
 async function main(): Promise<void> {
   const controller = new AbortController();
-
-  // Same optional span export as the API process; the worker is where the
-  // restored queue-boundary traces earn their keep (docs/22).
-  startTracing({
-    endpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
-    serviceName: `${config.OTEL_SERVICE_NAME}-worker`,
-    sampleRatio: config.TRACE_SAMPLE_RATIO,
-  });
 
   // Jobs-table retention (docs/23 Cleanup): the schedule row is created
   // idempotently at startup and fires the jobs_cleanup handler through the
@@ -115,17 +106,12 @@ async function main(): Promise<void> {
       clearInterval(reaper);
       controller.abort();
       void metricsApp.close();
-      // Flush spans last: the final handler spans are the interesting ones.
-      void shutdownTracing().catch((error) => {
-        console.error({ err: error }, "tracing shutdown failed");
-      });
     });
   }
 
   await worker;
   await metricsApp.close();
   await pool.end();
-  await shutdownTracing().catch(() => undefined);
 }
 
 main().catch((error) => {

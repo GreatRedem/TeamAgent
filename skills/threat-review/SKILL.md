@@ -78,7 +78,7 @@ Trust only ever decreases. A change that lets it increase needs an explicit argu
 
 ## Then check the cross-cutting controls
 
-- **C9 — secrets.** Does anything resolve a credential? It belongs inside the tool runtime, after arguments are fixed, never in a context, a run record, a `tool_calls` row, an audit log, or a span.
+- **C9 — secrets.** Does anything resolve a credential? It belongs inside the tool runtime, after arguments are fixed, never in a context, a run record, a `tool_calls` row, an audit log, or a log line.
 - **C10 — budgets.** Can this loop, recurse, or fan out? Token spend, tool count, depth, and wall clock are enforced by the runtime and not adjustable from inside a run.
 - **C11 — audit.** Is the attempt recorded before it executes, including when denied? A run's own narrative is evidence of nothing (T13).
 - **C12 — isolation.** Is every query team-scoped at the repository layer? Does a resource in another team return `NOT_FOUND` rather than `FORBIDDEN`, so the API is not an existence oracle?

@@ -107,7 +107,7 @@ Required controls:
 - secret rotation support
 - scoped credentials per source or tool
 - secrets resolved inside the tool runtime, after the model has produced its arguments, so no secret value ever enters a model context (`docs/17-threat-model.md` C9)
-- no plaintext leakage in agent execution traces, logs, or spans
+- no plaintext leakage in agent execution records, logs, or tool call rows
 
 ## Knowledge Access Control
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "node build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json",
     "start": "node production.mjs api",
@@ -15,14 +15,11 @@
     "test": "vitest run && node --test production.test.mjs",
     "smoke:release": "node smoke-release.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
     "db:migrate:production": "node production.mjs migrate"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
-    "@opentelemetry/sdk-node": "^0.222.0",
     "ajv": "^8.20.0",
     "drizzle-orm": "^0.45.2",
     "fastify": "5.12.4",

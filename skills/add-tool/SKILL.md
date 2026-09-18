@@ -63,7 +63,7 @@ Resolution happens in the runtime, after generation, against `agent_sources.allo
 
 The tool declares which credential it needs **by reference** (`credential_ref`). The runtime resolves it inside the tool sandbox, at call time, after arguments are fixed.
 
-No secret value appears in a model context, `agent_runs`, `tool_calls`, `audit_logs`, or an OpenTelemetry span (C9, T9).
+No secret value appears in a model context, `agent_runs`, `tool_calls`, `audit_logs`, or a log line (C9, T9).
 
 ## 6. Output is untrusted
 

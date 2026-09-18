@@ -25,7 +25,7 @@ import { parseBudgets } from "../../runtime/agent-runtime/budgets.js";
 import type { ToolHandlerDeps } from "../tools/registry.js";
 import { writeAudit } from "../audit/log.js";
 import { incrementMetric } from "../../observability/metrics.js";
-import { withSpan } from "../../observability/spans.js";
+
 import { currentTrace, newTraceId } from "../../observability/trace.js";
 import type { AgentMeta } from "./service.js";
 
@@ -365,53 +365,41 @@ export async function startRun(
     traceId,
   });
 
-  const outcome = await withSpan(
-    "agent.run",
+  const outcome = await executeRunLoop(
     {
-      team_id: input.teamId,
-      agent_id: input.agentId,
-      run_id: runId,
-      trust_level: ingressTrust,
-      ingress: input.principal.kind,
-      "operation.name": "agent_run",
+      db: database,
+      provider: runtime.provider,
+      toolHandlerDeps: runtime.toolHandlerDeps,
+      approvalTtlSeconds: runtime.approvalTtlSeconds,
     },
-    async () =>
-      executeRunLoop(
-        {
-          db: database,
-          provider: runtime.provider,
-          toolHandlerDeps: runtime.toolHandlerDeps,
-          approvalTtlSeconds: runtime.approvalTtlSeconds,
-        },
-        {
-          teamId: input.teamId,
-          agentRunId: runId,
-          traceId,
-          agent: { id: agent.id, name: agent.name },
-          model: {
-            id: model.id,
-            provider: model.provider,
-            name: model.name,
-            version: model.version,
-          },
-          systemPrompt: agent.systemPrompt,
-          permissionNames: grants.permissionNames,
-          requestingUserPermissions,
-          tools: grants.tools,
-          destinationPolicy: destinationPolicyFor(grants.sources),
-          origin: input.sourceId ?? null,
-          ingressTrust,
-          inputMessages: input.messages,
-          knowledgeBaseIds: grants.knowledgeBaseIds,
-          budgets,
-          actor: {
-            type: input.principal.kind,
-            id: input.principal.userId ?? input.principal.apiKeyId,
-          },
-          ip: input.ip ?? null,
-          userAgent: input.userAgent ?? null,
-        },
-      ),
+    {
+      teamId: input.teamId,
+      agentRunId: runId,
+      traceId,
+      agent: { id: agent.id, name: agent.name },
+      model: {
+        id: model.id,
+        provider: model.provider,
+        name: model.name,
+        version: model.version,
+      },
+      systemPrompt: agent.systemPrompt,
+      permissionNames: grants.permissionNames,
+      requestingUserPermissions,
+      tools: grants.tools,
+      destinationPolicy: destinationPolicyFor(grants.sources),
+      origin: input.sourceId ?? null,
+      ingressTrust,
+      inputMessages: input.messages,
+      knowledgeBaseIds: grants.knowledgeBaseIds,
+      budgets,
+      actor: {
+        type: input.principal.kind,
+        id: input.principal.userId ?? input.principal.apiKeyId,
+      },
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    },
   );
 
   const completedAt = new Date();

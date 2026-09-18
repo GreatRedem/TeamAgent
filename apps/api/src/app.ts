@@ -66,7 +66,7 @@ app.addHook("onClose", async () => {
 await registerHealthRoutes(app, {
   checkDatabase,
   checkMigrations: () => checkMigrations(db),
-  serviceName: config.OTEL_SERVICE_NAME,
+  serviceName: "nuraai-api",
 });
 
 // Product routes. The API contract is docs/15-api.md; the trust model that

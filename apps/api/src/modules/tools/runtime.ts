@@ -11,7 +11,7 @@ import {
 } from "../../runtime/policy/capability.js";
 import { resolveDestination } from "./destinations.js";
 import { incrementMetric } from "../../observability/metrics.js";
-import { withSpan } from "../../observability/spans.js";
+
 import { defaultToolHandlerDeps, getBuiltinTool, type ToolHandlerDeps } from "./registry.js";
 import { validateToolArguments } from "./validation.js";
 
@@ -199,23 +199,10 @@ export async function executeToolCall(
     ? AbortSignal.any([request.signal, controller.signal])
     : controller.signal;
   try {
-    const output = await withSpan(
-      "tool.execute",
-      {
-        team_id: request.teamId,
-        tool: tool.name,
-        risk_tier: effectiveTier,
-        decision: verdict.decision,
-        decision_reason: verdict.reason,
-        trust_level: request.contextTrust,
-        "operation.name": "tool_execution",
-      },
-      () =>
-        definition.execute(request.args as Record<string, unknown>, {
-          deps: { ...defaultToolHandlerDeps, ...request.handlerDeps },
-          signal,
-        }),
-    );
+    const output = await definition.execute(request.args as Record<string, unknown>, {
+      deps: { ...defaultToolHandlerDeps, ...request.handlerDeps },
+      signal,
+    });
     await finalize({ result: output as Record<string, unknown>, resolvedDestination });
     // Tool output is always untrusted, unconditionally (docs/17 T4).
     return { decision: "allowed", toolCallId, output, outputTrust: "untrusted" };
