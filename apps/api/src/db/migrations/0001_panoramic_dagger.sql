@@ -1,1 +1,0 @@
-ALTER TABLE "tool_calls" ALTER COLUMN "agent_run_id" DROP NOT NULL;
