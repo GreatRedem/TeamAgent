@@ -62,16 +62,9 @@ const main = async () => {
 
     await app.register(autoLoadPlugin, { dir: path.join(dirName, 'routes'), matchFilter: /\.route\.(ts|js)$/, dirNameRoutePrefix: false });
 
-    try {
-        await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });
+    await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });
 
-        log.info({ port: config.NODE_PORT, host: '127.0.0.1', env: config.NODE_ENV }, 'server listening');
-    }
-    catch (error) {
-        log.fatal({ err: error }, 'failed to start server');
-
-        process.exit(1);
-    }
+    log.info({ port: config.NODE_PORT, host: '127.0.0.1', env: config.NODE_ENV }, 'server listening');
 
     for (const signal of ['SIGTERM', 'SIGINT'] as const) {
         process.once(signal, async () => {
@@ -86,4 +79,8 @@ const main = async () => {
     }
 };
 
-void main();
+main().catch((error) => {
+    log.fatal({ err: error }, 'failed to start server');
+
+    process.exit(1);
+});
