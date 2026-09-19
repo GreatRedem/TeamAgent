@@ -46,10 +46,10 @@ export class AccountSession
     @Column({ type: 'int' })
     account_id: number;
 
-    @Column({ type: 'datetime', nullable: true })
+    @Column({ type: 'timestamp', nullable: true })
     revoked_at: Date | undefined;
 
-    @Column({ type: 'datetime' })
+    @Column({ type: 'timestamp' })
     expires_at: Date;
 
     @CreateDateColumn()
@@ -71,7 +71,7 @@ export class AccountRecovery
     @Column({ type: 'int' })
     account_id: number;
 
-    @Column({ type: 'datetime', nullable: true })
+    @Column({ type: 'timestamp', nullable: true })
     used_at: Date | undefined;
 
     @CreateDateColumn()

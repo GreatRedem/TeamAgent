@@ -8,16 +8,13 @@ import config from '../utils/config.js';
 
 export default fastifyPlugin(async function(fastify, options: { dir: string; matchFilter: string })
 {
+    const isDevelopment = config.NODE_ENV === 'development';
+
     const connection = new DataSource({
-        // @ts-expect-error Silent Error - type from env Database type (mysql, postgres, sqlite, etc.)
-        type: config.DB_WEB_TYPE,
-        host: config.DB_WEB_HOST,
-        port: config.DB_WEB_PORT,
-        username: config.DB_WEB_USERNAME,
-        password: config.DB_WEB_PASSWORD,
-        database: config.DB_WEB_DATABASE,
-        synchronize: config.DB_WEB_SYNC,
-        logging: config.DB_WEB_LOG,
+        type: 'postgres',
+        url: config.NODE_DB,
+        synchronize: isDevelopment,
+        logging: isDevelopment,
         entities: [ path.join(options.dir, options.matchFilter) ]
     });
 
