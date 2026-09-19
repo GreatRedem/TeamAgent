@@ -912,3 +912,59 @@ body
     border: 0;
 }
 
+/* ------------------------------------------------------------------ tabs */
+
+/* The section switcher under a panel header. Scrolls rather than wraps on a
+   phone, so the header keeps its single-row shape at any width. */
+.tabs
+{
+    display: flex;
+    gap: 0.25rem;
+    margin-block-start: clamp(1rem, 2.5vh, 1.5rem);
+    padding-block-end: 0.5rem;
+    border-block-end: 1px solid oklch(100% 0 0 / 0.1);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar
+{
+    display: none;
+}
+
+.tabs__tab
+{
+    flex: 0 0 auto;
+    padding: 0.5rem 0.875rem;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tabs__tab:hover
+{
+    color: var(--ink);
+}
+
+.tabs__tab[aria-selected="true"]
+{
+    background: oklch(100% 0 0 / 0.07);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* A tab panel already sits under the switcher, so its section needs no rule of
+   its own to separate it. */
+[role="tabpanel"] > .section,
+.panel > [role="tabpanel"].section
+{
+    margin-block-start: clamp(1rem, 2.5vh, 1.5rem);
+    padding-block-start: 0;
+    border-block-start: 0;
+}
+

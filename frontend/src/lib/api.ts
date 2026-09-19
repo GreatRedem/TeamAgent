@@ -214,3 +214,52 @@ export function profileDetails(teamId: number, profileId: number)
 {
     return request<{ profile: TelegramProfile; bots: TelegramProfileBot[]; messages: TelegramMessage[] }>('GET', `/team/${ teamId }/profile/${ profileId }`);
 }
+
+/**
+ * An OpenAI-compatible model endpoint. The API key is write-only: the backend
+ * stores it and returns `key_hint` instead, so it cannot be read back out.
+ */
+export interface TeamModel
+{
+    id: number;
+    name: string;
+    model: string;
+    base_url: string;
+    key_hint: string;
+    created_at: string;
+}
+
+export interface TeamModelProbe
+{
+    ok: boolean;
+    models?: number;
+    found?: boolean;
+    reason?: string;
+}
+
+export function modelList(teamId: number)
+{
+    return request<{ models: TeamModel[] }>('GET', `/team/${ teamId }/model`);
+}
+
+export function modelCreate(teamId: number, name: string, model: string, baseUrl: string, apiKey: string)
+{
+    return request<TeamModel>('POST', `/team/${ teamId }/model`, { name, model, base_url: baseUrl, api_key: apiKey });
+}
+
+/** An empty `apiKey` keeps the stored one, so a rename need not re-enter it. */
+export function modelUpdate(teamId: number, modelId: number, name: string, model: string, baseUrl: string, apiKey: string)
+{
+    return request<TeamModel>('PATCH', `/team/${ teamId }/model/${ modelId }`, { name, model, base_url: baseUrl, api_key: apiKey });
+}
+
+export function modelRemove(teamId: number, modelId: number)
+{
+    return request<{ result: string }>('DELETE', `/team/${ teamId }/model/${ modelId }`);
+}
+
+/** A rejected model still answers 200 — the check ran and the answer was no. */
+export function modelTest(teamId: number, modelId: number)
+{
+    return request<TeamModelProbe>('POST', `/team/${ teamId }/model/${ modelId }/test`);
+}

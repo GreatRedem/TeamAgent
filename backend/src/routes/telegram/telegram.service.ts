@@ -4,7 +4,8 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { authGuard } from '../../plugins/authentication.js';
 
-import { Team, TeamBot } from '../team/team.entity.js';
+import { TeamBot } from '../team/team.entity.js';
+import { findOwnedTeam, readParamId } from '../team/team.access.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { schemaConversationList, schemaConversationMessages, schemaProfileDetails, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
 
@@ -40,30 +41,6 @@ function secretMatches(expected: string, received: unknown): boolean
     const b = createHash('sha256').update(received).digest();
 
     return timingSafeEqual(a, b);
-}
-
-function readParamId(request: FastifyRequest, key: string, result: string): number
-{
-    const parsed = Number((request.params as Record<string, string | undefined>)[key]);
-
-    if (!Number.isInteger(parsed) || parsed < 1)
-    {
-        throw new BadRequestResponse(result);
-    }
-
-    return parsed;
-}
-
-async function findOwnedTeam(fastify: FastifyInstance, id: number, accountId: number): Promise<Team>
-{
-    const team = await fastify.db.getRepository(Team).findOneBy({ id, account_id: accountId });
-
-    if (!team)
-    {
-        throw new BadRequestResponse('TEAM_NOT_FOUND');
-    }
-
-    return team;
 }
 
 function toProfile(user: TelegramUser)

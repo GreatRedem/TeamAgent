@@ -86,3 +86,50 @@ export class TeamBot
     @CreateDateColumn()
     created_at: Date;
 }
+
+/**
+ * An OpenAI-compatible model endpoint a team can call.
+ *
+ * `api_key` is a credential and is treated exactly like `TeamBot.token`: never
+ * returned, never logged, only ever summarised as a hint. `base_url` is the
+ * compatible root (the part before `/chat/completions`), stored without a
+ * trailing slash so callers can append paths safely.
+ *
+ * Unique per team on (base_url, model) so the same endpoint and model are not
+ * registered twice; scoped to the team rather than the table so a clash cannot
+ * reveal what another account has configured.
+ *
+ * ponytail: the key is stored as given, matching `team_bot.token`. Encrypting
+ * at rest needs a key in config and a migration for existing rows.
+ */
+@Entity({ name: 'team_model' })
+@Unique([ 'team_id', 'base_url', 'model' ])
+export class TeamModel
+{
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Index()
+    @Column({ type: 'int' })
+    team_id: number;
+
+    /** A human label, so two keys against the same model can be told apart. */
+    @Column({ type: 'varchar', length: 64 })
+    name: string;
+
+    /** The model identifier sent in the request body, e.g. `gpt-4o-mini`. */
+    @Column({ type: 'varchar', length: 128 })
+    model: string;
+
+    @Column({ type: 'varchar', length: 256 })
+    base_url: string;
+
+    @Column({ type: 'varchar', length: 256 })
+    api_key: string;
+
+    @CreateDateColumn()
+    created_at: Date;
+
+    @UpdateDateColumn()
+    updated_at: Date;
+}

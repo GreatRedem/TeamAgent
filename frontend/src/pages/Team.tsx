@@ -3,13 +3,23 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
 import { Button, ButtonLink } from '../components/Button';
+import { Tabs, type Tab } from '../components/Tabs';
 import { TeamBots } from '../components/TeamBots';
 import { TeamConversations } from '../components/TeamConversations';
+import { TeamModels } from '../components/TeamModels';
 import { TeamProfiles } from '../components/TeamProfiles';
 import { ApiError, teamDetails, teamUpdate, type Team as TeamRecord } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
 /** Details for one team, with the same fields editable in place. */
+const TABS: Tab[] = [
+    { id: 'settings', label: 'Settings' },
+    { id: 'telegram', label: 'Telegram' },
+    { id: 'model', label: 'Model' },
+    { id: 'conversation', label: 'Conversation' },
+    { id: 'profile', label: 'Profile' }
+];
+
 export function Team()
 {
     const navigate = useNavigate();
@@ -28,6 +38,7 @@ export function Team()
     const [ busy, setBusy ] = useState(false);
     const [ saved, setSaved ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
+    const [ tab, setTab ] = useState(TABS[0].id);
 
     useEffect(() =>
     {
@@ -121,13 +132,15 @@ export function Team()
                 </ButtonLink>
             </header>
 
+            { team !== null && <Tabs tabs={ TABS } active={ tab } onChange={ setTab } /> }
+
             { team === null && shown === null && <p className="status">Loading team...</p> }
 
             { shown !== null && <p className="status" data-state="error" role="alert">{ shown }</p> }
 
             { team !== null && (
                 <>
-                    <section className="section">
+                    <section className="section" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden={ tab !== 'settings' }>
                         <h2 className="section__title">Settings</h2>
 
                         <dl className="details">
@@ -176,11 +189,23 @@ export function Team()
                         { saved && <output className="status">Saved.</output> }
                     </section>
 
-                    <TeamBots teamId={ teamId } />
+                    { /* Mounted only when selected: each section fetches on mount,
+                         so rendering all five would fire every request up front. */ }
+                    <div id="panel-telegram" role="tabpanel" aria-labelledby="tab-telegram" hidden={ tab !== 'telegram' }>
+                        { tab === 'telegram' && <TeamBots teamId={ teamId } /> }
+                    </div>
 
-                    <TeamConversations teamId={ teamId } />
+                    <div id="panel-model" role="tabpanel" aria-labelledby="tab-model" hidden={ tab !== 'model' }>
+                        { tab === 'model' && <TeamModels teamId={ teamId } /> }
+                    </div>
 
-                    <TeamProfiles teamId={ teamId } />
+                    <div id="panel-conversation" role="tabpanel" aria-labelledby="tab-conversation" hidden={ tab !== 'conversation' }>
+                        { tab === 'conversation' && <TeamConversations teamId={ teamId } /> }
+                    </div>
+
+                    <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" hidden={ tab !== 'profile' }>
+                        { tab === 'profile' && <TeamProfiles teamId={ teamId } /> }
+                    </div>
                 </>
             ) }
         </section>

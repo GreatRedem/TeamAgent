@@ -34,6 +34,7 @@ The one exception is a plain self-check script, run directly and exiting non-zer
 ```bash
 cd backend && npx tsx src/routes/team/team.service.test.ts       # Telegram probe, stubbed fetch, no network
 cd backend && npx tsx src/routes/telegram/telegram.service.test.ts   # webhook body parser
+cd backend && npx tsx src/routes/model/model.service.test.ts         # model connectivity probe
 ```
 
 ## Formatting warning
@@ -155,5 +156,6 @@ Redaction is configured structurally on the instance (`redact` paths), not per c
 - The refresh-token flow has no endpoints (see above), so `@fastify/cookie` and `NODE_COOKIE` exist only for a cookie nothing reads.
 - `account_session.token` stores the refresh token in plaintext; a database compromise would hand over live sessions.
 - `POST /team/:id/bot/:botId/test` calls `api.telegram.org` on the caller's behalf. Because the rate limiter skips requests where `account_id !== 0`, no authenticated route is throttled, so a signed-in account can drive outbound requests at will. Fixing it means changing the plugin's skip rule, which affects every route.
-- `team_bot.token` stores BotFather credentials in plaintext, the same exposure. It never leaves the server — handlers return a `token_hint` and the response schema omits `token` entirely — so the risk is at rest, not in transit.
+- `team_model.base_url` is fetched by the server on the caller's behalf when a model is tested, which is a server-side request forgery vector: an authenticated account can point it at an internal address and learn from the outcome whether something answers there. The probe returns only a flat `ok`/`reason` and never the response body, headers or status, so the leak is coarse; closing it properly means resolving the host and refusing private ranges, which would also block the loopback URLs that local models need.
+- `team_bot.token` and `team_model.api_key` store credentials in plaintext, the same exposure. It never leaves the server — handlers return a `token_hint` and the response schema omits `token` entirely — so the risk is at rest, not in transit.
 - Request body schemas in `*.schema.ts` are inert, since `setValidatorCompiler` disables request validation. Only the `response` half is enforced.

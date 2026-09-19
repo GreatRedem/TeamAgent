@@ -5,6 +5,7 @@ import { authGuard } from '../../plugins/authentication.js';
 import { createWebhookSecret } from '../telegram/telegram.service.js';
 
 import { Team, TeamBot } from './team.entity.js';
+import { findOwnedTeam, readParamId, readTeamId } from './team.access.js';
 import { schemaTeamBotCreate, schemaTeamBotList, schemaTeamBotRemove, schemaTeamBotTest, schemaTeamBotUpdate, schemaTeamCreate, schemaTeamDetails, schemaTeamList, schemaTeamUpdate } from './team.schema.js';
 
 import { BadRequestResponse } from '../../utils/response.js';
@@ -69,24 +70,6 @@ export async function probeTelegram(token: string): Promise<BotProbe>
     return { ok: true, username: payload.result?.username ?? '' };
 }
 
-/**
- * `request.getBody(...)` only reads the body, and the builder has no number
- * rule, so a route parameter is parsed here instead. `Number` rather than
- * `Number.parseInt`, which would read '12abc' as 12.
- */
-function readParamId(request: FastifyRequest, key: string, result: string): number
-{
-    const parsed = Number((request.params as Record<string, string | undefined>)[key]);
-
-    if (!Number.isInteger(parsed) || parsed < 1)
-    {
-        throw new BadRequestResponse(result);
-    }
-
-    return parsed;
-}
-
-const readTeamId = (request: FastifyRequest) => readParamId(request, 'id', 'TEAM_ID_INVALID');
 const readBotId = (request: FastifyRequest) => readParamId(request, 'botId', 'BOT_ID_INVALID');
 
 /**
@@ -137,23 +120,6 @@ function readPublicUrl(request: FastifyRequest): string
     }
 
     return parsed.origin;
-}
-
-/**
- * Scoped to the caller on purpose: a team owned by another account answers the
- * same as one that was never created, so the endpoint does not confirm which
- * ids exist.
- */
-async function findOwnedTeam(fastify: FastifyInstance, id: number, accountId: number): Promise<Team>
-{
-    const team = await fastify.db.getRepository(Team).findOneBy({ id, account_id: accountId });
-
-    if (!team)
-    {
-        throw new BadRequestResponse('TEAM_NOT_FOUND');
-    }
-
-    return team;
 }
 
 // `description` is required rather than optional because the validator builder
