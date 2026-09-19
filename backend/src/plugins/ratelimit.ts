@@ -36,7 +36,9 @@ export default fastifyPlugin(async function(fastify)
 
         if (record === undefined || record.time < now)
         {
-            record = { count: routeConfig.count, time: routeConfig.time + now };
+            // routeConfig.time is milliseconds; record.time is a unix timestamp in
+            // seconds, which is also what X-RateLimit-Reset reports.
+            record = { count: routeConfig.count, time: now + Math.ceil(routeConfig.time / 1000) };
         }
 
         rateLimitCache.set(key, record);
@@ -46,6 +48,8 @@ export default fastifyPlugin(async function(fastify)
 
         if (record.count === 0)
         {
+            request.log.warn({ module: 'ratelimit', rule: routeConfig.name, resetAt: record.time }, 'rate limit exceeded');
+
             reply.header('X-RateLimit-Remaining', 0);
 
             reply.code(STATUS_TOO_MANY_REQUEST).send();

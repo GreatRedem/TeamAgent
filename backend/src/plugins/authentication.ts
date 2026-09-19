@@ -54,7 +54,6 @@ export function verifyAccessToken(token: string)
     return { id: decoded.id, role: decoded.role, sid: decoded.sid };
 }
 
-
 export function createAccessToken(id: number, role: number, sessionId: number): string
 {
     const payload = Buffer.from(JSON.stringify({ id, role, sid: sessionId, expires_at: Math.floor((Date.now() + SESSION_ACCESS_TIME) / 1000) })).toString('base64url');
@@ -85,6 +84,10 @@ export function authRole(role: number)
 
 export default fastifyPlugin(async function(fastify)
 {
+    fastify.decorateRequest('account_id', 0);
+    fastify.decorateRequest('session_id', 0);
+    fastify.decorateRequest('account_role', 0);
+
     fastify.addHook('preHandler', async(request: FastifyRequest, reply: FastifyReply) =>
     {
         const routeConfig = request.routeOptions.config?.authentication;
@@ -115,6 +118,8 @@ export default fastifyPlugin(async function(fastify)
             }
         }
 
+        request.log.warn({ module: 'auth', url: request.url }, 'unauthorized request');
+
         reply.status(STATUS_UNAUTHORIZED).send();
     });
 
@@ -131,6 +136,8 @@ export default fastifyPlugin(async function(fastify)
         {
             return;
         }
+
+        request.log.warn({ module: 'auth', url: request.url, required: routeRole, actual: request.account_role }, 'forbidden request');
 
         reply.status(STATUS_FORBIDDEN).send();
     });
