@@ -27,10 +27,10 @@
         "useDefineForClassFields": false,
         // Emit
         "rootDir": "src",
-        "outDir": "../.dist-backend",
         "sourceMap": false,
         "incremental": false,
         "noEmitOnError": true,
+        "outDir": "../.dist-backend",
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true
     },
