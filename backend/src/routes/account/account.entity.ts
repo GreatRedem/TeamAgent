@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity({ name: 'account' })
 export class Account
@@ -12,17 +12,20 @@ export class Account
     @Column({ type: 'float', default: 0 })
     usdt: number;
 
-    @Column({ type: 'varchar', length: 256 })
-    email: string;
+    @Column({ type: 'varchar', length: 42, unique: true, nullable: true })
+    wallet: string | null;
 
-    @Column({ type: 'varchar', length: 32 })
-    username: string;
+    @Column({ type: 'varchar', length: 256, nullable: true })
+    email: string | null;
 
-    @Column({ type: 'varchar', length: 32 })
-    password: string;
+    @Column({ type: 'varchar', length: 32, nullable: true })
+    username: string | null;
 
-    @Column({ type: 'varchar', length: 16 })
-    phone: string;
+    @Column({ type: 'varchar', length: 32, nullable: true })
+    password: string | null;
+
+    @Column({ type: 'varchar', length: 16, nullable: true })
+    phone: string | null;
 
     @Column({ type: 'varchar', length: 64, nullable: true })
     source: string;
@@ -56,97 +59,26 @@ export class AccountSession
     created_at: Date;
 }
 
-@Entity({ name: 'account_recovery' })
-export class AccountRecovery
+@Entity({ name: 'account_nonce' })
+export class AccountNonce
 {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ type: 'varchar', length: 32 })
-    token: string;
+    @Column({ type: 'varchar', length: 42 })
+    address: string;
 
-    @Column({ type: 'varchar', length: 512 })
-    device: string;
+    @Column({ type: 'varchar', length: 64, unique: true })
+    nonce: string;
 
-    @Column({ type: 'int' })
-    account_id: number;
+    @Column({ type: 'varchar', length: 1024 })
+    message: string;
 
     @Column({ type: 'timestamp', nullable: true })
-    used_at: Date | undefined;
+    consumed_at: Date | null;
 
-    @CreateDateColumn()
-    created_at: Date;
-}
-
-@Entity({ name: 'account_transfer' })
-export class AccountTransfer
-{
-    @PrimaryGeneratedColumn()
-    id: number;
-
-    @Column({ type: 'int' })
-    account_id: number;
-
-    @Column({ type: 'varchar', length: 32 })
-    username: string;
-
-    @Column({ type: 'varchar', length: 32 })
-    password: string;
-
-    @Column({ type: 'varchar', length: 256 })
-    email: string;
-
-    @Column({ type: 'varchar', length: 16 })
-    phone: string;
-
-    @Column({ type: 'float', default: 0 })
-    usdt: number;
-
-    @Column({ type: 'varchar', length: 64 })
-    realm: string;
-
-    @Column({ type: 'int', default: 0 })
-    status: number;
-
-    @UpdateDateColumn()
-    updated_at: Date;
-
-    @CreateDateColumn()
-    created_at: Date;
-}
-
-@Entity({ name: 'account_history' })
-export class AccountHistory
-{
-    @PrimaryGeneratedColumn()
-    id: number;
-
-    @Column({ type: 'varchar', length: 256 })
-    tag: string;
-
-    @Column({ type: 'int' })
-    account_id: number;
-
-    @Column({ type: 'varchar', length: 512, nullable: true })
-    value1: string | undefined;
-
-    @Column({ type: 'varchar', length: 512, nullable: true })
-    value2: string | undefined;
-
-    @Column({ type: 'varchar', length: 512, nullable: true })
-    value3: string | undefined;
-
-    @Column({ type: 'varchar', length: 512, nullable: true })
-    value4: string | undefined;
-
-    @Column({ type: 'varchar', length: 512, nullable: true })
-    value5: string | undefined;
-
-    @Column({ type: 'varchar', length: 512 })
-    user_agent: string;
-
-    @Column({ type: 'varchar', length: 128 })
-    ip: string;
+    @Column({ type: 'timestamp' })
+    expires_at: Date;
 
     @CreateDateColumn()
     created_at: Date;

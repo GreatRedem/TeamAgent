@@ -1,443 +1,127 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { rateLimit } from '../../plugins/ratelimit.js';
-import { createRefreshToken, createAccessToken, authGuard, verifyRefreshToken, SESSION_REFRESH_TIME } from '../../plugins/authentication.js';
+import { randomBytes } from 'node:crypto';
 
-import { Account, AccountSession, AccountTransfer } from './account.entity.js';
-import { schemaAccountPassword, schemaAccountRefresh, schemaAccountSignIn, schemaAccountSignOut, schemaAccountSignUp, schemaAccountSwap, schemaAccountTransfer } from './account.schema.js';
+import { IsNull } from 'typeorm';
+import { getAddress, isAddress, recoverMessageAddress } from 'viem';
+
+import { rateLimit } from '../../plugins/ratelimit.js';
+import { createRefreshToken, createAccessToken, SESSION_REFRESH_TIME } from '../../plugins/authentication.js';
+
+import { Account, AccountNonce, AccountSession } from './account.entity.js';
+import { schemaAccountWalletNonce, schemaAccountWalletSignIn } from './account.schema.js';
 
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 
-export function signUp(fastify: FastifyInstance)
+const APP_NAME = 'NuraAI';
+
+const WALLET_NONCE_TIME = 5 * 60 * 1000;
+
+function buildSignInMessage(address: string, nonce: string, issuedAt: Date, expiresAt: Date)
 {
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
-        const username = request.getBody('username').min(4).max(32).asString();
-        const password = request.getBody('password').min(5).max(32).asString();
-        const email = request.getBody('email').min(5).max(256).toLowerCase().asEmail();
-        const phone = request.getBody('phone').min(11).max(11).toLowerCase().asString();
-        const source = request.getBody('source').max(64).asStringOptional();
-
-        if (await fastify.db.getRepository(Account).findOneBy({ username }))
-        {
-            throw new BadRequestResponse('SIGN_UP_USERNAME_EXIST');
-        }
-
-        if (await fastify.db.getRepository(Account).findOneBy({ email }))
-        {
-            throw new BadRequestResponse('SIGN_UP_EMAIL_EXIST');
-        }
-
-        if (await fastify.db.getRepository(Account).findOneBy({ phone }))
-        {
-            throw new BadRequestResponse('SIGN_UP_PHONE_EXIST');
-        }
-
-        await fastify.db.getRepository(Account).save({ username, email, password, phone, source });
-
-        reply.send();
-    };
-
-    return { schema: schemaAccountSignUp, config: { ...rateLimit('account-sign-up', 20, 2 * 60 * 1000) }, handler };
+    return [
+        `${ APP_NAME } wants you to sign in with your wallet account:`,
+        address,
+        '',
+        'Sign in. This request will not trigger a transaction or cost any gas.',
+        '',
+        `Nonce: ${ nonce }`,
+        `Issued At: ${ issuedAt.toISOString() }`,
+        `Expiration Time: ${ expiresAt.toISOString() }`
+    ].join('\n');
 }
 
-export function signIn(fastify: FastifyInstance)
+async function startSession(fastify: FastifyInstance, request: FastifyRequest, reply: FastifyReply, account: Account)
 {
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
-        const password = request.getBody('password').min(5).max(32).asString();
-        const email = request.getBody('email').max(256).toLowerCase().asStringOptional();
-        const username = request.getBody('username').max(32).toLowerCase().asStringOptional();
+    const refreshToken = createRefreshToken(account.id, account.role);
 
-        if (!email && !username)
-        {
-            throw new BadRequestResponse('SIGN_IN_EMAIL_OR_USERNAME_REQUIRED');
-        }
+    const refresh = await fastify.db.getRepository(AccountSession).save({
+        device: (request.headers['user-agent'] || '') + ' ' + request.ip,
+        expires_at: new Date(Date.now() + SESSION_REFRESH_TIME),
+        account_id: account.id,
+        token: refreshToken });
 
-        const account = await fastify.db.getRepository(Account).findOneBy({ email, password, username });
+    [ '/account/refresh', '/account/sign-out' ].map((path) => reply.setCookie('refresh', refreshToken, { path, httpOnly: true, secure: true, sameSite: 'strict' }));
 
-        if (!account)
-        {
-            throw new BadRequestResponse('SIGN_IN_EMAIL_OR_PASSWORD_INVALID');
-        }
-
-        const refreshToken = createRefreshToken(account.id, account.role);
-
-        const refresh = await fastify.db.getRepository(AccountSession).save({
-            device: (request.headers['user-agent'] || '') + ' ' + request.ip,
-            expires_at: new Date(Date.now() + SESSION_REFRESH_TIME),
-            account_id: account.id,
-            token: refreshToken });
-
-        [ '/account/refresh', '/account/sign-out' ].map((path) => reply.setCookie('refresh', refreshToken, { path, httpOnly: true, secure: true, sameSite: 'strict' }));
-
-        reply.send({ accessToken: createAccessToken(account.id, account.role, refresh.id) });
-    };
-
-    return { schema: schemaAccountSignIn, config: { ...rateLimit('account-sign-in', 20, 2 * 60 * 1000) }, handler };
+    return createAccessToken(account.id, account.role, refresh.id);
 }
 
-export function signOut(fastify: FastifyInstance)
+export function walletNonce(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
     {
-        const refreshToken = request.cookies['refresh'];
+        const input = request.getBody('address').min(42).max(42).asString();
 
-        if (refreshToken)
+        if (!isAddress(input))
         {
-            const accountSession = await fastify.db.getRepository(AccountSession).findOneBy({ token: refreshToken });
-
-            if (accountSession && !accountSession.revoked_at)
-            {
-                accountSession.revoked_at = new Date();
-
-                await fastify.db.getRepository(AccountSession).save(accountSession);
-            }
+            throw new BadRequestResponse('WALLET_ADDRESS_INVALID');
         }
 
-        reply.send();
+        const address = getAddress(input);
+
+        const nonce = randomBytes(16).toString('hex');
+        const issuedAt = new Date();
+        const expiresAt = new Date(issuedAt.getTime() + WALLET_NONCE_TIME);
+
+        const message = buildSignInMessage(address, nonce, issuedAt, expiresAt);
+
+        await fastify.db.getRepository(AccountNonce).save({ address: address.toLowerCase(), nonce, message, expires_at: expiresAt, consumed_at: null });
+
+        reply.send({ message });
     };
 
-    return { schema: schemaAccountSignOut, config: { ...rateLimit('account-sign-out', 20, 2 * 60 * 1000), ...authGuard() }, handler };
+    return { schema: schemaAccountWalletNonce, config: { ...rateLimit('account-wallet-nonce', 20, 2 * 60 * 1000) }, handler };
 }
 
-export function refresh(fastify: FastifyInstance)
+export function walletSignIn(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
     {
-        const refreshToken = request.cookies['refresh'];
+        const input = request.getBody('address').min(42).max(42).asString();
+        const signature = request.getBody('signature').min(4).max(512).asString();
 
-        if (refreshToken === undefined)
+        if (!isAddress(input))
         {
-            throw new UnauthorizedResponse('REFRESH_REQUEST_INVALID');
+            throw new BadRequestResponse('WALLET_ADDRESS_INVALID');
         }
 
-        const account = verifyRefreshToken(refreshToken);
+        const address = getAddress(input).toLowerCase();
 
-        if (account === undefined)
+        const challenge = await fastify.db.getRepository(AccountNonce).findOne({ where: { address, consumed_at: IsNull() }, order: { id: 'DESC' } });
+
+        if (!challenge || challenge.expires_at < new Date())
         {
-            throw new UnauthorizedResponse('REFRESH_REQUEST_INVALID');
+            throw new BadRequestResponse('WALLET_NONCE_INVALID');
         }
 
-        const accountSession = await fastify.db.getRepository(AccountSession).findOneBy({ account_id: account.id, token: refreshToken });
-
-        if (!accountSession || accountSession.revoked_at || accountSession.expires_at < new Date())
-        {
-            throw new UnauthorizedResponse('REFRESH_REQUEST_INVALID');
-        }
-
-        const refreshTokenNew = createRefreshToken(account.id, account.role);
-
-        const refresh = await fastify.db.getRepository(AccountSession).save({
-            id: accountSession.id,
-            expires_at: new Date(Date.now() + SESSION_REFRESH_TIME),
-            device: (request.headers['user-agent'] || '') + ' ' + request.ip,
-            account_id: account.id,
-            token: refreshTokenNew });
-
-        [ '/account/refresh', '/account/sign-out' ].map((path) => reply.setCookie('refresh', refreshTokenNew, { path, httpOnly: true, secure: true, sameSite: 'strict' }));
-
-        reply.send({ accessToken: createAccessToken(account.id, account.role, refresh.id) });
-    };
-
-    return { schema: schemaAccountRefresh, config: { ...rateLimit('account-refresh', 20, 2 * 60 * 1000) }, handler };
-}
-
-export function password(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
-        const passwordOld = request.getBody('password_old').min(5).asString();
-        const passwordNew = request.getBody('password_new').min(5).asString();
-
-        const account = await fastify.db.getRepository(Account).findOneBy({ id: request.account_id, password: passwordOld });
-
-        if (!account)
-        {
-            throw new BadRequestResponse('PASSWORD_REQUEST_INVALID');
-        }
-
-        account.password = passwordNew;
-
-        await fastify.db.getRepository(Account).save(account);
-
-        await fastify.db.getRepository(AccountSession).createQueryBuilder().update(AccountSession)
-            .set({ revoked_at: new Date() })
-            .where('account_id = :accountId', { accountId: request.account_id })
-            .andWhere('revoked_at IS NULL')
-            .andWhere('id != :sessionId', { sessionId: request.session_id })
+        // consume before verifying, and only proceed if this request is the one that claimed it
+        const consumed = await fastify.db.getRepository(AccountNonce).createQueryBuilder().update(AccountNonce)
+            .set({ consumed_at: new Date() })
+            .where('id = :id', { id: challenge.id })
+            .andWhere('consumed_at IS NULL')
             .execute();
 
-        // Fix Me Send Notify To Email
-
-        reply.send();
-    };
-
-    return { schema: schemaAccountPassword, config: { ...rateLimit('account-password', 20, 2 * 60 * 1000), ...authGuard() }, handler };
-}
-
-export function swap(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
-        const amount = request.getBody('amount').min(1).asNumber();
-        const email = request.getBody('email').min(5).toLowerCase().asEmail();
-
-        const accountTarget = await fastify.db.getRepository(Account).findOneBy({ email });
-
-        if (!accountTarget)
+        if (consumed.affected !== 1)
         {
-            throw new BadRequestResponse('SWAP_EMAIL_INVALID');
+            throw new BadRequestResponse('WALLET_NONCE_INVALID');
         }
 
-        const account = await fastify.db.getRepository(Account).findOneBy({ id: request.account_id });
+        const recovered = await recoverMessageAddress({ message: challenge.message, signature: signature as `0x${ string }` }).catch(() => undefined);
 
-        if (!account || account.usdt < amount)
+        if (!recovered || recovered.toLowerCase() !== address)
         {
-            throw new BadRequestResponse('SWAP_USDT_INSUFFICIENT');
+            throw new UnauthorizedResponse('WALLET_SIGNATURE_INVALID');
         }
 
-        account.usdt -= amount;
-        accountTarget.usdt += amount;
-
-        await fastify.db.getRepository(Account).save(account);
-        await fastify.db.getRepository(Account).save(accountTarget);
-
-        // Fix Me Send Notify To Email
-
-        reply.send();
-    };
-
-    return { schema: schemaAccountSwap, config: { ...rateLimit('account-transfer', 100, 30 * 60 * 1000), ...authGuard() }, handler };
-}
-
-export function transfer(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
-        const username = request.getBody('username').min(4).max(32).asString();
-        const password = request.getBody('password').min(5).max(32).asString();
-        const email = request.getBody('email').min(5).max(256).toLowerCase().asEmail();
-        const phone = request.getBody('phone').min(5).max(16).toLowerCase().asString();
-        const realm = request.getBody('realm').min(5).max(64).asString();
-
-        await fastify.db.getRepository(AccountTransfer).save({ account_id: request.account_id, username, email, password, phone, realm });
-
-        reply.send();
-    };
-
-    return { schema: schemaAccountTransfer, config: { ...rateLimit('account-transfer', 20, 2 * 60 * 1000), ...authGuard() }, handler };
-}
-
-/*
-
-export async function googleCallback(app: FastifyInstance) {
-
-  app.get("/auth/google/callback", async (req, reply) => {
-    const code = (req.query as any).code;
-    if (!code) return reply.code(400).send("Missing code");
-
-    // 1. Exchange code for tokens
-    const tokenRes = await axios.post(
-      "https://oauth2.googleapis.com/token",
-      {
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI
-      },
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    const { access_token } = tokenRes.data;
-
-    // 2. Fetch user info
-    const userRes = await axios.get(
-      "https://www.googleapis.com/oauth2/v3/userinfo",
-      { headers: { Authorization: `Bearer ${access_token}` } }
-    );
-
-    const decoded = jwtDecode.decode(tokenRes.data.id_token) as any;
-
-if (decoded.aud !== process.env.GOOGLE_CLIENT_ID) {
-  throw new Error("Invalid token");
-}
-
-    const googleUser = userRes.data;
-
-    const googleId = googleUser.sub;
-    const email = googleUser.email;
-    const name = googleUser.name;
-    const avatar = googleUser.picture;
-
-    // 3. Create or find user in DB
-    const user = await findOrCreateUser({ googleId, email, name, avatar });
-
-    // 4. Issue JWT
-    const token = app.jwt.sign({ id: user.id });
-
-    return reply.send({ token });
-  });
-}
-
-export function forgot(fastify: FastifyInstance)
-{
-    const body = Type.Object({ email: Type.String({ minLength: 5, maxLength: 256, format: 'email' }) });
-
-    const handler = async(request: FastifyRequest<{ Body: Static<typeof body> }>, reply: FastifyReply) =>
-    {
-        const email = request.body.email.toLowerCase();
-
-        const account = await fastify.web.getRepository(Account).findOneBy({ email });
+        let account = await fastify.db.getRepository(Account).findOneBy({ wallet: address });
 
         if (!account)
         {
-            throw new BadRequestResponse('ACCOUNT_FORGOT_EMAIL_NOT_FOUND', 'email');
+            account = await fastify.db.getRepository(Account).save({ wallet: address, role: 0, usdt: 0 });
         }
 
-        const device = request.headers['user-agent'] || '';
-        const token = Buffer.from(crypto.randomBytes(24)).toString('base64url').slice(0, 32);
-
-        await fastify.web.getRepository(AccountRecovery).save({ token, device, account_id: account.id });
-
-        //mailer.forgot(account.email, token);
-
-        reply.send();
+        reply.send({ accessToken: await startSession(fastify, request, reply, account) });
     };
 
-    return [ { schema: { body }, ...rateLimit('account-forgot', 10, 60 * 60 * 1000) }, handler ] as const;
+    return { schema: schemaAccountWalletSignIn, config: { ...rateLimit('account-wallet-sign-in', 20, 2 * 60 * 1000) }, handler };
 }
-
-export function verify(fastify: FastifyInstance)
-{
-    const body = Type.Object({ token: Type.String({ minLength: 32, maxLength: 32 }), password: Type.String({ minLength: 5, maxLength: 32 }) });
-
-    const handler = async(request: FastifyRequest<{ Body: Static<typeof body> }>, reply: FastifyReply) =>
-    {
-        const token = request.body.token;
-        const password = request.body.password.toLowerCase();
-
-        const accountRecovery = await fastify.web.getRepository(AccountRecovery).findOneBy({ token });
-
-        if (!accountRecovery || accountRecovery.used_at || accountRecovery.created_at < new Date(Date.now() - config.NODE_RECOVERY_TIME))
-        {
-            throw new BadRequestResponse('ACCOUNT_VERIFY_TOKEN_NOT_FOUND', 'token');
-        }
-
-        const account = await fastify.web.getRepository(Account).findOneBy({ id: accountRecovery.account_id });
-
-        if (!account)
-        {
-            throw new BadRequestResponse('ACCOUNT_VERIFY_ACCOUNT_NOT_FOUND', 'token');
-        }
-
-        account.password = password;
-
-        accountRecovery.used_at = new Date();
-
-        await fastify.web.getRepository(Account).save(account);
-
-        await fastify.web.getRepository(AccountRecovery).save(accountRecovery);
-
-        // mailer.verify(account.email);
-
-        reply.send();
-    };
-
-    return [ { schema: { body }, ...rateLimit('account-forgot', 10, 60 * 60 * 1000) }, handler ] as const;
-}
-
-export function sessionList(fastify: FastifyInstance)
-{
-    const query = Type.Object({ page: Type.Number({ minimum: 1, default: 1 }), limit: Type.Number({ minimum: 1, maximum: 30, default: 10 }) });
-
-    const response = Type.Object({
-        total: Type.Number(),
-        items: Type.Array(Type.Object({
-            id: Type.Number(),
-            device: Type.String(),
-            expiresAt: Type.String(),
-            createdAt: Type.String() })) });
-
-    const handler = async(request: FastifyRequest<{ Querystring: Static<typeof query> }>, reply: FastifyReply<{ Reply: Static<typeof response> }>) =>
-    {
-        const offset = (request.query.page - 1) * request.query.limit;
-
-        const [ items, total ] = await fastify.web.getRepository(AccountSession).findAndCount({
-            take: request.query.limit,
-            skip: offset,
-            where:
-            {
-                account_id: request.account_id
-            },
-            order:
-            {
-                created_at: 'DESC'
-            } });
-
-        reply.send({ total, items: items.map((s) => ({ id: s.id, device: s.device, expiresAt: s.expires_at.toISOString(), createdAt: s.created_at.toISOString() })) });
-    };
-
-    return [ { schema: { querystring: query, response: { 200: response } }, ...rateLimit('account-session', 100, 60 * 60 * 1000), ...authGuard() }, handler ] as const;
-}
-
-export function sessionDelete(fastify: FastifyInstance)
-{
-    const body = Type.Object({ id: Type.Number({ minimum: 1 }) });
-
-    const handler = async(request: FastifyRequest<{ Body: Static<typeof body> }>, reply: FastifyReply) =>
-    {
-        const session = await fastify.web.getRepository(AccountSession).findOneBy({ id: request.body.id, account_id: request.account_id });
-
-        if (session === null || session.revoked_at)
-        {
-            throw new BadRequestResponse('ACCOUNT_SESSION_NOT_FOUND_OR_REVOKED', 'id');
-        }
-
-        session.revoked_at = new Date();
-
-        await fastify.web.getRepository(AccountSession).save(session);
-
-        reply.send();
-    };
-
-    return [ { schema: { body }, ...rateLimit('account-session-delete', 30, 60 * 60 * 1000), ...authGuard() }, handler ] as const;
-}
-
-export function history(fastify: FastifyInstance)
-{
-    const query = Type.Object({ tag: Type.String({ minLength: 1, default: 'ACCOUNT_SIGN_IN' }), page: Type.Number({ minimum: 1, default: 1 }), limit: Type.Number({ minimum: 1, maximum: 30, default: 10 }) });
-
-    const response = Type.Object({
-        total: Type.Number(),
-        items: Type.Array(Type.Object({
-            id: Type.Number(),
-            ip: Type.String(),
-            userAgent: Type.String(),
-            createdAt: Type.String() })) });
-
-    const handler = async(request: FastifyRequest<{ Querystring: Static<typeof query> }>, reply: FastifyReply<{ Reply: Static<typeof response> }>) =>
-    {
-        const offset = (request.query.page - 1) * request.query.limit;
-
-        const [ items, total ] = await fastify.web.getRepository(AccountHistory).findAndCount({
-            take: request.query.limit,
-            skip: offset,
-            where:
-            {
-                tag: request.query.tag,
-                account_id: request.account_id
-            },
-            order:
-            {
-                created_at: 'DESC'
-            }
-        });
-
-        reply.send({ total, items: items.map((s) => ({ id: s.id, ip: s.ip, value1: s.value1, value2: s.value2, value3: s.value3, value4: s.value4, value5: s.value5, userAgent: s.user_agent, createdAt: s.created_at.toISOString() })) });
-    };
-
-    return [ { schema: { querystring: query, response: { 200: response } }, ...rateLimit('account-history', 100, 60 * 60 * 1000), ...authGuard() }, handler ] as const;
-}
-*/
