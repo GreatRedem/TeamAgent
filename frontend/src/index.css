@@ -396,3 +396,178 @@ body
         transition: none;
     }
 }
+
+/* ----------------------------------------------------------------- panel */
+
+/* `.shell__main` bottom-aligns its child for the hero; a panel grows with its
+   list, so it pins to the top instead. */
+.panel
+{
+    align-self: flex-start;
+    inline-size: min(100%, 44rem);
+    padding: clamp(1.25rem, 3vw, 2rem);
+    border: 1px solid oklch(100% 0 0 / 0.1);
+    border-radius: calc(var(--radius) * 1.6);
+    /* The scene sits directly behind this content rather than below it as on
+       the hero, so the panel needs its own surface to stay legible. */
+    background: oklch(13% 0.018 258 / 0.72);
+    backdrop-filter: blur(14px);
+}
+
+.panel__head
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.panel__title
+{
+    margin: 0;
+    font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+}
+
+/* The shared button fills its container inside a form; in the header it is one
+   of two items on a row, so it shrinks to its label. */
+.panel__head .button
+{
+    inline-size: auto;
+    min-block-size: 2.75rem;
+    margin-block-start: 0;
+}
+
+.panel .status
+{
+    justify-content: flex-start;
+}
+
+/* ------------------------------------------------------------------ form */
+
+.form
+{
+    display: grid;
+    gap: 0.875rem;
+    margin-block-start: clamp(1.25rem, 3vh, 2rem);
+}
+
+.form .button
+{
+    justify-self: start;
+    inline-size: auto;
+    min-block-size: 2.75rem;
+    margin-block-start: 0.25rem;
+}
+
+.field
+{
+    display: grid;
+    gap: 0.375rem;
+}
+
+.field__label
+{
+    color: var(--ink-muted);
+    font-size: 0.8125rem;
+}
+
+.field__input
+{
+    inline-size: 100%;
+    min-block-size: 3rem;
+    padding-inline: 0.875rem;
+    border: 1px solid oklch(100% 0 0 / 0.14);
+    border-radius: var(--radius);
+    background: oklch(8% 0.015 258 / 0.55);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.9375rem;
+}
+
+.field__input::placeholder
+{
+    color: var(--ink-muted);
+}
+
+.field__input:focus-visible
+{
+    border-color: var(--glow-bright);
+    outline: 2px solid var(--glow-bright);
+    outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ list */
+
+.list
+{
+    display: grid;
+    gap: 0.5rem;
+    margin: clamp(1.25rem, 3vh, 2rem) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.list__link
+{
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-radius: var(--radius);
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.list__link:hover,
+.list__link:focus-visible
+{
+    border-color: var(--glow-bright);
+    background: oklch(100% 0 0 / 0.04);
+}
+
+.list__name
+{
+    font-weight: 600;
+}
+
+.list__meta
+{
+    color: var(--ink-muted);
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------- details */
+
+.details
+{
+    display: grid;
+    gap: 0.5rem;
+    margin: clamp(1rem, 2.5vh, 1.5rem) 0 0;
+}
+
+.details__row
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    padding-block-end: 0.5rem;
+    border-block-end: 1px solid oklch(100% 0 0 / 0.1);
+    font-size: 0.875rem;
+}
+
+.details__key
+{
+    color: var(--ink-muted);
+}
+
+.details__value
+{
+    margin: 0;
+}
+
