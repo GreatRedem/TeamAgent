@@ -9,26 +9,8 @@ export class Account
     @Column({ type: 'int', default: 0 })
     role: number;
 
-    @Column({ type: 'float', default: 0 })
-    usdt: number;
-
-    @Column({ type: 'varchar', length: 42, unique: true, nullable: true })
-    wallet: string | null;
-
-    @Column({ type: 'varchar', length: 256, nullable: true })
-    email: string | null;
-
-    @Column({ type: 'varchar', length: 32, nullable: true })
-    username: string | null;
-
-    @Column({ type: 'varchar', length: 32, nullable: true })
-    password: string | null;
-
-    @Column({ type: 'varchar', length: 16, nullable: true })
-    phone: string | null;
-
-    @Column({ type: 'varchar', length: 64, nullable: true })
-    source: string;
+    @Column({ type: 'varchar', length: 42, unique: true })
+    wallet: string;
 
     @CreateDateColumn()
     created_at: Date;

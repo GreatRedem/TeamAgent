@@ -117,7 +117,7 @@ export function walletSignIn(fastify: FastifyInstance)
 
         if (!account)
         {
-            account = await fastify.db.getRepository(Account).save({ wallet: address, role: 0, usdt: 0 });
+            account = await fastify.db.getRepository(Account).save({ wallet: address });
         }
 
         reply.send({ accessToken: await startSession(fastify, request, reply, account) });
