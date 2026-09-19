@@ -2,9 +2,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 
 import fastifyPlugin from 'fastify-plugin';
 
+import LRUCache from '../utils/lru.js';
+
 import { STATUS_TOO_MANY_REQUEST } from '../utils/status.js';
 
-const rateLimitMap = new Map<string, { count: number; time: number }>();
+const rateLimitCache = new LRUCache<string, { count: number; time: number }>(10000);
 
 export function rateLimit(name: string, count: number, time: number)
 {
@@ -30,19 +32,19 @@ export default fastifyPlugin(async function(fastify)
         const now = Math.floor(Date.now() / 1000);
         const key = `${ request.ip }:${ routeConfig.name }`;
 
-        let record = rateLimitMap.get(key);
+        let record = rateLimitCache.get(key);
 
         if (record === undefined || record.time < now)
         {
             record = { count: routeConfig.count, time: routeConfig.time + now };
-
-            rateLimitMap.set(key, record);
         }
+
+        rateLimitCache.set(key, record);
 
         reply.header('X-RateLimit-Limit', routeConfig.count);
         reply.header('X-RateLimit-Reset', record.time);
 
-        if (record.count == 0)
+        if (record.count === 0)
         {
             reply.header('X-RateLimit-Remaining', 0);
 
