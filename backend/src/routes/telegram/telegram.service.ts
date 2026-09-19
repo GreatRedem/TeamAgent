@@ -6,7 +6,7 @@ import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
-import { HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, readAssistantTurn, readCompletion, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
+import { HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, earlierTurns, readAssistantTurn, readCompletion, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
 import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
@@ -248,7 +248,7 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
         return 'blocked';
     }
 
-    await messages.save({
+    const stored = await messages.save({
         team_id: bot.team_id,
         user_id: user.id,
         bot_id: bot.id,
@@ -273,7 +273,7 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
     // redelivers a webhook it does not get a prompt 2xx for, so the reply is
     // detached from the request that triggered it. Both transports funnel
     // through here, so the poller gets this for free.
-    void deliverAgentReply(fastify, bot, user, inbound.chatId, inbound.text, log)
+    void deliverAgentReply(fastify, bot, user, inbound.chatId, inbound.text, stored.id, log)
         .catch((error: unknown) => log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'));
 
     return 'stored';
@@ -359,6 +359,29 @@ function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () 
 }
 
 /**
+ * True when the person has written again since the message this reply is for.
+ *
+ * People send two or three short messages in a row, and a completion takes
+ * seconds, so a reply started for the first one is routinely still running when
+ * the next arrives. Answering it anyway puts the agent behind the conversation:
+ * the person reads a reply to something they have already moved on from, and
+ * the replies can arrive in the wrong order.
+ *
+ * Every stored inbound message fires its own reply, so standing down is safe --
+ * the newer message is already being answered, with this one in its history.
+ */
+async function supersededBy(fastify: FastifyInstance, userId: number, messageId: number): Promise<boolean>
+{
+    const newer = await fastify.db.getRepository(TelegramMessage).createQueryBuilder('message')
+        .where('message.user_id = :userId', { userId })
+        .andWhere('message.direction = :direction', { direction: 'in' })
+        .andWhere('message.id > :messageId', { messageId })
+        .getCount();
+
+    return newer > 0;
+}
+
+/**
  * Asks the bot's agent for a reply and sends it back to the person.
  *
  * Every failure is swallowed into a logged reason. This runs detached from the
@@ -366,8 +389,12 @@ function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () 
  * rejection rather than anything a caller could act on -- and both the model
  * url and the bot url carry credentials, so no error object from here is
  * logged verbatim.
+ *
+ * `messageId` is the row this reply answers. It is what keeps the agent on the
+ * latest turn rather than an older one: it identifies this message in the
+ * history, and it is what a newer message is compared against.
  */
-async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: TelegramUser, chatId: string, incoming: string, log: FastifyBaseLogger)
+async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: TelegramUser, chatId: string, incoming: string, messageId: number, log: FastifyBaseLogger)
 {
     if (bot.agent_id === 0)
     {
@@ -414,9 +441,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         order: { id: 'DESC' },
         take: HISTORY_LIMIT + 1 });
 
-    // Newest-first from the database, and the row just stored is the incoming
-    // message itself -- drop it so it is not sent twice.
-    const earlier = history.reverse().slice(0, -1);
+    const earlier = earlierTurns(history, messageId);
 
     const messages: ChatMessage[] = buildMessages(buildSystemPrompt(documents), earlier, incoming);
 
@@ -424,6 +449,17 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     // executor re-checks anyway, but offering a tool that would be refused just
     // invites the model to waste a round on it.
     const tools = allowedTools(agent.permissions);
+
+    // Checked before spending anything: if the person has already written
+    // again, that message is being answered with this one in its history.
+    if (await supersededBy(fastify, user.id, messageId))
+    {
+        log.info({ module: 'agent', botId: bot.id, userId: user.id, messageId }, 'agent reply stood down: newer message arrived');
+
+        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `agent:${ agent.id }`, outcome: 'skipped', detail: `message ${ messageId } superseded before the model was called` });
+
+        return;
+    }
 
     // The person sees "typing…" from here until the reply is sent or the
     // attempt gives up.
@@ -545,6 +581,27 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
             outcome: 'error',
             durationMs: Date.now() - startedAt,
             detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } returned no usable completion after ${ toolRuns } tool call(s)` });
+
+        return;
+    }
+
+    // Checked again now the answer exists, because the interesting case is a
+    // follow-up sent *while* the model was working -- the common one, since
+    // that is exactly when a person adds "and also...". The completion is
+    // discarded rather than sent: it is already recorded in the exchange table,
+    // and the newer message is being answered with this turn in its history.
+    if (await supersededBy(fastify, user.id, messageId))
+    {
+        log.info({ module: 'agent', botId: bot.id, userId: user.id, messageId }, 'agent reply discarded: newer message arrived while composing');
+
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'agent',
+            action: 'agent.request',
+            target: `agent:${ agent.id }`,
+            outcome: 'skipped',
+            durationMs: Date.now() - startedAt,
+            detail: `message ${ messageId } superseded while composing - ${ text.length } chars discarded` });
 
         return;
     }

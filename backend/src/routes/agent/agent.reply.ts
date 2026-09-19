@@ -77,6 +77,20 @@ export function buildSystemPrompt(documents: AgentDocumentLike[]): string
 }
 
 /**
+ * The turns to replay before the current one, oldest-first.
+ *
+ * Rows come back newest-first from the database and the message being answered
+ * is removed by **id**, never by position. It is not reliably the newest row:
+ * a completion takes seconds, so a second message routinely lands while the
+ * first reply is still being composed. Dropping the last row instead would
+ * delete that newer message from the history and replay this one twice.
+ */
+export function earlierTurns<T extends { id: number }>(newestFirst: T[], messageId: number): T[]
+{
+    return [ ...newestFirst ].reverse().filter((message) => message.id !== messageId);
+}
+
+/**
  * Builds the message list for an OpenAI-compatible completion.
  *
  * History arrives oldest-first. Stored direction decides the role: 'out' is

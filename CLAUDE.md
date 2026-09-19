@@ -204,6 +204,13 @@ Colour means volume; a day containing failures is **outlined** rather than recol
 
 `team_bot.agent_id` names the agent that answers people who message that bot; 0 means nobody answers and the bot only records. The reply is fired from `ingestUpdate` and **deliberately not awaited**: a completion takes seconds, and Telegram redelivers any webhook it does not get a prompt 2xx for, so blocking on the model would turn one message into several. Both transports funnel through `ingestUpdate`, so the poller gets replies for free.
 
+**The agent always answers the latest message.** People send two or three short messages in a row and a completion takes seconds, so a reply started for the first one is routinely still running when the next arrives. Two things keep the agent on the current turn rather than a turn behind:
+
+- The message being answered is removed from the replayed history **by id, never by position**. It is not reliably the newest row by the time the reply runs, and dropping the last row instead deleted the newer message from the history and replayed the answered one twice. `earlierTurns` in `agent.reply.ts` owns that, with a self-check on exactly this case.
+- `supersededBy` is checked twice: before the model is called, and again once the answer exists but before it is sent. Either way the reply stands down, because every stored inbound message fires its own reply and the newer one is already being answered with this turn in its history. The second check is the one that matters in practice -- a follow-up sent *while* the model is working is the common case, and the finished completion is discarded rather than sent, having already been recorded in `team_agent_exchange`.
+
+Both stand-downs are audited as `skipped`, so a silent agent can be told apart from a broken one. The residual case: if two messages land close enough that neither sees the other, both replies send. Closing that needs a lock per conversation, which is not worth it for a duplicate answer.
+
 While the model is working the chat shows "typing…", refreshed every 4s because Telegram expires a chat action after about five. The timer is cleared in a `finally` and additionally unref'd and self-cancelling, so it can neither outlive the reply nor hold the process open at shutdown. A failed typing ping is ignored: it is cosmetic, and letting it interrupt the actual reply would trade something that matters for something that does not.
 
 Everything on that path is swallowed into a logged reason rather than thrown — it runs detached, so a throw would surface as an unhandled rejection with nothing to catch it, and both the model url and the bot url carry credentials.

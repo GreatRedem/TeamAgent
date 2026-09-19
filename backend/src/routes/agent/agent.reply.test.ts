@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 
-import { HISTORY_LIMIT, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, readCompletion } from './agent.reply.js';
+import { HISTORY_LIMIT, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, earlierTurns, readCompletion } from './agent.reply.js';
 
 const docs = [
     { name: 'knowledge.md', content: '# Knowledge\nFacts.' },
@@ -17,6 +17,65 @@ const docs = [
 ];
 
 const tests: Array<[ string, () => void ]> = [
+    [ 'history comes back oldest-first without the message being answered', () =>
+    {
+        // Rows arrive newest-first from the database.
+        const rows = [
+            { id: 3, direction: 'in', text: 'three' },
+            { id: 2, direction: 'out', text: 'two' },
+            { id: 1, direction: 'in', text: 'one' }
+        ];
+
+        assert.deepEqual(earlierTurns(rows, 3).map((m) => m.text), [ 'one', 'two' ]);
+    } ],
+
+    [ 'a message that arrived while the reply was composing is kept', () =>
+    {
+        // The regression this guards: dropping the newest row by position
+        // deleted the follow-up from the history and replayed the answered
+        // message twice, so the agent answered a turn behind.
+        const rows = [
+            { id: 9, direction: 'in', text: 'and also this' },   // arrived mid-reply
+            { id: 8, direction: 'in', text: 'answer me' },       // the one being answered
+            { id: 7, direction: 'out', text: 'earlier reply' }
+        ];
+
+        const earlier = earlierTurns(rows, 8);
+
+        assert.deepEqual(earlier.map((m) => m.text), [ 'earlier reply', 'and also this' ]);
+        assert.equal(earlier.some((m) => m.id === 8), false, 'the answered message was replayed');
+    } ],
+
+    [ 'the answered message is removed wherever it sits', () =>
+    {
+        const rows = [ { id: 5, direction: 'in', text: 'e' }, { id: 4, direction: 'in', text: 'd' }, { id: 3, direction: 'in', text: 'c' } ];
+
+        for (const id of [ 3, 4, 5 ])
+        {
+            assert.equal(earlierTurns(rows, id).length, 2, `id ${ id } not removed`);
+            assert.equal(earlierTurns(rows, id).some((m) => m.id === id), false);
+        }
+    } ],
+
+    [ 'an id that is not in the window leaves the history intact', () =>
+    {
+        // The answered message can fall outside the window on a busy thread;
+        // losing an unrelated row instead would be worse than replaying it.
+        const rows = [ { id: 3, direction: 'in', text: 'c' }, { id: 2, direction: 'in', text: 'b' } ];
+
+        assert.deepEqual(earlierTurns(rows, 99).map((m) => m.text), [ 'b', 'c' ]);
+    } ],
+
+    [ 'the rows handed in are not reordered in place', () =>
+    {
+        // reverse() mutates; the caller passes the array it just queried.
+        const rows = [ { id: 2, direction: 'in', text: 'b' }, { id: 1, direction: 'in', text: 'a' } ];
+
+        earlierTurns(rows, 2);
+
+        assert.deepEqual(rows.map((m) => m.id), [ 2, 1 ]);
+    } ],
+
     [ 'instructions.md leads the system prompt', () =>
     {
         // A model weights the opening of a system prompt most; the document
