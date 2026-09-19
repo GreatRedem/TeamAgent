@@ -29,18 +29,24 @@ Deployment is a systemd unit driven by `scripts/*.sh`, exposed as `npm run servi
 
 **There is no test framework configured.** Don't invent a `npm test` invocation; verify changes with `tsc --noEmit`, `npm run build`, and `npm run lint`.
 
-The one exception is a plain self-check script, run directly and exiting non-zero on failure:
+The exception is a set of plain self-check scripts, run directly and exiting non-zero on failure. They are `*.test.ts` files beside the code they check, with no framework and no runner -- `console.log` is the report:
 
 ```bash
-cd backend && npx tsx src/routes/team/team.service.test.ts       # Telegram probe, stubbed fetch, no network
-cd backend && npx tsx src/routes/telegram/telegram.service.test.ts   # webhook body parser
-cd backend && npx tsx src/routes/model/model.service.test.ts         # model connectivity probe
-cd backend && npx tsx src/routes/telegram/telegram.permission.test.ts  # profile permission rules
+cd backend
+npx tsx src/routes/team/team.service.test.ts          # Telegram probe, stubbed fetch
+npx tsx src/routes/telegram/telegram.service.test.ts  # webhook body parser
+npx tsx src/routes/telegram/telegram.permission.test.ts  # profile permission rules
+npx tsx src/routes/model/model.service.test.ts        # model probe and provider catalog
+npx tsx src/routes/agent/agent.reply.test.ts          # prompt composition and history windowing
+npx tsx src/routes/mcp/mcp.tools.test.ts              # which capability exposes which tool
+npx tsx src/routes/mcp/mcp.web.test.ts                # the web_fetch SSRF guard
 ```
+
+Only the pure parts are covered: nothing here opens a database or a socket. Anything that needs either is checked by hand against the running instance, which is why the notes below record what was verified rather than pointing at a test.
 
 ## Formatting warning
 
-Tooling is oxlint + oxfmt, configured at the repo root (`.oxlintrc.json`, `.oxfmtrc.json`). The source is written in **Allman brace style** (`{` on its own line), which oxfmt — being Prettier-compatible — cannot express. `npm run format:check` currently reports 23 of 26 files as needing changes, and running `npm run format` will reformat nearly the whole codebase to K&R. A few files (`main.ts`, `tsconfig.json`) have already been converted, so the tree is mixed. Match the surrounding file's style; do not run `npm run format` casually.
+Tooling is oxlint + oxfmt, configured at the repo root (`.oxlintrc.json`, `.oxfmtrc.json`). The source is written in **Allman brace style** (`{` on its own line), which oxfmt — being Prettier-compatible — cannot express. `npm run format:check` currently reports almost every file as needing changes, and running `npm run format` will reformat nearly the whole codebase to K&R. A few files (`main.ts`, `tsconfig.json`) have already been converted, so the tree is mixed. Match the surrounding file's style; do not run `npm run format` casually.
 
 oxlint silently ignores unknown rule names, so a typo in `.oxlintrc.json` is a rule that quietly does nothing.
 
@@ -96,7 +102,7 @@ The builder throws on failure. `schema` entries on routes therefore shape **resp
 
 In `main.ts` the order is typeorm → authentication → ratelimit → validator → cookie → autoload. **`authenticationPlugin` must stay before `ratelimitPlugin`**: the auth plugin `decorateRequest`s `account_id` to `0` and populates it in a `preHandler` hook, and the rate limiter skips requests where `account_id !== 0` so limits apply to anonymous callers only. Reversing them disables rate limiting.
 
-Both plugins are `preHandler` hooks keyed off `request.routeOptions.config`, which is what the `authGuard()` / `authRole()` / `rateLimit()` spreads in a service's `config` object populate. `authGuard` and `authRole` currently have no callers because every route is public; they are the only mechanism for protecting a route.
+Both plugins are `preHandler` hooks keyed off `request.routeOptions.config`, which is what the `authGuard()` / `authRole()` / `rateLimit()` spreads in a service's `config` object populate. `authGuard()` is now on every route except the Telegram webhook, which has no account to authenticate and is protected by its per-bot secret instead. `authRole` still has no callers -- there is one kind of account.
 
 Rate-limit state is an in-process `LRUCache` (`utils/lru.ts`), so limits are per-instance, not global. `rateLimit(name, count, time)` takes **`time` in milliseconds**; the plugin converts it to the unix-seconds value it stores and reports via `X-RateLimit-Reset`.
 
@@ -130,7 +136,7 @@ The route deliberately carries **no `rateLimit`**. It is anonymous, so the limit
 
 Deliveries are deduplicated on `(bot_id, update_id)`, because Telegram redelivers until it sees a 2xx.
 
-Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is driven by `POST /team/:id/bot/:botId/webhook`. The url it registers includes the `/api` prefix that nginx strips, so the path Fastify registers does not have it.
+Registration is driven by `POST /team/:id/bot/:botId/webhook` and uses the bot's **own** `public_url` column, not a global env var: a team can run several bots behind different hostnames, and one shared `NODE_PUBLIC_URL` could not express that. A bot with the column still blank answers `BOT_PUBLIC_URL_NOT_SET` rather than registering something wrong, and a bot with no webhook falls back to polling (`plugins/telegrampoll.ts`). The url it registers includes the `/api` prefix that nginx strips, so the path Fastify registers does not have it.
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
@@ -235,7 +241,7 @@ Document names are identifiers, not free text: `DOCUMENT_NAME_PATTERN` requires 
 
 `telegram_user.permissions` holds comma-joined keys from the catalog in `routes/telegram/telegram.permission.ts`. A key that is **absent is denied** — an empty column grants nothing, not everything — so a permission added to the catalog later is off for everyone until it is switched on deliberately. Adding one is a single entry in `PERMISSIONS` with no schema change.
 
-The only enforcement point today is `ingestUpdate`: without `chat`, a message is acknowledged to Telegram with a 200 (so it stops redelivering) but nothing is stored, while the profile and its last-seen are still updated so the person can be found and granted access. `model` is stored and surfaced but **not yet enforced anywhere**, because there is no outbound reply path for it to gate.
+The only enforcement point today is `ingestUpdate`: without `chat`, a message is acknowledged to Telegram with a 200 (so it stops redelivering) but nothing is stored, while the profile and its last-seen are still updated so the person can be found and granted access. `model` is enforced in `deliverAgentReply`: without it the message is still recorded, but no agent answers. That is the split -- `chat` decides whether a person is heard at all, `model` decides whether they get a reply.
 
 Because the column arrives as `''` on rows that predate it, and `''` reads as fully denied, existing profiles must be backfilled by hand — there is no migration tooling:
 
@@ -266,6 +272,7 @@ Redaction is configured structurally on the instance (`redact` paths), not per c
 - The refresh-token flow has no endpoints (see above), so `@fastify/cookie` and `NODE_COOKIE` exist only for a cookie nothing reads.
 - `account_session.token` stores the refresh token in plaintext; a database compromise would hand over live sessions.
 - `POST /team/:id/bot/:botId/test` calls `api.telegram.org` on the caller's behalf. Because the rate limiter skips requests where `account_id !== 0`, no authenticated route is throttled, so a signed-in account can drive outbound requests at will. Fixing it means changing the plugin's skip rule, which affects every route.
-- `team_model.base_url` is fetched by the server on the caller's behalf when a model is tested, which is a server-side request forgery vector: an authenticated account can point it at an internal address and learn from the outcome whether something answers there. The probe returns only a flat `ok`/`reason` and never the response body, headers or status, so the leak is coarse; closing it properly means resolving the host and refusing private ranges, which would also block the loopback URLs that local models need.
+- `team_model.base_url` is fetched by the server on the caller's behalf when a model is tested, which is a server-side request forgery vector: an authenticated account can point it at an internal address and learn from the outcome whether something answers there. The probe returns only a flat `ok`/`reason` and never the response body, headers or status, so the leak is coarse. The guard that would close it now exists -- `checkPublicUrl` in `routes/mcp/mcp.web.ts` -- but it is deliberately **not** applied here: `web_fetch` refuses loopback because an agent has no business reaching an internal address, while a self-hosted model on `127.0.0.1` is the normal case for this field. Closing it needs a narrower rule (refuse private ranges, allow loopback), not the same one.
 - `team_bot.token` and `team_model.api_key` store credentials in plaintext, the same exposure. It never leaves the server — handlers return a `token_hint` and the response schema omits `token` entirely — so the risk is at rest, not in transit.
 - Request body schemas in `*.schema.ts` are inert, since `setValidatorCompiler` disables request validation. Only the `response` half is enforced.
+- Nothing is ever pruned. `audit_log`, `telegram_message`, `team_agent_exchange` and `account_nonce` all grow without bound, and the middle two hold conversation text -- so this is a retention question, not only a disk one. There is no migration tooling either, so a retention policy would arrive as hand-run SQL.
