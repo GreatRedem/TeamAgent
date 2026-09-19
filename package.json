@@ -1,13 +1,18 @@
 {
     "name": "nuraai",
     "private": true,
+    "type": "module",
     "workspaces": [
         "backend",
         "frontend"
     ],
     "scripts": {
         "dev": "npm --workspace backend run dev",
-        "build": "npm --workspace backend run build",
+        "dev:web": "npm --workspace frontend run dev",
+        "build": "npm run build:api && npm run build:web",
+        "build:api": "npm --workspace backend run build",
+        "build:web": "npm --workspace frontend run build",
+        "typecheck": "npm --workspace frontend run typecheck",
         "lint": "oxlint .",
         "lint:fix": "oxlint . --fix",
         "format": "oxfmt .",
@@ -18,7 +23,7 @@
         "service:restart": "bash scripts/service-restart.sh",
         "service:install": "bash scripts/service-install.sh",
         "service:uninstall": "bash scripts/service-uninstall.sh",
-        "service:deploy": "npm run build && npm run service:restart"
+        "service:deploy": "npm run build:api && npm run service:restart"
     },
     "devDependencies": {
         "oxfmt": "^0.68.0",

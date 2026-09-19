@@ -27,7 +27,7 @@
         "useDefineForClassFields": false,
         // Emit
         "rootDir": "src",
-        "outDir": "dist",
+        "outDir": "../.dist-backend",
         "sourceMap": false,
         "incremental": false,
         "noEmitOnError": true,

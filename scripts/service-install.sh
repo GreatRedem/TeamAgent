@@ -11,10 +11,11 @@ fi
 
 SERVICE_NAME="ashbringer-backend"
 
-SERVICE_APP_DIR="${SERVICE_APP_DIR:-backend}"
-SERVICE_PATH_APP="dist/main.js"
+SERVICE_PATH_APP="${SERVICE_PATH_APP:-.dist-backend/main.js}"
 SERVICE_DIR="${SERVICE_DIR:-/etc/systemd/system}"
-SERVICE_PATH="$(cd "$(dirname "$0")/../$SERVICE_APP_DIR" && pwd)/"
+# The repository root: build output lives here, and so does .env, which dotenv
+# resolves from the working directory.
+SERVICE_PATH="$(cd "$(dirname "$0")/.." && pwd)/"
 SERVICE_FILE="$SERVICE_DIR/${SERVICE_NAME}.service"
 
 echo "> Installing systemd service (${SERVICE_FILE})..."
