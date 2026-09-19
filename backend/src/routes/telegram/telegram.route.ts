@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
-import { conversationList, conversationMessages, telegramWebhook, telegramWebhookRegister } from './telegram.service.js';
+import { conversationList, conversationMessages, profileDetails, telegramWebhook, telegramWebhookRegister } from './telegram.service.js';
 
 export default async function(fastify: FastifyInstance)
 {
@@ -10,6 +10,8 @@ export default async function(fastify: FastifyInstance)
 
     fastify.get('/team/:id/conversation', conversationList(fastify));
     fastify.get('/team/:id/conversation/:userId', conversationMessages(fastify));
+
+    fastify.get('/team/:id/profile/:profileId', profileDetails(fastify));
 
     fastify.post('/team/:id/bot/:botId/webhook', telegramWebhookRegister(fastify));
 }

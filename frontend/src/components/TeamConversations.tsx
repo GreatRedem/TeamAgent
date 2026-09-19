@@ -1,24 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MessagesSquare } from 'lucide-react';
 
+import { profileName } from './profileName';
 import { ApiError, conversationList, conversationMessages, type TelegramMessage, type TelegramProfile } from '../lib/api';
 
 interface TeamConversationsProps
 {
     teamId: number;
-}
-
-/** A profile's display name, falling back through what Telegram supplied. */
-function profileName(profile: TelegramProfile): string
-{
-    const full = [ profile.first_name, profile.last_name ].filter((part) => part !== '').join(' ');
-
-    if (full !== '')
-    {
-        return full;
-    }
-
-    return profile.username !== '' ? `@${ profile.username }` : `Telegram ${ profile.telegram_id }`;
 }
 
 /**

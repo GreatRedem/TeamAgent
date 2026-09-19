@@ -119,7 +119,8 @@ body
 
 .hero
 {
-    inline-size: min(100%, 34rem);
+    position: relative;
+    inline-size: min(100%, 30rem);
     text-align: center;
 }
 
@@ -252,15 +253,75 @@ body
     background: radial-gradient(circle, oklch(45% 0.16 255 / 0.28) 0%, transparent 62%);
 }
 
+/*
+ * Mobile composition: the crystal sits in the upper third and the sign-in copy
+ * below it. On wider screens it moves right of centre (see the breakpoints at
+ * the end of this file) so the left column stays empty for the text.
+ */
 .scene__object
 {
     position: absolute;
-    inset-block-start: 4%;
+    inset-block-start: 6%;
     inset-inline-start: 50%;
-    inline-size: min(84vw, 22rem);
-    aspect-ratio: 560 / 580;
+    inline-size: min(72vw, 20rem);
+    aspect-ratio: 1;
     translate: -50% 0;
-    animation: drift 14s ease-in-out infinite;
+    animation: drift 18s ease-in-out infinite;
+}
+
+/*
+ * The quiet region the authentication content sits in. The brief asks for no
+ * bright geometry behind the heading or the button; rather than hand-placing
+ * every element around the text, this darkens whatever ends up there.
+ */
+.scene__quiet
+{
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(70% 46% at 50% 76%, oklch(8% 0.015 258 / 0.82) 0%, transparent 70%);
+}
+
+.lattice
+{
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    block-size: 72%;
+}
+
+.particles
+{
+    position: absolute;
+    inset: 0;
+}
+
+.particles__dot
+{
+    position: absolute;
+    border-radius: 50%;
+    background: var(--glow-bright);
+    animation-name: float;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+}
+
+.terrain__packet
+{
+    opacity: 0.85;
+}
+
+@keyframes float
+{
+    0%, 100%
+    {
+        transform: translate3d(0, 0, 0);
+    }
+
+    50%
+    {
+        transform: translate3d(0.6rem, -1.6rem, 0);
+    }
 }
 
 .crystal,
@@ -283,7 +344,7 @@ body
 
 .terrain__trail
 {
-    opacity: 0.9;
+    opacity: 0.55;
 }
 
 @keyframes drift
@@ -300,6 +361,21 @@ body
 }
 
 /* ----------------------------------------------------------- breakpoints */
+
+/* Below tablet the canvas is small: thin the dust and soften the lattice so the
+   copy keeps its breathing room. */
+@media (max-width: 39.99rem)
+{
+    .particles__dot:nth-child(n + 13)
+    {
+        display: none;
+    }
+
+    .lattice
+    {
+        opacity: 0.55;
+    }
+}
 
 /* tablet: more room, content still sits low */
 @media (min-width: 40rem)
@@ -361,6 +437,12 @@ body
     {
         block-size: clamp(18rem, 46vh, 34rem);
     }
+
+    /* The copy is no longer centred, so the quiet region moves with it. */
+    .scene__quiet
+    {
+        background: radial-gradient(46% 60% at 30% 52%, oklch(8% 0.015 258 / 0.85) 0%, transparent 72%);
+    }
 }
 
 /* large desktop: hold the composition, let type breathe */
@@ -375,15 +457,34 @@ body
     {
         inline-size: min(42vw, 40rem);
     }
+
+    /* More of the environment is visible, so let the far layers read. */
+    .lattice
+    {
+        opacity: 1.15;
+    }
+
+    .terrain
+    {
+        block-size: clamp(22rem, 50vh, 40rem);
+    }
 }
 
 /* ------------------------------------------------------------ preferences */
 
 @media (prefers-reduced-motion: reduce)
 {
-    .scene__object
+    .scene__object,
+    .particles__dot
     {
         animation: none;
+    }
+
+    /* The crystal's rotation is stopped in `useRotation`; these are the parts
+       driven by CSS and SMIL instead. */
+    .terrain__packet
+    {
+        display: none;
     }
 
     .spin
@@ -796,5 +897,13 @@ body
 .badge[data-mode="polling"]
 {
     color: var(--ink-muted);
+}
+
+/* The profile page renders a thread outside a disclosure, so it needs the
+   bubble container without the open-row borders. */
+.thread__body--plain
+{
+    padding-inline: 0;
+    border: 0;
 }
 

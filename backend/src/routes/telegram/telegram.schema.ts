@@ -82,3 +82,45 @@ export const schemaTelegramWebhookRegister = {
         }
     }
 } as const;
+
+/**
+ * The whole record for one person: every field Telegram has given us, the
+ * bots they have written to with a count each, and their full message history.
+ */
+export const schemaProfileDetails = {
+    response: {
+        200: {
+            type: 'object',
+            required: [ 'profile', 'bots', 'messages' ],
+            properties: {
+                profile,
+                bots: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: [ 'id', 'name', 'message_count', 'last_seen_at' ],
+                        properties: {
+                            id: { type: 'integer' },
+                            name: { type: 'string' },
+                            message_count: { type: 'integer' },
+                            last_seen_at: { type: 'string' }
+                        }
+                    }
+                },
+                messages: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: [ 'id', 'bot_id', 'text', 'sent_at' ],
+                        properties: {
+                            id: { type: 'integer' },
+                            bot_id: { type: 'integer' },
+                            text: { type: 'string' },
+                            sent_at: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        }
+    }
+} as const;

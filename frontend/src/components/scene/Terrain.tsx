@@ -66,8 +66,8 @@ function Blocks({ slabs, face, side }: { slabs: Slab[]; face: string; side: stri
                                 d={ `M${ slab.points[0][0] } ${ slab.points[0][1] } L${ slab.points[1][0] } ${ slab.points[1][1] }` }
                                 fill="none"
                                 stroke="var(--rock-rim)"
-                                strokeWidth="1.2"
-                                opacity="0.45"
+                                strokeWidth="1"
+                                opacity="0.3"
                             />
                         ) }
                     </g>
@@ -89,13 +89,13 @@ export function Terrain()
         >
             <defs>
                 <linearGradient id="rockFar" x1="0" y1="0" x2="0.3" y2="1">
-                    <stop offset="0%" stopColor="var(--rock-hi)" stopOpacity="0.5" />
-                    <stop offset="100%" stopColor="var(--rock-lo)" stopOpacity="1" />
+                    <stop offset="0%" stopColor="var(--rock-hi)" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="var(--rock-deep)" stopOpacity="1" />
                 </linearGradient>
 
                 <linearGradient id="rockNear" x1="0.1" y1="0" x2="0.5" y2="1">
-                    <stop offset="0%" stopColor="var(--rock-hi)" stopOpacity="0.42" />
-                    <stop offset="100%" stopColor="var(--rock-lo)" stopOpacity="1" />
+                    <stop offset="0%" stopColor="var(--rock-hi)" stopOpacity="0.26" />
+                    <stop offset="100%" stopColor="var(--rock-deep)" stopOpacity="1" />
                 </linearGradient>
 
                 <filter id="trailGlow" x="-20%" y="-600%" width="140%" height="1300%">
@@ -111,6 +111,7 @@ export function Terrain()
             <Blocks slabs={ FAR } face="url(#rockFar)" side="var(--rock-deep)" />
 
             <path
+                id="dataPath"
                 className="terrain__trail"
                 d="M1440 320 C 1288 334, 1200 354, 1056 358 C 914 362, 810 344, 674 354 C 552 364, 448 386, 356 406"
                 fill="none"
@@ -119,6 +120,14 @@ export function Terrain()
                 strokeLinecap="round"
                 filter="url(#trailGlow)"
             />
+
+            {/* A single packet travelling the route. `offset-path` would need the
+                d duplicated in CSS, so the motion is bound to the path itself. */}
+            <circle className="terrain__packet" r="4.5" fill="var(--ink)" filter="url(#trailGlow)">
+                <animateMotion dur="9s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#dataPath" />
+                </animateMotion>
+            </circle>
 
             <Blocks slabs={ NEAR } face="url(#rockNear)" side="var(--rock-deep)" />
         </svg>

@@ -199,3 +199,18 @@ export function teamBotWebhookRegister(teamId: number, botId: number)
 {
     return request<{ ok: boolean; url?: string; reason?: string }>('POST', `/team/${ teamId }/bot/${ botId }/webhook`);
 }
+
+/** One bot a person has written to, with how much they wrote to it. */
+export interface TelegramProfileBot
+{
+    id: number;
+    name: string;
+    message_count: number;
+    last_seen_at: string;
+}
+
+/** Everything held about one person: their fields, their bots, their history. */
+export function profileDetails(teamId: number, profileId: number)
+{
+    return request<{ profile: TelegramProfile; bots: TelegramProfileBot[]; messages: TelegramMessage[] }>('GET', `/team/${ teamId }/profile/${ profileId }`);
+}

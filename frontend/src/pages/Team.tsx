@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router';
 import { Button, ButtonLink } from '../components/Button';
 import { TeamBots } from '../components/TeamBots';
 import { TeamConversations } from '../components/TeamConversations';
+import { TeamProfiles } from '../components/TeamProfiles';
 import { ApiError, teamDetails, teamUpdate, type Team as TeamRecord } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
@@ -178,6 +179,8 @@ export function Team()
                     <TeamBots teamId={ teamId } />
 
                     <TeamConversations teamId={ teamId } />
+
+                    <TeamProfiles teamId={ teamId } />
                 </>
             ) }
         </section>

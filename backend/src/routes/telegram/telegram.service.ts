@@ -6,7 +6,7 @@ import { authGuard } from '../../plugins/authentication.js';
 
 import { Team, TeamBot } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
-import { schemaConversationList, schemaConversationMessages, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
+import { schemaConversationList, schemaConversationMessages, schemaProfileDetails, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
 
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 
@@ -332,6 +332,67 @@ export function conversationMessages(fastify: FastifyInstance)
     };
 
     return { schema: schemaConversationMessages, config: { ...authGuard() }, handler };
+}
+
+/**
+ * Everything held about one person.
+ *
+ * Unlike the conversation view, this is person-centric: the same individual can
+ * write to several of a team's bots, so the reply breaks their history down per
+ * bot as well as returning it in one chronological run.
+ */
+export function profileDetails(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readParamId(request, 'id', 'TEAM_ID_INVALID');
+        const profileId = readParamId(request, 'profileId', 'PROFILE_ID_INVALID');
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        // Matched on team as well as id, so a profile belonging to another team
+        // is not readable through a team the caller does own.
+        const user = await fastify.db.getRepository(TelegramUser).findOneBy({ id: profileId, team_id: teamId });
+
+        if (!user)
+        {
+            throw new BadRequestResponse('PROFILE_NOT_FOUND');
+        }
+
+        const messages = await fastify.db.getRepository(TelegramMessage).find({
+            where: { team_id: teamId, user_id: user.id },
+            order: { id: 'DESC' },
+            take: MESSAGE_PAGE });
+
+        // Oldest first for display; the query took the newest so the cap keeps
+        // the most recent rather than the first ever received.
+        messages.reverse();
+
+        const names = new Map((await fastify.db.getRepository(TeamBot).findBy({ team_id: teamId })).map((bot) => [ bot.id, bot.name ]));
+
+        const perBot = new Map<number, { id: number; name: string; message_count: number; last_seen_at: Date }>();
+
+        for (const message of messages)
+        {
+            const entry = perBot.get(message.bot_id) ?? { id: message.bot_id, name: names.get(message.bot_id) ?? 'Removed bot', message_count: 0, last_seen_at: message.sent_at };
+
+            entry.message_count += 1;
+
+            if (message.sent_at > entry.last_seen_at)
+            {
+                entry.last_seen_at = message.sent_at;
+            }
+
+            perBot.set(message.bot_id, entry);
+        }
+
+        reply.send({
+            profile: toProfile(user),
+            bots: [ ...perBot.values() ].sort((a, b) => b.message_count - a.message_count),
+            messages: messages.map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, sent_at: message.sent_at })) });
+    };
+
+    return { schema: schemaProfileDetails, config: { ...authGuard() }, handler };
 }
 
 /**
