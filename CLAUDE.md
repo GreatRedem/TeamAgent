@@ -7,17 +7,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Run from the repo root (npm workspaces):
 
 ```bash
-npm run dev            # tsx watch on backend/src/main.ts
-npm run build          # tsc -> backend/dist
+npm run dev            # backend: tsx watch on backend/src/main.ts
+npm run dev:web        # frontend: vite dev server on :5173
+npm run build          # both workspaces
+npm run build:api      # tsc -> .dist-backend/
+npm run build:web      # tsc --noEmit && vite build -> .dist-frontend/
 npm run lint           # oxlint over the whole repo
 npm run lint:fix
 npm run format         # oxfmt -- see the warning below before running
 npm run format:check
 ```
 
-Typecheck without emitting: `cd backend && npx tsc --noEmit`.
+Typecheck without emitting: `cd backend && npx tsc --noEmit`, or `npm run typecheck` for the frontend.
 
-Deployment is a systemd unit driven by `scripts/*.sh`, exposed as `npm run service:install|start|stop|status|restart|uninstall|deploy`. `service-install.sh` generates the unit with `ExecStart` pointing at `backend/dist/main.js`; it resolves that via `SERVICE_APP_DIR` (default `backend`), so changing `outDir` in `backend/tsconfig.json` silently breaks the unit.
+**Both workspaces build to the repository root**: `.dist-backend/` (from `backend/tsconfig.json` `outDir`) and `.dist-frontend/` (from `vite.config.ts` `build.outDir`). Both are gitignored via `.dist-*` — note a plain `dist-*` pattern would *not* match a dot-prefixed name.
+
+Because `.dist-backend/` sits at the root, Node resolves its module type from the **root** `package.json`, which is why that file carries `"type": "module"`. Removing it makes Node re-parse every emitted file and warn `MODULE_TYPELESS_PACKAGE_JSON`.
+
+Deployment is a systemd unit driven by `scripts/*.sh`, exposed as `npm run service:install|start|stop|status|restart|uninstall|deploy`. `service-install.sh` sets `WorkingDirectory` to the repository root and `ExecStart` to `.dist-backend/main.js` (override with `SERVICE_PATH_APP`). The working directory matters beyond the binary path: `dotenv` resolves `.env` from the process cwd, and `.env` lives at the root — running the service from `backend/` instead loads zero variables.
 
 **There is no test framework configured.** Don't invent a `npm test` invocation; verify changes with `tsc --noEmit`, `npm run build`, and `npm run lint`.
 
@@ -29,7 +36,26 @@ oxlint silently ignores unknown rule names, so a typo in `.oxlintrc.json` is a r
 
 ## Architecture
 
-Fastify + TypeORM + PostgreSQL, ESM, TypeScript. `frontend/` is an empty placeholder workspace.
+Two npm workspaces:
+
+- **`backend/`** — Fastify + TypeORM + PostgreSQL, ESM, TypeScript.
+- **`frontend/`** — React 19 + Vite 8 + lucide-react, TypeScript.
+
+### Frontend
+
+The client never hardcodes a backend origin. It calls `/api/...` on its own origin; `vite.config.ts` proxies that to the backend in development and strips the `/api` prefix so paths match the routes Fastify registers. In production nginx serves `.dist-frontend/` and proxies `/api` the same way. The base is the constant `/api` in `src/lib/api.ts`; there is no env var for it.
+
+Routing is **react-router v8 in declarative mode** — import from `react-router`, not the older `react-router-dom`. `main.tsx` mounts `<BrowserRouter>`, `App.tsx` holds the `<Routes>` table, and `components/Layout.tsx` is the shell rendering `<Outlet />`. Pages live in `src/pages`.
+
+Because it is a client-routed SPA, any host serving `.dist-frontend/` must fall back to `index.html` for unknown paths (nginx `try_files $uri /index.html`), or a deep link like `/dashboard` 404s.
+
+`src/lib/session.ts` is the single place the access token is read/written, so moving it out of `sessionStorage` later is a one-file change.
+
+`src/lib/api.ts` is the only place that talks to the backend, and its `ApiError` carries the backend's `{ result: 'ERROR_CODE' }` envelope. Keep new endpoints there rather than calling `fetch` from components.
+
+Wallet sign-in uses the raw EIP-1193 provider (`window.ethereum`) — `eth_requestAccounts` then `personal_sign` over the server-authored message. There is deliberately no wallet SDK; adding wagmi/RainbowKit would be a real decision, not a detail.
+
+`.oxlintrc.json` has a `frontend/**` override enabling the `react` and `jsx-a11y` plugins with a browser env; backend files keep the node env.
 
 ### Route wiring is indirect
 
