@@ -8,6 +8,9 @@ import config from '../utils/config.js';
 
 import { STATUS_FORBIDDEN, STATUS_UNAUTHORIZED } from '../utils/status.js';
 
+export const SESSION_ACCESS_TIME = 15 * 60 * 1000;
+export const SESSION_REFRESH_TIME = 30 * 24 * 60 * 60 * 1000;
+
 export function verifyAccessToken(token: string)
 {
     const accessToken = token.split('.');
@@ -33,7 +36,7 @@ export function verifyAccessToken(token: string)
     {
         decoded = JSON.parse(payload.toString());
 
-        if (typeof decoded.id !== 'number' || typeof decoded.id !== 'number' || typeof decoded.role !== 'number' || typeof decoded.expires_at !== 'number')
+        if (typeof decoded.id !== 'number' || typeof decoded.sid !== 'number' || typeof decoded.role !== 'number' || typeof decoded.expires_at !== 'number')
         {
             return;
         }
@@ -96,7 +99,7 @@ export function verifyRefreshToken(token: string)
 
 export function createAccessToken(id: number, role: number, sessionId: number): string
 {
-    const payload = Buffer.from(JSON.stringify({ id, role, sid: sessionId, expires_at: Math.floor((Date.now() + config.SESSION_ACCESS_TIME) / 1000) })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ id, role, sid: sessionId, expires_at: Math.floor((Date.now() + SESSION_ACCESS_TIME) / 1000) })).toString('base64url');
 
     const signature = createHmac('sha512', config.SESSION_ACCESS_SECRET).update(payload).digest('base64url');
 
@@ -105,7 +108,7 @@ export function createAccessToken(id: number, role: number, sessionId: number): 
 
 export function createRefreshToken(id: number, role: number): string
 {
-    const payload = Buffer.from(JSON.stringify({ id, role, expires_at: Math.floor(((Date.now() + config.SESSION_REFRESH_TIME)) / 1000) })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ id, role, expires_at: Math.floor(((Date.now() + SESSION_REFRESH_TIME)) / 1000) })).toString('base64url');
 
     const signature = createHmac('sha512', config.SESSION_REFRESH_SECRET).update(payload).digest('base64url');
 
@@ -128,7 +131,7 @@ export default fastifyPlugin(async function(fastify)
     {
         const routeConfig = request.routeOptions.config?.authentication;
 
-        if (routeConfig === undefined)
+        if (!routeConfig)
         {
             return;
         }
