@@ -17,15 +17,19 @@ import { fileURLToPath } from 'node:url';
 
 import config from './utils/config.js';
 
+import { logger, createLogger } from './utils/logger.js';
+
 import { STATUS_BAD_REQUEST, STATUS_FORBIDDEN, STATUS_INTERNAL_ERROR, STATUS_TOO_MANY_REQUEST, STATUS_UNAUTHORIZED } from './utils/status.js';
 
 const isDevelopment = config.NODE_ENV === 'development';
+
+const log = createLogger('server');
 
 const dirName = path.dirname(fileURLToPath(import.meta.url));
 
 const main = async () => {
     const app = fastify({
-        logger: isDevelopment ? { level: 'trace', timestamp: false, base: {} } : { level: 'info' },
+        loggerInstance: logger,
         trustProxy: '127.0.0.1',
         pluginTimeout: 30000
     });
@@ -60,16 +64,22 @@ const main = async () => {
 
     try {
         await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });
+
+        log.info({ port: config.NODE_PORT, host: '127.0.0.1', env: config.NODE_ENV }, 'server listening');
     }
     catch (error) {
-        app.log.error({ err: error }, 'failed to start server');
+        log.fatal({ err: error }, 'failed to start server');
 
         process.exit(1);
     }
 
     for (const signal of ['SIGTERM', 'SIGINT'] as const) {
         process.once(signal, async () => {
+            log.info({ signal }, 'shutdown signal received');
+
             await app.close();
+
+            log.info('shutdown complete');
 
             process.exit(0);
         });

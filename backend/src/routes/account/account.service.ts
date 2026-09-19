@@ -67,6 +67,8 @@ export function walletNonce(fastify: FastifyInstance)
 
         await fastify.db.getRepository(AccountNonce).save({ address: address.toLowerCase(), nonce, message, expires_at: expiresAt, consumed_at: null });
 
+        request.log.info({ module: 'account', address, expiresAt }, 'wallet nonce issued');
+
         reply.send({ message });
     };
 
@@ -91,6 +93,8 @@ export function walletSignIn(fastify: FastifyInstance)
 
         if (!challenge || challenge.expires_at < new Date())
         {
+            request.log.warn({ module: 'account', address, reason: challenge ? 'expired' : 'missing' }, 'wallet nonce rejected');
+
             throw new BadRequestResponse('WALLET_NONCE_INVALID');
         }
 
@@ -103,6 +107,8 @@ export function walletSignIn(fastify: FastifyInstance)
 
         if (consumed.affected !== 1)
         {
+            request.log.warn({ module: 'account', address, reason: 'already-consumed' }, 'wallet nonce rejected');
+
             throw new BadRequestResponse('WALLET_NONCE_INVALID');
         }
 
@@ -110,6 +116,8 @@ export function walletSignIn(fastify: FastifyInstance)
 
         if (!recovered || recovered.toLowerCase() !== address)
         {
+            request.log.warn({ module: 'account', address, recovered }, 'wallet signature rejected');
+
             throw new UnauthorizedResponse('WALLET_SIGNATURE_INVALID');
         }
 
@@ -118,9 +126,15 @@ export function walletSignIn(fastify: FastifyInstance)
         if (!account)
         {
             account = await fastify.db.getRepository(Account).save({ wallet: address });
+
+            request.log.info({ module: 'account', accountId: account.id, address }, 'account created');
         }
 
-        reply.send({ accessToken: await startSession(fastify, request, reply, account) });
+        const accessToken = await startSession(fastify, request, reply, account);
+
+        request.log.info({ module: 'account', accountId: account.id, address }, 'wallet sign-in succeeded');
+
+        reply.send({ accessToken });
     };
 
     return { schema: schemaAccountWalletSignIn, config: { ...rateLimit('account-wallet-sign-in', 20, 2 * 60 * 1000) }, handler };
