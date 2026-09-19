@@ -1,49 +1,40 @@
 {
-    "compilerOptions":
-    {
+    "compilerOptions": {
         // Core
         "target": "esnext",
         "module": "nodenext",
         "moduleResolution": "nodenext",
-        "lib":
-        [
+        "lib": [
             "ESNext"
         ],
-        "types":
-        [
+        "types": [
             "node"
         ],
-
         // Type Safety
         "strict": true,
-        "alwaysStrict": true,
         "noImplicitOverride": true,
         "noFallthroughCasesInSwitch": true,
         "strictPropertyInitialization": false,
         "noPropertyAccessFromIndexSignature": true,
-
         // Linting
-        "noImplicitAny": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "forceConsistentCasingInFileNames": true,
-
         // Compatibility
         "skipLibCheck": true,
         "esModuleInterop": true,
         "resolveJsonModule": true,
-        "useDefineForClassFields": true,
-        "allowSyntheticDefaultImports": true,
-
-        // Misc
+        "useDefineForClassFields": false,
+        // Emit
         "rootDir": "src",
+        "outDir": "dist",
+        "sourceMap": false,
         "incremental": false,
-        "outDir": "../dist-backend",
+        "noEmitOnError": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true
     },
-    "include":
-    [
+    "include": [
         "src"
     ]
 }
