@@ -138,6 +138,8 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `team_bot.agent_id` names the agent that answers people who message that bot; 0 means nobody answers and the bot only records. The reply is fired from `ingestUpdate` and **deliberately not awaited**: a completion takes seconds, and Telegram redelivers any webhook it does not get a prompt 2xx for, so blocking on the model would turn one message into several. Both transports funnel through `ingestUpdate`, so the poller gets replies for free.
 
+While the model is working the chat shows "typing…", refreshed every 4s because Telegram expires a chat action after about five. The timer is cleared in a `finally` and additionally unref'd and self-cancelling, so it can neither outlive the reply nor hold the process open at shutdown. A failed typing ping is ignored: it is cosmetic, and letting it interrupt the actual reply would trade something that matters for something that does not.
+
 Everything on that path is swallowed into a logged reason rather than thrown — it runs detached, so a throw would surface as an unhandled rejection with nothing to catch it, and both the model url and the bot url carry credentials.
 
 This is where the `model` permission finally bites: without it the message is still recorded but no agent answers. Two more gates sit alongside it — the bot must have an agent, and that agent must still have a model.

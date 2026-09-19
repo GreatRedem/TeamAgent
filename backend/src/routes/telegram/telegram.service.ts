@@ -20,6 +20,13 @@ const TELEGRAM_TIMEOUT = 5000;
 /** A completion is slower than any other call here; give it room. */
 const AGENT_TIMEOUT = 60000;
 
+/**
+ * Telegram clears a chat action after about five seconds, so it has to be
+ * refreshed while the model is still thinking. Four keeps it continuous
+ * without hammering.
+ */
+const TYPING_INTERVAL = 4000;
+
 /** Telegram truncates at 4096 characters; the column is text, this is a guard. */
 const TEXT_MAX = 8192;
 
@@ -258,6 +265,58 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
 }
 
 /**
+ * Shows "typing…" in the chat until the returned stop function is called.
+ *
+ * Telegram expires a chat action after roughly five seconds, so this refreshes
+ * it rather than sending once; a completion usually outlives a single action.
+ *
+ * Failures are ignored on purpose -- a missing typing indicator is cosmetic,
+ * and letting it interrupt the actual reply would trade something that matters
+ * for something that does not. The timer is unref'd so it can never hold the
+ * process open at shutdown, and it stops on its own after AGENT_TIMEOUT in case
+ * a caller ever loses its finally block.
+ */
+function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () => void
+{
+    let stopped = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let guard: ReturnType<typeof setTimeout> | undefined;
+
+    const stop = () =>
+    {
+        stopped = true;
+
+        clearInterval(timer);
+        clearTimeout(guard);
+    };
+
+    const ping = () =>
+    {
+        if (stopped)
+        {
+            return;
+        }
+
+        void fetch(`${ TELEGRAM_API }/bot${ token }/sendChatAction`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
+            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) })
+            .catch(() => log.debug({ module: 'agent' }, 'typing action failed'));
+    };
+
+    ping();
+
+    timer = setInterval(ping, TYPING_INTERVAL);
+    guard = setTimeout(stop, AGENT_TIMEOUT);
+
+    timer.unref();
+    guard.unref();
+
+    return stop;
+}
+
+/**
  * Asks the bot's agent for a reply and sends it back to the person.
  *
  * Every failure is swallowed into a logged reason. This runs detached from the
@@ -313,6 +372,10 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
     const messages = buildMessages(buildSystemPrompt(documents), earlier, incoming);
 
+    // The person sees "typing…" from here until the reply is sent or the
+    // attempt gives up.
+    const stopTyping = startTyping(bot.token, chatId, log);
+
     let text: string | undefined;
 
     try
@@ -333,6 +396,12 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: model unreachable');
 
         return;
+    }
+    finally
+    {
+        // Always: a leaked interval would keep pinging Telegram for a
+        // conversation that is already over.
+        stopTyping();
     }
 
     if (text === undefined)
