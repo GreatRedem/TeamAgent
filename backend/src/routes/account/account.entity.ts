@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity({ name: 'account' })
 export class Account
@@ -28,11 +28,12 @@ export class AccountSession
     @Column({ type: 'varchar', length: 512 })
     device: string;
 
+    @Index()
     @Column({ type: 'int' })
     account_id: number;
 
     @Column({ type: 'timestamp', nullable: true })
-    revoked_at: Date | undefined;
+    revoked_at: Date | null;
 
     @Column({ type: 'timestamp' })
     expires_at: Date;
@@ -47,6 +48,7 @@ export class AccountNonce
     @PrimaryGeneratedColumn()
     id: number;
 
+    @Index()
     @Column({ type: 'varchar', length: 42 })
     address: string;
 
