@@ -134,6 +134,16 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### Agents own their markdown, the template does not
+
+An agent is a name plus a description bound to one `team_model`, and its behaviour is defined by rows in `team_agent_document` -- markdown files the team edits. `routes/agent/agent.template.ts` seeds those rows **once, at creation**. Editing the template deliberately does not touch existing agents: rewriting an agent's instructions because a default moved would silently change how it answers.
+
+`model_id` is a plain column, not a relation, matching the rest of this codebase. Two consequences are handled explicitly rather than by cascade: removing a model sets `model_id = 0` on every agent in that team that used it (0 reads as "no model attached", and the agent page prompts for a replacement), and deleting an agent deletes its documents in the same handler, since nothing would otherwise collect them and a reused id would inherit them.
+
+The model an agent binds to is checked to belong to the same team. Without that check an agent could be pointed at another account's model by id, and every call it made would be billed to, and logged against, that account's key.
+
+Document names are identifiers, not free text: `DOCUMENT_NAME_PATTERN` requires a plain `*.md` filename, so no paths and no spaces, and they are unique per agent.
+
 ### Profile permissions are deny-by-default
 
 `telegram_user.permissions` holds comma-joined keys from the catalog in `routes/telegram/telegram.permission.ts`. A key that is **absent is denied** — an empty column grants nothing, not everything — so a permission added to the catalog later is off for everyone until it is switched on deliberately. Adding one is a single entry in `PERMISSIONS` with no schema change.

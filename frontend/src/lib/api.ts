@@ -285,3 +285,66 @@ export function profilePermissionUpdate(teamId: number, profileId: number, permi
 {
     return request<TelegramProfile>('PATCH', `/team/${ teamId }/profile/${ profileId }/permission`, { permissions });
 }
+
+/** An agent: a named role bound to one of the team's models. */
+export interface TeamAgent
+{
+    id: number;
+    name: string;
+    description: string;
+    /** 0 when no model is attached, e.g. the model it used was removed. */
+    model_id: number;
+    /** Empty when the model is gone; shown as "no model" rather than an id. */
+    model_name: string;
+    document_count: number;
+    created_at: string;
+}
+
+/** One markdown document defining part of an agent's behaviour. */
+export interface AgentDocument
+{
+    id: number;
+    name: string;
+    content: string;
+    updated_at: string;
+}
+
+export function agentList(teamId: number)
+{
+    return request<{ agents: TeamAgent[] }>('GET', `/team/${ teamId }/agent`);
+}
+
+export function agentCreate(teamId: number, name: string, description: string, modelId: number)
+{
+    return request<TeamAgent>('POST', `/team/${ teamId }/agent`, { name, description, model_id: modelId });
+}
+
+export function agentDetails(teamId: number, agentId: number)
+{
+    return request<{ agent: TeamAgent; documents: AgentDocument[] }>('GET', `/team/${ teamId }/agent/${ agentId }`);
+}
+
+export function agentUpdate(teamId: number, agentId: number, name: string, description: string, modelId: number)
+{
+    return request<TeamAgent>('PATCH', `/team/${ teamId }/agent/${ agentId }`, { name, description, model_id: modelId });
+}
+
+export function agentRemove(teamId: number, agentId: number)
+{
+    return request<{ result: string }>('DELETE', `/team/${ teamId }/agent/${ agentId }`);
+}
+
+export function agentDocumentCreate(teamId: number, agentId: number, name: string, content: string)
+{
+    return request<AgentDocument>('POST', `/team/${ teamId }/agent/${ agentId }/document`, { name, content });
+}
+
+export function agentDocumentUpdate(teamId: number, agentId: number, documentId: number, name: string, content: string)
+{
+    return request<AgentDocument>('PATCH', `/team/${ teamId }/agent/${ agentId }/document/${ documentId }`, { name, content });
+}
+
+export function agentDocumentRemove(teamId: number, agentId: number, documentId: number)
+{
+    return request<{ result: string }>('DELETE', `/team/${ teamId }/agent/${ agentId }/document/${ documentId }`);
+}

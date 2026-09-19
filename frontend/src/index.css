@@ -976,3 +976,66 @@ body
     color: var(--glow-bright);
 }
 
+/* --------------------------------------------------------------- agent doc */
+
+.doc
+{
+    margin-block-start: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-radius: var(--radius);
+}
+
+.doc__head
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-block-end: 0.625rem;
+}
+
+.doc__name
+{
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Markdown is written, not prose-read, so the editor is monospaced and the
+   text never wraps mid-token. */
+.doc__editor
+{
+    display: block;
+    inline-size: 100%;
+    padding: 0.75rem;
+    border: 1px solid oklch(100% 0 0 / 0.14);
+    border-radius: var(--radius);
+    background: oklch(8% 0.015 258 / 0.55);
+    color: var(--ink);
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    resize: vertical;
+    tab-size: 2;
+}
+
+.doc__editor:focus-visible
+{
+    border-color: var(--glow-bright);
+    outline: 2px solid var(--glow-bright);
+    outline-offset: 2px;
+}
+
+/* The select borrows the text-input surface but needs its own arrow space. */
+select.field__input
+{
+    padding-inline-end: 2rem;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%), linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+    background-position: calc(100% - 1.1rem) 50%, calc(100% - 0.75rem) 50%;
+    background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+    background-repeat: no-repeat;
+}
+

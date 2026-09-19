@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import { Button, ButtonLink } from '../components/Button';
 import { Tabs, type Tab } from '../components/Tabs';
+import { TeamAgents } from '../components/TeamAgents';
 import { TeamBots } from '../components/TeamBots';
 import { TeamConversations } from '../components/TeamConversations';
 import { TeamModels } from '../components/TeamModels';
@@ -16,6 +17,7 @@ const TABS: Tab[] = [
     { id: 'settings', label: 'Settings' },
     { id: 'telegram', label: 'Telegram' },
     { id: 'model', label: 'Model' },
+    { id: 'agent', label: 'Agent' },
     { id: 'conversation', label: 'Conversation' },
     { id: 'profile', label: 'Profile' }
 ];
@@ -197,6 +199,10 @@ export function Team()
 
                     <div id="panel-model" role="tabpanel" aria-labelledby="tab-model" hidden={ tab !== 'model' }>
                         { tab === 'model' && <TeamModels teamId={ teamId } /> }
+                    </div>
+
+                    <div id="panel-agent" role="tabpanel" aria-labelledby="tab-agent" hidden={ tab !== 'agent' }>
+                        { tab === 'agent' && <TeamAgents teamId={ teamId } /> }
                     </div>
 
                     <div id="panel-conversation" role="tabpanel" aria-labelledby="tab-conversation" hidden={ tab !== 'conversation' }>

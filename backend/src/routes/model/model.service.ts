@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamModel } from '../team/team.entity.js';
+import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { schemaModelCreate, schemaModelList, schemaModelRemove, schemaModelTest, schemaModelUpdate } from './model.schema.js';
 
@@ -279,7 +280,11 @@ export function modelRemove(fastify: FastifyInstance)
             throw new BadRequestResponse('MODEL_NOT_FOUND');
         }
 
-        request.log.info({ module: 'model', teamId, modelId, accountId: request.account_id }, 'team model removed');
+        // Agents referencing this model are detached rather than left pointing
+        // at an id that no longer resolves; 0 reads as "no model attached".
+        const detached = await fastify.db.getRepository(TeamAgent).update({ team_id: teamId, model_id: modelId }, { model_id: 0 });
+
+        request.log.info({ module: 'model', teamId, modelId, accountId: request.account_id, detachedAgents: detached.affected ?? 0 }, 'team model removed');
 
         reply.send({ result: 'OK' });
     };
