@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 
+import { TeamAgent } from '../agent/agent.entity.js';
+import { agentHasPermission } from '../agent/agent.permission.js';
 import { TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
-import { hasPermission } from '../telegram/telegram.permission.js';
 
 /**
  * The internal tool protocol agents use to manage the person they are talking
@@ -13,10 +14,14 @@ import { hasPermission } from '../telegram/telegram.permission.js';
  * these are ever exposed over a real MCP transport, the definitions move
  * unchanged and only the adapter is replaced.
  *
- * Every tool names the permission it needs. There is deliberately **no tool
- * that touches permissions themselves**: an agent that could grant its own
- * access would make the whole permission model decorative, so that stays an
- * owner-only action through the HTTP API.
+ * Every tool names the permission it needs, and that permission belongs to the
+ * **agent**, not to the person being talked about: whether an agent keeps notes
+ * is a property of how it was built, not a question each person should have to
+ * answer.
+ *
+ * There is deliberately **no tool that touches permissions themselves**: an
+ * agent that could grant its own access would make the whole model decorative,
+ * so that stays an owner-only action through the HTTP API.
  */
 
 export interface ToolDefinition
@@ -94,10 +99,10 @@ export const TOOLS: ToolDefinition[] = [
     }
 ];
 
-/** The tools a given profile's permissions actually allow. */
-export function allowedTools(permissions: string): ToolDefinition[]
+/** The tools an agent's own capabilities allow. */
+export function allowedTools(agentPermissions: string): ToolDefinition[]
 {
-    return TOOLS.filter((tool) => hasPermission(permissions, tool.permission));
+    return TOOLS.filter((tool) => agentHasPermission(agentPermissions, tool.permission));
 }
 
 /** Adapts the registry to the shape an OpenAI-compatible endpoint expects. */
@@ -148,7 +153,7 @@ async function ensureSeeded(fastify: FastifyInstance, userId: number): Promise<v
  * Errors come back as tool results rather than thrown, because the model is
  * expected to read and react to them -- a refusal is information, not a crash.
  */
-export async function runTool(fastify: FastifyInstance, user: TelegramUser, name: string, args: Record<string, unknown>): Promise<ToolResult>
+export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: TelegramUser, name: string, args: Record<string, unknown>): Promise<ToolResult>
 {
     const tool = TOOLS.find((candidate) => candidate.name === name);
 
@@ -157,9 +162,9 @@ export async function runTool(fastify: FastifyInstance, user: TelegramUser, name
         return refuse('unknown tool');
     }
 
-    if (!hasPermission(user.permissions, tool.permission))
+    if (!agentHasPermission(agent.permissions, tool.permission))
     {
-        return refuse(`not permitted: this person has not granted ${ tool.permission }`);
+        return refuse(`not permitted: this agent does not have ${ tool.permission }`);
     }
 
     const repository = fastify.db.getRepository(TelegramUserDocument);

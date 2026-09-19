@@ -30,11 +30,82 @@ export class TeamAgent
     @Column({ type: 'int', default: 0 })
     model_id: number;
 
+    /**
+     * Comma-joined capability keys from `agent.permission.ts`. Empty means the
+     * agent can talk but cannot touch anyone's files.
+     */
+    @Column({ type: 'varchar', length: 256, default: '' })
+    permissions: string;
+
     @CreateDateColumn()
     created_at: Date;
 
     @UpdateDateColumn()
     updated_at: Date;
+}
+
+/**
+ * One round-trip between an agent and its model.
+ *
+ * This is the conversation as the *model* saw it, which is not the same as the
+ * Telegram thread: it includes the system prompt, the replayed history, tool
+ * calls and tool results. Stored so a surprising answer can be traced back to
+ * exactly what was asked.
+ *
+ * `request` holds the full message array. That duplicates conversation text
+ * into a second table, so it inherits the same privacy weight as
+ * `telegram_message` and needs the same retention answer -- see the note in
+ * CLAUDE.md. Credentials never appear: the API key travels in a header, not in
+ * the body recorded here.
+ */
+@Entity({ name: 'team_agent_exchange' })
+export class TeamAgentExchange
+{
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Index()
+    @Column({ type: 'int' })
+    team_id: number;
+
+    @Index()
+    @Column({ type: 'int' })
+    agent_id: number;
+
+    @Column({ type: 'int', default: 0 })
+    model_id: number;
+
+    /** The profile this exchange was on behalf of. 0 if not tied to one. */
+    @Column({ type: 'int', default: 0 })
+    user_id: number;
+
+    /** Which tool round this was, starting at 0. */
+    @Column({ type: 'int', default: 0 })
+    round: number;
+
+    /** The full message array sent to the model, as JSON. */
+    @Column({ type: 'text' })
+    request: string;
+
+    /** The assistant turn that came back, as JSON. */
+    @Column({ type: 'text' })
+    response: string;
+
+    @Column({ type: 'int', default: 0 })
+    tool_calls: number;
+
+    @Column({ type: 'int', default: 0 })
+    duration_ms: number;
+
+    @Column({ type: 'varchar', length: 16, default: 'ok' })
+    outcome: string;
+
+    @Column({ type: 'varchar', length: 128, default: '' })
+    reason: string;
+
+    @Index()
+    @CreateDateColumn()
+    created_at: Date;
 }
 
 /**

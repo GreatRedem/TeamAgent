@@ -169,7 +169,9 @@ export function TeamOverview({ teamId }: TeamOverviewProps)
                                 </span>
 
                                 <span className="list__meta">
+                                    <span className="badge" data-mode={ entry.actor }>{ entry.actor }</span>
                                     { new Date(entry.created_at).toLocaleString() }
+                                    { entry.duration_ms > 0 && ` · ${ entry.duration_ms }ms` }
                                     { entry.detail !== '' && ` · ${ entry.detail }` }
                                 </span>
                             </span>

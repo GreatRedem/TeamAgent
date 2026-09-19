@@ -4,6 +4,8 @@ import { AuditLog } from './audit.entity.js';
 
 export type AuditOutcome = 'ok' | 'error' | 'skipped';
 
+export type AuditActor = 'owner' | 'agent' | 'telegram' | 'system';
+
 export interface AuditEntry
 {
     teamId?: number;
@@ -12,6 +14,10 @@ export interface AuditEntry
     target?: string;
     outcome?: AuditOutcome;
     detail?: string;
+    /** Elapsed time for timed operations, so it can be sorted and compared. */
+    durationMs?: number;
+    /** What kind of actor did this. Defaults to the signed-in owner. */
+    actor?: AuditActor;
 }
 
 const DETAIL_MAX = 512;
@@ -38,7 +44,9 @@ export async function audit(fastify: FastifyInstance, log: FastifyBaseLogger, en
             outcome: entry.outcome ?? 'ok',
             // Truncated rather than rejected: a long detail is not worth losing
             // the whole record over.
-            detail: (entry.detail ?? '').slice(0, DETAIL_MAX)
+            detail: (entry.detail ?? '').slice(0, DETAIL_MAX),
+            duration_ms: Math.max(0, Math.round(entry.durationMs ?? 0)),
+            actor: entry.actor ?? 'owner'
         });
     }
     catch (error)

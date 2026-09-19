@@ -5,7 +5,8 @@ import { useNavigate, useParams } from 'react-router';
 import { Button, ButtonLink } from '../components/Button';
 import {
     ApiError, agentDetails, agentDocumentCreate, agentDocumentRemove, agentDocumentUpdate,
-    agentUpdate, modelList, type AgentDocument, type TeamAgent, type TeamModel } from '../lib/api';
+    agentExchanges, agentPermissionCatalog, agentPermissionUpdate, agentUpdate, modelList,
+    type AgentDocument, type AgentExchange, type Permission, type TeamAgent, type TeamModel } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
 /** One markdown file, edited in place. */
@@ -131,6 +132,11 @@ export function Agent()
     const [ newName, setNewName ] = useState('');
     const [ addingFile, setAddingFile ] = useState(false);
 
+    const [ capabilities, setCapabilities ] = useState<Permission[]>([ ]);
+    const [ savingCapability, setSavingCapability ] = useState<string | null>(null);
+    const [ exchanges, setExchanges ] = useState<AgentExchange[]>([ ]);
+    const [ openExchange, setOpenExchange ] = useState<number | null>(null);
+
     useEffect(() =>
     {
         if (readAccessToken() === null)
@@ -147,8 +153,8 @@ export function Agent()
 
         let active = true;
 
-        Promise.all([ agentDetails(teamId, thisAgent), modelList(teamId) ])
-            .then(([ details, modelPayload ]) =>
+        Promise.all([ agentDetails(teamId, thisAgent), modelList(teamId), agentPermissionCatalog(teamId), agentExchanges(teamId, thisAgent) ])
+            .then(([ details, modelPayload, catalog, exchangePayload ]) =>
             {
                 if (!active)
                 {
@@ -158,6 +164,8 @@ export function Agent()
                 setAgent(details.agent);
                 setDocuments(details.documents);
                 setModels(modelPayload.models);
+                setCapabilities(catalog.permissions);
+                setExchanges(exchangePayload.exchanges);
                 setName(details.agent.name);
                 setDescription(details.agent.description);
                 setModelId(String(details.agent.model_id));
@@ -236,6 +244,34 @@ export function Agent()
         }
     }, [ teamId, thisAgent, newName ]);
 
+    const toggleCapability = useCallback(async(key: string) =>
+    {
+        if (agent === null)
+        {
+            return;
+        }
+
+        const next = agent.permissions.includes(key)
+            ? agent.permissions.filter((item) => item !== key)
+            : [ ...agent.permissions, key ];
+
+        setError(null);
+        setSavingCapability(key);
+
+        try
+        {
+            setAgent(await agentPermissionUpdate(teamId, thisAgent, next));
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setSavingCapability(null);
+        }
+    }, [ teamId, thisAgent, agent ]);
+
     const shown = idsInvalid ? 'AGENT_ID_INVALID' : error;
 
     return (
@@ -312,6 +348,91 @@ export function Agent()
                         </form>
 
                         { saved && <output className="status">Saved.</output> }
+                    </section>
+
+                    <section className="section">
+                        <h2 className="section__title">Capabilities</h2>
+
+                        <p className="status">
+                            What this agent may do through the internal tools, for every person it talks to.
+                        </p>
+
+                        <ul className="list">
+                            { capabilities.map((capability) =>
+                            {
+                                const granted = agent.permissions.includes(capability.key);
+
+                                return (
+                                    <li className="list__item list__item--row" key={ capability.key }>
+                                        <span className="list__text">
+                                            <span className="list__name">{ capability.label }</span>
+                                            <span className="list__meta">{ capability.description }</span>
+                                        </span>
+
+                                        <button
+                                            className={ granted ? 'ghost' : 'ghost ghost--danger' }
+                                            type="button"
+                                            disabled={ savingCapability === capability.key }
+                                            aria-pressed={ granted }
+                                            onClick={ () => void toggleCapability(capability.key) }
+                                        >
+                                            { savingCapability === capability.key ? 'Saving...' : granted ? 'Allowed' : 'Denied' }
+                                        </button>
+                                    </li>
+                                );
+                            }) }
+                        </ul>
+                    </section>
+
+                    <section className="section">
+                        <h2 className="section__title">Model conversations</h2>
+
+                        <p className="status">
+                            Every round-trip with the model, as the model saw it: system prompt, replayed
+                            history, tool calls and results.
+                        </p>
+
+                        { exchanges.length === 0 && <p className="status">Nothing recorded yet.</p> }
+
+                        { exchanges.map((exchange) => (
+                            <article className="doc" key={ exchange.id }>
+                                <header className="doc__head">
+                                    <span className="doc__name">
+                                        round { exchange.round }
+                                        <span className="list__meta"> { new Date(exchange.created_at).toLocaleString() }</span>
+                                    </span>
+
+                                    <span className="list__actions">
+                                        <span className="list__meta">
+                                            { exchange.duration_ms }ms, { exchange.tool_calls } tool calls
+                                        </span>
+
+                                        <span className="probe" data-state={ exchange.outcome === 'ok' ? 'ok' : 'error' }>
+                                            { exchange.outcome }{ exchange.reason !== '' && ` ${ exchange.reason }` }
+                                        </span>
+
+                                        <button
+                                            className="ghost"
+                                            type="button"
+                                            aria-expanded={ openExchange === exchange.id }
+                                            onClick={ () => setOpenExchange(openExchange === exchange.id ? null : exchange.id) }
+                                        >
+                                            { openExchange === exchange.id ? 'Hide' : 'Show' }
+                                        </button>
+                                    </span>
+                                </header>
+
+                                { openExchange === exchange.id && (
+                                    <>
+                                        <span className="field__label">Request</span>
+                                        <pre className="doc__editor doc__editor--read">{ exchange.request }</pre>
+
+                                        <span className="field__label">Response</span>
+                                        <pre className="doc__editor doc__editor--read">{ exchange.response }</pre>
+                                    </>
+                                ) }
+                            </article>
+                        )) }
                     </section>
 
                     <section className="section">

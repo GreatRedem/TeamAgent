@@ -1147,3 +1147,16 @@ select.field__input
     overflow-wrap: anywhere;
 }
 
+/* Who performed an audited action. */
+.badge[data-mode="agent"] { color: var(--glow-bright); }
+.badge[data-mode="telegram"] { color: var(--ink-muted); }
+.badge[data-mode="owner"] { color: var(--ink); }
+.badge[data-mode="system"] { color: var(--ink-muted); }
+
+/* A recorded model exchange can be long; cap it and let it scroll. */
+.doc__editor--read
+{
+    max-block-size: 22rem;
+    overflow: auto;
+}
+

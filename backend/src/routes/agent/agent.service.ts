@@ -4,11 +4,13 @@ import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
-import { TeamAgent, TeamAgentDocument } from './agent.entity.js';
+import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from './agent.entity.js';
+import { AGENT_PERMISSIONS, DEFAULT_AGENT_PERMISSIONS, isKnownAgentPermission, parseAgentPermissions, serializeAgentPermissions } from './agent.permission.js';
 import { DEFAULT_DOCUMENTS, DOCUMENT_CONTENT_MAX, DOCUMENT_NAME_MAX, DOCUMENT_NAME_PATTERN } from './agent.template.js';
 import {
     schemaAgentCreate, schemaAgentDetails, schemaAgentDocumentCreate, schemaAgentDocumentRemove,
-    schemaAgentDocumentUpdate, schemaAgentList, schemaAgentRemove, schemaAgentUpdate } from './agent.schema.js';
+    schemaAgentDocumentUpdate, schemaAgentExchanges, schemaAgentList, schemaAgentPermissionCatalog,
+    schemaAgentPermissionUpdate, schemaAgentRemove, schemaAgentUpdate } from './agent.schema.js';
 
 import { audit } from '../audit/audit.log.js';
 
@@ -37,6 +39,7 @@ function toAgentView(agent: TeamAgent, modelName: string, documentCount: number)
         // shows as "no model" rather than a broken id.
         model_name: modelName,
         document_count: documentCount,
+        permissions: parseAgentPermissions(agent.permissions),
         created_at: agent.created_at
     };
 }
@@ -128,7 +131,12 @@ export function agentCreate(fastify: FastifyInstance)
         const { name, description } = readAgentBody(request);
         const modelId = await readModelId(fastify, request, teamId);
 
-        const agent = await fastify.db.getRepository(TeamAgent).save({ team_id: teamId, name, description, model_id: modelId });
+        const agent = await fastify.db.getRepository(TeamAgent).save({
+            team_id: teamId,
+            name,
+            description,
+            model_id: modelId,
+            permissions: serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS) });
 
         // Seeded from the template, then owned by the team: later template
         // changes do not rewrite an existing agent's documents.
@@ -353,4 +361,94 @@ export function agentDocumentRemove(fastify: FastifyInstance)
     };
 
     return { schema: schemaAgentDocumentRemove, config: { ...authGuard() }, handler };
+}
+
+export function agentPermissionCatalog(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        await findOwnedTeam(fastify, readTeamId(request), request.account_id);
+
+        reply.send({ permissions: AGENT_PERMISSIONS });
+    };
+
+    return { schema: schemaAgentPermissionCatalog, config: { ...authGuard() }, handler };
+}
+
+/** Replaces an agent's capabilities with exactly what was sent. */
+export function agentPermissionUpdate(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+        const agent = await findOwnedAgent(fastify, teamId, readAgentId(request), request.account_id);
+
+        const requested = (request.body as { permissions?: unknown } | undefined)?.permissions;
+
+        if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string'))
+        {
+            throw new BadRequestResponse('PERMISSIONS_INVALID');
+        }
+
+        // Rejected rather than quietly dropped: reporting success for a
+        // capability that was never granted is worse than an error.
+        for (const key of requested as string[])
+        {
+            if (!isKnownAgentPermission(key))
+            {
+                throw new BadRequestResponse('PERMISSION_UNKNOWN');
+            }
+        }
+
+        const permissions = serializeAgentPermissions(requested as string[]);
+
+        await fastify.db.getRepository(TeamAgent).update({ id: agent.id, team_id: teamId }, { permissions });
+
+        const documents = await fastify.db.getRepository(TeamAgentDocument).countBy({ agent_id: agent.id });
+        const names = await modelNames(fastify, teamId);
+
+        request.log.info({ module: 'agent', teamId, agentId: agent.id, accountId: request.account_id, permissions }, 'agent permissions updated');
+
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'agent.permissions',
+            target: `agent:${ agent.id }`,
+            detail: `${ agent.name } -> ${ permissions === '' ? 'none' : permissions }` });
+
+        reply.send(toAgentView({ ...agent, permissions }, names.get(agent.model_id) ?? '', documents));
+    };
+
+    return { schema: schemaAgentPermissionUpdate, config: { ...authGuard() }, handler };
+}
+
+/** The recorded conversation between this agent and its model, newest first. */
+export function agentExchanges(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+        const agent = await findOwnedAgent(fastify, teamId, readAgentId(request), request.account_id);
+
+        const exchanges = await fastify.db.getRepository(TeamAgentExchange).find({
+            where: { team_id: teamId, agent_id: agent.id },
+            order: { id: 'DESC' },
+            take: 40 });
+
+        reply.send({
+            exchanges: exchanges.map((exchange) => ({
+                id: exchange.id,
+                user_id: exchange.user_id,
+                round: exchange.round,
+                request: exchange.request,
+                response: exchange.response,
+                tool_calls: exchange.tool_calls,
+                duration_ms: exchange.duration_ms,
+                outcome: exchange.outcome,
+                reason: exchange.reason,
+                created_at: exchange.created_at
+            })) });
+    };
+
+    return { schema: schemaAgentExchanges, config: { ...authGuard() }, handler };
 }

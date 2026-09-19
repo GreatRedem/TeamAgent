@@ -134,6 +134,20 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### Agent capabilities are the agent's, not the person's
+
+`prefs.read` and `prefs.write` live in `routes/agent/agent.permission.ts` on `team_agent.permissions`, **not** in the profile catalog. Whether an agent keeps notes is a property of how it was built; putting it on the profile made every person answer a design question that was not theirs. `telegram.permission.ts` still governs what a *person* may do (`chat`, `model`).
+
+Both catalogs are deny-by-default and drop unknown keys on read, so a key removed from either catalog stops taking effect immediately and cannot come back if the name is reused.
+
+### Every model round-trip is stored
+
+`team_agent_exchange` keeps one row per round: the full message array sent, the assistant turn returned, tool-call count, duration and outcome. This is the conversation as the **model** saw it -- system prompt, replayed history, tool calls and tool results -- which is not the Telegram thread. It is what lets a surprising answer be traced to exactly what was asked.
+
+That duplicates conversation text into a second table, so it carries the same privacy weight as `telegram_message` and needs the same retention answer. Bodies are truncated at 64KB rather than rejected: losing the whole record because one conversation ran long would defeat the point. Credentials never appear -- the API key travels in a header, not in the recorded body.
+
+`audit_log` also carries `duration_ms` and `actor` (`owner`, `agent`, `telegram`, `system`) as columns, so the trail can be sorted and filtered without parsing prose out of `detail`.
+
 ### The internal MCP for agents
 
 `routes/mcp/mcp.tools.ts` is the tool protocol agents use to manage the person they are talking to. Definitions are **MCP-shaped** (`name`, `description`, `inputSchema`) rather than written in the model vendor's format; `toOpenAITools` adapts them at the edge. Exposing these over a real MCP transport later means replacing the adapter, not the registry.

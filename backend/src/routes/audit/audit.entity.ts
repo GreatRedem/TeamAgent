@@ -43,6 +43,18 @@ export class AuditLog
     @Column({ type: 'varchar', length: 512, default: '' })
     detail: string;
 
+    /** How long the action took. 0 when it is not a timed operation. */
+    @Column({ type: 'int', default: 0 })
+    duration_ms: number;
+
+    /**
+     * Who or what acted, in words: 'owner', 'agent', 'telegram'. The account
+     * and team ids say *which*; this says which kind, so the log reads without
+     * cross-referencing.
+     */
+    @Column({ type: 'varchar', length: 16, default: 'owner' })
+    actor: string;
+
     @Index()
     @CreateDateColumn()
     created_at: Date;

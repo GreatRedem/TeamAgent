@@ -302,6 +302,8 @@ export interface TeamAgent
     /** Empty when the model is gone; shown as "no model" rather than an id. */
     model_name: string;
     document_count: number;
+    /** Granted capability keys. Absent means denied — no implicit grant. */
+    permissions: string[];
     created_at: string;
 }
 
@@ -362,6 +364,10 @@ export interface AuditEntry
     target: string;
     outcome: 'ok' | 'error' | 'skipped';
     detail: string;
+    /** 0 when the action is not a timed operation. */
+    duration_ms: number;
+    /** What kind of actor did it: owner, agent, telegram, system. */
+    actor: string;
     created_at: string;
 }
 
@@ -408,4 +414,34 @@ export function mcpTools(teamId: number)
 export function profileFiles(teamId: number, profileId: number)
 {
     return request<{ files: ProfileFile[] }>('GET', `/team/${ teamId }/profile/${ profileId }/file`);
+}
+
+/** One round-trip between an agent and its model, as the model saw it. */
+export interface AgentExchange
+{
+    id: number;
+    user_id: number;
+    round: number;
+    request: string;
+    response: string;
+    tool_calls: number;
+    duration_ms: number;
+    outcome: string;
+    reason: string;
+    created_at: string;
+}
+
+export function agentPermissionCatalog(teamId: number)
+{
+    return request<{ permissions: Permission[] }>('GET', `/team/${ teamId }/agent-permission`);
+}
+
+export function agentPermissionUpdate(teamId: number, agentId: number, permissions: string[])
+{
+    return request<TeamAgent>('PATCH', `/team/${ teamId }/agent/${ agentId }/permission`, { permissions });
+}
+
+export function agentExchanges(teamId: number, agentId: number)
+{
+    return request<{ exchanges: AgentExchange[] }>('GET', `/team/${ teamId }/agent/${ agentId }/exchange`);
 }

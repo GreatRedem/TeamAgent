@@ -13,13 +13,15 @@ export const schemaAuditList = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'id', 'action', 'target', 'outcome', 'detail', 'created_at' ],
+                        required: [ 'id', 'action', 'target', 'outcome', 'detail', 'duration_ms', 'actor', 'created_at' ],
                         properties: {
                             id: { type: 'integer' },
                             action: { type: 'string' },
                             target: { type: 'string' },
                             outcome: { type: 'string' },
                             detail: { type: 'string' },
+                            duration_ms: { type: 'integer' },
+                            actor: { type: 'string' },
                             created_at: { type: 'string' }
                         }
                     }

@@ -12,35 +12,47 @@ import assert from 'node:assert/strict';
 
 import { readToolCalls } from '../agent/agent.reply.js';
 import { DOCUMENT_NAME_PATTERN, TOOLS, allowedTools, toOpenAITools } from './mcp.tools.js';
-import { PERMISSIONS, serializePermissions } from '../telegram/telegram.permission.js';
+import { AGENT_PERMISSIONS, serializeAgentPermissions } from '../agent/agent.permission.js';
+import { PERMISSIONS as PROFILE_PERMISSIONS } from '../telegram/telegram.permission.js';
 
 const call = (id: string, name: string, args: unknown) => ({
     choices: [ { message: { tool_calls: [ { id, type: 'function', function: { name, arguments: args } } ] } } ]
 });
 
 const tests: Array<[ string, () => void ]> = [
-    [ 'no permissions exposes no tools at all', () =>
+    [ 'an agent with no capabilities gets no tools at all', () =>
     {
-        // Deny-by-default has to hold here too: an agent talking to someone who
-        // granted nothing must not be handed a single tool.
+        // Deny-by-default: a newly created agent must not be handed a single
+        // tool until someone switches one on.
         assert.deepEqual(allowedTools(''), [ ]);
     } ],
 
-    [ 'chat alone does not unlock tools', () =>
+    [ 'capabilities belong to the agent, not to the person', () =>
     {
-        assert.deepEqual(allowedTools(serializePermissions([ 'chat', 'model' ])), [ ]);
+        // The profile catalog must not contain these any more -- whether an
+        // agent keeps notes is a property of the agent, not a question each
+        // person answers.
+        const profileKeys = PROFILE_PERMISSIONS.map((p) => p.key);
+
+        assert.equal(profileKeys.includes('prefs.read'), false);
+        assert.equal(profileKeys.includes('prefs.write'), false);
+
+        for (const tool of TOOLS)
+        {
+            assert.ok(AGENT_PERMISSIONS.some((p) => p.key === tool.permission), `${ tool.name } needs an agent capability`);
+        }
     } ],
 
     [ 'read permission exposes only read tools', () =>
     {
-        const names = allowedTools(serializePermissions([ 'prefs.read' ])).map((t) => t.name).sort();
+        const names = allowedTools(serializeAgentPermissions([ 'prefs.read' ])).map((t) => t.name).sort();
 
         assert.deepEqual(names, [ 'preferences_list', 'preferences_read', 'profile_get' ]);
     } ],
 
     [ 'write permission does not imply read', () =>
     {
-        const names = allowedTools(serializePermissions([ 'prefs.write' ])).map((t) => t.name).sort();
+        const names = allowedTools(serializeAgentPermissions([ 'prefs.write' ])).map((t) => t.name).sort();
 
         assert.deepEqual(names, [ 'preferences_append', 'preferences_write' ]);
         assert.equal(names.includes('preferences_read'), false);
@@ -50,7 +62,7 @@ const tests: Array<[ string, () => void ]> = [
     {
         // An agent that could grant its own access would make the whole
         // permission model decorative.
-        const keys = PERMISSIONS.map((p) => p.key);
+        const keys = AGENT_PERMISSIONS.map((p) => p.key);
 
         for (const tool of TOOLS)
         {
@@ -71,7 +83,7 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'definitions adapt to the vendor tool format', () =>
     {
-        const adapted = toOpenAITools(allowedTools(serializePermissions([ 'prefs.read' ])));
+        const adapted = toOpenAITools(allowedTools(serializeAgentPermissions([ 'prefs.read' ])));
 
         assert.equal(adapted.length, 3);
         assert.equal(adapted[0].type, 'function');

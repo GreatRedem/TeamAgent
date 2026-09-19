@@ -29,16 +29,6 @@ export const PERMISSIONS: Permission[] = [
         key: 'model',
         label: 'Chat with model',
         description: 'May have messages answered by the team\'s configured model.'
-    },
-    {
-        key: 'prefs.read',
-        label: 'Agent may read their files',
-        description: 'Lets the agent read the files belonging to this person, including preferences.md, through the internal tools.'
-    },
-    {
-        key: 'prefs.write',
-        label: 'Agent may write their files',
-        description: 'Lets the agent create and change the files belonging to this person. Granting it does not imply read.'
     }
 ];
 

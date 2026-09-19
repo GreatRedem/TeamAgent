@@ -5,7 +5,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot, TeamModel } from '../team/team.entity.js';
-import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
+import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, readAssistantTurn, readCompletion, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
 import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
@@ -29,6 +29,9 @@ const AGENT_TIMEOUT = 60000;
  * without hammering.
  */
 const TYPING_INTERVAL = 4000;
+
+/** Ceiling on a stored request or response body. */
+const EXCHANGE_MAX = 65536;
 
 /** Telegram truncates at 4096 characters; the column is text, this is a guard. */
 const TEXT_MAX = 8192;
@@ -240,7 +243,7 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
     {
         log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message refused: no chat permission');
 
-        await audit(fastify, log, { teamId: bot.team_id, action: 'telegram.message', target: `profile:${ user.id }`, outcome: 'skipped', detail: 'sender lacks the chat permission' });
+        await audit(fastify, log, { teamId: bot.team_id, actor: 'telegram', action: 'telegram.message', target: `profile:${ user.id }`, outcome: 'skipped', detail: `bot ${ bot.id } - sender lacks the chat permission` });
 
         return 'blocked';
     }
@@ -259,7 +262,12 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
 
     log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message stored');
 
-    await audit(fastify, log, { teamId: bot.team_id, action: 'telegram.message', target: `profile:${ user.id }`, detail: `${ inbound.text.length } chars via bot ${ bot.id }` });
+    await audit(fastify, log, {
+        teamId: bot.team_id,
+        actor: 'telegram',
+        action: 'telegram.message',
+        target: `profile:${ user.id }`,
+        detail: `bot ${ bot.id } (${ bot.name }) - ${ inbound.text.length } chars - update ${ inbound.updateId }` });
 
     // Deliberately not awaited. A completion takes seconds and Telegram
     // redelivers a webhook it does not get a prompt 2xx for, so the reply is
@@ -269,6 +277,33 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
         .catch((error: unknown) => log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'));
 
     return 'stored';
+}
+
+/**
+ * Stores one agent/model round-trip.
+ *
+ * Truncated rather than rejected if enormous: losing the whole record because
+ * one conversation ran long would defeat the point of keeping it. Swallows its
+ * own failures for the same reason `audit` does -- logging must not break the
+ * thing it is describing.
+ */
+async function recordExchange(fastify: FastifyInstance, log: FastifyBaseLogger, entry: {
+    team_id: number; agent_id: number; model_id: number; user_id: number; round: number;
+    request: string; response: string; tool_calls: number; duration_ms: number; outcome: string; reason: string;
+}): Promise<void>
+{
+    try
+    {
+        await fastify.db.getRepository(TeamAgentExchange).save({
+            ...entry,
+            request: entry.request.slice(0, EXCHANGE_MAX),
+            response: entry.response.slice(0, EXCHANGE_MAX)
+        });
+    }
+    catch (error)
+    {
+        log.error({ module: 'agent', agentId: entry.agent_id, err: error }, 'exchange record failed');
+    }
 }
 
 /**
@@ -345,7 +380,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.info({ module: 'agent', botId: bot.id, userId: user.id }, 'agent reply skipped: no model permission');
 
-        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.request', target: `bot:${ bot.id }`, outcome: 'skipped', detail: `profile ${ user.id } lacks the model permission` });
+        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `bot:${ bot.id }`, outcome: 'skipped', detail: `profile ${ user.id } lacks the model permission` });
 
         return;
     }
@@ -356,7 +391,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.warn({ module: 'agent', botId: bot.id, agentId: bot.agent_id }, 'agent reply skipped: agent or model missing');
 
-        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.request', target: `agent:${ bot.agent_id }`, outcome: 'skipped', detail: 'agent missing or has no model attached' });
+        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `agent:${ bot.agent_id }`, outcome: 'skipped', detail: `bot ${ bot.id } - agent missing or has no model attached` });
 
         return;
     }
@@ -367,7 +402,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply skipped: model missing');
 
-        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.request', target: `agent:${ agent.id }`, outcome: 'skipped', detail: 'model missing' });
+        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `agent:${ agent.id }`, outcome: 'skipped', detail: `agent ${ agent.name } - model ${ agent.model_id } missing` });
 
         return;
     }
@@ -388,7 +423,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     // Only the tools this person has actually granted are advertised. The
     // executor re-checks anyway, but offering a tool that would be refused just
     // invites the model to waste a round on it.
-    const tools = allowedTools(user.permissions);
+    const tools = allowedTools(agent.permissions);
 
     // The person sees "typing…" from here until the reply is sent or the
     // attempt gives up.
@@ -406,6 +441,8 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         // answering still terminates.
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1)
         {
+            const roundStartedAt = Date.now();
+
             const response = await fetch(`${ model.base_url }/chat/completions`, {
                 method: 'POST',
                 headers: {
@@ -426,6 +463,22 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
             const calls = readToolCalls(payload);
 
+            // The exchange as the model saw it, kept whether or not it worked,
+            // so a surprising answer can be traced to exactly what was asked.
+            await recordExchange(fastify, log, {
+                team_id: bot.team_id,
+                agent_id: agent.id,
+                model_id: model.id,
+                user_id: user.id,
+                round,
+                request: JSON.stringify(messages),
+                response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
+                tool_calls: calls.length,
+                duration_ms: Date.now() - roundStartedAt,
+                outcome: response.ok ? 'ok' : 'error',
+                reason: response.ok ? '' : `http ${ response.status }`
+            });
+
             if (calls.length === 0 || round === MAX_TOOL_ROUNDS)
             {
                 text = readCompletion(payload);
@@ -439,16 +492,20 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
             for (const call of calls)
             {
-                const result = await runTool(fastify, user, call.name, call.arguments);
+                const toolStartedAt = Date.now();
+
+                const result = await runTool(fastify, agent, user, call.name, call.arguments);
 
                 toolRuns += 1;
 
                 await audit(fastify, log, {
                     teamId: bot.team_id,
+                    actor: 'agent',
                     action: 'agent.tool',
                     target: `profile:${ user.id }`,
                     outcome: result.ok ? 'ok' : 'error',
-                    detail: `${ call.name } via agent ${ agent.id }${ result.ok ? '' : ` · ${ result.content.slice(0, 100) }` }` });
+                    durationMs: Date.now() - toolStartedAt,
+                    detail: `${ call.name } · agent ${ agent.id } (${ agent.name }) · round ${ round } · args ${ Object.keys(call.arguments).join(',') || 'none' }${ result.ok ? '' : ` · ${ result.content.slice(0, 90) }` }` });
 
                 messages.push({ role: 'tool', tool_call_id: call.id, content: result.content });
             }
@@ -460,10 +517,12 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
         await audit(fastify, log, {
             teamId: bot.team_id,
+            actor: 'agent',
             action: 'agent.request',
             target: `agent:${ agent.id }`,
             outcome: 'error',
-            detail: `model ${ model.id } unreachable after ${ Date.now() - startedAt }ms` });
+            durationMs: Date.now() - startedAt,
+            detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } (${ model.model }) unreachable` });
 
         return;
     }
@@ -480,10 +539,12 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
         await audit(fastify, log, {
             teamId: bot.team_id,
+            actor: 'agent',
             action: 'agent.request',
             target: `agent:${ agent.id }`,
             outcome: 'error',
-            detail: `model ${ model.id } returned no usable completion after ${ Date.now() - startedAt }ms` });
+            durationMs: Date.now() - startedAt,
+            detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } returned no usable completion after ${ toolRuns } tool call(s)` });
 
         return;
     }
@@ -500,7 +561,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         {
             log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'agent reply failed: telegram refused');
 
-            await audit(fastify, log, { teamId: bot.team_id, action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram refused with ${ sent.status }` });
+            await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram refused with ${ sent.status } - ${ text.length } chars` });
 
             return;
         }
@@ -509,7 +570,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.warn({ module: 'agent', botId: bot.id }, 'agent reply failed: telegram unreachable');
 
-        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: 'telegram unreachable' });
+        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram unreachable - ${ text.length } chars undelivered` });
 
         return;
     }
@@ -537,7 +598,9 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         action: 'agent.request',
         target: `agent:${ agent.id }`,
         outcome: 'ok',
-        detail: `model ${ model.id } (${ model.model }) · ${ messages.length } messages in · ${ text.length } chars out · ${ toolRuns } tool call(s) · ${ Date.now() - startedAt }ms` });
+        durationMs: Date.now() - startedAt,
+        actor: 'agent',
+        detail: `agent ${ agent.id } (${ agent.name }) · model ${ model.id } (${ model.model }) · profile ${ user.id } · ${ messages.length } messages in · ${ text.length } chars out · ${ toolRuns } tool call(s)` });
 }
 
 /**
