@@ -134,6 +134,20 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### OpenRouter is a default, not an integration
+
+The add-model form defaults to OpenRouter because it is the shortest path from a new team to a working agent: one key, no url to find, and an OpenAI-compatible root, so **nothing downstream changes**. A model added that way is an ordinary `team_model` row -- the reply path, the probe and the audit trail cannot tell it apart from a self-hosted endpoint, and picking "Other OpenAI-compatible endpoint" restores the original free-text form.
+
+`routes/model/model.provider.ts` serves the listing from `GET /model/catalog`. Three things about that route:
+
+- It is **not team-scoped**. The listing is the same public page for everyone, so scoping it to a team would only add a database round-trip. `authGuard` is still on it so it cannot be used as an open proxy.
+- The catalog is **cached in process for an hour**. The rate limiter deliberately skips authenticated routes, so without a cache every page load would be one more outbound request any signed-in account could drive.
+- A refresh failure serves the **expired copy** with `reason` set, rather than emptying a dropdown that was fine a minute ago.
+
+`readCatalog` keeps five fields and drops the rest -- the raw listing is megabytes of descriptions and benchmark data -- and leaves out models that cannot answer with text, since an embedding or image model in a chat agent's dropdown is only ever a mistake. Prices are converted from per-token strings to dollars per million, which is the unit they are quoted in. An entry with no `architecture` is kept: refusing everything an older listing does not describe would be worse than one wrong suggestion.
+
+The model field is an `<input list=...>` over a `<datalist>`, not a `<select>`: the browser filters 400-odd entries as you type for free, and a model released since the cache was filled can still be typed in by hand.
+
 ### web_fetch is guarded against SSRF, not just documented
 
 `routes/mcp/mcp.web.ts` is the most dangerous thing in the tool set, because the agent does not pick the url in isolation -- whoever is chatting with it can ask it to fetch anything, and the body comes straight back to them. Unguarded that is a read primitive against everything this server can reach.

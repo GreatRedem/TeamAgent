@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict';
 
 import { probeModel } from './model.service.js';
+import { readCatalog } from './model.provider.js';
 
 const BASE = 'https://api.example.com/v1';
 const KEY = 'sk-test-abcdef0123456789';
@@ -46,6 +47,61 @@ const json = (status: number, body: unknown) => () => Promise.resolve(new Respon
 const listing = { data: [ { id: 'gpt-4o-mini' }, { id: 'gpt-4o' }, { id: 'text-embedding-3-small' } ] };
 
 const tests: Array<[ string, () => Promise<void> ]> = [
+    [ 'the provider catalog keeps only what the add form shows', async() =>
+    {
+        const models = readCatalog({ data: [
+            { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', context_length: 200000, pricing: { prompt: '0.000003', completion: '0.000015' }, description: 'x'.repeat(4000) }
+        ] });
+
+        // Per-token on the wire, per-million on screen.
+        assert.deepEqual(models, [ { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', context: 200000, prompt: 3, completion: 15 } ]);
+    } ],
+
+    [ 'models that cannot answer with text are left out', async() =>
+    {
+        const models = readCatalog({ data: [
+            { id: 'openai/text-embedding-3-small', architecture: { output_modalities: [ 'embeddings' ] } },
+            { id: 'black-forest-labs/flux', architecture: { output_modalities: [ 'image' ] } },
+            { id: 'openai/gpt-4o', architecture: { output_modalities: [ 'text' ] } },
+            { id: 'google/gemini-3', architecture: { output_modalities: [ 'text', 'image' ] } },
+            { id: 'legacy/no-architecture' }
+        ] });
+
+        // The entry with no architecture is kept: refusing everything an older
+        // listing does not describe would be worse than one wrong suggestion.
+        assert.deepEqual(models.map((entry) => entry.id), [ 'google/gemini-3', 'legacy/no-architecture', 'openai/gpt-4o' ]);
+    } ],
+
+    [ 'unusable prices and entries are dropped rather than passed through', async() =>
+    {
+        const models = readCatalog({ data: [
+            { id: '' },
+            null,
+            'not an object',
+            { name: 'no id at all' },
+            { id: 'free/model', pricing: { prompt: '0', completion: '0' } },
+            { id: 'variable/model', pricing: { prompt: '-1', completion: 'unknown' } }
+        ] });
+
+        assert.deepEqual(models.map((entry) => entry.id), [ 'free/model', 'variable/model' ]);
+
+        // Never NaN: the response schema would drop it and leave the field undefined.
+        for (const entry of models)
+        {
+            assert.equal(entry.prompt, 0);
+            assert.equal(entry.completion, 0);
+            assert.equal(entry.context, 0);
+        }
+    } ],
+
+    [ 'a payload that is not a listing yields an empty catalog', async() =>
+    {
+        for (const payload of [ undefined, null, { }, { data: 'nope' }, { error: { code: 500 } } ])
+        {
+            assert.deepEqual(readCatalog(payload), [ ]);
+        }
+    } ],
+
     [ 'a reachable endpoint reports its model count', async() =>
     {
         await withFetch(json(200, listing), async(calls) =>

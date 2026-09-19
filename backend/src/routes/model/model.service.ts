@@ -5,7 +5,8 @@ import { authGuard } from '../../plugins/authentication.js';
 import { TeamModel } from '../team/team.entity.js';
 import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
-import { schemaModelCreate, schemaModelList, schemaModelRemove, schemaModelTest, schemaModelUpdate } from './model.schema.js';
+import { OPENROUTER_URL, fetchCatalog } from './model.provider.js';
+import { schemaModelCatalog, schemaModelCreate, schemaModelList, schemaModelRemove, schemaModelTest, schemaModelUpdate } from './model.schema.js';
 
 import { audit } from '../audit/audit.log.js';
 
@@ -325,4 +326,34 @@ export function modelTest(fastify: FastifyInstance)
     };
 
     return { schema: schemaModelTest, config: { ...authGuard() }, handler };
+}
+
+
+/**
+ * The default provider's model listing, for the add form.
+ *
+ * Not team-scoped, because it is the same public list for everyone -- it is
+ * behind `authGuard` only so it cannot be used as an open proxy, and the
+ * in-process cache keeps a signed-in caller from driving outbound requests with
+ * it whatever the rate limiter does.
+ */
+export function modelCatalog()
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const catalog = await fetchCatalog();
+
+        if (catalog.reason !== undefined)
+        {
+            // A stale list still works, so this is a warning, not an error.
+            request.log.warn({ module: 'model', accountId: request.account_id, reason: catalog.reason, served: catalog.models.length }, 'provider catalog unavailable');
+        }
+
+        reply.send({
+            base_url: OPENROUTER_URL,
+            models: catalog.models,
+            ...catalog.reason !== undefined && { reason: catalog.reason } });
+    };
+
+    return { schema: schemaModelCatalog, config: { ...authGuard() }, handler };
 }

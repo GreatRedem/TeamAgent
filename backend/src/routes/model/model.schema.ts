@@ -87,3 +87,35 @@ export const schemaModelTest = {
         }
     }
 } as const;
+
+
+/**
+ * The provider catalog. `reason` appears only when the listing could not be
+ * refreshed, in which case `models` is the last good copy and may be empty.
+ */
+export const schemaModelCatalog = {
+    response: {
+        200: {
+            type: 'object',
+            required: [ 'base_url', 'models' ],
+            properties: {
+                base_url: { type: 'string' },
+                reason: { type: 'string' },
+                models: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: [ 'id', 'name', 'context', 'prompt', 'completion' ],
+                        properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' },
+                            context: { type: 'integer' },
+                            prompt: { type: 'number' },
+                            completion: { type: 'number' }
+                        }
+                    }
+                }
+            }
+        }
+    }
+} as const;

@@ -271,6 +271,29 @@ export function modelTest(teamId: number, modelId: number)
     return request<TeamModelProbe>('POST', `/team/${ teamId }/model/${ modelId }/test`);
 }
 
+/** One row of the default provider's model listing. */
+export interface CatalogModel
+{
+    id: string;
+    name: string;
+    context: number;
+    /** Dollars per million tokens. 0 means free or not quoted. */
+    prompt: number;
+    completion: number;
+}
+
+/**
+ * The default provider's models, for the add form.
+ *
+ * Not team-scoped: it is the same public list for everyone. `reason` is set
+ * when the provider could not be reached, in which case `models` is whatever
+ * the server still had.
+ */
+export function modelCatalog()
+{
+    return request<{ base_url: string; models: CatalogModel[]; reason?: string }>('GET', '/model/catalog');
+}
+
 /** One entry in the permission catalog the backend defines. */
 export interface Permission
 {

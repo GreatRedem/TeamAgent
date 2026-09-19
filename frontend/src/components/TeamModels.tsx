@@ -2,11 +2,31 @@ import { useCallback, useEffect, useState } from 'react';
 import { Cpu, Plus } from 'lucide-react';
 
 import { Button } from './Button';
-import { ApiError, modelCreate, modelList, modelRemove, modelTest, type TeamModel, type TeamModelProbe } from '../lib/api';
+import { ApiError, modelCatalog, modelCreate, modelList, modelRemove, modelTest, type CatalogModel, type TeamModel, type TeamModelProbe } from '../lib/api';
+
+/**
+ * OpenRouter is the default because it needs one key and no url, which is the
+ * shortest path from a new team to a working agent. Anything else compatible
+ * still works -- it just has to be typed out.
+ */
+type Provider = 'openrouter' | 'custom';
+
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1';
 
 interface TeamModelsProps
 {
     teamId: number;
+}
+
+/** Shown beside a catalog entry, since price is most of why one is picked over another. */
+function priceLabel(entry: CatalogModel): string
+{
+    if (entry.prompt === 0 && entry.completion === 0)
+    {
+        return ' · free';
+    }
+
+    return ` · $${ entry.prompt }/$${ entry.completion } per 1M`;
 }
 
 function probeState(probe: TeamModelProbe | 'testing'): string
@@ -42,6 +62,9 @@ function probeLabel(probe: TeamModelProbe | 'testing'): string
 export function TeamModels({ teamId }: TeamModelsProps)
 {
     const [ models, setModels ] = useState<TeamModel[] | null>(null);
+    const [ provider, setProvider ] = useState<Provider>('openrouter');
+    const [ catalog, setCatalog ] = useState<CatalogModel[]>([ ]);
+    const [ catalogUrl, setCatalogUrl ] = useState(OPENROUTER_URL);
     const [ name, setName ] = useState('');
     const [ model, setModel ] = useState('');
     const [ baseUrl, setBaseUrl ] = useState('');
@@ -81,6 +104,29 @@ export function TeamModels({ teamId }: TeamModelsProps)
         };
     }, [ teamId ]);
 
+    // Separate from the model list: a provider outage should leave the team's
+    // own models on screen, so a failure here only empties the suggestions.
+    useEffect(() =>
+    {
+        let active = true;
+
+        modelCatalog()
+            .then((payload) =>
+            {
+                if (active)
+                {
+                    setCatalog(payload.models);
+                    setCatalogUrl(payload.base_url);
+                }
+            })
+            .catch(() => { });
+
+        return () =>
+        {
+            active = false;
+        };
+    }, [ ]);
+
     const add = useCallback(async(event: React.FormEvent) =>
     {
         event.preventDefault();
@@ -90,7 +136,10 @@ export function TeamModels({ teamId }: TeamModelsProps)
 
         try
         {
-            const created = await modelCreate(teamId, name.trim(), model.trim(), baseUrl.trim(), apiKey.trim());
+            // The provider url is the server's, not a constant duplicated here.
+            const url = provider === 'openrouter' ? catalogUrl : baseUrl.trim();
+
+            const created = await modelCreate(teamId, name.trim(), model.trim(), url, apiKey.trim());
 
             setModels((current) => [ created, ...current ?? [ ] ]);
             setName('');
@@ -106,7 +155,7 @@ export function TeamModels({ teamId }: TeamModelsProps)
         {
             setBusy(false);
         }
-    }, [ teamId, name, model, baseUrl, apiKey ]);
+    }, [ teamId, provider, catalogUrl, name, model, baseUrl, apiKey ]);
 
     const test = useCallback(async(modelId: number) =>
     {
@@ -155,6 +204,19 @@ export function TeamModels({ teamId }: TeamModelsProps)
 
             <form className="form" onSubmit={ add }>
                 <label className="field">
+                    <span className="field__label">Provider</span>
+
+                    <select
+                        className="field__input"
+                        value={ provider }
+                        onChange={ (event) => setProvider(event.target.value as Provider) }
+                    >
+                        <option value="openrouter">OpenRouter · one key, every model</option>
+                        <option value="custom">Other OpenAI-compatible endpoint</option>
+                    </select>
+                </label>
+
+                <label className="field">
                     <span className="field__label">Label</span>
 
                     <input
@@ -177,26 +239,40 @@ export function TeamModels({ teamId }: TeamModelsProps)
                         onChange={ (event) => setModel(event.target.value) }
                         maxLength={ 128 }
                         required
-                        placeholder="gpt-4o-mini"
+                        // A datalist rather than a select: the list is long, the
+                        // browser filters it as you type for free, and a model
+                        // released since the catalog was cached can still be typed.
+                        list={ provider === 'openrouter' ? 'openrouter-models' : undefined }
+                        placeholder={ provider === 'openrouter' ? 'anthropic/claude-sonnet-4.5' : 'gpt-4o-mini' }
                     />
                 </label>
 
-                <label className="field">
-                    <span className="field__label">Compatible URL</span>
+                { provider === 'openrouter' && (
+                    <datalist id="openrouter-models">
+                        { catalog.map((entry) => (
+                            <option key={ entry.id } value={ entry.id }>{ entry.name }{ priceLabel(entry) }</option>
+                        )) }
+                    </datalist>
+                ) }
 
-                    <input
-                        className="field__input"
-                        type="url"
-                        value={ baseUrl }
-                        onChange={ (event) => setBaseUrl(event.target.value) }
-                        maxLength={ 256 }
-                        required
-                        placeholder="https://api.openai.com/v1"
-                    />
-                </label>
+                { provider === 'custom' && (
+                    <label className="field">
+                        <span className="field__label">Compatible URL</span>
+
+                        <input
+                            className="field__input"
+                            type="url"
+                            value={ baseUrl }
+                            onChange={ (event) => setBaseUrl(event.target.value) }
+                            maxLength={ 256 }
+                            required
+                            placeholder="https://api.openai.com/v1"
+                        />
+                    </label>
+                ) }
 
                 <label className="field">
-                    <span className="field__label">API key (blank for none)</span>
+                    <span className="field__label">{ provider === 'openrouter' ? 'API key' : 'API key (blank for none)' }</span>
 
                     <input
                         className="field__input"
@@ -207,7 +283,8 @@ export function TeamModels({ teamId }: TeamModelsProps)
                         value={ apiKey }
                         onChange={ (event) => setApiKey(event.target.value) }
                         maxLength={ 256 }
-                        placeholder="sk-...  (local models usually need none)"
+                        required={ provider === 'openrouter' }
+                        placeholder={ provider === 'openrouter' ? 'sk-or-v1-...' : 'sk-...  (local models usually need none)' }
                     />
                 </label>
 
