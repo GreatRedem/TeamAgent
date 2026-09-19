@@ -7,7 +7,6 @@ import fastify from 'fastify';
 
 import cookiePlugin from '@fastify/cookie';
 import autoLoadPlugin from '@fastify/autoload';
-import multipartPlugin from '@fastify/multipart';
 
 import typeormPlugin from './plugins/typeorm.js';
 import ratelimitPlugin from './plugins/ratelimit.js';
@@ -54,8 +53,6 @@ const main = async () => {
     await app.register(ratelimitPlugin);
 
     await app.register(validatorPlugin);
-
-    await app.register(multipartPlugin, { limits: { fileSize: 5 * 1024 * 1024 } });
 
     await app.register(cookiePlugin, { secret: config.NODE_COOKIE, hook: 'onRequest', parseOptions: { secure: true, httpOnly: true, sameSite: 'strict' } });
 
