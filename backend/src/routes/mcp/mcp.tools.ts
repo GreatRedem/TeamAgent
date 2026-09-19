@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 
 import { TeamAgent } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
-import { TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
+import { TelegramMessage, TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
+import { FETCH_BYTES_MAX, fetchPublicUrl } from './mcp.web.js';
 
 /**
  * The internal tool protocol agents use to manage the person they are talking
@@ -96,8 +97,37 @@ export const TOOLS: ToolDefinition[] = [
         description: 'Read the stored facts about the person you are talking to: their name, username, language and how much they have written.',
         permission: 'prefs.read',
         inputSchema: { type: 'object', properties: { }, required: [ ] }
+    },
+    {
+        name: 'conversation_search',
+        description: 'Search everything this person has written to you before, further back than the recent turns you can already see.',
+        permission: 'conversation.read',
+        inputSchema: {
+            type: 'object',
+            properties: { query: { type: 'string', description: 'Text to look for, case-insensitive' } },
+            required: [ 'query' ]
+        }
+    },
+    {
+        name: 'web_fetch',
+        description: 'Fetch a public web page or API response and read its text. Only public addresses work; private and internal ones are always refused.',
+        permission: 'web.fetch',
+        inputSchema: {
+            type: 'object',
+            properties: { url: { type: 'string', description: 'Full http or https url' } },
+            required: [ 'url' ]
+        }
+    },
+    {
+        name: 'time_now',
+        description: 'The current date and time in UTC. Use this rather than guessing what day it is.',
+        permission: 'basics',
+        inputSchema: { type: 'object', properties: { }, required: [ ] }
     }
 ];
+
+/** How many past messages a search may return. */
+const SEARCH_LIMIT = 20;
 
 /** The tools an agent's own capabilities allow. */
 export function allowedTools(agentPermissions: string): ToolDefinition[]
@@ -165,6 +195,73 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
     if (!agentHasPermission(agent.permissions, tool.permission))
     {
         return refuse(`not permitted: this agent does not have ${ tool.permission }`);
+    }
+
+    if (tool.name === 'time_now')
+    {
+        const now = new Date();
+
+        return { ok: true, content: JSON.stringify({ utc: now.toISOString(), unix: Math.floor(now.getTime() / 1000) }) };
+    }
+
+    if (tool.name === 'web_fetch')
+    {
+        const url = typeof args['url'] === 'string' ? args['url'].trim() : '';
+
+        if (url === '')
+        {
+            return refuse('url is required');
+        }
+
+        const fetched = await fetchPublicUrl(url);
+
+        if (!fetched.ok)
+        {
+            return refuse(fetched.reason ?? 'fetch refused');
+        }
+
+        return {
+            ok: true,
+            content: JSON.stringify({
+                url: fetched.finalUrl,
+                status: fetched.status,
+                content_type: fetched.contentType,
+                truncated: fetched.truncated === true,
+                bytes_limit: FETCH_BYTES_MAX,
+                text: fetched.text
+            })
+        };
+    }
+
+    if (tool.name === 'conversation_search')
+    {
+        const query = typeof args['query'] === 'string' ? args['query'].trim() : '';
+
+        if (query === '')
+        {
+            return refuse('query is required');
+        }
+
+        // Scoped to this one person's thread. An agent searching across a
+        // team's whole inbox would be a very different capability.
+        const matches = await fastify.db.getRepository(TelegramMessage)
+            .createQueryBuilder('message')
+            .where('message.user_id = :userId', { userId: user.id })
+            .andWhere('message.text ILIKE :query', { query: `%${ query }%` })
+            .orderBy('message.id', 'DESC')
+            .take(SEARCH_LIMIT)
+            .getMany();
+
+        return {
+            ok: true,
+            content: JSON.stringify({
+                matches: matches.map((message) => ({
+                    direction: message.direction,
+                    text: message.text,
+                    sent_at: message.sent_at
+                }))
+            })
+        };
     }
 
     const repository = fastify.db.getRepository(TelegramUserDocument);

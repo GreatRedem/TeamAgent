@@ -28,13 +28,31 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
         key: 'prefs.write',
         label: 'May write files',
         description: 'Lets this agent create and change those files. Granting it does not imply read.'
+    },
+    {
+        key: 'conversation.read',
+        label: 'May search past messages',
+        description: 'Lets this agent look back through what a person has written to it before, beyond the recent turns it already sees.'
+    },
+    {
+        key: 'web.fetch',
+        label: 'May fetch web pages',
+        description: 'Lets this agent read public web pages. Private, loopback and cloud-metadata addresses are always refused, whoever asks.'
+    },
+    {
+        key: 'basics',
+        label: 'May read the clock',
+        description: 'Lets this agent know the current date and time. Harmless, and on by default for new agents.'
     }
 ];
 
 const KNOWN = new Set(AGENT_PERMISSIONS.map((permission) => permission.key));
 
-/** A new agent starts with nothing; capabilities are switched on deliberately. */
-export const DEFAULT_AGENT_PERMISSIONS: string[] = [ ];
+/**
+ * A new agent starts with only the harmless one. Everything that reads files,
+ * history or the network is switched on deliberately.
+ */
+export const DEFAULT_AGENT_PERMISSIONS: string[] = [ 'basics' ];
 
 export const AGENT_PERMISSIONS_MAX = 256;
 

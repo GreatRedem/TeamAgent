@@ -134,6 +134,16 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### web_fetch is guarded against SSRF, not just documented
+
+`routes/mcp/mcp.web.ts` is the most dangerous thing in the tool set, because the agent does not pick the url in isolation -- whoever is chatting with it can ask it to fetch anything, and the body comes straight back to them. Unguarded that is a read primitive against everything this server can reach.
+
+So: only http/https, the hostname is resolved up front and refused if **any** address it resolves to is private, loopback, link-local, CGNAT, multicast or cloud-metadata, and redirects are followed **manually** with every hop re-checked. A public url that 302s to `169.254.169.254` is the standard way past a naive allow-list, which is why `redirect: 'manual'` is not optional here. IPv4-mapped IPv6 (`::ffff:10.0.0.1`) and bracketed literals (`http://[::1]/`) are both normalised before the check.
+
+Unlike `team_model.base_url`, loopback is refused outright -- there is no legitimate reason for an agent to fetch an internal address, so nothing is lost by blocking it.
+
+Known residual risk: DNS rebinding, where a name passes the check then resolves differently when the socket opens. Closing it needs pinning the connection to the checked address, which `fetch` does not expose.
+
 ### Agent capabilities are the agent's, not the person's
 
 `prefs.read` and `prefs.write` live in `routes/agent/agent.permission.ts` on `team_agent.permissions`, **not** in the profile catalog. Whether an agent keeps notes is a property of how it was built; putting it on the profile made every person answer a design question that was not theirs. `telegram.permission.ts` still governs what a *person* may do (`chat`, `model`).
