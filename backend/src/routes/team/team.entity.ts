@@ -124,7 +124,8 @@ export class TeamModel
     @Column({ type: 'varchar', length: 256 })
     base_url: string;
 
-    @Column({ type: 'varchar', length: 256 })
+    /** Blank for an endpoint that needs no key, which is usual for local models. */
+    @Column({ type: 'varchar', length: 256, default: '' })
     api_key: string;
 
     @CreateDateColumn()

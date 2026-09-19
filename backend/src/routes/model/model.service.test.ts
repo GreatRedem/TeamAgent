@@ -125,6 +125,19 @@ const tests: Array<[ string, () => Promise<void> ]> = [
         });
     } ],
 
+    [ 'an empty key sends no authorization header at all', async() =>
+    {
+        await withFetch(json(200, listing), async(calls) =>
+        {
+            // A local endpoint that wants no key: `Bearer ` with nothing after
+            // it is worse than sending nothing, and some servers reject it.
+            assert.deepEqual(await probeModel(BASE, '', 'gpt-4o'), { ok: true, models: 3, found: true });
+
+            assert.equal(calls.length, 1);
+            assert.equal(calls[0].auth, null);
+        });
+    } ],
+
     [ 'no outcome carries the api key back to the caller', async() =>
     {
         const stubs = [

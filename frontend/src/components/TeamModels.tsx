@@ -196,7 +196,7 @@ export function TeamModels({ teamId }: TeamModelsProps)
                 </label>
 
                 <label className="field">
-                    <span className="field__label">API key</span>
+                    <span className="field__label">API key (blank for none)</span>
 
                     <input
                         className="field__input"
@@ -207,8 +207,7 @@ export function TeamModels({ teamId }: TeamModelsProps)
                         value={ apiKey }
                         onChange={ (event) => setApiKey(event.target.value) }
                         maxLength={ 256 }
-                        required
-                        placeholder="sk-..."
+                        placeholder="sk-...  (local models usually need none)"
                     />
                 </label>
 

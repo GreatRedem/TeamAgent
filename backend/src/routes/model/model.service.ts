@@ -22,18 +22,40 @@ const readModelId = (request: FastifyRequest) => readParamId(request, 'modelId',
 
 /**
  * What the client may see of a stored key: enough to tell two apart, not enough
- * to use. Short keys are reported as set without revealing any of it.
+ * to use. 'none' when the endpoint needs no key, 'set' when the key is too
+ * short to show any of safely.
  */
 function toModelView(model: TeamModel)
 {
+    const hint = model.api_key === '' ? 'none'
+        : model.api_key.length > 8 ? `${ model.api_key.slice(0, 3) }...${ model.api_key.slice(-4) }`
+            : 'set';
+
     return {
         id: model.id,
         name: model.name,
         model: model.model,
         base_url: model.base_url,
-        key_hint: model.api_key.length > 8 ? `${ model.api_key.slice(0, 3) }...${ model.api_key.slice(-4) }` : 'set',
+        key_hint: hint,
         created_at: model.created_at
     };
+}
+
+/**
+ * A key is optional -- a locally hosted endpoint usually has none -- but a
+ * short one is far more likely to be a truncated paste than a real credential,
+ * so anything non-empty still has to clear the minimum.
+ */
+function readApiKey(request: FastifyRequest): string
+{
+    const value = request.getBody('api_key').max(KEY_MAX).asString().trim();
+
+    if (value !== '' && value.length < KEY_MIN)
+    {
+        throw new BadRequestResponse('ERROR_MIN_LENGTH');
+    }
+
+    return value;
 }
 
 /**
@@ -130,7 +152,9 @@ export async function probeModel(baseUrl: string, apiKey: string, model: string)
     try
     {
         response = await fetch(`${ baseUrl }/models`, {
-            headers: { authorization: `Bearer ${ apiKey }` },
+            // An empty key means the endpoint wants none; sending `Bearer `
+            // with nothing after it is rejected by some servers outright.
+            headers: apiKey === '' ? { } : { authorization: `Bearer ${ apiKey }` },
             signal: AbortSignal.timeout(TEST_TIMEOUT) });
     }
     catch
@@ -170,7 +194,7 @@ export function modelCreate(fastify: FastifyInstance)
         const teamId = readTeamId(request);
 
         const { name, model, baseUrl } = readModelBody(request);
-        const apiKey = request.getBody('api_key').min(KEY_MIN).max(KEY_MAX).asString().trim();
+        const apiKey = readApiKey(request);
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
@@ -218,13 +242,10 @@ export function modelUpdate(fastify: FastifyInstance)
         const { name, model, baseUrl } = readModelBody(request);
 
         // Blank means "keep the stored key": the client cannot read it back, so
-        // requiring it on every edit would force re-entry to rename a model.
-        const apiKey = request.getBody('api_key').max(KEY_MAX).asString().trim();
-
-        if (apiKey !== '' && apiKey.length < KEY_MIN)
-        {
-            throw new BadRequestResponse('ERROR_MIN_LENGTH');
-        }
+        // requiring it on every edit would force re-entry just to rename a model.
+        // That makes blank ambiguous for a key the caller wants to *remove* --
+        // delete and re-add the model for that.
+        const apiKey = readApiKey(request);
 
         const existing = await findOwnedModel(fastify, teamId, modelId, request.account_id);
 
