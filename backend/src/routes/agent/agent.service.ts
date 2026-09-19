@@ -10,6 +10,8 @@ import {
     schemaAgentCreate, schemaAgentDetails, schemaAgentDocumentCreate, schemaAgentDocumentRemove,
     schemaAgentDocumentUpdate, schemaAgentList, schemaAgentRemove, schemaAgentUpdate } from './agent.schema.js';
 
+import { audit } from '../audit/audit.log.js';
+
 import { BadRequestResponse } from '../../utils/response.js';
 
 const NAME_MIN = 2;
@@ -135,6 +137,8 @@ export function agentCreate(fastify: FastifyInstance)
 
         request.log.info({ module: 'agent', teamId, agentId: agent.id, modelId, accountId: request.account_id }, 'agent created');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'agent.create', target: `agent:${ agent.id }`, detail: `${ name } - model ${ modelId } - ${ DEFAULT_DOCUMENTS.length } files seeded` });
+
         const names = await modelNames(fastify, teamId);
 
         reply.send(toAgentView(agent, names.get(modelId) ?? '', DEFAULT_DOCUMENTS.length));
@@ -216,6 +220,8 @@ export function agentUpdate(fastify: FastifyInstance)
 
         request.log.info({ module: 'agent', teamId, agentId: agent.id, modelId, accountId: request.account_id }, 'agent updated');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'agent.update', target: `agent:${ agent.id }`, detail: `${ name } - model ${ modelId }` });
+
         reply.send(toAgentView({ ...agent, name, description, model_id: modelId }, names.get(modelId) ?? '', documents));
     };
 
@@ -248,6 +254,8 @@ export function agentRemove(fastify: FastifyInstance)
 
         request.log.info({ module: 'agent', teamId, agentId, accountId: request.account_id, detachedBots: detached.affected ?? 0 }, 'agent removed');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'agent.remove', target: `agent:${ agentId }`, detail: `${ detached.affected ?? 0 } bot(s) detached` });
+
         reply.send({ result: 'OK' });
     };
 
@@ -273,6 +281,8 @@ export function agentDocumentCreate(fastify: FastifyInstance)
         const document = await repository.save({ agent_id: agent.id, name, content });
 
         request.log.info({ module: 'agent', teamId, agentId: agent.id, documentId: document.id, accountId: request.account_id }, 'agent document created');
+
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'agent.document.create', target: `agent:${ agent.id }`, detail: name });
 
         reply.send(toDocumentView(document));
     };
@@ -312,6 +322,8 @@ export function agentDocumentUpdate(fastify: FastifyInstance)
 
         request.log.info({ module: 'agent', teamId, agentId: agent.id, documentId: document.id, accountId: request.account_id }, 'agent document updated');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'agent.document.update', target: `agent:${ agent.id }`, detail: `${ name } - ${ content.length } chars` });
+
         reply.send(toDocumentView({ ...document, name, content, updated_at: new Date() }));
     };
 
@@ -334,6 +346,8 @@ export function agentDocumentRemove(fastify: FastifyInstance)
         }
 
         request.log.info({ module: 'agent', teamId, agentId: agent.id, documentId, accountId: request.account_id }, 'agent document removed');
+
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'agent.document.remove', target: `agent:${ agent.id }`, detail: `document ${ documentId }` });
 
         reply.send({ result: 'OK' });
     };

@@ -353,3 +353,32 @@ export function agentDocumentRemove(teamId: number, agentId: number, documentId:
 {
     return request<{ result: string }>('DELETE', `/team/${ teamId }/agent/${ agentId }/document/${ documentId }`);
 }
+
+/** One recorded action in a team's audit trail. */
+export interface AuditEntry
+{
+    id: number;
+    action: string;
+    target: string;
+    outcome: 'ok' | 'error' | 'skipped';
+    detail: string;
+    created_at: string;
+}
+
+/** One day in the activity heatmap. Every day in range is present, even empty ones. */
+export interface HeatmapDay
+{
+    date: string;
+    total: number;
+    errors: number;
+}
+
+export function auditList(teamId: number)
+{
+    return request<{ entries: AuditEntry[] }>('GET', `/team/${ teamId }/audit`);
+}
+
+export function auditHeatmap(teamId: number)
+{
+    return request<{ days: HeatmapDay[]; from: string; to: string; total: number; busiest: number }>('GET', `/team/${ teamId }/audit/heatmap`);
+}

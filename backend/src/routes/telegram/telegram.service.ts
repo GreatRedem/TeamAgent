@@ -12,6 +12,8 @@ import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
 import { schemaConversationList, schemaConversationMessages, schemaPermissionCatalog, schemaProfileDetails, schemaProfilePermissionUpdate, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
 
+import { audit } from '../audit/audit.log.js';
+
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
@@ -237,6 +239,8 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
     {
         log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message refused: no chat permission');
 
+        await audit(fastify, log, { teamId: bot.team_id, action: 'telegram.message', target: `profile:${ user.id }`, outcome: 'skipped', detail: 'sender lacks the chat permission' });
+
         return 'blocked';
     }
 
@@ -253,6 +257,8 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
     await users.increment({ id: user.id }, 'message_count', 1);
 
     log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message stored');
+
+    await audit(fastify, log, { teamId: bot.team_id, action: 'telegram.message', target: `profile:${ user.id }`, detail: `${ inbound.text.length } chars via bot ${ bot.id }` });
 
     // Deliberately not awaited. A completion takes seconds and Telegram
     // redelivers a webhook it does not get a prompt 2xx for, so the reply is
@@ -338,6 +344,8 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.info({ module: 'agent', botId: bot.id, userId: user.id }, 'agent reply skipped: no model permission');
 
+        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.request', target: `bot:${ bot.id }`, outcome: 'skipped', detail: `profile ${ user.id } lacks the model permission` });
+
         return;
     }
 
@@ -347,6 +355,8 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.warn({ module: 'agent', botId: bot.id, agentId: bot.agent_id }, 'agent reply skipped: agent or model missing');
 
+        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.request', target: `agent:${ bot.agent_id }`, outcome: 'skipped', detail: 'agent missing or has no model attached' });
+
         return;
     }
 
@@ -355,6 +365,8 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     if (!model)
     {
         log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply skipped: model missing');
+
+        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.request', target: `agent:${ agent.id }`, outcome: 'skipped', detail: 'model missing' });
 
         return;
     }
@@ -376,6 +388,8 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     // attempt gives up.
     const stopTyping = startTyping(bot.token, chatId, log);
 
+    const startedAt = Date.now();
+
     let text: string | undefined;
 
     try
@@ -395,6 +409,13 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     {
         log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: model unreachable');
 
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            action: 'agent.request',
+            target: `agent:${ agent.id }`,
+            outcome: 'error',
+            detail: `model ${ model.id } unreachable after ${ Date.now() - startedAt }ms` });
+
         return;
     }
     finally
@@ -407,6 +428,13 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     if (text === undefined)
     {
         log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: no usable completion');
+
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            action: 'agent.request',
+            target: `agent:${ agent.id }`,
+            outcome: 'error',
+            detail: `model ${ model.id } returned no usable completion after ${ Date.now() - startedAt }ms` });
 
         return;
     }
@@ -423,12 +451,16 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         {
             log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'agent reply failed: telegram refused');
 
+            await audit(fastify, log, { teamId: bot.team_id, action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram refused with ${ sent.status }` });
+
             return;
         }
     }
     catch
     {
         log.warn({ module: 'agent', botId: bot.id }, 'agent reply failed: telegram unreachable');
+
+        await audit(fastify, log, { teamId: bot.team_id, action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: 'telegram unreachable' });
 
         return;
     }
@@ -447,6 +479,16 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         sent_at: new Date() });
 
     log.info({ module: 'agent', botId: bot.id, agentId: agent.id, userId: user.id }, 'agent replied');
+
+    // Shape and timing only. The conversation text is already stored in
+    // telegram_message; copying it here would spread the same personal data
+    // into a second table, and the api key must never appear at all.
+    await audit(fastify, log, {
+        teamId: bot.team_id,
+        action: 'agent.request',
+        target: `agent:${ agent.id }`,
+        outcome: 'ok',
+        detail: `model ${ model.id } (${ model.model }) · ${ messages.length } messages in · ${ text.length } chars out · ${ Date.now() - startedAt }ms` });
 }
 
 /**
@@ -654,6 +696,8 @@ export function profilePermissionUpdate(fastify: FastifyInstance)
         await users.update({ id: user.id, team_id: teamId }, { permissions });
 
         request.log.info({ module: 'telegram', teamId, userId: user.id, accountId: request.account_id, permissions }, 'profile permissions updated');
+
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'profile.permissions', target: `profile:${ user.id }`, detail: permissions === '' ? 'all revoked' : permissions });
 
         reply.send(toProfile({ ...user, permissions }));
     };

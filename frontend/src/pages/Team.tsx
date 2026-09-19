@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router';
 import { Button, ButtonLink } from '../components/Button';
 import { Tabs, type Tab } from '../components/Tabs';
 import { TeamAgents } from '../components/TeamAgents';
+import { TeamOverview } from '../components/TeamOverview';
 import { TeamBots } from '../components/TeamBots';
 import { TeamConversations } from '../components/TeamConversations';
 import { TeamModels } from '../components/TeamModels';
@@ -14,6 +15,7 @@ import { clearAccessToken, readAccessToken } from '../lib/session';
 
 /** Details for one team, with the same fields editable in place. */
 const TABS: Tab[] = [
+    { id: 'overview', label: 'Overview' },
     { id: 'settings', label: 'Settings' },
     { id: 'telegram', label: 'Telegram' },
     { id: 'model', label: 'Model' },
@@ -142,6 +144,10 @@ export function Team()
 
             { team !== null && (
                 <>
+                    <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" hidden={ tab !== 'overview' }>
+                        { tab === 'overview' && <TeamOverview teamId={ teamId } /> }
+                    </div>
+
                     <section className="section" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden={ tab !== 'settings' }>
                         <h2 className="section__title">Settings</h2>
 

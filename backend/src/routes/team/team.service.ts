@@ -9,6 +9,8 @@ import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from './team.access.js';
 import { schemaTeamBotCreate, schemaTeamBotList, schemaTeamBotRemove, schemaTeamBotTest, schemaTeamBotUpdate, schemaTeamCreate, schemaTeamDetails, schemaTeamList, schemaTeamUpdate } from './team.schema.js';
 
+import { audit } from '../audit/audit.log.js';
+
 import { BadRequestResponse } from '../../utils/response.js';
 
 const NAME_MIN = 2;
@@ -189,6 +191,8 @@ export function teamCreate(fastify: FastifyInstance)
 
         request.log.info({ module: 'team', teamId: team.id, accountId: request.account_id }, 'team created');
 
+        await audit(fastify, request.log, { teamId: team.id, accountId: request.account_id, action: 'team.create', target: `team:${ team.id }`, detail: name });
+
         reply.send(team);
     };
 
@@ -242,6 +246,8 @@ export function teamUpdate(fastify: FastifyInstance)
 
         request.log.info({ module: 'team', teamId: id, accountId: request.account_id }, 'team updated');
 
+        await audit(fastify, request.log, { teamId: id, accountId: request.account_id, action: 'team.update', target: `team:${ id }`, detail: name });
+
         reply.send(team);
     };
 
@@ -280,6 +286,8 @@ export function teamBotCreate(fastify: FastifyInstance)
 
         // The token itself is never logged -- the row id is enough to trace it.
         request.log.info({ module: 'team', teamId, botId: bot.id, accountId: request.account_id }, 'team bot added');
+
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'bot.create', target: `bot:${ bot.id }`, detail: name });
 
         reply.send(toBotView(bot));
     };
@@ -333,6 +341,8 @@ export function teamBotTest(fastify: FastifyInstance)
 
         request.log.info({ module: 'team', teamId, botId, accountId: request.account_id, ok: probe.ok, reason: probe.reason }, 'team bot tested');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'bot.test', target: `bot:${ botId }`, outcome: probe.ok ? 'ok' : 'error', detail: probe.reason ?? 'connected' });
+
         reply.send(probe);
     };
 
@@ -358,6 +368,8 @@ export function teamBotRemove(fastify: FastifyInstance)
         }
 
         request.log.info({ module: 'team', teamId, botId, accountId: request.account_id }, 'team bot removed');
+
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'bot.remove', target: `bot:${ botId }` });
 
         reply.send({ result: 'OK' });
     };
@@ -390,6 +402,13 @@ export function teamBotUpdate(fastify: FastifyInstance)
         // Telegram still has a webhook registered; dropping it is the poller's
         // first act, so nothing to do here beyond the write.
         request.log.info({ module: 'team', teamId, botId: bot.id, mode: publicUrl === '' ? 'polling' : 'webhook' }, 'team bot updated');
+
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'bot.update',
+            target: `bot:${ bot.id }`,
+            detail: `${ publicUrl === '' ? 'polling' : 'webhook' } - agent ${ agentId === 0 ? 'none' : agentId }` });
 
         const names = await agentNames(fastify, teamId);
 

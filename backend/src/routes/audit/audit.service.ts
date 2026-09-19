@@ -1,0 +1,105 @@
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+
+import { authGuard } from '../../plugins/authentication.js';
+
+import { findOwnedTeam, readTeamId } from '../team/team.access.js';
+import { AuditLog } from './audit.entity.js';
+import { schemaAuditHeatmap, schemaAuditList } from './audit.schema.js';
+
+/** How much history the heatmap covers. 12 weeks fits a readable grid. */
+const HEATMAP_DAYS = 84;
+
+const LIST_LIMIT = 60;
+
+/** `YYYY-MM-DD` in UTC, matching how the rows are bucketed. */
+function isoDate(date: Date): string
+{
+    return date.toISOString().slice(0, 10);
+}
+
+export function auditList(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const entries = await fastify.db.getRepository(AuditLog).find({
+            where: { team_id: teamId },
+            order: { id: 'DESC' },
+            take: LIST_LIMIT });
+
+        reply.send({
+            entries: entries.map((entry) => ({
+                id: entry.id,
+                action: entry.action,
+                target: entry.target,
+                outcome: entry.outcome,
+                detail: entry.detail,
+                created_at: entry.created_at
+            })) });
+    };
+
+    return { schema: schemaAuditList, config: { ...authGuard() }, handler };
+}
+
+/**
+ * Daily activity counts for one team.
+ *
+ * Bucketed in the database rather than by reading every row and counting in
+ * JS: a busy team's history is unbounded, and the grid only ever needs one
+ * number per day.
+ *
+ * Days are UTC. A team spread across timezones would otherwise see a square
+ * change colour depending on who is looking at it.
+ */
+export function auditHeatmap(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const to = new Date();
+        const from = new Date(to.getTime() - (HEATMAP_DAYS - 1) * 86400000);
+
+        from.setUTCHours(0, 0, 0, 0);
+
+        const rows = await fastify.db.getRepository(AuditLog)
+            .createQueryBuilder('entry')
+            .select("to_char(entry.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD')", 'date')
+            .addSelect('COUNT(*)', 'total')
+            .addSelect("COUNT(*) FILTER (WHERE entry.outcome = 'error')", 'errors')
+            .where('entry.team_id = :teamId', { teamId })
+            .andWhere('entry.created_at >= :from', { from })
+            .groupBy('date')
+            .getRawMany<{ date: string; total: string; errors: string }>();
+
+        const counts = new Map(rows.map((row) => [ row.date, { total: Number(row.total), errors: Number(row.errors) } ]));
+
+        // Emitted for every day in range, including empty ones, so the client
+        // does not have to reconstruct the calendar.
+        const days: { date: string; total: number; errors: number }[] = [ ];
+
+        for (let i = 0; i < HEATMAP_DAYS; i += 1)
+        {
+            const date = isoDate(new Date(from.getTime() + i * 86400000));
+            const found = counts.get(date);
+
+            days.push({ date, total: found?.total ?? 0, errors: found?.errors ?? 0 });
+        }
+
+        reply.send({
+            days,
+            from: isoDate(from),
+            to: isoDate(to),
+            total: days.reduce((sum, day) => sum + day.total, 0),
+            // The client scales its colour ramp against this rather than a
+            // fixed ceiling, so a quiet team's chart is still readable.
+            busiest: days.reduce((most, day) => Math.max(most, day.total), 0) });
+    };
+
+    return { schema: schemaAuditHeatmap, config: { ...authGuard() }, handler };
+}

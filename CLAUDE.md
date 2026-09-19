@@ -134,6 +134,16 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### Audit logging
+
+`routes/audit/audit.log.ts` exports one `audit(fastify, log, entry)` helper, called from every write path and every outbound call. It **never throws and never rejects**: an audit write failing must not take down the operation it was describing, which would turn a logging problem into an outage. Failures go to the normal logger instead.
+
+`audit_log.detail` carries shape and timing, never credentials and never message content. A model request records which model, how many messages went in, how many characters came back and how long it took — the conversation text is already in `telegram_message`, and copying it here would spread the same personal data into a second table with a different retention story.
+
+The heatmap is bucketed **in the database**, not by reading rows and counting in JS: a busy team's history is unbounded and the grid only needs one number per day. Days are UTC on both sides — the SQL buckets with `AT TIME ZONE 'UTC'` and the client walks the calendar with `getUTCDay`, so a square cannot change colour depending on who is looking at it. Every day in range is returned including empty ones, so the client never has to reconstruct the calendar.
+
+Colour means volume; a day containing failures is **outlined** rather than recoloured, so one channel is not overloaded with two variables.
+
 ### A bot's agent replies out of band
 
 `team_bot.agent_id` names the agent that answers people who message that bot; 0 means nobody answers and the bot only records. The reply is fired from `ingestUpdate` and **deliberately not awaited**: a completion takes seconds, and Telegram redelivers any webhook it does not get a prompt 2xx for, so blocking on the model would turn one message into several. Both transports funnel through `ingestUpdate`, so the poller gets replies for free.

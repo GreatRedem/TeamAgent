@@ -7,6 +7,8 @@ import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { schemaModelCreate, schemaModelList, schemaModelRemove, schemaModelTest, schemaModelUpdate } from './model.schema.js';
 
+import { audit } from '../audit/audit.log.js';
+
 import { BadRequestResponse } from '../../utils/response.js';
 
 const NAME_MIN = 2;
@@ -211,6 +213,8 @@ export function modelCreate(fastify: FastifyInstance)
         // The key is never logged; the row id is enough to trace it.
         request.log.info({ module: 'model', teamId, modelId: saved.id, accountId: request.account_id }, 'team model added');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'model.create', target: `model:${ saved.id }`, detail: `${ name } - ${ model }` });
+
         reply.send(toModelView(saved));
     };
 
@@ -256,6 +260,8 @@ export function modelUpdate(fastify: FastifyInstance)
 
         request.log.info({ module: 'model', teamId, modelId: existing.id, accountId: request.account_id, rotatedKey: apiKey !== '' }, 'team model updated');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'model.update', target: `model:${ existing.id }`, detail: apiKey !== '' ? `${ name } - key rotated` : name });
+
         reply.send(toModelView({ ...existing, name, model, base_url: baseUrl, api_key: apiKey !== '' ? apiKey : existing.api_key }));
     };
 
@@ -286,6 +292,8 @@ export function modelRemove(fastify: FastifyInstance)
 
         request.log.info({ module: 'model', teamId, modelId, accountId: request.account_id, detachedAgents: detached.affected ?? 0 }, 'team model removed');
 
+        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'model.remove', target: `model:${ modelId }`, detail: `${ detached.affected ?? 0 } agent(s) detached` });
+
         reply.send({ result: 'OK' });
     };
 
@@ -304,6 +312,14 @@ export function modelTest(fastify: FastifyInstance)
         const probe = await probeModel(model.base_url, model.api_key, model.model);
 
         request.log.info({ module: 'model', teamId, modelId: model.id, accountId: request.account_id, ok: probe.ok, reason: probe.reason }, 'team model tested');
+
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'model.test',
+            target: `model:${ model.id }`,
+            outcome: probe.ok ? 'ok' : 'error',
+            detail: probe.ok ? `${ probe.models ?? 0 } models listed` : probe.reason ?? 'failed' });
 
         reply.send(probe);
     };
