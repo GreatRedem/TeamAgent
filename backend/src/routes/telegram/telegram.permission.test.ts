@@ -1,0 +1,108 @@
+/**
+ * Self-check for permission parsing. No framework, no database, no network:
+ *
+ *     cd backend && npx tsx src/routes/telegram/telegram.permission.test.ts
+ */
+
+/* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
+
+import assert from 'node:assert/strict';
+
+import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
+
+const tests: Array<[ string, () => void ]> = [
+    [ 'an empty column grants nothing, rather than everything', () =>
+    {
+        // The whole model is deny-by-default; getting this backwards would hand
+        // every new and every legacy row full access.
+        assert.deepEqual(parsePermissions(''), [ ]);
+        assert.equal(hasPermission('', 'chat'), false);
+        assert.equal(hasPermission('', 'model'), false);
+    } ],
+
+    [ 'granted keys round-trip', () =>
+    {
+        const stored = serializePermissions([ 'chat', 'model' ]);
+
+        assert.deepEqual(parsePermissions(stored), [ 'chat', 'model' ]);
+        assert.equal(hasPermission(stored, 'chat'), true);
+        assert.equal(hasPermission(stored, 'model'), true);
+    } ],
+
+    [ 'one permission does not imply another', () =>
+    {
+        const stored = serializePermissions([ 'chat' ]);
+
+        assert.equal(hasPermission(stored, 'chat'), true);
+        assert.equal(hasPermission(stored, 'model'), false);
+    } ],
+
+    [ 'storage order is the catalog order, not the caller\'s', () =>
+    {
+        assert.equal(serializePermissions([ 'model', 'chat' ]), serializePermissions([ 'chat', 'model' ]));
+    } ],
+
+    [ 'duplicates collapse', () =>
+    {
+        assert.equal(serializePermissions([ 'chat', 'chat', 'chat' ]), 'chat');
+    } ],
+
+    [ 'unknown keys never survive serialisation', () =>
+    {
+        assert.equal(serializePermissions([ 'chat', 'admin', 'root' ]), 'chat');
+        assert.equal(isKnownPermission('admin'), false);
+    } ],
+
+    [ 'unknown keys already in a row are ignored on read', () =>
+    {
+        // A permission dropped from the catalog must not linger in the column
+        // and silently come back if the key is ever reused.
+        assert.deepEqual(parsePermissions('chat,retired_permission'), [ 'chat' ]);
+    } ],
+
+    [ 'whitespace and empty segments are tolerated', () =>
+    {
+        assert.deepEqual(parsePermissions(' chat , , model '), [ 'chat', 'model' ]);
+    } ],
+
+    [ 'the default grant is chat only', () =>
+    {
+        assert.deepEqual(DEFAULT_PERMISSIONS, [ 'chat' ]);
+
+        const stored = serializePermissions(DEFAULT_PERMISSIONS);
+
+        assert.equal(hasPermission(stored, 'chat'), true);
+        assert.equal(hasPermission(stored, 'model'), false, 'a new profile must not reach the model by default');
+    } ],
+
+    [ 'the whole catalog fits the column', () =>
+    {
+        const everything = serializePermissions(PERMISSIONS.map((p) => p.key));
+
+        assert.ok(everything.length < 512, `catalog serialises to ${ everything.length } chars`);
+        assert.deepEqual(parsePermissions(everything), PERMISSIONS.map((p) => p.key));
+    } ]
+];
+
+let failed = 0;
+
+for (const [ title, run ] of tests)
+{
+    try
+    {
+        run();
+
+        console.log(`  ok    ${ title }`);
+    }
+    catch (error)
+    {
+        failed += 1;
+
+        console.log(`  FAIL  ${ title }`);
+        console.log(`        ${ error instanceof Error ? error.message : String(error) }`);
+    }
+}
+
+console.log(failed === 0 ? `\n${ tests.length } passed` : `\n${ failed } of ${ tests.length } failed`);
+
+process.exit(failed === 0 ? 0 : 1);

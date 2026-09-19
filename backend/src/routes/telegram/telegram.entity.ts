@@ -44,6 +44,13 @@ export class TelegramUser
     @Column({ type: 'int', default: 0 })
     message_count: number;
 
+    /**
+     * Comma-joined permission keys this person has been granted. Empty means
+     * no permissions at all, not "all of them" -- see `telegram.permission.ts`.
+     */
+    @Column({ type: 'varchar', length: 512, default: '' })
+    permissions: string;
+
     @Column({ type: 'timestamp' })
     last_seen_at: Date;
 

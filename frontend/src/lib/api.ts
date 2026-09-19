@@ -171,6 +171,8 @@ export interface TelegramProfile
     last_name: string;
     language_code: string;
     message_count: number;
+    /** Granted permission keys. Absent means denied — there is no implicit grant. */
+    permissions: string[];
     last_seen_at: string;
     created_at: string;
 }
@@ -262,4 +264,24 @@ export function modelRemove(teamId: number, modelId: number)
 export function modelTest(teamId: number, modelId: number)
 {
     return request<TeamModelProbe>('POST', `/team/${ teamId }/model/${ modelId }/test`);
+}
+
+/** One entry in the permission catalog the backend defines. */
+export interface Permission
+{
+    key: string;
+    label: string;
+    description: string;
+}
+
+/** The catalog is served rather than hard-coded, so adding one is backend-only. */
+export function permissionCatalog(teamId: number)
+{
+    return request<{ permissions: Permission[] }>('GET', `/team/${ teamId }/permission`);
+}
+
+/** Replaces the profile's grants with exactly this set. */
+export function profilePermissionUpdate(teamId: number, profileId: number, permissions: string[])
+{
+    return request<TelegramProfile>('PATCH', `/team/${ teamId }/profile/${ profileId }/permission`, { permissions });
 }

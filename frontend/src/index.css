@@ -968,3 +968,11 @@ body
     border-block-start: 0;
 }
 
+/* A granted permission reads as a normal ghost button; a denied one borrows the
+   danger tone, so the state is visible without reading the label. */
+.ghost[aria-pressed="true"]
+{
+    border-color: var(--glow-bright);
+    color: var(--glow-bright);
+}
+

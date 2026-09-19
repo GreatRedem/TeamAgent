@@ -5,9 +5,10 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot } from '../team/team.entity.js';
-import { findOwnedTeam, readParamId } from '../team/team.access.js';
+import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
-import { schemaConversationList, schemaConversationMessages, schemaProfileDetails, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
+import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
+import { schemaConversationList, schemaConversationMessages, schemaPermissionCatalog, schemaProfileDetails, schemaProfilePermissionUpdate, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
 
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 
@@ -53,6 +54,7 @@ function toProfile(user: TelegramUser)
         last_name: user.last_name,
         language_code: user.language_code,
         message_count: user.message_count,
+        permissions: parsePermissions(user.permissions),
         last_seen_at: user.last_seen_at,
         created_at: user.created_at
     };
@@ -168,7 +170,7 @@ export function readInboundMessage(body: unknown): InboundMessage | undefined
  * definition of what counts as a message and what a profile looks like --
  * ingestion rules cannot drift between the two transports.
  */
-export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body: unknown, log: FastifyBaseLogger): Promise<'stored' | 'ignored' | 'duplicate'>
+export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body: unknown, log: FastifyBaseLogger): Promise<'stored' | 'ignored' | 'duplicate' | 'blocked'>
 {
     const inbound = readInboundMessage(body);
 
@@ -201,7 +203,12 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
 
     if (!user)
     {
-        user = await users.save({ team_id: bot.team_id, telegram_id: inbound.from.id, message_count: 0, ...profileFields });
+        user = await users.save({
+            team_id: bot.team_id,
+            telegram_id: inbound.from.id,
+            message_count: 0,
+            permissions: serializePermissions(DEFAULT_PERMISSIONS),
+            ...profileFields });
 
         log.info({ module: 'telegram', teamId: bot.team_id, userId: user.id }, 'telegram profile created');
     }
@@ -209,6 +216,16 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
     {
         // Names and usernames change; the profile tracks the latest.
         await users.update({ id: user.id }, profileFields);
+    }
+
+    // The permission gate. Someone without `chat` still keeps a profile and a
+    // refreshed last-seen -- so they can be found and granted access later --
+    // but nothing they wrote is recorded.
+    if (!hasPermission(user.permissions, 'chat'))
+    {
+        log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message refused: no chat permission');
+
+        return 'blocked';
     }
 
     await messages.save({
@@ -370,6 +387,73 @@ export function profileDetails(fastify: FastifyInstance)
     };
 
     return { schema: schemaProfileDetails, config: { ...authGuard() }, handler };
+}
+
+export function permissionCatalog(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        await findOwnedTeam(fastify, readTeamId(request), request.account_id);
+
+        reply.send({ permissions: PERMISSIONS });
+    };
+
+    return { schema: schemaPermissionCatalog, config: { ...authGuard() }, handler };
+}
+
+/**
+ * Replaces a profile's granted permissions with exactly what was sent.
+ *
+ * A whole-set replace rather than grant/revoke calls: the UI shows every
+ * permission as a toggle, so it always knows the complete intended state, and
+ * two toggles flipped at once cannot interleave into a half-applied result.
+ */
+export function profilePermissionUpdate(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+        const profileId = readParamId(request, 'profileId', 'PROFILE_ID_INVALID');
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const body = request.body as { permissions?: unknown } | undefined;
+        const requested = body?.permissions;
+
+        if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string'))
+        {
+            throw new BadRequestResponse('PERMISSIONS_INVALID');
+        }
+
+        // An unrecognised key is rejected rather than quietly dropped: silently
+        // ignoring it would report success for a permission never granted.
+        for (const key of requested as string[])
+        {
+            if (!isKnownPermission(key))
+            {
+                throw new BadRequestResponse('PERMISSION_UNKNOWN');
+            }
+        }
+
+        const users = fastify.db.getRepository(TelegramUser);
+
+        const user = await users.findOneBy({ id: profileId, team_id: teamId });
+
+        if (!user)
+        {
+            throw new BadRequestResponse('PROFILE_NOT_FOUND');
+        }
+
+        const permissions = serializePermissions(requested as string[]);
+
+        await users.update({ id: user.id, team_id: teamId }, { permissions });
+
+        request.log.info({ module: 'telegram', teamId, userId: user.id, accountId: request.account_id, permissions }, 'profile permissions updated');
+
+        reply.send(toProfile({ ...user, permissions }));
+    };
+
+    return { schema: schemaProfilePermissionUpdate, config: { ...authGuard() }, handler };
 }
 
 /**

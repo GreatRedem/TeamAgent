@@ -6,7 +6,7 @@
 
 const profile = {
     type: 'object',
-    required: [ 'id', 'telegram_id', 'username', 'first_name', 'last_name', 'language_code', 'message_count', 'last_seen_at', 'created_at' ],
+    required: [ 'id', 'telegram_id', 'username', 'first_name', 'last_name', 'language_code', 'message_count', 'permissions', 'last_seen_at', 'created_at' ],
     properties: {
         id: { type: 'integer' },
         telegram_id: { type: 'string' },
@@ -15,6 +15,7 @@ const profile = {
         last_name: { type: 'string' },
         language_code: { type: 'string' },
         message_count: { type: 'integer' },
+        permissions: { type: 'array', items: { type: 'string' } },
         last_seen_at: { type: 'string' },
         created_at: { type: 'string' }
     }
@@ -122,5 +123,42 @@ export const schemaProfileDetails = {
                 }
             }
         }
+    }
+} as const;
+
+/** The permission catalog, so the client can render it without hard-coding it. */
+export const schemaPermissionCatalog = {
+    response: {
+        200: {
+            type: 'object',
+            required: [ 'permissions' ],
+            properties: {
+                permissions: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: [ 'key', 'label', 'description' ],
+                        properties: {
+                            key: { type: 'string' },
+                            label: { type: 'string' },
+                            description: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        }
+    }
+} as const;
+
+export const schemaProfilePermissionUpdate = {
+    body: {
+        type: 'object',
+        required: [ 'permissions' ],
+        properties: {
+            permissions: { type: 'array', items: { type: 'string' } }
+        }
+    },
+    response: {
+        200: profile
     }
 } as const;

@@ -35,6 +35,7 @@ The one exception is a plain self-check script, run directly and exiting non-zer
 cd backend && npx tsx src/routes/team/team.service.test.ts       # Telegram probe, stubbed fetch, no network
 cd backend && npx tsx src/routes/telegram/telegram.service.test.ts   # webhook body parser
 cd backend && npx tsx src/routes/model/model.service.test.ts         # model connectivity probe
+cd backend && npx tsx src/routes/telegram/telegram.permission.test.ts  # profile permission rules
 ```
 
 ## Formatting warning
@@ -132,6 +133,18 @@ Deliveries are deduplicated on `(bot_id, update_id)`, because Telegram redeliver
 Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is driven by `POST /team/:id/bot/:botId/webhook`. The url it registers includes the `/api` prefix that nginx strips, so the path Fastify registers does not have it.
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
+
+### Profile permissions are deny-by-default
+
+`telegram_user.permissions` holds comma-joined keys from the catalog in `routes/telegram/telegram.permission.ts`. A key that is **absent is denied** — an empty column grants nothing, not everything — so a permission added to the catalog later is off for everyone until it is switched on deliberately. Adding one is a single entry in `PERMISSIONS` with no schema change.
+
+The only enforcement point today is `ingestUpdate`: without `chat`, a message is acknowledged to Telegram with a 200 (so it stops redelivering) but nothing is stored, while the profile and its last-seen are still updated so the person can be found and granted access. `model` is stored and surfaced but **not yet enforced anywhere**, because there is no outbound reply path for it to gate.
+
+Because the column arrives as `''` on rows that predate it, and `''` reads as fully denied, existing profiles must be backfilled by hand — there is no migration tooling:
+
+```sql
+UPDATE telegram_user SET permissions = 'chat' WHERE permissions = '';
+```
 
 ### Logging
 

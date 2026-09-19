@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
 import { ButtonLink } from '../components/Button';
+import { ProfilePermissions } from '../components/ProfilePermissions';
 import { profileName } from '../components/profileName';
 import { ApiError, profileDetails, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
@@ -132,6 +133,12 @@ export function Profile()
                             <Field label="Last seen" value={ new Date(details.profile.last_seen_at).toLocaleString() } />
                         </dl>
                     </section>
+
+                    <ProfilePermissions
+                        teamId={ teamId }
+                        profile={ details.profile }
+                        onChange={ (updated) => setDetails({ ...details, profile: updated }) }
+                    />
 
                     <section className="section">
                         <h2 className="section__title">Bots</h2>
