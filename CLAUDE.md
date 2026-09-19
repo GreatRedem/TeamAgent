@@ -134,6 +134,18 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### A bot's agent replies out of band
+
+`team_bot.agent_id` names the agent that answers people who message that bot; 0 means nobody answers and the bot only records. The reply is fired from `ingestUpdate` and **deliberately not awaited**: a completion takes seconds, and Telegram redelivers any webhook it does not get a prompt 2xx for, so blocking on the model would turn one message into several. Both transports funnel through `ingestUpdate`, so the poller gets replies for free.
+
+Everything on that path is swallowed into a logged reason rather than thrown — it runs detached, so a throw would surface as an unhandled rejection with nothing to catch it, and both the model url and the bot url carry credentials.
+
+This is where the `model` permission finally bites: without it the message is still recorded but no agent answers. Two more gates sit alongside it — the bot must have an agent, and that agent must still have a model.
+
+Replies are stored as `telegram_message` rows with `direction = 'out'` so a thread reads as a dialogue. Their `update_id` is a negated timestamp, staying clear of Telegram's own ids, which the `(bot_id, update_id)` uniqueness is built around.
+
+Deleting an agent sets `agent_id = 0` on the bots using it, the same way deleting a model detaches agents.
+
 ### Agents own their markdown, the template does not
 
 An agent is a name plus a description bound to one `team_model`, and its behaviour is defined by rows in `team_agent_document` -- markdown files the team edits. `routes/agent/agent.template.ts` seeds those rows **once, at creation**. Editing the template deliberately does not touch existing agents: rewriting an agent's instructions because a default moved would silently change how it answers.

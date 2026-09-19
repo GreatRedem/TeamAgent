@@ -91,6 +91,13 @@ export class TelegramMessage
     @Column({ type: 'text' })
     text: string;
 
+    /**
+     * 'in' for what the person sent, 'out' for what an agent replied. Rows that
+     * predate agents default to 'in', which is what they were.
+     */
+    @Column({ type: 'varchar', length: 3, default: 'in' })
+    direction: string;
+
     /** When Telegram says it was sent, as opposed to when it was stored. */
     @Column({ type: 'timestamp' })
     sent_at: Date;

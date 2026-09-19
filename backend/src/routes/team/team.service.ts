@@ -5,6 +5,7 @@ import { authGuard } from '../../plugins/authentication.js';
 import { createWebhookSecret } from '../telegram/telegram.service.js';
 
 import { Team, TeamBot } from './team.entity.js';
+import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from './team.access.js';
 import { schemaTeamBotCreate, schemaTeamBotList, schemaTeamBotRemove, schemaTeamBotTest, schemaTeamBotUpdate, schemaTeamCreate, schemaTeamDetails, schemaTeamList, schemaTeamUpdate } from './team.schema.js';
 
@@ -76,7 +77,7 @@ const readBotId = (request: FastifyRequest) => readParamId(request, 'botId', 'BO
  * What the client is allowed to see of a stored token: the bot id, which is
  * public, and the last four characters so one bot can be told from another.
  */
-function toBotView(bot: TeamBot)
+function toBotView(bot: TeamBot, agentName = '')
 {
     return {
         id: bot.id,
@@ -86,8 +87,49 @@ function toBotView(bot: TeamBot)
         // A bot with an address of its own is pushed to; one without is pulled
         // from. This is the only thing that decides which.
         mode: bot.public_url === '' ? 'polling' : 'webhook',
+        agent_id: bot.agent_id,
+        // Empty when no agent answers, or when the one that did was deleted.
+        agent_name: agentName,
         created_at: bot.created_at
     };
+}
+
+/** Names of the team's agents, for labelling bots without a query each. */
+async function agentNames(fastify: FastifyInstance, teamId: number): Promise<Map<number, string>>
+{
+    const agents = await fastify.db.getRepository(TeamAgent).findBy({ team_id: teamId });
+
+    return new Map(agents.map((agent) => [ agent.id, agent.name ]));
+}
+
+/**
+ * The agent must belong to the same team; 0 means nobody answers.
+ *
+ * Without the ownership check a bot could be pointed at another account's
+ * agent, and every reply would run on that account's model and key.
+ */
+async function readAgentId(fastify: FastifyInstance, request: FastifyRequest, teamId: number): Promise<number>
+{
+    const raw = (request.body as { agent_id?: unknown } | undefined)?.agent_id;
+
+    const agentId = Number(raw ?? 0);
+
+    if (!Number.isInteger(agentId) || agentId < 0)
+    {
+        throw new BadRequestResponse('AGENT_ID_INVALID');
+    }
+
+    if (agentId === 0)
+    {
+        return 0;
+    }
+
+    if (!await fastify.db.getRepository(TeamAgent).findOneBy({ id: agentId, team_id: teamId }))
+    {
+        throw new BadRequestResponse('AGENT_NOT_FOUND');
+    }
+
+    return agentId;
 }
 
 /**
@@ -255,7 +297,9 @@ export function teamBotList(fastify: FastifyInstance)
 
         const bots = await fastify.db.getRepository(TeamBot).find({ where: { team_id: teamId }, order: { id: 'DESC' } });
 
-        reply.send({ bots: bots.map(toBotView) });
+        const names = await agentNames(fastify, teamId);
+
+        reply.send({ bots: bots.map((bot) => toBotView(bot, names.get(bot.agent_id) ?? '')) });
     };
 
     return { schema: schemaTeamBotList, config: { ...authGuard() }, handler };
@@ -338,14 +382,18 @@ export function teamBotUpdate(fastify: FastifyInstance)
 
         const bot = await findOwnedBot(fastify, teamId, botId, request.account_id);
 
-        await fastify.db.getRepository(TeamBot).update({ id: bot.id, team_id: teamId }, { name, public_url: publicUrl });
+        const agentId = await readAgentId(fastify, request, teamId);
+
+        await fastify.db.getRepository(TeamBot).update({ id: bot.id, team_id: teamId }, { name, public_url: publicUrl, agent_id: agentId });
 
         // Clearing the url hands the bot to the poller, which cannot start while
         // Telegram still has a webhook registered; dropping it is the poller's
         // first act, so nothing to do here beyond the write.
         request.log.info({ module: 'team', teamId, botId: bot.id, mode: publicUrl === '' ? 'polling' : 'webhook' }, 'team bot updated');
 
-        reply.send(toBotView({ ...bot, name, public_url: publicUrl }));
+        const names = await agentNames(fastify, teamId);
+
+        reply.send(toBotView({ ...bot, name, public_url: publicUrl, agent_id: agentId }, names.get(agentId) ?? ''));
     };
 
     return { schema: schemaTeamBotUpdate, config: { ...authGuard() }, handler };

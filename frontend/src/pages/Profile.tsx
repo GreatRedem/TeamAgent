@@ -169,10 +169,11 @@ export function Profile()
                         { details.messages.length > 0 && (
                             <div className="thread__body thread__body--plain">
                                 { details.messages.map((message) => (
-                                    <p className="bubble" key={ message.id }>
+                                    <p className="bubble" data-direction={ message.direction } key={ message.id }>
                                         <span className="bubble__text">{ message.text }</span>
 
                                         <time className="bubble__time" dateTime={ message.sent_at }>
+                                            { message.direction === 'out' ? 'agent · ' : '' }
                                             { botNames.get(message.bot_id) ?? 'Removed bot' } · { new Date(message.sent_at).toLocaleString() }
                                         </time>
                                     </p>

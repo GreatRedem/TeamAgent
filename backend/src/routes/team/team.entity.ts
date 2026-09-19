@@ -76,6 +76,13 @@ export class TeamBot
     public_url: string;
 
     /**
+     * The agent that answers people who message this bot. 0 means nobody
+     * answers and the bot only records what it receives.
+     */
+    @Column({ type: 'int', default: 0 })
+    agent_id: number;
+
+    /**
      * `getUpdates` offset, only used in polling mode. Persisted so a restart
      * neither replays what was already stored nor skips what arrived while the
      * process was down. bigint-as-string for the same reason as the ids.

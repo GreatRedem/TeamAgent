@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { authGuard } from '../../plugins/authentication.js';
 
-import { TeamModel } from '../team/team.entity.js';
+import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { TeamAgent, TeamAgentDocument } from './agent.entity.js';
 import { DEFAULT_DOCUMENTS, DOCUMENT_CONTENT_MAX, DOCUMENT_NAME_MAX, DOCUMENT_NAME_PATTERN } from './agent.template.js';
@@ -242,7 +242,11 @@ export function agentRemove(fastify: FastifyInstance)
         // otherwise they would outlive the agent and leak into a reused id.
         await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
 
-        request.log.info({ module: 'agent', teamId, agentId, accountId: request.account_id }, 'agent removed');
+        // Bots answering through this agent fall silent rather than pointing at
+        // an id that no longer resolves.
+        const detached = await fastify.db.getRepository(TeamBot).update({ team_id: teamId, agent_id: agentId }, { agent_id: 0 });
+
+        request.log.info({ module: 'agent', teamId, agentId, accountId: request.account_id, detachedBots: detached.affected ?? 0 }, 'agent removed');
 
         reply.send({ result: 'OK' });
     };

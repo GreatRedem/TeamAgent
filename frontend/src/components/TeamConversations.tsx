@@ -132,7 +132,7 @@ export function TeamConversations({ teamId }: TeamConversationsProps)
                                     { openThread !== null && openThread.messages.length === 0 && <p className="status">No messages stored yet.</p> }
 
                                     { openThread !== null && openThread.messages.map((message) => (
-                                        <p className="bubble" key={ message.id }>
+                                        <p className="bubble" data-direction={ message.direction } key={ message.id }>
                                             <span className="bubble__text">{ message.text }</span>
                                             <time className="bubble__time" dateTime={ message.sent_at }>{ new Date(message.sent_at).toLocaleString() }</time>
                                         </p>

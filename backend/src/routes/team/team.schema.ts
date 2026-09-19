@@ -72,7 +72,7 @@ export const schemaTeamUpdate = {
  */
 const bot = {
     type: 'object',
-    required: [ 'id', 'name', 'token_hint', 'public_url', 'mode', 'created_at' ],
+    required: [ 'id', 'name', 'token_hint', 'public_url', 'mode', 'agent_id', 'agent_name', 'created_at' ],
     properties: {
         id: { type: 'integer' },
         name: { type: 'string' },
@@ -80,6 +80,9 @@ const bot = {
         public_url: { type: 'string' },
         // 'webhook' when the bot has a public url of its own, else 'polling'.
         mode: { type: 'string' },
+        // 0 when no agent answers for this bot; the name is '' to match.
+        agent_id: { type: 'integer' },
+        agent_name: { type: 'string' },
         created_at: { type: 'string' }
     }
 } as const;
@@ -101,10 +104,11 @@ export const schemaTeamBotCreate = {
 export const schemaTeamBotUpdate = {
     body: {
         type: 'object',
-        required: [ 'name', 'public_url' ],
+        required: [ 'name', 'public_url', 'agent_id' ],
         properties: {
             name: { type: 'string' },
-            public_url: { type: 'string' }
+            public_url: { type: 'string' },
+            agent_id: { type: 'integer' }
         }
     },
     response: {

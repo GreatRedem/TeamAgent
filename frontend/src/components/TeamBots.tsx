@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bot, Plus } from 'lucide-react';
 
 import { Button } from './Button';
-import { ApiError, teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamBotWebhookRegister, type TeamBot, type TeamBotProbe } from '../lib/api';
+import { ApiError, agentList, teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamBotWebhookRegister, type TeamAgent, type TeamBot, type TeamBotProbe } from '../lib/api';
 
 function probeState(probe: TeamBotProbe | 'testing'): string
 {
@@ -47,6 +47,9 @@ export function TeamBots({ teamId }: TeamBotsProps)
     // another. Absent from the map means "not being edited".
     const [ drafts, setDrafts ] = useState<Record<number, string>>({ });
     const [ saving, setSaving ] = useState<number | null>(null);
+
+    // The agents available to answer for a bot.
+    const [ agents, setAgents ] = useState<TeamAgent[]>([ ]);
     const [ busy, setBusy ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
 
@@ -63,12 +66,13 @@ export function TeamBots({ teamId }: TeamBotsProps)
     {
         let active = true;
 
-        teamBotList(teamId)
-            .then((payload) =>
+        Promise.all([ teamBotList(teamId), agentList(teamId) ])
+            .then(([ botPayload, agentPayload ]) =>
             {
                 if (active)
                 {
-                    setBots(payload.bots);
+                    setBots(botPayload.bots);
+                    setAgents(agentPayload.agents);
                 }
             })
             .catch((cause: unknown) =>
@@ -125,7 +129,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
 
         try
         {
-            const updated = await teamBotUpdate(teamId, bot.id, bot.name, next);
+            const updated = await teamBotUpdate(teamId, bot.id, bot.name, next, bot.agent_id);
 
             setBots((current) => current?.map((item) => item.id === bot.id ? updated : item) ?? null);
             setDrafts((current) => { const { [bot.id]: _done, ...rest } = current; return rest; });
@@ -162,6 +166,28 @@ export function TeamBots({ teamId }: TeamBotsProps)
         catch (cause)
         {
             setProbes((current) => ({ ...current, [botId]: { ok: false, reason: cause instanceof ApiError ? cause.result : 'REQUEST_FAILED' } }));
+        }
+    }, [ teamId ]);
+
+    /** Binding an agent is its own save, so it takes effect on selection. */
+    const setAgent = useCallback(async(bot: TeamBot, agentId: number) =>
+    {
+        setError(null);
+        setSaving(bot.id);
+
+        try
+        {
+            const updated = await teamBotUpdate(teamId, bot.id, bot.name, bot.public_url, agentId);
+
+            setBots((current) => current?.map((item) => item.id === bot.id ? updated : item) ?? null);
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setSaving(null);
         }
     }, [ teamId ]);
 
@@ -265,6 +291,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 <span className="list__meta">
                                     { bot.token_hint }
                                     <span className="badge" data-mode={ bot.mode }>{ bot.mode }</span>
+                                    { bot.agent_name !== '' && <span className="badge" data-mode="agent">{ bot.agent_name }</span> }
                                 </span>
 
                                 { probes[bot.id] !== undefined && (
@@ -292,6 +319,22 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 >
                                     { arming === bot.id ? 'Confirm' : 'Remove' }
                                 </button>
+                            </span>
+
+                            <span className="list__url">
+                                <select
+                                    className="field__input"
+                                    aria-label={ `Agent answering for ${ bot.name }` }
+                                    value={ bot.agent_id }
+                                    disabled={ saving === bot.id }
+                                    onChange={ (event) => void setAgent(bot, Number(event.target.value)) }
+                                >
+                                    <option value="0">No agent — record only</option>
+
+                                    { agents.map((agent) => (
+                                        <option key={ agent.id } value={ agent.id }>{ agent.name }</option>
+                                    )) }
+                                </select>
                             </span>
 
                             <span className="list__url">

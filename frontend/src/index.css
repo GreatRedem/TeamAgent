@@ -1039,3 +1039,18 @@ select.field__input
     background-repeat: no-repeat;
 }
 
+/* An agent's reply sits opposite the person's message, so a thread reads as a
+   dialogue rather than a list. */
+.bubble[data-direction="out"]
+{
+    justify-items: end;
+    margin-inline-start: 2rem;
+    background: oklch(45% 0.16 255 / 0.16);
+    text-align: end;
+}
+
+.badge[data-mode="agent"]
+{
+    color: var(--glow-bright);
+}
+

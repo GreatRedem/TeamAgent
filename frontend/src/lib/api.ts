@@ -115,6 +115,9 @@ export interface TeamBot
     /** This bot's own public origin. Blank means it runs in polling mode. */
     public_url: string;
     mode: 'webhook' | 'polling';
+    /** 0 when nobody answers for this bot; the name is '' to match. */
+    agent_id: number;
+    agent_name: string;
     created_at: string;
 }
 
@@ -129,9 +132,9 @@ export function teamBotCreate(teamId: number, name: string, token: string, publi
 }
 
 /** Blank `publicUrl` switches the bot to polling. */
-export function teamBotUpdate(teamId: number, botId: number, name: string, publicUrl: string)
+export function teamBotUpdate(teamId: number, botId: number, name: string, publicUrl: string, agentId: number)
 {
-    return request<TeamBot>('PATCH', `/team/${ teamId }/bot/${ botId }`, { name, public_url: publicUrl });
+    return request<TeamBot>('PATCH', `/team/${ teamId }/bot/${ botId }`, { name, public_url: publicUrl, agent_id: agentId });
 }
 
 export function teamBotRemove(teamId: number, botId: number)
@@ -182,6 +185,8 @@ export interface TelegramMessage
     id: number;
     bot_id: number;
     text: string;
+    /** 'in' is what the person sent, 'out' is what an agent replied. */
+    direction: 'in' | 'out';
     sent_at: string;
 }
 

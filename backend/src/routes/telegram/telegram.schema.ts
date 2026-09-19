@@ -56,11 +56,12 @@ export const schemaConversationMessages = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'id', 'bot_id', 'text', 'sent_at' ],
+                        required: [ 'id', 'bot_id', 'text', 'direction', 'sent_at' ],
                         properties: {
                             id: { type: 'integer' },
                             bot_id: { type: 'integer' },
                             text: { type: 'string' },
+                            direction: { type: 'string' },
                             sent_at: { type: 'string' }
                         }
                     }
@@ -112,11 +113,12 @@ export const schemaProfileDetails = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'id', 'bot_id', 'text', 'sent_at' ],
+                        required: [ 'id', 'bot_id', 'text', 'direction', 'sent_at' ],
                         properties: {
                             id: { type: 'integer' },
                             bot_id: { type: 'integer' },
                             text: { type: 'string' },
+                            direction: { type: 'string' },
                             sent_at: { type: 'string' }
                         }
                     }

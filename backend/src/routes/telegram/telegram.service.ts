@@ -4,7 +4,9 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { authGuard } from '../../plugins/authentication.js';
 
-import { TeamBot } from '../team/team.entity.js';
+import { TeamBot, TeamModel } from '../team/team.entity.js';
+import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
+import { HISTORY_LIMIT, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, readCompletion } from '../agent/agent.reply.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
@@ -14,6 +16,9 @@ import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.j
 
 const TELEGRAM_API = 'https://api.telegram.org';
 const TELEGRAM_TIMEOUT = 5000;
+
+/** A completion is slower than any other call here; give it room. */
+const AGENT_TIMEOUT = 60000;
 
 /** Telegram truncates at 4096 characters; the column is text, this is a guard. */
 const TEXT_MAX = 8192;
@@ -235,13 +240,144 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
         update_id: inbound.updateId,
         chat_id: inbound.chatId,
         text: inbound.text,
+        direction: 'in',
         sent_at: inbound.sentAt });
 
     await users.increment({ id: user.id }, 'message_count', 1);
 
     log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message stored');
 
+    // Deliberately not awaited. A completion takes seconds and Telegram
+    // redelivers a webhook it does not get a prompt 2xx for, so the reply is
+    // detached from the request that triggered it. Both transports funnel
+    // through here, so the poller gets this for free.
+    void deliverAgentReply(fastify, bot, user, inbound.chatId, inbound.text, log)
+        .catch((error: unknown) => log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'));
+
     return 'stored';
+}
+
+/**
+ * Asks the bot's agent for a reply and sends it back to the person.
+ *
+ * Every failure is swallowed into a logged reason. This runs detached from the
+ * request that triggered it, so throwing would surface as an unhandled
+ * rejection rather than anything a caller could act on -- and both the model
+ * url and the bot url carry credentials, so no error object from here is
+ * logged verbatim.
+ */
+async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: TelegramUser, chatId: string, incoming: string, log: FastifyBaseLogger)
+{
+    if (bot.agent_id === 0)
+    {
+        return;
+    }
+
+    // The `model` permission finally bites here: without it the message is
+    // still recorded, but no agent answers.
+    if (!hasPermission(user.permissions, 'model'))
+    {
+        log.info({ module: 'agent', botId: bot.id, userId: user.id }, 'agent reply skipped: no model permission');
+
+        return;
+    }
+
+    const agent = await fastify.db.getRepository(TeamAgent).findOneBy({ id: bot.agent_id, team_id: bot.team_id });
+
+    if (!agent || agent.model_id === 0)
+    {
+        log.warn({ module: 'agent', botId: bot.id, agentId: bot.agent_id }, 'agent reply skipped: agent or model missing');
+
+        return;
+    }
+
+    const model = await fastify.db.getRepository(TeamModel).findOneBy({ id: agent.model_id, team_id: bot.team_id });
+
+    if (!model)
+    {
+        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply skipped: model missing');
+
+        return;
+    }
+
+    const documents = await fastify.db.getRepository(TeamAgentDocument).find({ where: { agent_id: agent.id } });
+
+    const history = await fastify.db.getRepository(TelegramMessage).find({
+        where: { team_id: bot.team_id, user_id: user.id },
+        order: { id: 'DESC' },
+        take: HISTORY_LIMIT + 1 });
+
+    // Newest-first from the database, and the row just stored is the incoming
+    // message itself -- drop it so it is not sent twice.
+    const earlier = history.reverse().slice(0, -1);
+
+    const messages = buildMessages(buildSystemPrompt(documents), earlier, incoming);
+
+    let text: string | undefined;
+
+    try
+    {
+        const response = await fetch(`${ model.base_url }/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+                ...model.api_key === '' ? { } : { authorization: `Bearer ${ model.api_key }` }
+            },
+            body: JSON.stringify({ model: model.model, messages }),
+            signal: AbortSignal.timeout(AGENT_TIMEOUT) });
+
+        text = readCompletion(await response.json().catch(() => undefined));
+    }
+    catch
+    {
+        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: model unreachable');
+
+        return;
+    }
+
+    if (text === undefined)
+    {
+        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: no usable completion');
+
+        return;
+    }
+
+    try
+    {
+        const sent = await fetch(`${ TELEGRAM_API }/bot${ bot.token }/sendMessage`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: text.slice(0, TELEGRAM_TEXT_MAX) }),
+            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) });
+
+        if (!sent.ok)
+        {
+            log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'agent reply failed: telegram refused');
+
+            return;
+        }
+    }
+    catch
+    {
+        log.warn({ module: 'agent', botId: bot.id }, 'agent reply failed: telegram unreachable');
+
+        return;
+    }
+
+    // Recorded as part of the conversation, so the thread reads as a dialogue.
+    // `update_id` is negated to stay clear of Telegram's own ids, which the
+    // (bot_id, update_id) uniqueness is built around.
+    await fastify.db.getRepository(TelegramMessage).save({
+        team_id: bot.team_id,
+        user_id: user.id,
+        bot_id: bot.id,
+        update_id: String(-Date.now()),
+        chat_id: chatId,
+        text,
+        direction: 'out',
+        sent_at: new Date() });
+
+    log.info({ module: 'agent', botId: bot.id, agentId: agent.id, userId: user.id }, 'agent replied');
 }
 
 /**
@@ -322,7 +458,7 @@ export function conversationMessages(fastify: FastifyInstance)
             profile: toProfile(user),
             // Newest first from the database so the limit keeps the most recent,
             // reversed here so the client renders oldest to newest.
-            messages: messages.reverse().map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, sent_at: message.sent_at })) });
+            messages: messages.reverse().map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, direction: message.direction, sent_at: message.sent_at })) });
     };
 
     return { schema: schemaConversationMessages, config: { ...authGuard() }, handler };
@@ -383,7 +519,7 @@ export function profileDetails(fastify: FastifyInstance)
         reply.send({
             profile: toProfile(user),
             bots: [ ...perBot.values() ].sort((a, b) => b.message_count - a.message_count),
-            messages: messages.map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, sent_at: message.sent_at })) });
+            messages: messages.map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, direction: message.direction, sent_at: message.sent_at })) });
     };
 
     return { schema: schemaProfileDetails, config: { ...authGuard() }, handler };
