@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Run from the repo root (npm workspaces):
 
 ```bash
-npm run dev            # backend: tsx watch on backend/src/main.ts
-npm run dev:web        # frontend: vite dev server on :5173
+npm run dev            # both: concurrently runs dev:api + dev:web
+npm run dev:api        # backend only: tsx watch on backend/src/main.ts
+npm run dev:web        # frontend only: vite dev server on :1001
 npm run build          # both workspaces
 npm run build:api      # tsc -> .dist-backend/
 npm run build:web      # tsc --noEmit && vite build -> .dist-frontend/
@@ -43,7 +44,7 @@ Two npm workspaces:
 
 ### Frontend
 
-The client never hardcodes a backend origin. It calls `/api/...` on its own origin; `vite.config.ts` proxies that to the backend in development and strips the `/api` prefix so paths match the routes Fastify registers. In production nginx serves `.dist-frontend/` and proxies `/api` the same way. The base is the constant `/api` in `src/lib/api.ts`; there is no env var for it.
+The client never hardcodes a backend origin. It calls `/api/...` on its own origin; `vite.config.ts` proxies that to the backend in development and strips the `/api` prefix so paths match the routes Fastify registers. That proxy reads `NODE_PORT` from the root `.env` via Vite's `loadEnv`, so the backend port is defined in one place; the prefix passed to `loadEnv` is the full variable name so the rest of `.env` (notably `NODE_DB`) is never read into the frontend config. In production nginx serves `.dist-frontend/` and proxies `/api` the same way. The base is the constant `/api` in `src/lib/api.ts`; there is no env var for it.
 
 Routing is **react-router v8 in declarative mode** — import from `react-router`, not the older `react-router-dom`. `main.tsx` mounts `<BrowserRouter>`, `App.tsx` holds the `<Routes>` table, and `components/Layout.tsx` is the shell rendering `<Outlet />`. Pages live in `src/pages`.
 

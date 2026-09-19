@@ -7,7 +7,8 @@
         "frontend"
     ],
     "scripts": {
-        "dev": "npm --workspace backend run dev",
+        "dev": "concurrently -k -n api,web -c blue,magenta npm:dev:api npm:dev:web",
+        "dev:api": "npm --workspace backend run dev",
         "dev:web": "npm --workspace frontend run dev",
         "build": "npm run build:api && npm run build:web",
         "build:api": "npm --workspace backend run build",
@@ -26,6 +27,7 @@
         "service:deploy": "npm run build:api && npm run service:restart"
     },
     "devDependencies": {
+        "concurrently": "^10.0.5",
         "oxfmt": "^0.68.0",
         "oxlint": "^1.83.0"
     }
