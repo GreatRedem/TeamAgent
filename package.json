@@ -1,0 +1,27 @@
+{
+    "name": "nuraai",
+    "private": true,
+    "workspaces": [
+        "backend",
+        "frontend"
+    ],
+    "scripts": {
+        "dev": "npm --workspace backend run dev",
+        "build": "npm --workspace backend run build",
+        "lint": "oxlint .",
+        "lint:fix": "oxlint . --fix",
+        "format": "oxfmt .",
+        "format:check": "oxfmt . --check",
+        "service:stop": "bash scripts/service-stop.sh",
+        "service:start": "bash scripts/service-start.sh",
+        "service:status": "bash scripts/service-status.sh",
+        "service:restart": "bash scripts/service-restart.sh",
+        "service:install": "bash scripts/service-install.sh",
+        "service:uninstall": "bash scripts/service-uninstall.sh",
+        "service:deploy": "npm run build && npm run service:restart"
+    },
+    "devDependencies": {
+        "oxfmt": "^0.68.0",
+        "oxlint": "^1.83.0"
+    }
+}

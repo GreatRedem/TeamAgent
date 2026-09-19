@@ -1,0 +1,19 @@
+{
+    "mcpServers": {
+        "context7": {
+            "type": "http",
+            "url": "https://mcp.context7.com/mcp",
+            "headers": {
+                "Authorization": "Bearer ctx7sk-128b37a4-4577-4164-8d69-9f7105a3f1ae"
+            }
+        },
+        "playwright": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@playwright/mcp@latest"
+            ]
+        }
+    }
+}
