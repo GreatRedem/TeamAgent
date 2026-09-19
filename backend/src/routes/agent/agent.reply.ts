@@ -19,11 +19,25 @@ export interface HistoryMessage
     text: string;
 }
 
+export interface ToolCall
+{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+}
+
 export interface ChatMessage
 {
-    role: 'system' | 'user' | 'assistant';
+    role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
+    /** Set on a tool result, matching the call it answers. */
+    tool_call_id?: string;
+    /** Set on the assistant turn that requested tools, echoed back verbatim. */
+    tool_calls?: unknown;
 }
+
+/** How many tool rounds an agent may take before it has to answer. */
+export const MAX_TOOL_ROUNDS = 4;
 
 /** How many past messages accompany the new one. */
 export const HISTORY_LIMIT = 12;
@@ -124,4 +138,107 @@ export function readCompletion(payload: unknown): string | undefined
     }
 
     return content.trim().slice(0, TELEGRAM_TEXT_MAX);
+}
+
+/**
+ * Pulls tool calls out of a completion.
+ *
+ * Arguments arrive as a JSON *string*, and a model will occasionally emit one
+ * that does not parse. A call with unreadable arguments is dropped rather than
+ * failing the whole turn -- the others may still be useful, and the model sees
+ * only the results it gets back.
+ */
+export function readToolCalls(payload: unknown): ToolCall[]
+{
+    if (typeof payload !== 'object' || payload === null)
+    {
+        return [ ];
+    }
+
+    const choices = (payload as { choices?: unknown }).choices;
+
+    if (!Array.isArray(choices) || choices.length === 0)
+    {
+        return [ ];
+    }
+
+    const message = (choices[0] as { message?: unknown }).message;
+
+    if (typeof message !== 'object' || message === null)
+    {
+        return [ ];
+    }
+
+    const calls = (message as { tool_calls?: unknown }).tool_calls;
+
+    if (!Array.isArray(calls))
+    {
+        return [ ];
+    }
+
+    const out: ToolCall[] = [ ];
+
+    for (const raw of calls)
+    {
+        if (typeof raw !== 'object' || raw === null)
+        {
+            continue;
+        }
+
+        const id = (raw as { id?: unknown }).id;
+        const fn = (raw as { function?: unknown }).function;
+
+        if (typeof id !== 'string' || typeof fn !== 'object' || fn === null)
+        {
+            continue;
+        }
+
+        const name = (fn as { name?: unknown }).name;
+        const rawArgs = (fn as { arguments?: unknown }).arguments;
+
+        if (typeof name !== 'string')
+        {
+            continue;
+        }
+
+        let args: Record<string, unknown> = { };
+
+        if (typeof rawArgs === 'string' && rawArgs.trim() !== '')
+        {
+            try
+            {
+                const parsed: unknown = JSON.parse(rawArgs);
+
+                if (typeof parsed === 'object' && parsed !== null)
+                {
+                    args = parsed as Record<string, unknown>;
+                }
+            }
+            catch
+            {
+                continue;
+            }
+        }
+        else if (typeof rawArgs === 'object' && rawArgs !== null)
+        {
+            args = rawArgs as Record<string, unknown>;
+        }
+
+        out.push({ id, name, arguments: args });
+    }
+
+    return out;
+}
+
+/** The raw assistant turn, echoed back so the tool results have something to attach to. */
+export function readAssistantTurn(payload: unknown): unknown
+{
+    if (typeof payload !== 'object' || payload === null)
+    {
+        return undefined;
+    }
+
+    const choices = (payload as { choices?: unknown }).choices;
+
+    return Array.isArray(choices) && choices.length > 0 ? (choices[0] as { message?: unknown }).message : undefined;
 }

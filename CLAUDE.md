@@ -134,6 +134,18 @@ Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is d
 
 `telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
 
+### The internal MCP for agents
+
+`routes/mcp/mcp.tools.ts` is the tool protocol agents use to manage the person they are talking to. Definitions are **MCP-shaped** (`name`, `description`, `inputSchema`) rather than written in the model vendor's format; `toOpenAITools` adapts them at the edge. Exposing these over a real MCP transport later means replacing the adapter, not the registry.
+
+There is deliberately **no tool that touches permissions**. An agent able to grant its own access would make the permission model decorative, so that stays an owner-only action over HTTP. A self-check asserts no tool name matches `permission|grant|revoke` and that every tool requires a key from the catalog.
+
+Each tool names the permission it costs, and the gate is applied **twice**: only granted tools are advertised to the model, and `runTool` re-checks before executing — the tools offered and the tools a model asks for are separate things, and a model can name one it was never given. Tool refusals come back as tool *results*, not thrown errors, because the model is expected to read and react to them.
+
+`prefs.read` and `prefs.write` are independent — granting write does not imply read. Both are absent from `DEFAULT_PERMISSIONS`, so every existing and future profile has them off until switched on.
+
+The reply loop runs at most `MAX_TOOL_ROUNDS` rounds and drops the `tools` field on the final round, so a model that keeps calling tools instead of answering still terminates. `telegram_user_document` rows are read-only over HTTP: an owner editing them by hand would change what an agent believes without the agent seeing it happen.
+
 ### Audit logging
 
 `routes/audit/audit.log.ts` exports one `audit(fastify, log, entry)` helper, called from every write path and every outbound call. It **never throws and never rejects**: an audit write failing must not take down the operation it was describing, which would turn a logging problem into an outage. Failures go to the normal logger instead.

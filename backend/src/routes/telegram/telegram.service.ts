@@ -6,7 +6,8 @@ import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
-import { HISTORY_LIMIT, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, readCompletion } from '../agent/agent.reply.js';
+import { HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, readAssistantTurn, readCompletion, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
+import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
 import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
@@ -382,7 +383,12 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     // message itself -- drop it so it is not sent twice.
     const earlier = history.reverse().slice(0, -1);
 
-    const messages = buildMessages(buildSystemPrompt(documents), earlier, incoming);
+    const messages: ChatMessage[] = buildMessages(buildSystemPrompt(documents), earlier, incoming);
+
+    // Only the tools this person has actually granted are advertised. The
+    // executor re-checks anyway, but offering a tool that would be refused just
+    // invites the model to waste a round on it.
+    const tools = allowedTools(user.permissions);
 
     // The person sees "typing…" from here until the reply is sent or the
     // attempt gives up.
@@ -391,19 +397,62 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     const startedAt = Date.now();
 
     let text: string | undefined;
+    let toolRuns = 0;
 
     try
     {
-        const response = await fetch(`${ model.base_url }/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'content-type': 'application/json',
-                ...model.api_key === '' ? { } : { authorization: `Bearer ${ model.api_key }` }
-            },
-            body: JSON.stringify({ model: model.model, messages }),
-            signal: AbortSignal.timeout(AGENT_TIMEOUT) });
+        // Tool rounds: ask, run whatever it asked for, ask again with the
+        // results. Bounded, so a model that keeps calling tools instead of
+        // answering still terminates.
+        for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1)
+        {
+            const response = await fetch(`${ model.base_url }/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    ...model.api_key === '' ? { } : { authorization: `Bearer ${ model.api_key }` }
+                },
+                body: JSON.stringify({
+                    model: model.model,
+                    messages,
+                    // Omitted entirely when nothing is granted: some compatible
+                    // servers reject an empty tools array. Dropped on the last
+                    // round so the model has to answer instead of calling again.
+                    ...tools.length > 0 && round < MAX_TOOL_ROUNDS && { tools: toOpenAITools(tools) }
+                }),
+                signal: AbortSignal.timeout(AGENT_TIMEOUT) });
 
-        text = readCompletion(await response.json().catch(() => undefined));
+            const payload = await response.json().catch(() => undefined);
+
+            const calls = readToolCalls(payload);
+
+            if (calls.length === 0 || round === MAX_TOOL_ROUNDS)
+            {
+                text = readCompletion(payload);
+
+                break;
+            }
+
+            // The assistant turn goes back verbatim, or the tool results have
+            // no call to attach to.
+            messages.push(readAssistantTurn(payload) as ChatMessage);
+
+            for (const call of calls)
+            {
+                const result = await runTool(fastify, user, call.name, call.arguments);
+
+                toolRuns += 1;
+
+                await audit(fastify, log, {
+                    teamId: bot.team_id,
+                    action: 'agent.tool',
+                    target: `profile:${ user.id }`,
+                    outcome: result.ok ? 'ok' : 'error',
+                    detail: `${ call.name } via agent ${ agent.id }${ result.ok ? '' : ` · ${ result.content.slice(0, 100) }` }` });
+
+                messages.push({ role: 'tool', tool_call_id: call.id, content: result.content });
+            }
+        }
     }
     catch
     {
@@ -488,7 +537,7 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         action: 'agent.request',
         target: `agent:${ agent.id }`,
         outcome: 'ok',
-        detail: `model ${ model.id } (${ model.model }) · ${ messages.length } messages in · ${ text.length } chars out · ${ Date.now() - startedAt }ms` });
+        detail: `model ${ model.id } (${ model.model }) · ${ messages.length } messages in · ${ text.length } chars out · ${ toolRuns } tool call(s) · ${ Date.now() - startedAt }ms` });
 }
 
 /**

@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router';
 import { ButtonLink } from '../components/Button';
 import { ProfilePermissions } from '../components/ProfilePermissions';
 import { profileName } from '../components/profileName';
-import { ApiError, profileDetails, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../lib/api';
+import { ApiError, profileDetails, profileFiles, type ProfileFile, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
 interface Details
@@ -47,6 +47,7 @@ export function Profile()
     const idsInvalid = !Number.isInteger(teamId) || teamId < 1 || !Number.isInteger(personId) || personId < 1;
 
     const [ details, setDetails ] = useState<Details | null>(null);
+    const [ files, setFiles ] = useState<ProfileFile[]>([ ]);
     const [ error, setError ] = useState<string | null>(null);
 
     useEffect(() =>
@@ -65,12 +66,13 @@ export function Profile()
 
         let active = true;
 
-        profileDetails(teamId, personId)
-            .then((payload) =>
+        Promise.all([ profileDetails(teamId, personId), profileFiles(teamId, personId) ])
+            .then(([ payload, filePayload ]) =>
             {
                 if (active)
                 {
                     setDetails(payload);
+                    setFiles(filePayload.files);
                 }
             })
             .catch((cause: unknown) =>
@@ -159,6 +161,28 @@ export function Profile()
                                 )) }
                             </ul>
                         ) }
+                    </section>
+
+                    <section className="section">
+                        <h2 className="section__title">Files</h2>
+
+                        <p className="status">
+                            Written by agents through the internal tools. Read-only here — editing them by
+                            hand would change what an agent believes without the agent seeing it happen.
+                        </p>
+
+                        { files.length === 0 && <p className="status">No files yet.</p> }
+
+                        { files.map((file) => (
+                            <article className="doc" key={ file.id }>
+                                <header className="doc__head">
+                                    <span className="doc__name">{ file.name }</span>
+                                    <span className="list__meta">{ new Date(file.updated_at).toLocaleString() }</span>
+                                </header>
+
+                                <pre className="doc__editor doc__editor--read">{ file.content }</pre>
+                            </article>
+                        )) }
                     </section>
 
                     <section className="section">

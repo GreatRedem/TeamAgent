@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn, Unique } from 'typeorm';
+import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
 
 /**
  * A person who has sent the team a private message, and the profile built from
@@ -56,6 +56,38 @@ export class TelegramUser
 
     @CreateDateColumn()
     created_at: Date;
+}
+
+/**
+ * A markdown file belonging to one person, readable and writable by an agent
+ * through the internal MCP tools.
+ *
+ * Separate from `team_agent_document`: those describe the agent and are edited
+ * by the team, these describe the person and are edited on their behalf. Unique
+ * per profile on name, so a file cannot be shadowed by a second copy.
+ */
+@Entity({ name: 'telegram_user_document' })
+@Unique([ 'user_id', 'name' ])
+export class TelegramUserDocument
+{
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Index()
+    @Column({ type: 'int' })
+    user_id: number;
+
+    @Column({ type: 'varchar', length: 64 })
+    name: string;
+
+    @Column({ type: 'text' })
+    content: string;
+
+    @CreateDateColumn()
+    created_at: Date;
+
+    @UpdateDateColumn()
+    updated_at: Date;
 }
 
 /**

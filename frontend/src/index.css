@@ -1139,3 +1139,11 @@ select.field__input
     margin-inline-start: 0.5rem;
 }
 
+/* A file an agent wrote: shown, not edited. */
+.doc__editor--read
+{
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+

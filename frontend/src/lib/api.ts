@@ -382,3 +382,30 @@ export function auditHeatmap(teamId: number)
 {
     return request<{ days: HeatmapDay[]; from: string; to: string; total: number; busiest: number }>('GET', `/team/${ teamId }/audit/heatmap`);
 }
+
+/** One tool an agent can call, and the permission it costs. */
+export interface McpTool
+{
+    name: string;
+    description: string;
+    permission: string;
+}
+
+/** A file an agent has written for a person. */
+export interface ProfileFile
+{
+    id: number;
+    name: string;
+    content: string;
+    updated_at: string;
+}
+
+export function mcpTools(teamId: number)
+{
+    return request<{ tools: McpTool[] }>('GET', `/team/${ teamId }/mcp/tools`);
+}
+
+export function profileFiles(teamId: number, profileId: number)
+{
+    return request<{ files: ProfileFile[] }>('GET', `/team/${ teamId }/profile/${ profileId }/file`);
+}
