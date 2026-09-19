@@ -26,77 +26,11 @@ const builder = (name: string) =>
         return value;
     };
 
-    const asStringArray = () =>
-    {
-        return value.split(',');
-    };
 
-    const asNumberArray = () =>
-    {
-        return value
-            .split(',')
-            .map((item) => item.trim())
-            .map((item) =>
-            {
-                const valueAsNumber = Number(item);
 
-                if (isNaN(valueAsNumber))
-                {
-                    throw new TypeError(`Invalid value for environment variable: ${ name } - ${ typeof value } - ${ value }`);
-                }
 
-                return valueAsNumber;
-            });
-    };
 
-    const asBoolean = () =>
-    {
-        switch (value.toLowerCase())
-        {
-            case '1':
-            case 'yes':
-            case 'true':
-            {
-                return true;
-            }
-            case '0':
-            case 'no':
-            case 'false':
-            {
-                return false;
-            }
-            default:
-            {
-                throw new TypeError(`Invalid value for environment variable: ${ name } - ${ typeof value } - ${ value }`);
-            }
-        }
-    };
-
-    function asDuration()
-    {
-        if (typeof value !== 'string')
-        {
-            throw new TypeError(`Invalid value for environment variable: ${ name } - ${ typeof value } - ${ value }`);
-        }
-
-        const match = value.trim().toLowerCase().match(/^(\d+)([dhms])$/);
-
-        if (match === null)
-        {
-            throw new TypeError(`Invalid format for environment variable: ${ name } - 1s 60m 24h 30d - ${ value }`);
-        }
-
-        const multipliers: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-
-        if (!(match[2] in multipliers))
-        {
-            throw new TypeError(`Invalid format type for environment variable: ${ name } - s m h d - ${ value }`);
-        }
-
-        return Number.parseInt(match[1], 10) * multipliers[match[2]];
-    }
-
-    return { asNumber, asString, asStringArray, asNumberArray, asBoolean, asDuration };
+    return { asNumber, asString };
 };
 
 const NODE_PORT = builder('NODE_PORT').asNumber();
