@@ -1,3 +1,0 @@
-export const ROLE = { BANNED: 0, MEMBER: 1, GAME_MASTER: 2, ADMIN: 3 };
-
-export const PRICE = { RACE: 50, FACTION: 75, RENAME: 35, CUSTOMIZE: 35, LEVEL: 100 };

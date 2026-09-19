@@ -1,15 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { rateLimit } from '../../plugins/ratelimit.js';
-import { createRefreshToken, createAccessToken, authGuard, verifyRefreshToken } from '../../plugins/authentication.js';
+import { createRefreshToken, createAccessToken, authGuard, verifyRefreshToken, SESSION_REFRESH_TIME } from '../../plugins/authentication.js';
 
 import { Account, AccountSession, AccountTransfer } from './account.entity.js';
 import { schemaAccountPassword, schemaAccountRefresh, schemaAccountSignIn, schemaAccountSignOut, schemaAccountSignUp, schemaAccountSwap, schemaAccountTransfer } from './account.schema.js';
 
-import config from '../../utils/config.js';
-
-import { executeCommand } from '../../utils/soap.js';
-import { BadRequestResponse, InternalErrorResponse, UnauthorizedResponse } from '../../utils/response.js';
+import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 
 export function signUp(fastify: FastifyInstance)
 {
@@ -34,11 +31,6 @@ export function signUp(fastify: FastifyInstance)
         if (await fastify.db.getRepository(Account).findOneBy({ phone }))
         {
             throw new BadRequestResponse('SIGN_UP_PHONE_EXIST');
-        }
-
-        if (!await executeCommand(0, `.account create ${ username } ${ password } ${ email }`, 'Account created'))
-        {
-            throw new InternalErrorResponse();
         }
 
         await fastify.db.getRepository(Account).save({ username, email, password, phone, source });
@@ -73,14 +65,11 @@ export function signIn(fastify: FastifyInstance)
 
         const refresh = await fastify.db.getRepository(AccountSession).save({
             device: (request.headers['user-agent'] || '') + ' ' + request.ip,
-            expires_at: new Date(Date.now() + config.SESSION_REFRESH_TIME),
+            expires_at: new Date(Date.now() + SESSION_REFRESH_TIME),
             account_id: account.id,
             token: refreshToken });
 
         [ '/account/refresh', '/account/sign-out' ].map((path) => reply.setCookie('refresh', refreshToken, { path, httpOnly: true, secure: true, sameSite: 'strict' }));
-
-        request.account_id = account.id; // calling accountHistory needs account_id
-        request.accountHistory('ACCOUNT_SIGN_IN');
 
         reply.send({ accessToken: createAccessToken(account.id, account.role, refresh.id) });
     };
@@ -103,8 +92,6 @@ export function signOut(fastify: FastifyInstance)
                 accountSession.revoked_at = new Date();
 
                 await fastify.db.getRepository(AccountSession).save(accountSession);
-
-                request.accountHistory('ACCOUNT_SIGN_OUT');
             }
         }
 
@@ -143,7 +130,7 @@ export function refresh(fastify: FastifyInstance)
 
         const refresh = await fastify.db.getRepository(AccountSession).save({
             id: accountSession.id,
-            expires_at: new Date(Date.now() + config.SESSION_REFRESH_TIME),
+            expires_at: new Date(Date.now() + SESSION_REFRESH_TIME),
             device: (request.headers['user-agent'] || '') + ' ' + request.ip,
             account_id: account.id,
             token: refreshTokenNew });
@@ -170,11 +157,6 @@ export function password(fastify: FastifyInstance)
             throw new BadRequestResponse('PASSWORD_REQUEST_INVALID');
         }
 
-        if (!await executeCommand(0, `.account set password ${ account.username } ${ passwordNew } ${ passwordNew }`, 'The password was changed'))
-        {
-            throw new InternalErrorResponse();
-        }
-
         account.password = passwordNew;
 
         await fastify.db.getRepository(Account).save(account);
@@ -185,8 +167,6 @@ export function password(fastify: FastifyInstance)
             .andWhere('revoked_at IS NULL')
             .andWhere('id != :sessionId', { sessionId: request.session_id })
             .execute();
-
-        request.accountHistory('ACCOUNT_PASSWORD', passwordOld, passwordNew);
 
         // Fix Me Send Notify To Email
 
@@ -222,8 +202,6 @@ export function swap(fastify: FastifyInstance)
 
         await fastify.db.getRepository(Account).save(account);
         await fastify.db.getRepository(Account).save(accountTarget);
-
-        request.accountHistory('ACCOUNT_SWAP', email, amount);
 
         // Fix Me Send Notify To Email
 
