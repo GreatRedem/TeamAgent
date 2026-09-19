@@ -505,6 +505,11 @@ body
 .panel
 {
     align-self: flex-start;
+    /* `.shell__main` is a row flex container, so an auto inline margin is what
+       centres the panel in the viewport. Block alignment stays at the start:
+       these pages grow taller than the screen, and centring those would push
+       the heading off the top. */
+    margin-inline: auto;
     inline-size: min(100%, 44rem);
     padding: clamp(1.25rem, 3vw, 2rem);
     border: 1px solid oklch(100% 0 0 / 0.1);
