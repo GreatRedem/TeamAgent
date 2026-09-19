@@ -1,16 +1,18 @@
-import { Link } from 'react-router';
+import { ArrowLeft } from 'lucide-react';
+
+import { ButtonLink } from '../components/Button';
 
 export function NotFound()
 {
     return (
-        <>
-            <p className="subtitle">
-                That page does not exist.
-            </p>
+        <section className="hero">
+            <h1 className="hero__title">Page not found</h1>
 
-            <Link className="button" to="/">
+            <p className="hero__subtitle">That page does not exist.</p>
+
+            <ButtonLink to="/" icon={ <ArrowLeft size={ 18 } aria-hidden="true" /> }>
                 Back to sign in
-            </Link>
-        </>
+            </ButtonLink>
+        </section>
     );
 }

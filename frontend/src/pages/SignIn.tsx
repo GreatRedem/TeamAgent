@@ -3,12 +3,12 @@ import { WalletSignIn } from '../components/WalletSignIn';
 export function SignIn()
 {
     return (
-        <>
-            <p className="subtitle">
-                Wallet is the only way in. No password, no email.
-            </p>
+        <section className="hero">
+            <h1 className="hero__title">Welcome to Nura</h1>
+
+            <p className="hero__subtitle">Connect your wallet to continue</p>
 
             <WalletSignIn />
-        </>
+        </section>
     );
 }

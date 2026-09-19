@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router';
 
+import { Button } from '../components/Button';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
 export function Dashboard()
@@ -33,15 +34,14 @@ export function Dashboard()
     }
 
     return (
-        <>
-            <p className="subtitle">
-                You are signed in. The access token is held for this tab only.
-            </p>
+        <section className="hero">
+            <h1 className="hero__title">You are signed in</h1>
 
-            <button className="button" type="button" onClick={ signOut }>
-                <LogOut size={ 18 } aria-hidden="true" />
+            <p className="hero__subtitle">The access token is held for this tab only.</p>
+
+            <Button type="button" onClick={ signOut } icon={ <LogOut size={ 18 } aria-hidden="true" /> }>
                 Sign out
-            </button>
-        </>
+            </Button>
+        </section>
     );
 }

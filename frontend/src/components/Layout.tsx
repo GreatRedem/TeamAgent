@@ -1,20 +1,21 @@
-import { Sparkles } from 'lucide-react';
-import { Link, Outlet } from 'react-router';
+import { Outlet } from 'react-router';
+
+import { Brand } from './Brand';
+import { Scene } from './scene/Scene';
 
 export function Layout()
 {
     return (
-        <main className="app">
-            <section className="card">
-                <h1 className="title">
-                    <Link className="brand" to="/">
-                        <Sparkles size={ 24 } aria-hidden="true" />
-                        NuraAI
-                    </Link>
-                </h1>
+        <div className="shell">
+            <Scene />
 
+            <header className="shell__header">
+                <Brand />
+            </header>
+
+            <main className="shell__main">
                 <Outlet />
-            </section>
-        </main>
+            </main>
+        </div>
     );
 }

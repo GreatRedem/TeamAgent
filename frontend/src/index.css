@@ -1,18 +1,46 @@
+/* ---------------------------------------------------------------- tokens */
+
 :root
 {
-    color-scheme: light dark;
+    color-scheme: dark;
 
-    --ink: light-dark(oklch(22% 0.02 264), oklch(93% 0.01 264));
-    --paper: light-dark(oklch(98% 0.004 264), oklch(19% 0.015 264));
-    --recess: light-dark(oklch(95% 0.008 264), oklch(15% 0.015 264));
-    --rule: light-dark(oklch(88% 0.01 264), oklch(31% 0.02 264));
-    --accent: light-dark(oklch(48% 0.18 285), oklch(72% 0.14 285));
-    --muted: light-dark(oklch(48% 0.02 264), oklch(66% 0.02 264));
-    --alarm: light-dark(oklch(52% 0.19 25), oklch(70% 0.17 25));
+    /* surfaces */
+    --bg: oklch(13% 0.018 258);
+    --bg-deep: oklch(8% 0.015 258);
 
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* text */
+    --ink: oklch(99% 0 0);
+    --ink-muted: oklch(68% 0.02 258);
+
+    /* accent */
+    --glow: oklch(55% 0.19 258);
+    --glow-bright: oklch(80% 0.13 245);
+
+    /* action surface */
+    --action: oklch(99% 0 0);
+    --action-ink: oklch(17% 0.015 258);
+
+    /* scene: consumed by the SVG layers through var() */
+    --facet-hi: oklch(88% 0.03 250);
+    --facet-lo: oklch(45% 0.06 255);
+    --facet-deep: oklch(16% 0.02 258);
+    --rock-hi: oklch(34% 0.02 258);
+    --rock-lo: oklch(15% 0.015 258);
+    --rock-deep: oklch(10% 0.012 258);
+    --rock-rim: oklch(62% 0.05 250);
+
+    --alarm: oklch(70% 0.17 25);
+
+    /* rhythm */
+    --gutter: clamp(1.5rem, 5.5vw, 7.5rem);
+    --radius: 10px;
+
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
+
+/* ----------------------------------------------------------------- reset */
 
 *
 {
@@ -23,116 +51,171 @@ body
 {
     margin: 0;
     min-block-size: 100dvh;
-    background: var(--paper);
+    background: var(--bg-deep);
     color: var(--ink);
+    overflow-x: hidden;
 }
 
-.app
+/* ----------------------------------------------------------------- shell */
+
+.shell
 {
+    position: relative;
     display: grid;
-    place-items: center;
+    grid-template-rows: auto 1fr;
     min-block-size: 100dvh;
-    padding-inline: 1rem;
+    isolation: isolate;
 }
 
-.card
+.shell__header
 {
-    inline-size: min(28rem, 100%);
-    padding: 2rem;
-    border: 1px solid var(--rule);
-    border-radius: 0.75rem;
-    background: var(--recess);
+    z-index: 1;
+    padding: clamp(1.25rem, 3vw, 2.5rem) var(--gutter);
 }
 
-.title
+.shell__main
 {
-    margin: 0 0 0.25rem;
-    font-size: 1.5rem;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    padding: var(--gutter);
+    padding-block-end: clamp(3rem, 14vh, 8rem);
 }
+
+/* ----------------------------------------------------------------- brand */
 
 .brand
 {
     display: inline-flex;
-    gap: 0.5rem;
+    gap: 0.625rem;
     align-items: center;
-    color: inherit;
+    color: var(--ink);
     text-decoration: none;
+}
+
+.brand__mark
+{
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: none;
+}
+
+.brand__word
+{
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
 }
 
 .brand:focus-visible
 {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: 2px solid var(--glow-bright);
+    outline-offset: 4px;
+    border-radius: 4px;
 }
 
-.button:is(a)
+/* ------------------------------------------------------------------ hero */
+
+.hero
 {
-    text-decoration: none;
+    inline-size: min(100%, 34rem);
+    text-align: center;
 }
 
-.subtitle
+.hero__title
 {
-    margin: 0 0 1.5rem;
-    color: var(--muted);
-    font-size: 0.875rem;
+    margin: 0;
+    font-size: clamp(1.75rem, 1.2rem + 1.55vw, 2.875rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
 }
+
+.hero__subtitle
+{
+    margin: 0.625rem 0 0;
+    color: var(--ink-muted);
+    font-size: clamp(0.9375rem, 0.85rem + 0.3vw, 1.0625rem);
+}
+
+/* ---------------------------------------------------------------- button */
 
 .button
 {
-    display: flex;
-    gap: 0.5rem;
+    display: inline-flex;
+    gap: 0.625rem;
     align-items: center;
     justify-content: center;
     inline-size: 100%;
-    min-block-size: 2.75rem;
-    padding-inline: 1rem;
+    min-block-size: 3.25rem;
+    margin-block-start: clamp(1.5rem, 4vh, 2.25rem);
+    padding-inline: 1.5rem;
     border: 0;
-    border-radius: 0.5rem;
-    background: var(--accent);
-    color: var(--paper);
+    border-radius: var(--radius);
+    background: var(--action);
+    color: var(--action-ink);
     font: inherit;
+    font-size: 0.9375rem;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
+    transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    box-shadow: 0 10px 30px -12px oklch(0% 0 0 / 0.7);
 }
 
-.button:disabled
+.button__icon
 {
-    opacity: 0.6;
-    cursor: not-allowed;
+    display: inline-flex;
+    opacity: 0.75;
+}
+
+.button:hover:not(:disabled)
+{
+    transform: translateY(-1px);
+    box-shadow: 0 16px 36px -14px oklch(0% 0 0 / 0.85);
+}
+
+.button:active:not(:disabled)
+{
+    transform: translateY(0);
 }
 
 .button:focus-visible
 {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
+    outline: 2px solid var(--glow-bright);
+    outline-offset: 3px;
 }
+
+.button:disabled
+{
+    opacity: 0.7;
+    cursor: progress;
+}
+
+/* ---------------------------------------------------------------- status */
 
 .status
 {
     display: flex;
     gap: 0.5rem;
     align-items: flex-start;
-    margin-block-start: 1rem;
+    justify-content: center;
+    min-block-size: 1.25rem;
+    margin-block-start: 0.875rem;
+    color: var(--ink-muted);
     font-size: 0.875rem;
     overflow-wrap: anywhere;
 }
 
-.status[data-tone="error"]
+.status[data-state="error"]
 {
     color: var(--alarm);
 }
 
 .spin
 {
-    animation: spin 1s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce)
-{
-    .spin
-    {
-        animation: none;
-    }
+    animation: spin 900ms linear infinite;
 }
 
 @keyframes spin
@@ -140,5 +223,176 @@ body
     to
     {
         transform: rotate(360deg);
+    }
+}
+
+/* ----------------------------------------------------------------- scene */
+
+.scene
+{
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(120% 90% at 50% 8%, oklch(20% 0.03 258) 0%, transparent 60%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+}
+
+.scene__glow
+{
+    position: absolute;
+    inset-block-start: -10%;
+    inset-inline-start: 50%;
+    inline-size: min(120vw, 60rem);
+    aspect-ratio: 1;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, oklch(45% 0.16 255 / 0.28) 0%, transparent 62%);
+}
+
+.scene__object
+{
+    position: absolute;
+    inset-block-start: 4%;
+    inset-inline-start: 50%;
+    inline-size: min(84vw, 22rem);
+    aspect-ratio: 560 / 580;
+    translate: -50% 0;
+    animation: drift 14s ease-in-out infinite;
+}
+
+.crystal,
+.debris
+{
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+}
+
+.terrain
+{
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    block-size: clamp(14rem, 38vh, 26rem);
+}
+
+.terrain__trail
+{
+    opacity: 0.9;
+}
+
+@keyframes drift
+{
+    0%, 100%
+    {
+        transform: translateY(0);
+    }
+
+    50%
+    {
+        transform: translateY(-1.25rem);
+    }
+}
+
+/* ----------------------------------------------------------- breakpoints */
+
+/* tablet: more room, content still sits low */
+@media (min-width: 40rem)
+{
+    .shell__main
+    {
+        padding-block-end: clamp(4rem, 16vh, 9rem);
+    }
+
+    .scene__object
+    {
+        inset-block-start: 6%;
+        inline-size: min(60vw, 26rem);
+    }
+}
+
+/* desktop: content moves to a left column, the object to the right */
+@media (min-width: 64rem)
+{
+    .shell__main
+    {
+        align-items: center;
+        padding-block-end: clamp(4rem, 14vh, 9rem);
+    }
+
+    .hero
+    {
+        inline-size: min(100%, 32rem);
+        text-align: start;
+    }
+
+    .button
+    {
+        inline-size: min(100%, 26rem);
+    }
+
+    .status
+    {
+        justify-content: flex-start;
+    }
+
+    .scene__object
+    {
+        inset-block-start: 42%;
+        inset-inline-start: auto;
+        inset-inline-end: clamp(1.5rem, 5vw, 7rem);
+        inline-size: min(48vw, 36rem);
+        translate: 0 -50%;
+    }
+
+    .scene__glow
+    {
+        inset-block-start: -18%;
+        inset-inline-start: 70%;
+        inline-size: min(70vw, 52rem);
+    }
+
+    .terrain
+    {
+        block-size: clamp(18rem, 46vh, 34rem);
+    }
+}
+
+/* large desktop: hold the composition, let type breathe */
+@media (min-width: 96rem)
+{
+    .hero
+    {
+        inline-size: min(100%, 36rem);
+    }
+
+    .scene__object
+    {
+        inline-size: min(42vw, 40rem);
+    }
+}
+
+/* ------------------------------------------------------------ preferences */
+
+@media (prefers-reduced-motion: reduce)
+{
+    .scene__object
+    {
+        animation: none;
+    }
+
+    .spin
+    {
+        animation-duration: 2.4s;
+    }
+
+    .button
+    {
+        transition: none;
     }
 }
