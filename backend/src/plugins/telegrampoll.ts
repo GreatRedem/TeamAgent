@@ -116,7 +116,7 @@ export default fastifyPlugin(async function(fastify: FastifyInstance)
             {
                 // 401/404 is a bad token, 409 a webhook that reappeared. Backing
                 // off hard keeps a misconfigured bot from hammering Telegram.
-                log.warn({ module: 'telegram', botId, status: answer.status }, 'poll refused');
+                log.warn({ botId, status: answer.status }, 'poll refused');
 
                 await sleep(BACKOFF_REJECTED, signal);
 
@@ -163,7 +163,7 @@ export default fastifyPlugin(async function(fastify: FastifyInstance)
                 controller.abort();
                 running.delete(botId);
 
-                log.info({ module: 'telegram', botId }, 'polling stopped');
+                log.info({ botId }, 'polling stopped');
             }
         }
 
@@ -178,12 +178,12 @@ export default fastifyPlugin(async function(fastify: FastifyInstance)
 
             running.set(bot.id, controller);
 
-            log.info({ module: 'telegram', botId: bot.id, teamId: bot.team_id }, 'polling started');
+            log.info({ botId: bot.id, teamId: bot.team_id }, 'polling started');
 
             // Deliberately not awaited: each bot's loop runs for the lifetime of
             // the process. A throw here must not take the supervisor down.
             void poll(bot.id, controller.signal)
-                .catch((error: unknown) => log.error({ module: 'telegram', botId: bot.id, err: error }, 'polling loop failed'))
+                .catch((error: unknown) => log.error({ botId: bot.id, err: error }, 'polling loop failed'))
                 .finally(() => running.delete(bot.id));
         }
     }
@@ -194,7 +194,7 @@ export default fastifyPlugin(async function(fastify: FastifyInstance)
         {
             while (!supervisor.signal.aborted)
             {
-                await rescan().catch((error: unknown) => log.error({ module: 'telegram', err: error }, 'polling rescan failed'));
+                await rescan().catch((error: unknown) => log.error({ err: error }, 'polling rescan failed'));
 
                 await sleep(RESCAN_INTERVAL, supervisor.signal);
             }
