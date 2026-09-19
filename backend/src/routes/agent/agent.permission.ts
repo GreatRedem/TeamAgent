@@ -35,6 +35,16 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
         description: 'Lets this agent look back through what a person has written to it before, beyond the recent turns it already sees.'
     },
     {
+        key: 'team.read',
+        label: 'May see the team roster',
+        description: 'Lets this agent list the people the team knows and read what has been recorded about them, not only the person it is currently talking to.'
+    },
+    {
+        key: 'team.write',
+        label: 'May remember things about the team',
+        description: 'Lets this agent add notes about any member of the team. It can only append, so nothing already recorded is lost.'
+    },
+    {
         key: 'web.fetch',
         label: 'May fetch web pages',
         description: 'Lets this agent read public web pages. Private, loopback and cloud-metadata addresses are always refused, whoever asks.'

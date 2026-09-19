@@ -180,6 +180,12 @@ There is deliberately **no tool that touches permissions**. An agent able to gra
 
 Each tool names the permission it costs, and the gate is applied **twice**: only granted tools are advertised to the model, and `runTool` re-checks before executing — the tools offered and the tools a model asks for are separate things, and a model can name one it was never given. Tool refusals come back as tool *results*, not thrown errors, because the model is expected to read and react to them.
 
+`team.read` and `team.write` are the one place an agent looks **past the person in front of it**. `team_members` lists everyone the team knows, `team_member_read` reads what has been recorded about one of them, and `team_member_note` appends to it. They are separate keys from `prefs.read`/`prefs.write` precisely because the boundary is different: reading the notes of the person you are talking to and reading the notes of everyone else are not the same permission, and neither is on by default.
+
+A member is addressed by the `member_id` the roster hands out, never by Telegram id or name, and every lookup matches on the agent's own `team_id` as well as the id -- an id belonging to another team reads as "no such member" rather than crossing the tenancy line. The roster deliberately omits permission keys: what a person is allowed to do is the owner's business, and an agent that could read the access list is one step from reasoning about changing it.
+
+`team_member_note` only appends. A tool that could replace the file would let one bad turn erase everything the team had gathered about someone, and `preferences_write` already covers rewriting for the person actually in the conversation. It is the only tool here that writes about a third party, so it also records an `agent.member_note` audit entry -- the exchange table shows the call only to whoever opens that agent's history, and the trail is where an owner would look. Reads are not audited: they are far higher volume and carry no change.
+
 `prefs.read` and `prefs.write` are independent — granting write does not imply read. Both are absent from `DEFAULT_PERMISSIONS`, so every existing and future profile has them off until switched on.
 
 The reply loop runs at most `MAX_TOOL_ROUNDS` rounds and drops the `tools` field on the final round, so a model that keeps calling tools instead of answering still terminates. `telegram_user_document` rows are read-only over HTTP: an owner editing them by hand would change what an agent believes without the agent seeing it happen.

@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { readToolCalls } from '../agent/agent.reply.js';
 import { DOCUMENT_NAME_PATTERN, TOOLS, allowedTools, toOpenAITools } from './mcp.tools.js';
-import { AGENT_PERMISSIONS, serializeAgentPermissions } from '../agent/agent.permission.js';
+import { AGENT_PERMISSIONS, DEFAULT_AGENT_PERMISSIONS, serializeAgentPermissions } from '../agent/agent.permission.js';
 import { PERMISSIONS as PROFILE_PERMISSIONS } from '../telegram/telegram.permission.js';
 
 const call = (id: string, name: string, args: unknown) => ({
@@ -68,6 +68,65 @@ const tests: Array<[ string, () => void ]> = [
         {
             assert.equal(/permission|grant|revoke/i.test(tool.name), false, `${ tool.name } looks like it edits permissions`);
             assert.ok(keys.includes(tool.permission), `${ tool.name } requires an unknown permission`);
+        }
+    } ],
+
+    [ 'seeing the team is a separate capability from seeing the person in front of you', () =>
+    {
+        // prefs.read is scoped to the current conversation. Looking past it at
+        // everyone else the team knows is a different thing to be allowed.
+        const prefs = allowedTools(serializeAgentPermissions([ 'prefs.read' ])).map((t) => t.name);
+
+        for (const name of [ 'team_members', 'team_member_read', 'team_member_note' ])
+        {
+            assert.equal(prefs.includes(name), false, `prefs.read exposed ${ name }`);
+        }
+    } ],
+
+    [ 'team.read lists and reads but cannot record', () =>
+    {
+        const names = allowedTools(serializeAgentPermissions([ 'team.read' ])).map((t) => t.name).sort();
+
+        assert.deepEqual(names, [ 'team_member_read', 'team_members' ]);
+    } ],
+
+    [ 'team.write records but does not imply reading the roster', () =>
+    {
+        const names = allowedTools(serializeAgentPermissions([ 'team.write' ])).map((t) => t.name).sort();
+
+        assert.deepEqual(names, [ 'team_member_note' ]);
+    } ],
+
+    [ 'nothing can overwrite what the team remembers about someone', () =>
+    {
+        // Only appending. A replace tool would let one bad turn erase
+        // everything gathered about a person.
+        const write = TOOLS.filter((t) => t.permission === 'team.write');
+
+        assert.equal(write.length, 1);
+        assert.equal(write[0].name, 'team_member_note');
+        assert.match(write[0].description, /appends/i);
+    } ],
+
+    [ 'a member is addressed by the id the roster hands out', () =>
+    {
+        // Not by telegram id and not by name: the roster is the only way in,
+        // and it is the query that scopes ids to the agent's own team.
+        for (const name of [ 'team_member_read', 'team_member_note' ])
+        {
+            const tool = TOOLS.find((t) => t.name === name);
+
+            assert.ok(tool, `${ name } missing`);
+            assert.ok(tool.inputSchema.required.includes('member_id'), `${ name } does not require member_id`);
+            assert.equal(tool.inputSchema.required.includes('telegram_id'), false);
+        }
+    } ],
+
+    [ 'the team capabilities are off for a new agent', () =>
+    {
+        for (const key of [ 'team.read', 'team.write' ])
+        {
+            assert.equal(DEFAULT_AGENT_PERMISSIONS.includes(key), false, `${ key } is on by default`);
         }
     } ],
 

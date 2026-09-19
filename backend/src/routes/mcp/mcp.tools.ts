@@ -4,6 +4,7 @@ import { TeamAgent } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
 import { TelegramMessage, TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { FETCH_BYTES_MAX, fetchPublicUrl } from './mcp.web.js';
+import { audit } from '../audit/audit.log.js';
 
 /**
  * The internal tool protocol agents use to manage the person they are talking
@@ -109,6 +110,43 @@ export const TOOLS: ToolDefinition[] = [
         }
     },
     {
+        name: 'team_members',
+        description: 'List the people this team knows: everyone who has written to one of its bots. Start here when you need to know who someone is.',
+        permission: 'team.read',
+        inputSchema: {
+            type: 'object',
+            properties: { query: { type: 'string', description: 'Optional name or username to filter by, case-insensitive' } },
+            required: [ ]
+        }
+    },
+    {
+        name: 'team_member_read',
+        description: 'Read what has been recorded about one member of the team. Use the member_id from team_members.',
+        permission: 'team.read',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                member_id: { type: 'integer', description: 'The member_id from team_members' },
+                name: { type: 'string', description: 'File name, defaults to preferences.md' }
+            },
+            required: [ 'member_id' ]
+        }
+    },
+    {
+        name: 'team_member_note',
+        description: 'Remember something about one member of the team by adding a line to their notes. It appends, so nothing already recorded is lost.',
+        permission: 'team.write',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                member_id: { type: 'integer', description: 'The member_id from team_members' },
+                content: { type: 'string', description: 'The single line to remember' },
+                name: { type: 'string', description: 'File name, defaults to preferences.md' }
+            },
+            required: [ 'member_id', 'content' ]
+        }
+    },
+    {
         name: 'web_fetch',
         description: 'Fetch a public web page or API response and read its text. Only public addresses work; private and internal ones are always refused.',
         permission: 'web.fetch',
@@ -128,6 +166,9 @@ export const TOOLS: ToolDefinition[] = [
 
 /** How many past messages a search may return. */
 const SEARCH_LIMIT = 20;
+
+/** How many people one roster listing may return. */
+const ROSTER_LIMIT = 50;
 
 /** The tools an agent's own capabilities allow. */
 export function allowedTools(agentPermissions: string): ToolDefinition[]
@@ -262,6 +303,123 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
                 }))
             })
         };
+    }
+
+    if (tool.name === 'team_members')
+    {
+        const query = typeof args['query'] === 'string' ? args['query'].trim() : '';
+
+        // Scoped to the agent's own team, always. The roster is the one place
+        // an agent looks past the person in front of it, so the tenancy line is
+        // drawn here rather than trusted from anything the model passed in.
+        const builder = fastify.db.getRepository(TelegramUser)
+            .createQueryBuilder('member')
+            .where('member.team_id = :teamId', { teamId: agent.team_id });
+
+        if (query !== '')
+        {
+            builder.andWhere('(member.first_name ILIKE :q OR member.last_name ILIKE :q OR member.username ILIKE :q)', { q: `%${ query }%` });
+        }
+
+        const total = await builder.getCount();
+        const members = await builder.orderBy('member.last_seen_at', 'DESC').take(ROSTER_LIMIT).getMany();
+
+        return {
+            ok: true,
+            content: JSON.stringify({
+                total,
+                shown: members.length,
+                // No permission keys here on purpose: what a person is allowed
+                // to do is the owner's business, and an agent that could read
+                // the access list is one step from reasoning about changing it.
+                members: members.map((member) => ({
+                    member_id: member.id,
+                    first_name: member.first_name,
+                    last_name: member.last_name,
+                    username: member.username,
+                    message_count: member.message_count,
+                    last_seen_at: member.last_seen_at,
+                    // So the agent does not describe the person it is talking
+                    // to as though they were someone else on the list.
+                    is_you: member.id === user.id
+                }))
+            })
+        };
+    }
+
+    if (tool.name === 'team_member_read' || tool.name === 'team_member_note')
+    {
+        const memberId = Number(args['member_id']);
+
+        if (!Number.isInteger(memberId) || memberId <= 0)
+        {
+            return refuse('member_id is required; get it from team_members');
+        }
+
+        // Matched on the agent's team as well as the id, so an id belonging to
+        // another team reads as "no such member" rather than crossing over.
+        const member = await fastify.db.getRepository(TelegramUser).findOneBy({ id: memberId, team_id: agent.team_id });
+
+        if (!member)
+        {
+            return refuse('no such member of this team');
+        }
+
+        const raw = typeof args['name'] === 'string' ? args['name'].trim() : '';
+        const noteName = raw === '' ? 'preferences.md' : raw;
+
+        if (!DOCUMENT_NAME_PATTERN.test(noteName))
+        {
+            return refuse('name must be a plain markdown filename, e.g. preferences.md');
+        }
+
+        const documents = fastify.db.getRepository(TelegramUserDocument);
+        const stored = await documents.findOneBy({ user_id: member.id, name: noteName });
+
+        if (tool.name === 'team_member_read')
+        {
+            return stored
+                ? { ok: true, content: JSON.stringify({ member_id: member.id, name: stored.name, content: stored.content }) }
+                : refuse('nothing recorded for that member under that name');
+        }
+
+        const line = typeof args['content'] === 'string' ? args['content'].trim() : '';
+
+        if (line === '')
+        {
+            return refuse('content is required');
+        }
+
+        // Append only. A tool that could replace the file would let one bad
+        // turn erase everything the team had gathered about someone.
+        const merged = stored ? `${ stored.content.replace(/\s+$/, '') }\n${ line }\n` : `${ line }\n`;
+
+        if (merged.length > DOCUMENT_CONTENT_MAX)
+        {
+            return refuse('the notes for that member are full');
+        }
+
+        if (stored)
+        {
+            await documents.update({ id: stored.id }, { content: merged });
+        }
+        else
+        {
+            await documents.save({ user_id: member.id, name: noteName, content: merged });
+        }
+
+        // A note written about someone who is not in the conversation is the
+        // one action here a team owner would want in the trail -- the exchange
+        // record shows it only to whoever opens that agent's history. Detail
+        // carries the shape, never the note itself.
+        await audit(fastify, fastify.log, {
+            teamId: agent.team_id,
+            action: 'agent.member_note',
+            target: `profile:${ member.id }`,
+            actor: 'agent',
+            detail: `${ agent.name } appended to ${ noteName }, now ${ merged.length } chars` });
+
+        return { ok: true, content: JSON.stringify({ member_id: member.id, name: noteName, chars: merged.length }) };
     }
 
     const repository = fastify.db.getRepository(TelegramUserDocument);
