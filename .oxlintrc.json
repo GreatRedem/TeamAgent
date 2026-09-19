@@ -5,12 +5,10 @@
         "unicorn",
         "oxc"
     ],
-    "categories":
-    {
+    "categories": {
         "correctness": "warn"
     },
-    "env":
-    {
+    "env": {
         "node": true,
         "es2024": true
     },
@@ -18,9 +16,29 @@
         "**/dist/**",
         "**/node_modules/**"
     ],
-    "rules":
-    {
+    "rules": {
         "no-console": "warn",
         "typescript/no-explicit-any": "error"
-    }
+    },
+    "overrides": [
+        {
+            "files": [
+                "frontend/**/*.{ts,tsx}"
+            ],
+            "plugins": [
+                "react",
+                "jsx-a11y"
+            ],
+            "env": {
+                "browser": true,
+                "es2024": true
+            },
+            "rules": {
+                "react/rules-of-hooks": "error",
+                "react/exhaustive-deps": "warn",
+                "react/jsx-key": "error",
+                "no-console": "warn"
+            }
+        }
+    ]
 }

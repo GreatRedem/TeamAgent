@@ -1,0 +1,144 @@
+:root
+{
+    color-scheme: light dark;
+
+    --ink: light-dark(oklch(22% 0.02 264), oklch(93% 0.01 264));
+    --paper: light-dark(oklch(98% 0.004 264), oklch(19% 0.015 264));
+    --recess: light-dark(oklch(95% 0.008 264), oklch(15% 0.015 264));
+    --rule: light-dark(oklch(88% 0.01 264), oklch(31% 0.02 264));
+    --accent: light-dark(oklch(48% 0.18 285), oklch(72% 0.14 285));
+    --muted: light-dark(oklch(48% 0.02 264), oklch(66% 0.02 264));
+    --alarm: light-dark(oklch(52% 0.19 25), oklch(70% 0.17 25));
+
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+}
+
+*
+{
+    box-sizing: border-box;
+}
+
+body
+{
+    margin: 0;
+    min-block-size: 100dvh;
+    background: var(--paper);
+    color: var(--ink);
+}
+
+.app
+{
+    display: grid;
+    place-items: center;
+    min-block-size: 100dvh;
+    padding-inline: 1rem;
+}
+
+.card
+{
+    inline-size: min(28rem, 100%);
+    padding: 2rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.75rem;
+    background: var(--recess);
+}
+
+.title
+{
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+}
+
+.brand
+{
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    color: inherit;
+    text-decoration: none;
+}
+
+.brand:focus-visible
+{
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.button:is(a)
+{
+    text-decoration: none;
+}
+
+.subtitle
+{
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+}
+
+.button
+{
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    inline-size: 100%;
+    min-block-size: 2.75rem;
+    padding-inline: 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: var(--accent);
+    color: var(--paper);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.button:disabled
+{
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.button:focus-visible
+{
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+}
+
+.status
+{
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    margin-block-start: 1rem;
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+}
+
+.status[data-tone="error"]
+{
+    color: var(--alarm);
+}
+
+.spin
+{
+    animation: spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce)
+{
+    .spin
+    {
+        animation: none;
+    }
+}
+
+@keyframes spin
+{
+    to
+    {
+        transform: rotate(360deg);
+    }
+}
