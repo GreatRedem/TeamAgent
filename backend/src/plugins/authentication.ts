@@ -54,48 +54,6 @@ export function verifyAccessToken(token: string)
     return { id: decoded.id, role: decoded.role, sid: decoded.sid };
 }
 
-export function verifyRefreshToken(token: string)
-{
-    const refreshToken = token.split('.');
-
-    if (refreshToken.length !== 2)
-    {
-        return;
-    }
-
-    const payload = Buffer.from(refreshToken[0], 'base64url');
-    const signature = Buffer.from(refreshToken[1], 'base64url');
-
-    const signatureServer = createHmac('sha512', config.SESSION_REFRESH_SECRET).update(refreshToken[0]).digest();
-
-    if (signatureServer.length !== signature.length || !timingSafeEqual(signatureServer, signature))
-    {
-        return;
-    }
-
-    let decoded: { id: number; role: number; expires_at: number };
-
-    try
-    {
-        decoded = JSON.parse(payload.toString());
-
-        if (typeof decoded.id !== 'number' || typeof decoded.role !== 'number' || typeof decoded.expires_at !== 'number')
-        {
-            return;
-        }
-    }
-    catch
-    {
-        return;
-    }
-
-    if (decoded.expires_at < Math.floor(Date.now() / 1000))
-    {
-        return;
-    }
-
-    return { id: decoded.id, role: decoded.role };
-}
 
 export function createAccessToken(id: number, role: number, sessionId: number): string
 {
