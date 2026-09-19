@@ -11,6 +11,7 @@ import autoLoadPlugin from '@fastify/autoload';
 import typeormPlugin from './plugins/typeorm.js';
 import ratelimitPlugin from './plugins/ratelimit.js';
 import validatorPlugin from './plugins/validator.js';
+import telegramPollPlugin from './plugins/telegrampoll.js';
 import authenticationPlugin from './plugins/authentication.js';
 
 import { fileURLToPath } from 'node:url';
@@ -61,6 +62,10 @@ const main = async () => {
     await app.register(cookiePlugin, { secret: config.NODE_COOKIE, hook: 'onRequest', parseOptions: { secure: true, httpOnly: true, sameSite: 'strict' } });
 
     await app.register(autoLoadPlugin, { dir: path.join(dirName, 'routes'), matchFilter: /\.route\.(ts|js)$/, dirNameRoutePrefix: false });
+
+    // After autoload: the poller reads entities the route modules register, and
+    // its own loops only start on the `onReady` hook.
+    await app.register(telegramPollPlugin);
 
     await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });
 

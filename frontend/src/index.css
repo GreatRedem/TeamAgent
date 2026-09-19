@@ -571,3 +571,230 @@ body
     margin: 0;
 }
 
+/* --------------------------------------------------------------- section */
+
+/* A titled block inside a panel. Each one is divided from the last by its own
+   top rule, so sections stack without needing a separator element. */
+.section
+{
+    margin-block-start: clamp(1.5rem, 4vh, 2.5rem);
+    padding-block-start: clamp(1.25rem, 3vh, 2rem);
+    border-block-start: 1px solid oklch(100% 0 0 / 0.1);
+}
+
+.section__title
+{
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* A bot row is not a link, so unlike `.list__link` it lays its label and its
+   action out on one line. */
+.list__item--row
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-radius: var(--radius);
+}
+
+.list__text
+{
+    display: grid;
+    gap: 0.25rem;
+    min-inline-size: 0;
+}
+
+.ghost
+{
+    padding: 0.5rem 0.875rem;
+    border: 1px solid oklch(100% 0 0 / 0.16);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+
+.ghost:hover,
+.ghost:focus-visible
+{
+    border-color: var(--ink-muted);
+    color: var(--ink);
+}
+
+/* A destructive action reads red before it is pressed, not only once armed. */
+.ghost--danger
+{
+    border-color: oklch(70% 0.17 25 / 0.4);
+    color: var(--alarm);
+}
+
+.ghost--danger:hover,
+.ghost--danger:focus-visible
+{
+    border-color: var(--alarm);
+    color: var(--alarm);
+}
+
+/* Armed for a second click, where the next press actually deletes. Since the
+   idle state is already red, this escalates to a filled surface rather than
+   another shade -- the label changes to "Confirm" too, so the state is never
+   carried by colour alone. */
+.ghost[data-state="armed"]
+{
+    border-color: var(--alarm);
+    background: var(--alarm);
+    color: var(--action-ink);
+    font-weight: 600;
+}
+
+.list__actions
+{
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.ghost:disabled
+{
+    cursor: default;
+    opacity: 0.6;
+}
+
+/* Result of the last connection check on a bot row. */
+.probe
+{
+    font-size: 0.8125rem;
+}
+
+.probe[data-state="pending"]
+{
+    color: var(--ink-muted);
+}
+
+.probe[data-state="ok"]
+{
+    color: var(--glow-bright);
+}
+
+.probe[data-state="error"]
+{
+    color: var(--alarm);
+}
+
+/* --------------------------------------------------------- conversations */
+
+/* A conversation row is a disclosure button, so it resets the button surface
+   back to the list-row look the links next to it already have. */
+.thread
+{
+    display: block;
+    inline-size: 100%;
+    padding: 0.875rem 1rem;
+    border: 1px solid oklch(100% 0 0 / 0.12);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.thread:hover,
+.thread:focus-visible
+{
+    border-color: var(--glow-bright);
+    background: oklch(100% 0 0 / 0.04);
+}
+
+.thread[aria-expanded="true"]
+{
+    border-color: var(--glow-bright);
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.thread__body
+{
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--glow-bright);
+    border-block-start: 0;
+    border-end-start-radius: var(--radius);
+    border-end-end-radius: var(--radius);
+}
+
+.bubble
+{
+    display: grid;
+    gap: 0.25rem;
+    justify-items: start;
+    margin: 0;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--radius);
+    background: oklch(100% 0 0 / 0.05);
+}
+
+.bubble__text
+{
+    font-size: 0.9375rem;
+    /* Inbound text is arbitrary: a long unbroken run must not widen the panel. */
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.bubble__time
+{
+    color: var(--ink-muted);
+    font-size: 0.75rem;
+}
+
+/* The bot row now stacks a url editor under its label and actions. */
+.list__url
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    inline-size: 100%;
+}
+
+.list__url .field__input
+{
+    flex: 1 1 14rem;
+    min-block-size: 2.5rem;
+    font-size: 0.875rem;
+}
+
+/* Which way messages reach this bot. */
+.badge
+{
+    margin-inline-start: 0.5rem;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid currentcolor;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.badge[data-mode="webhook"]
+{
+    color: var(--glow-bright);
+}
+
+.badge[data-mode="polling"]
+{
+    color: var(--ink-muted);
+}
+

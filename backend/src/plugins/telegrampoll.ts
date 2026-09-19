@@ -1,0 +1,217 @@
+import fastifyPlugin from 'fastify-plugin';
+
+import type { FastifyInstance } from 'fastify';
+
+import { TeamBot } from '../routes/team/team.entity.js';
+import { ingestUpdate } from '../routes/telegram/telegram.service.js';
+
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('telegram-poll');
+
+const TELEGRAM_API = 'https://api.telegram.org';
+
+/** Seconds Telegram holds an empty `getUpdates` open before answering. */
+const POLL_HOLD = 25;
+
+/** Client-side ceiling, comfortably past the server-side hold. */
+const POLL_TIMEOUT = (POLL_HOLD + 10) * 1000;
+
+/** How often the set of polling bots is re-read from the database. */
+const RESCAN_INTERVAL = 20_000;
+
+/** After a network blip. */
+const BACKOFF_ERROR = 5_000;
+
+/** After Telegram refuses the token; retried in case it is fixed in place. */
+const BACKOFF_REJECTED = 300_000;
+
+const sleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) =>
+{
+    const timer = setTimeout(resolve, ms);
+
+    signal.addEventListener('abort', () =>
+    {
+        clearTimeout(timer);
+
+        resolve();
+    }, { once: true });
+});
+
+interface TelegramReply
+{
+    ok?: boolean;
+    result?: unknown;
+}
+
+/**
+ * One Telegram API call. Errors are flattened to `undefined` rather than
+ * thrown: the url embeds the bot token, so an error object from here can carry
+ * the credential into a log line.
+ */
+async function call(token: string, method: string, body: unknown, signal: AbortSignal): Promise<{ status: number; payload: TelegramReply | undefined } | undefined>
+{
+    try
+    {
+        const response = await fetch(`${ TELEGRAM_API }/bot${ token }/${ method }`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: AbortSignal.any([ signal, AbortSignal.timeout(POLL_TIMEOUT) ]) });
+
+        return { status: response.status, payload: await response.json().catch(() => undefined) as TelegramReply | undefined };
+    }
+    catch
+    {
+        return undefined;
+    }
+}
+
+export default fastifyPlugin(async function(fastify: FastifyInstance)
+{
+    const running = new Map<number, AbortController>();
+
+    const supervisor = new AbortController();
+
+    /**
+     * Polls one bot until it is aborted, which happens when the bot switches to
+     * a webhook, is removed, or the server shuts down.
+     */
+    async function poll(botId: number, signal: AbortSignal)
+    {
+        // getUpdates and a webhook are mutually exclusive -- Telegram answers
+        // 409 while one is registered -- so drop it before the first pull.
+        await call((await fastify.db.getRepository(TeamBot).findOneBy({ id: botId }))?.token ?? '', 'deleteWebhook', { }, signal);
+
+        while (!signal.aborted)
+        {
+            const bot = await fastify.db.getRepository(TeamBot).findOneBy({ id: botId });
+
+            // Removed, or switched to webhook mode, since the last rescan.
+            if (!bot || bot.public_url !== '')
+            {
+                return;
+            }
+
+            const offset = Number(bot.poll_offset);
+
+            const answer = await call(bot.token, 'getUpdates', {
+                ...offset > 0 && { offset },
+                timeout: POLL_HOLD,
+                allowed_updates: [ 'message' ] }, signal);
+
+            if (signal.aborted)
+            {
+                return;
+            }
+
+            if (!answer)
+            {
+                await sleep(BACKOFF_ERROR, signal);
+
+                continue;
+            }
+
+            if (answer.payload?.ok !== true)
+            {
+                // 401/404 is a bad token, 409 a webhook that reappeared. Backing
+                // off hard keeps a misconfigured bot from hammering Telegram.
+                log.warn({ module: 'telegram', botId, status: answer.status }, 'poll refused');
+
+                await sleep(BACKOFF_REJECTED, signal);
+
+                continue;
+            }
+
+            const updates = Array.isArray(answer.payload.result) ? answer.payload.result : [ ];
+
+            let highest = offset > 0 ? offset - 1 : 0;
+
+            for (const update of updates)
+            {
+                await ingestUpdate(fastify, bot, update, log);
+
+                const updateId = Number((update as { update_id?: unknown }).update_id);
+
+                if (Number.isFinite(updateId) && updateId > highest)
+                {
+                    highest = updateId;
+                }
+            }
+
+            // Advance past the batch. Written after the updates are stored, so a
+            // crash mid-batch replays rather than loses -- and the replay is
+            // absorbed by the (bot_id, update_id) uniqueness in ingestUpdate.
+            if (updates.length > 0)
+            {
+                await fastify.db.getRepository(TeamBot).update({ id: botId }, { poll_offset: String(highest + 1) });
+            }
+        }
+    }
+
+    /** Starts a loop for every webhook-less bot and stops the rest. */
+    async function rescan()
+    {
+        const bots = await fastify.db.getRepository(TeamBot).findBy({ public_url: '' });
+
+        const wanted = new Set(bots.map((bot) => bot.id));
+
+        for (const [ botId, controller ] of running)
+        {
+            if (!wanted.has(botId))
+            {
+                controller.abort();
+                running.delete(botId);
+
+                log.info({ module: 'telegram', botId }, 'polling stopped');
+            }
+        }
+
+        for (const bot of bots)
+        {
+            if (running.has(bot.id))
+            {
+                continue;
+            }
+
+            const controller = new AbortController();
+
+            running.set(bot.id, controller);
+
+            log.info({ module: 'telegram', botId: bot.id, teamId: bot.team_id }, 'polling started');
+
+            // Deliberately not awaited: each bot's loop runs for the lifetime of
+            // the process. A throw here must not take the supervisor down.
+            void poll(bot.id, controller.signal)
+                .catch((error: unknown) => log.error({ module: 'telegram', botId: bot.id, err: error }, 'polling loop failed'))
+                .finally(() => running.delete(bot.id));
+        }
+    }
+
+    fastify.addHook('onReady', async() =>
+    {
+        void (async() =>
+        {
+            while (!supervisor.signal.aborted)
+            {
+                await rescan().catch((error: unknown) => log.error({ module: 'telegram', err: error }, 'polling rescan failed'));
+
+                await sleep(RESCAN_INTERVAL, supervisor.signal);
+            }
+        })();
+    });
+
+    fastify.addHook('onClose', async() =>
+    {
+        supervisor.abort();
+
+        for (const controller of running.values())
+        {
+            controller.abort();
+        }
+
+        running.clear();
+
+        log.info('polling stopped for shutdown');
+    });
+});

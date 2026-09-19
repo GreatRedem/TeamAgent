@@ -3,6 +3,8 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
 import { Button, ButtonLink } from '../components/Button';
+import { TeamBots } from '../components/TeamBots';
+import { TeamConversations } from '../components/TeamConversations';
 import { ApiError, teamDetails, teamUpdate, type Team as TeamRecord } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
@@ -124,50 +126,58 @@ export function Team()
 
             { team !== null && (
                 <>
-                    <dl className="details">
-                        <div className="details__row">
-                            <dt className="details__key">Created</dt>
-                            <dd className="details__value">{ new Date(team.created_at).toLocaleString() }</dd>
-                        </div>
+                    <section className="section">
+                        <h2 className="section__title">Settings</h2>
 
-                        <div className="details__row">
-                            <dt className="details__key">Updated</dt>
-                            <dd className="details__value">{ new Date(team.updated_at).toLocaleString() }</dd>
-                        </div>
-                    </dl>
+                        <dl className="details">
+                            <div className="details__row">
+                                <dt className="details__key">Created</dt>
+                                <dd className="details__value">{ new Date(team.created_at).toLocaleString() }</dd>
+                            </div>
 
-                    <form className="form" onSubmit={ save }>
-                        <label className="field">
-                            <span className="field__label">Name</span>
+                            <div className="details__row">
+                                <dt className="details__key">Updated</dt>
+                                <dd className="details__value">{ new Date(team.updated_at).toLocaleString() }</dd>
+                            </div>
+                        </dl>
 
-                            <input
-                                className="field__input"
-                                value={ name }
-                                onChange={ (event) => setName(event.target.value) }
-                                minLength={ 2 }
-                                maxLength={ 64 }
-                                required
-                            />
-                        </label>
+                        <form className="form" onSubmit={ save }>
+                            <label className="field">
+                                <span className="field__label">Name</span>
 
-                        <label className="field">
-                            <span className="field__label">Description</span>
+                                <input
+                                    className="field__input"
+                                    value={ name }
+                                    onChange={ (event) => setName(event.target.value) }
+                                    minLength={ 2 }
+                                    maxLength={ 64 }
+                                    required
+                                />
+                            </label>
 
-                            <input
-                                className="field__input"
-                                value={ description }
-                                onChange={ (event) => setDescription(event.target.value) }
-                                maxLength={ 280 }
-                                placeholder="Optional"
-                            />
-                        </label>
+                            <label className="field">
+                                <span className="field__label">Description</span>
 
-                        <Button type="submit" disabled={ busy } icon={ <Save size={ 18 } aria-hidden="true" /> }>
-                            { busy ? 'Saving...' : 'Save changes' }
-                        </Button>
-                    </form>
+                                <input
+                                    className="field__input"
+                                    value={ description }
+                                    onChange={ (event) => setDescription(event.target.value) }
+                                    maxLength={ 280 }
+                                    placeholder="Optional"
+                                />
+                            </label>
 
-                    { saved && <output className="status">Saved.</output> }
+                            <Button type="submit" disabled={ busy } icon={ <Save size={ 18 } aria-hidden="true" /> }>
+                                { busy ? 'Saving...' : 'Save changes' }
+                            </Button>
+                        </form>
+
+                        { saved && <output className="status">Saved.</output> }
+                    </section>
+
+                    <TeamBots teamId={ teamId } />
+
+                    <TeamConversations teamId={ teamId } />
                 </>
             ) }
         </section>

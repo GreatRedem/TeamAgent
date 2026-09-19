@@ -29,6 +29,13 @@ Deployment is a systemd unit driven by `scripts/*.sh`, exposed as `npm run servi
 
 **There is no test framework configured.** Don't invent a `npm test` invocation; verify changes with `tsc --noEmit`, `npm run build`, and `npm run lint`.
 
+The one exception is a plain self-check script, run directly and exiting non-zero on failure:
+
+```bash
+cd backend && npx tsx src/routes/team/team.service.test.ts       # Telegram probe, stubbed fetch, no network
+cd backend && npx tsx src/routes/telegram/telegram.service.test.ts   # webhook body parser
+```
+
 ## Formatting warning
 
 Tooling is oxlint + oxfmt, configured at the repo root (`.oxlintrc.json`, `.oxfmtrc.json`). The source is written in **Allman brace style** (`{` on its own line), which oxfmt — being Prettier-compatible — cannot express. `npm run format:check` currently reports 23 of 26 files as needing changes, and running `npm run format` will reformat nearly the whole codebase to K&R. A few files (`main.ts`, `tsconfig.json`) have already been converted, so the tree is mixed. Match the surrounding file's style; do not run `npm run format` casually.
@@ -113,6 +120,18 @@ Tokens are HMAC-signed JSON (`plugins/authentication.ts`), not JWTs. Lifetimes a
 
 `startSession()` writes an `AccountSession` row and sets a `refresh` cookie scoped to `/account/refresh` and `/account/sign-out` — **neither route exists**, so that path is currently write-only. The session row is what the access token's `sid` claim references.
 
+### Telegram ingestion is a webhook, not a poller
+
+Inbound messages arrive at `POST /telegram/webhook/:botId`, the one route with no `authGuard` — Telegram has no account here. What protects it is `team_bot.webhook_secret`, a 32-byte value generated when a bot is created and handed to Telegram via `setWebhook`'s `secret_token`; it comes back on every delivery in `X-Telegram-Bot-Api-Secret-Token`. An unknown bot id and a wrong secret produce the identical 401, so the endpoint cannot be used to enumerate bots. A bot whose secret is still blank rejects everything, which is why bots created before that column existed must be registered before they receive anything.
+
+The route deliberately carries **no `rateLimit`**. It is anonymous, so the limiter would otherwise apply, and a 429 makes Telegram redeliver the same update indefinitely. For the same reason it answers 200 to updates it understands but chooses not to store (group chats, other bots, messages with no text) — only a genuinely bad secret gets a non-2xx.
+
+Deliveries are deduplicated on `(bot_id, update_id)`, because Telegram redelivers until it sees a 2xx.
+
+Registration needs `NODE_PUBLIC_URL` (optional; unset just disables it) and is driven by `POST /team/:id/bot/:botId/webhook`. The url it registers includes the `/api` prefix that nginx strips, so the path Fastify registers does not have it.
+
+`telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
+
 ### Logging
 
 `utils/logger.ts` owns the single pino instance; `main.ts` passes it to Fastify as **`loggerInstance`** (v5 requires that for a prebuilt instance — the `logger` option only takes an options object). Because Fastify uses that same instance, `request.log` is a child of it carrying `reqId`.
@@ -135,4 +154,6 @@ Redaction is configured structurally on the instance (`redact` paths), not per c
 - `account_nonce` rows are written by an unauthenticated endpoint and never pruned.
 - The refresh-token flow has no endpoints (see above), so `@fastify/cookie` and `NODE_COOKIE` exist only for a cookie nothing reads.
 - `account_session.token` stores the refresh token in plaintext; a database compromise would hand over live sessions.
+- `POST /team/:id/bot/:botId/test` calls `api.telegram.org` on the caller's behalf. Because the rate limiter skips requests where `account_id !== 0`, no authenticated route is throttled, so a signed-in account can drive outbound requests at will. Fixing it means changing the plugin's skip rule, which affects every route.
+- `team_bot.token` stores BotFather credentials in plaintext, the same exposure. It never leaves the server — handlers return a `token_hint` and the response schema omits `token` entirely — so the risk is at rest, not in transit.
 - Request body schemas in `*.schema.ts` are inert, since `setValidatorCompiler` disables request validation. Only the `response` half is enforced.

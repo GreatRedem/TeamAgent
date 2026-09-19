@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
-import { teamCreate, teamDetails, teamList, teamUpdate } from './team.service.js';
+import { teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamCreate, teamDetails, teamList, teamUpdate } from './team.service.js';
 
 export default async function(fastify: FastifyInstance)
 {
@@ -8,4 +8,10 @@ export default async function(fastify: FastifyInstance)
     fastify.get('/team', teamList(fastify));
     fastify.get('/team/:id', teamDetails(fastify));
     fastify.patch('/team/:id', teamUpdate(fastify));
+
+    fastify.post('/team/:id/bot', teamBotCreate(fastify));
+    fastify.get('/team/:id/bot', teamBotList(fastify));
+    fastify.delete('/team/:id/bot/:botId', teamBotRemove(fastify));
+    fastify.patch('/team/:id/bot/:botId', teamBotUpdate(fastify));
+    fastify.post('/team/:id/bot/:botId/test', teamBotTest(fastify));
 }
