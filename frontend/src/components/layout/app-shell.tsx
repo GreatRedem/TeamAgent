@@ -33,7 +33,7 @@ export function AppShell() {
             <Stack
                 direction="Vertical"
                 as="main"
-                className={`${PAGE_WIDTH} min-w-0 gap-6 px-4 pb-16 sm:px-6 ${activeTeamId(pathname) === 0 ? 'pt-24' : 'pt-32'}`}>
+                className={`${PAGE_WIDTH} min-w-0 grow gap-6 bg-background/75 px-4 pb-16 sm:px-6 ${activeTeamId(pathname) === 0 ? 'pt-24' : 'pt-32'}`}>
                 <Outlet />
             </Stack>
         </Stack>

@@ -18,7 +18,7 @@ import {
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
-import { BLANK_MODEL, PROBE_TONE, PROVIDER_FALLBACK } from '@/libs/constant';
+import { BLANK_MODEL, MODEL_AUTO_FREE, PROBE_TONE, PROVIDER_FALLBACK } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -316,6 +316,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                 open={editing !== null}
                 mode="edit"
                 teamId={teamId}
+                modelId={editing ?? undefined}
                 draft={draft}
                 providers={providers}
                 catalog={catalog}
@@ -388,7 +389,11 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                 type="Data"
                                                 as="dd"
                                                 className="truncate"
-                                                message={item.model}
+                                                message={
+                                                    item.model === MODEL_AUTO_FREE
+                                                        ? 'Auto · free models'
+                                                        : item.model
+                                                }
                                             />
 
                                             <Text
@@ -421,7 +426,9 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                         ? 'outline'
                                                         : 'secondary'
                                                 }>
-                                                {item.context_tokens === 0 ? (
+                                                {item.model === MODEL_AUTO_FREE ? (
+                                                    'Window follows the model in use'
+                                                ) : item.context_tokens === 0 ? (
                                                     'Window not read yet'
                                                 ) : (
                                                     <>
@@ -452,11 +459,15 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             disabled={probe === 'testing'}
                                             onClick={() => void test(item.id)}
-                                            message={probe === 'testing' ? 'Testing…' : 'Test'}
+                                            message={
+                                                probe === 'testing'
+                                                    ? 'Testing…'
+                                                    : 'Network activity'
+                                            }
                                         />
 
                                         <Button
-                                            variant="ghost"
+                                            variant="outline"
                                             size="sm"
                                             onClick={() => openEdit(item)}
                                             message="Edit"

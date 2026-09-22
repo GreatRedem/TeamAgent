@@ -214,7 +214,7 @@ export function Projects() {
                         <DialogFooter>
                             <Button
                                 type="button"
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => setCreating(false)}
                                 message="Cancel"
                             />
@@ -274,7 +274,7 @@ export function Projects() {
                                 <CardContent>
                                     <Text
                                         type="BodyMuted"
-                                        className="line-clamp-2 min-h-10"
+                                        className="line-clamp-2 min-h-[2lh]"
                                         message={
                                             team.description === ''
                                                 ? 'No description yet.'

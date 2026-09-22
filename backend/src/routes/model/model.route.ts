@@ -4,6 +4,7 @@ import {
     modelCatalog,
     modelCreate,
     modelList,
+    modelListIds,
     modelProbe,
     modelRemove,
     modelTest,
@@ -20,4 +21,5 @@ export default async function (fastify: FastifyInstance) {
     fastify.post('/team/:id/model/:modelId/test', modelTest(fastify));
 
     fastify.post('/team/:id/model/probe', modelProbe(fastify));
+    fastify.post('/team/:id/model/list', modelListIds(fastify));
 }

@@ -7,7 +7,7 @@ import {
     PERMISSIONS,
     parsePermissions,
     serializePermissions,
-} from './telegram.permission.js';
+} from '../routes/telegram/telegram.permission.js';
 
 const tests: Array<[string, () => void]> = [
     [

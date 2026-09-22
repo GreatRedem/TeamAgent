@@ -120,12 +120,12 @@ export function Crystal({ yaw, orbits = true }: { yaw: number; orbits?: boolean 
             focusable="false">
             <defs>
                 <radialGradient id={`${id}-core`} cx="0.5" cy="0.45" r="0.55">
-                    <stop offset="0%" stopColor="var(--glow-bright)" stopOpacity="0.32" />
+                    <stop offset="0%" stopColor="var(--glow-bright)" stopOpacity="0.12" />
                     <stop offset="100%" stopColor="var(--glow)" stopOpacity="0" />
                 </radialGradient>
 
                 <filter id={`${id}-soft`} x="-60%" y="-60%" width="220%" height="220%">
-                    <feGaussianBlur stdDeviation="14" result="blur" />
+                    <feGaussianBlur stdDeviation="8" result="blur" />
                     <feMerge>
                         <feMergeNode in="blur" />
                         <feMergeNode in="SourceGraphic" />

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { readInboundMessage } from './telegram.service.js';
+import { readInboundMessage } from '../routes/telegram/telegram.service.js';
 
 const pm = (overrides: Record<string, unknown> = {}, from: Record<string, unknown> = {}) => ({
     update_id: 812490001,

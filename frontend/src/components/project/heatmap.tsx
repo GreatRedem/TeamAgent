@@ -1,6 +1,6 @@
 import type { HeatmapDay } from '@/apis';
 import { cn } from '@/libs/cn';
-import { HEAT_SCALE, WEEKDAYS } from '@/libs/constant';
+import { WEEKDAYS } from '@/libs/constant';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
@@ -36,71 +36,86 @@ function toWeeks(days: HeatmapDay[]): (HeatmapDay | null)[][] {
     return weeks;
 }
 
-function level(day: HeatmapDay, busiest: number): number {
-    if (day.total === 0) {
+function level(value: number, busiest: number): number {
+    if (value === 0) {
         return 0;
     }
 
-    return Math.min(4, Math.ceil((day.total / Math.max(1, busiest)) * 4));
+    return Math.min(4, Math.ceil((value / Math.max(1, busiest)) * 4));
 }
 
-export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number }) {
+// A calendar, one cell a day and one column a week, shaded by `count` on `scale` (five steps,
+// empty to busiest). The busiest day sets the top of the scale. The weeks share the width
+// between them; on a screen too narrow for that they scroll, starting at the latest week.
+export function Heatmap({
+    days,
+    count,
+    scale,
+    noun,
+}: {
+    days: HeatmapDay[];
+    count: (day: HeatmapDay) => number;
+    scale: string[];
+    noun: [one: string, many: string];
+}) {
     const weeks = toWeeks(days);
+    const busiest = Math.max(0, ...days.map(count));
 
     return (
         <Stack direction="Vertical" className="gap-3">
-            <Stack direction="Horizontal" className="items-start gap-2 overflow-x-auto pb-1">
-                <Stack direction="Vertical" className="shrink-0 gap-1" aria-hidden="true">
+            {/* Reversed, so an overflowing calendar opens scrolled to its latest week. */}
+            <Stack direction="Horizontal" className="flex-row-reverse overflow-x-auto pb-1">
+                <Stack
+                    direction="Vertical"
+                    className="grid grow grid-flow-col grid-rows-7 gap-1"
+                    style={{
+                        gridTemplateColumns: `auto repeat(${weeks.length}, minmax(0.625rem, 1fr))`,
+                    }}>
                     {WEEKDAYS.map((label, i) => (
                         <Text
                             type="Caption"
                             as="span"
-                            className="flex h-3 items-center"
+                            className="flex items-center pr-1"
+                            aria-hidden="true"
                             key={label}
                             message={i % 2 === 1 ? label : ''}
                         />
                     ))}
-                </Stack>
 
-                <Stack direction="Horizontal" className="gap-1">
-                    {weeks.map((week, w) => (
-                        <Stack
-                            direction="Vertical"
-                            className="gap-1"
-                            // biome-ignore lint/suspicious/noArrayIndexKey: a week column in a fixed calendar grid; the list is static and never reorders, so the index is its identity
-                            key={w}>
-                            {week.map((day, d) =>
-                                day === null ? (
-                                    <Stack
-                                        direction="Horizontal"
-                                        as="span"
-                                        className="size-3"
-                                        // biome-ignore lint/suspicious/noArrayIndexKey: a weekday slot in a fixed calendar grid; the list is static and never reorders, so the index is its identity
-                                        key={d}
-                                    />
-                                ) : (
-                                    <Stack
-                                        direction="Horizontal"
-                                        as="span"
-                                        className={cn(
-                                            'size-3 rounded-sm',
-                                            HEAT_SCALE[level(day, busiest)],
-                                            day.errors > 0 && 'ring-1 ring-destructive',
-                                        )}
-                                        // biome-ignore lint/suspicious/noArrayIndexKey: a weekday slot in a fixed calendar grid; the list is static and never reorders, so the index is its identity
-                                        key={d}
-                                        title={`${day.date}: ${day.total} action${day.total === 1 ? '' : 's'}${day.errors > 0 ? `, ${day.errors} failed` : ''}`}
-                                    />
-                                ),
-                            )}
-                        </Stack>
-                    ))}
+                    {weeks.flat().map((day, i) => {
+                        if (day === null) {
+                            return (
+                                <Stack
+                                    direction="Horizontal"
+                                    as="span"
+                                    className="aspect-square"
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: a weekday slot in a fixed calendar grid; the list is static and never reorders, so the index is its identity
+                                    key={i}
+                                />
+                            );
+                        }
+
+                        const value = count(day);
+
+                        return (
+                            <Stack
+                                direction="Horizontal"
+                                as="span"
+                                className={cn(
+                                    'aspect-square rounded-sm',
+                                    scale[level(value, busiest)],
+                                )}
+                                key={day.date}
+                                title={`${day.date}: ${value} ${value === 1 ? noun[0] : noun[1]}`}
+                            />
+                        );
+                    })}
                 </Stack>
             </Stack>
 
             <Stack direction="Horizontal" className="flex-wrap items-center gap-2">
-                <Text type="Caption" as="span" message="Quieter" />
-                {HEAT_SCALE.map((fill) => (
+                <Text type="Caption" as="span" message="Fewer" />
+                {scale.map((fill) => (
                     <Stack
                         direction="Horizontal"
                         as="span"
@@ -108,15 +123,7 @@ export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number
                         key={fill}
                     />
                 ))}
-                <Text type="Caption" as="span" message="Busier" />
-                <Stack direction="Horizontal" as="span" className="ml-3 items-center gap-1.5">
-                    <Stack
-                        direction="Horizontal"
-                        as="span"
-                        className="size-3 rounded-sm bg-scale-0 ring-1 ring-destructive"
-                    />
-                    <Text type="Caption" as="span" message="Had a failure" />
-                </Stack>
+                <Text type="Caption" as="span" message="More" />
             </Stack>
         </Stack>
     );

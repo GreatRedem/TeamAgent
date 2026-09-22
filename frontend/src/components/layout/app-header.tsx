@@ -114,7 +114,8 @@ export function AppHeader() {
                 className={cn(
                     'pointer-events-auto mx-auto w-full overflow-hidden rounded-xl border bg-card/95 shadow-float backdrop-blur-xl',
                     'transition-[max-width] duration-300 ease-out motion-reduce:transition-none',
-                    open ? 'max-w-5xl' : 'max-w-sm',
+                    // Expanded, the bar is 32px narrower than the page column under it.
+                    open ? 'max-w-[calc(var(--container-5xl)-2rem)]' : 'max-w-sm',
                 )}>
                 <Stack direction="Horizontal" className="h-14 items-center gap-2 px-3">
                     <Brand to="/dashboard" />
@@ -155,7 +156,7 @@ export function AppHeader() {
                                     end
                                     className={({ isActive }) =>
                                         cn(
-                                            'flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
+                                            'flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm leading-control no-underline transition-colors',
                                             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                                             isActive
                                                 ? 'bg-accent font-medium text-accent-foreground'

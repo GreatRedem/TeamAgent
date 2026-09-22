@@ -25,7 +25,7 @@ import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
 import { cn } from '@/libs/cn';
-import { PROBE_TONE } from '@/libs/constant';
+import { AGENT_TABS, type AgentTab, PROBE_TONE } from '@/libs/constant';
 import { teamPath } from '@/libs/navigation';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -37,6 +37,7 @@ import { Pressable } from '@/ui/pressable';
 import { Select, SelectItem } from '@/ui/select';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
+import { Tabs } from '@/ui/tabs';
 import { Text } from '@/ui/text';
 
 export function Agent() {
@@ -54,6 +55,7 @@ export function Agent() {
     const [documents, setDocuments] = useState<AgentDocument[]>([]);
     const [models, setModels] = useState<TeamModel[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [tab, setTab] = useState<AgentTab>(AGENT_TABS[0].value);
 
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -282,300 +284,326 @@ export function Agent() {
             )}
 
             {agent !== null && (
-                <Stack
-                    direction="Vertical"
-                    className="xl:items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid">
-                    <Stack direction="Vertical" className="gap-6">
-                        <Stack direction="Vertical" as="section" className="gap-4">
-                            <Stack
-                                direction="Horizontal"
-                                className="flex-wrap items-end justify-between gap-3">
-                                <Stack direction="Vertical" className="gap-1">
-                                    <Text type="Heading" message="Instructions" />
-                                    <Text
-                                        type="BodyMuted"
-                                        message="Markdown files that tell this agent how to behave."
-                                    />
-                                </Stack>
+                <Tabs
+                    label="Agent"
+                    tabs={AGENT_TABS}
+                    value={tab}
+                    onValueChange={setTab}
+                    panels={{
+                        settings: (
+                            <Stack direction="Vertical" className="gap-6">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Identity</CardTitle>
+                                        <CardDescription>
+                                            What this agent is called and which model answers for
+                                            it.
+                                        </CardDescription>
+                                    </CardHeader>
 
-                                <Stack
-                                    direction="Horizontal"
-                                    as="form"
-                                    className="items-end gap-2"
-                                    onSubmit={addDocument}>
-                                    <Field label="New file">
-                                        {(fieldId) => (
-                                            <Input
-                                                compact
-                                                id={fieldId}
-                                                className="font-mono"
-                                                value={newName}
-                                                onChange={(event) => setNewName(event.target.value)}
-                                                pattern="[a-z0-9._-]+\.md"
-                                                title="Lowercase name ending in .md"
-                                                required
-                                                placeholder="examples.md"
+                                    <CardContent>
+                                        <Stack
+                                            direction="Vertical"
+                                            as="form"
+                                            className="gap-5 lg:grid lg:grid-cols-3"
+                                            onSubmit={saveAgent}>
+                                            <Field label="Name">
+                                                {(fieldId) => (
+                                                    <Input
+                                                        id={fieldId}
+                                                        value={name}
+                                                        onChange={(event) => {
+                                                            setName(event.target.value);
+                                                            setSaved(false);
+                                                        }}
+                                                        minLength={2}
+                                                        maxLength={64}
+                                                        required
+                                                    />
+                                                )}
+                                            </Field>
+
+                                            <Field label="What it does" hint="Optional.">
+                                                {(fieldId) => (
+                                                    <Input
+                                                        id={fieldId}
+                                                        value={description}
+                                                        onChange={(event) => {
+                                                            setDescription(event.target.value);
+                                                            setSaved(false);
+                                                        }}
+                                                        maxLength={280}
+                                                    />
+                                                )}
+                                            </Field>
+
+                                            <Field label="Model">
+                                                {(fieldId) => (
+                                                    <Select
+                                                        value={modelId}
+                                                        onValueChange={(value) => {
+                                                            setModelId(value);
+                                                            setSaved(false);
+                                                        }}
+                                                        id={fieldId}
+                                                        placeholder="Pick a model">
+                                                        <SelectItem value="0">No model</SelectItem>
+                                                        {models.map((model) => (
+                                                            <SelectItem
+                                                                key={model.id}
+                                                                value={String(model.id)}>
+                                                                {model.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </Select>
+                                                )}
+                                            </Field>
+
+                                            <Stack
+                                                direction="Horizontal"
+                                                className="items-center gap-3 lg:col-span-3">
+                                                <Button
+                                                    type="submit"
+                                                    disabled={savingAgent}
+                                                    message={
+                                                        savingAgent ? 'Saving…' : 'Save changes'
+                                                    }
+                                                />
+
+                                                {saved && (
+                                                    <Text
+                                                        type="Body"
+                                                        as="output"
+                                                        className="text-primary"
+                                                        message="Saved."
+                                                    />
+                                                )}
+                                            </Stack>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+
+                                <Card gap={0} flush>
+                                    <CardHeader className="border-b py-5">
+                                        <CardTitle>Recent round-trips</CardTitle>
+                                        <CardDescription>
+                                            What this agent last sent to its model, and what came
+                                            back.
+                                        </CardDescription>
+                                    </CardHeader>
+
+                                    <CardContent padding="none">
+                                        {exchanges.length === 0 && (
+                                            <Text
+                                                type="BodyMuted"
+                                                className="px-5 py-5"
+                                                message="This agent has not answered anything yet."
                                             />
                                         )}
-                                    </Field>
 
-                                    <Button
-                                        type="submit"
-                                        variant="outline"
-                                        disabled={addingFile}
-                                        icon={<FilePlus />}
-                                        message="Add"
-                                    />
-                                </Stack>
+                                        <Stack
+                                            direction="Vertical"
+                                            as="ul"
+                                            className="m-0 list-none p-0">
+                                            {exchanges.map((exchange) => (
+                                                <Stack
+                                                    direction="Vertical"
+                                                    as="li"
+                                                    className="border-b last:border-b-0"
+                                                    key={exchange.id}>
+                                                    <Pressable
+                                                        className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                                                        aria-expanded={openExchange === exchange.id}
+                                                        onClick={() =>
+                                                            setOpenExchange((current) =>
+                                                                current === exchange.id
+                                                                    ? null
+                                                                    : exchange.id,
+                                                            )
+                                                        }>
+                                                        <Text
+                                                            type="DataMuted"
+                                                            as="time"
+                                                            className="shrink-0"
+                                                            dateTime={exchange.created_at}
+                                                            message={new Date(
+                                                                exchange.created_at,
+                                                            ).toLocaleTimeString(undefined, {
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                            })}
+                                                        />
+
+                                                        <Text
+                                                            type="Body"
+                                                            as="span"
+                                                            className="min-w-0 grow truncate"
+                                                            message={`Round ${exchange.round}, ${exchange.tool_calls} tool call${exchange.tool_calls === 1 ? '' : 's'}`}
+                                                        />
+
+                                                        <Text
+                                                            type="DataMuted"
+                                                            as="span"
+                                                            className="shrink-0"
+                                                            message={`${exchange.duration_ms.toLocaleString()} ms`}
+                                                        />
+
+                                                        <Text
+                                                            type="BodyStrong"
+                                                            as="span"
+                                                            className={cn(
+                                                                'shrink-0',
+                                                                PROBE_TONE[
+                                                                    exchange.outcome === 'ok'
+                                                                        ? 'ok'
+                                                                        : 'error'
+                                                                ],
+                                                            )}
+                                                            message={`${exchange.outcome === 'ok' ? 'OK' : 'Failed'}${exchange.reason === '' ? '' : ` · ${exchange.reason}`}`}
+                                                        />
+                                                    </Pressable>
+
+                                                    {openExchange === exchange.id && (
+                                                        <Stack
+                                                            direction="Vertical"
+                                                            className="gap-3 bg-muted/30 px-5 py-4">
+                                                            <Stack
+                                                                direction="Vertical"
+                                                                className="gap-1.5">
+                                                                <Text
+                                                                    type="BodyMuted"
+                                                                    message="Sent"
+                                                                />
+                                                                <CodeBlock
+                                                                    className="max-h-64"
+                                                                    message={exchange.request}
+                                                                />
+                                                            </Stack>
+
+                                                            <Stack
+                                                                direction="Vertical"
+                                                                className="gap-1.5">
+                                                                <Text
+                                                                    type="BodyMuted"
+                                                                    message="Came back"
+                                                                />
+                                                                <CodeBlock
+                                                                    className="max-h-64"
+                                                                    message={exchange.response}
+                                                                />
+                                                            </Stack>
+                                                        </Stack>
+                                                    )}
+                                                </Stack>
+                                            ))}
+                                        </Stack>
+                                    </CardContent>
+
+                                    {exchangePage !== null && exchanges.length > 0 && (
+                                        <CardFooter className="border-t py-4">
+                                            <Pager
+                                                page={exchangePage}
+                                                shown={exchanges.length}
+                                                busy={paging}
+                                                noun="round-trips"
+                                                onPage={(offset) => void goToExchanges(offset)}
+                                            />
+                                        </CardFooter>
+                                    )}
+                                </Card>
                             </Stack>
+                        ),
 
-                            {documents.length === 0 && (
-                                <EmptyState
-                                    icon={FileText}
-                                    title="No instructions yet"
-                                    description="Create instructions.md to tell this agent who it is and how to answer."
-                                />
-                            )}
+                        capabilities: (
+                            <PermissionsPanel
+                                title="Capabilities"
+                                description="What this agent may do through the internal tools. Everything is off until you grant it."
+                                catalog={capabilities}
+                                granted={agent.permissions}
+                                saving={savingCapability}
+                                error={null}
+                                onToggle={(key) => void toggleCapability(key)}
+                            />
+                        ),
 
-                            {documents.map((document) => (
-                                <DocumentEditor
-                                    key={document.id}
-                                    teamId={teamId}
-                                    agentId={thisAgent}
-                                    document={document}
-                                    onSaved={(saved_) =>
-                                        setDocuments((current) =>
-                                            current.map((item) =>
-                                                item.id === saved_.id ? saved_ : item,
-                                            ),
-                                        )
-                                    }
-                                    onRemoved={(removedId) =>
-                                        setDocuments((current) =>
-                                            current.filter((item) => item.id !== removedId),
-                                        )
-                                    }
-                                />
-                            ))}
-                        </Stack>
+                        files: (
+                            <Stack direction="Vertical" as="section" className="gap-4">
+                                <Stack
+                                    direction="Horizontal"
+                                    className="flex-wrap items-end justify-between gap-3">
+                                    <Stack direction="Vertical" className="gap-1">
+                                        <Text type="Heading" message="Instructions" />
+                                        <Text
+                                            type="BodyMuted"
+                                            message="Markdown files that tell this agent how to behave."
+                                        />
+                                    </Stack>
 
-                        <Card gap={0} flush>
-                            <CardHeader className="border-b py-5">
-                                <CardTitle>Recent round-trips</CardTitle>
-                                <CardDescription>
-                                    What this agent last sent to its model, and what came back.
-                                </CardDescription>
-                            </CardHeader>
+                                    <Stack
+                                        direction="Horizontal"
+                                        as="form"
+                                        className="items-end gap-2"
+                                        onSubmit={addDocument}>
+                                        <Field label="New file">
+                                            {(fieldId) => (
+                                                <Input
+                                                    compact
+                                                    id={fieldId}
+                                                    className="font-mono"
+                                                    value={newName}
+                                                    onChange={(event) =>
+                                                        setNewName(event.target.value)
+                                                    }
+                                                    pattern="[a-z0-9._-]+\.md"
+                                                    title="Lowercase name ending in .md"
+                                                    required
+                                                    placeholder="examples.md"
+                                                />
+                                            )}
+                                        </Field>
 
-                            <CardContent padding="none">
-                                {exchanges.length === 0 && (
-                                    <Text
-                                        type="BodyMuted"
-                                        className="px-5 py-5"
-                                        message="This agent has not answered anything yet."
+                                        <Button
+                                            type="submit"
+                                            variant="outline"
+                                            disabled={addingFile}
+                                            icon={<FilePlus />}
+                                            message="Add"
+                                        />
+                                    </Stack>
+                                </Stack>
+
+                                {documents.length === 0 && (
+                                    <EmptyState
+                                        icon={FileText}
+                                        title="No instructions yet"
+                                        description="Create instructions.md to tell this agent who it is and how to answer."
                                     />
                                 )}
 
-                                <Stack direction="Vertical" as="ul" className="m-0 list-none p-0">
-                                    {exchanges.map((exchange) => (
-                                        <Stack
-                                            direction="Vertical"
-                                            as="li"
-                                            className="border-b last:border-b-0"
-                                            key={exchange.id}>
-                                            <Pressable
-                                                className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                                                aria-expanded={openExchange === exchange.id}
-                                                onClick={() =>
-                                                    setOpenExchange((current) =>
-                                                        current === exchange.id
-                                                            ? null
-                                                            : exchange.id,
-                                                    )
-                                                }>
-                                                <Text
-                                                    type="DataMuted"
-                                                    as="time"
-                                                    className="shrink-0"
-                                                    dateTime={exchange.created_at}
-                                                    message={new Date(
-                                                        exchange.created_at,
-                                                    ).toLocaleTimeString(undefined, {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                    })}
-                                                />
-
-                                                <Text
-                                                    type="Body"
-                                                    as="span"
-                                                    className="min-w-0 grow truncate"
-                                                    message={`Round ${exchange.round}, ${exchange.tool_calls} tool call${exchange.tool_calls === 1 ? '' : 's'}`}
-                                                />
-
-                                                <Text
-                                                    type="DataMuted"
-                                                    as="span"
-                                                    className="shrink-0"
-                                                    message={`${exchange.duration_ms.toLocaleString()} ms`}
-                                                />
-
-                                                <Text
-                                                    type="BodyStrong"
-                                                    as="span"
-                                                    className={cn(
-                                                        'shrink-0',
-                                                        PROBE_TONE[
-                                                            exchange.outcome === 'ok'
-                                                                ? 'ok'
-                                                                : 'error'
-                                                        ],
-                                                    )}
-                                                    message={`${exchange.outcome === 'ok' ? 'OK' : 'Failed'}${exchange.reason === '' ? '' : ` · ${exchange.reason}`}`}
-                                                />
-                                            </Pressable>
-
-                                            {openExchange === exchange.id && (
-                                                <Stack
-                                                    direction="Vertical"
-                                                    className="gap-3 bg-muted/30 px-5 py-4">
-                                                    <Stack direction="Vertical" className="gap-1.5">
-                                                        <Text type="BodyMuted" message="Sent" />
-                                                        <CodeBlock
-                                                            className="max-h-64"
-                                                            message={exchange.request}
-                                                        />
-                                                    </Stack>
-
-                                                    <Stack direction="Vertical" className="gap-1.5">
-                                                        <Text
-                                                            type="BodyMuted"
-                                                            message="Came back"
-                                                        />
-                                                        <CodeBlock
-                                                            className="max-h-64"
-                                                            message={exchange.response}
-                                                        />
-                                                    </Stack>
-                                                </Stack>
-                                            )}
-                                        </Stack>
-                                    ))}
-                                </Stack>
-                            </CardContent>
-
-                            {exchangePage !== null && exchanges.length > 0 && (
-                                <CardFooter className="border-t py-4">
-                                    <Pager
-                                        page={exchangePage}
-                                        shown={exchanges.length}
-                                        busy={paging}
-                                        noun="round-trips"
-                                        onPage={(offset) => void goToExchanges(offset)}
+                                {documents.map((document) => (
+                                    <DocumentEditor
+                                        key={document.id}
+                                        teamId={teamId}
+                                        agentId={thisAgent}
+                                        document={document}
+                                        onSaved={(saved_) =>
+                                            setDocuments((current) =>
+                                                current.map((item) =>
+                                                    item.id === saved_.id ? saved_ : item,
+                                                ),
+                                            )
+                                        }
+                                        onRemoved={(removedId) =>
+                                            setDocuments((current) =>
+                                                current.filter((item) => item.id !== removedId),
+                                            )
+                                        }
                                     />
-                                </CardFooter>
-                            )}
-                        </Card>
-                    </Stack>
-
-                    <Stack direction="Vertical" className="gap-6 xl:sticky xl:top-32">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Identity</CardTitle>
-                                <CardDescription>
-                                    What this agent is called and which model answers for it.
-                                </CardDescription>
-                            </CardHeader>
-
-                            <CardContent>
-                                <Stack
-                                    direction="Vertical"
-                                    as="form"
-                                    className="gap-5"
-                                    onSubmit={saveAgent}>
-                                    <Field label="Name">
-                                        {(fieldId) => (
-                                            <Input
-                                                id={fieldId}
-                                                value={name}
-                                                onChange={(event) => {
-                                                    setName(event.target.value);
-                                                    setSaved(false);
-                                                }}
-                                                minLength={2}
-                                                maxLength={64}
-                                                required
-                                            />
-                                        )}
-                                    </Field>
-
-                                    <Field label="What it does" hint="Optional.">
-                                        {(fieldId) => (
-                                            <Input
-                                                id={fieldId}
-                                                value={description}
-                                                onChange={(event) => {
-                                                    setDescription(event.target.value);
-                                                    setSaved(false);
-                                                }}
-                                                maxLength={280}
-                                            />
-                                        )}
-                                    </Field>
-
-                                    <Field label="Model">
-                                        {(fieldId) => (
-                                            <Select
-                                                value={modelId}
-                                                onValueChange={(value) => {
-                                                    setModelId(value);
-                                                    setSaved(false);
-                                                }}
-                                                id={fieldId}
-                                                placeholder="Pick a model">
-                                                <SelectItem value="0">No model</SelectItem>
-                                                {models.map((model) => (
-                                                    <SelectItem
-                                                        key={model.id}
-                                                        value={String(model.id)}>
-                                                        {model.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </Select>
-                                        )}
-                                    </Field>
-
-                                    <Stack direction="Horizontal" className="items-center gap-3">
-                                        <Button
-                                            type="submit"
-                                            disabled={savingAgent}
-                                            message={savingAgent ? 'Saving…' : 'Save changes'}
-                                        />
-
-                                        {saved && (
-                                            <Text
-                                                type="Body"
-                                                as="output"
-                                                className="text-primary"
-                                                message="Saved."
-                                            />
-                                        )}
-                                    </Stack>
-                                </Stack>
-                            </CardContent>
-                        </Card>
-
-                        <PermissionsPanel
-                            title="Capabilities"
-                            description="What this agent may do through the internal tools. Everything is off until you grant it."
-                            catalog={capabilities}
-                            granted={agent.permissions}
-                            saving={savingCapability}
-                            error={null}
-                            onToggle={(key) => void toggleCapability(key)}
-                        />
-                    </Stack>
-                </Stack>
+                                ))}
+                            </Stack>
+                        ),
+                    }}
+                />
             )}
         </>
     );

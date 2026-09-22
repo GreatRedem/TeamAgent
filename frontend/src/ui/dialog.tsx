@@ -167,7 +167,7 @@ function DialogContent({
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="absolute top-3 right-3 text-muted-foreground"
+                        className="absolute top-3 right-3"
                         aria-label="Close"
                         icon={<XIcon />}
                     />
@@ -225,7 +225,7 @@ function DialogTitle({ className, children, ...props }: React.ComponentProps<'h2
         <h2
             id={titleId}
             data-slot="dialog-title"
-            className={cn('text-lg font-semibold', className)}
+            className={cn('text-lg font-semibold leading-heading', className)}
             {...props}>
             {children}
         </h2>
@@ -239,7 +239,7 @@ function DialogDescription({ className, ...props }: React.ComponentProps<'p'>) {
         <p
             id={descriptionId}
             data-slot="dialog-description"
-            className={cn('text-sm text-muted-foreground', className)}
+            className={cn('text-sm leading-body text-muted-foreground', className)}
             {...props}
         />
     );

@@ -19,6 +19,7 @@ Do not restate UI rules here. One rulebook, one design system.
 ```
 backend/src/routes/<area>/   entity, schema, service, route per area
 backend/src/plugins/         auth, rate limit, typeorm, telegram polling
+backend/src/tests/           self-checks, one standalone script each
 frontend/src/apis/           one module per backend area, re-exported from index
 frontend/src/ui/             shadcn primitives plus this project's own
 frontend/src/components/     layout, project panels, agent, scene
@@ -42,10 +43,10 @@ npm run format:check     Biome format and import order, no writes
 
 Backend types are checked by `npm run build:api`, not by `npm run typecheck`.
 
-Backend self-checks are standalone scripts, one per area:
+Backend self-checks are standalone scripts in `backend/src/tests`, one file each:
 
 ```
-npx tsx --tsconfig backend/tsconfig.json backend/src/routes/<area>/<name>.test.ts
+npx tsx --tsconfig backend/tsconfig.json backend/src/tests/<name>.test.ts
 ```
 
 ## Tooling notes
@@ -80,9 +81,11 @@ npx tsx --tsconfig backend/tsconfig.json backend/src/routes/<area>/<name>.test.t
   were removed on purpose; do not bring them back.
 - **No raw HTML outside `src/ui`.** Pages and features compose components from
   `@/ui` (`Text`, `Stack`, `Button`, `Pressable`, …). A missing primitive is
-  added to `src/ui`. `lint/no-raw-html.grit` makes `npm run lint` fail on raw
-  HTML, SVG, `createElement` or `dangerouslySetInnerHTML` anywhere else.
-  `AGENTS.md` section 2 has the rule.
+  added to `src/ui`. No raw HTML, SVG, `createElement` or `dangerouslySetInnerHTML`
+  anywhere else. `AGENTS.md` section 2 has the rule.
+- **Line height is one of four roles** (`leading-display`, `-heading`, `-control`,
+  `-body`), defined in `styles/index.css`. Use no other.
+  `AGENTS.md` Typography has the table.
 - **`cn` joins, it does not merge.** A `className` that fights a primitive's own
   class (`gap-0` on a Card) loses to it. Add a prop or variant to the primitive
   instead.

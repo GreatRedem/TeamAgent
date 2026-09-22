@@ -1,14 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
     ApiError,
     type CatalogModel,
+    isOpenRouterUrl,
+    modelListIds,
     modelProbe,
     type ProviderPreset,
     type TeamModelProbe,
 } from '@/apis';
 import { Field } from '@/components/field';
-import { PROBE_TONE } from '@/libs/constant';
+import { MODEL_AUTO_FREE, MODEL_LIST_DELAY, PROBE_TONE } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import {
@@ -23,6 +25,7 @@ import { Input } from '@/ui/input';
 import { Select, SelectItem } from '@/ui/select';
 import { Stack } from '@/ui/stack';
 import { Suggestions } from '@/ui/suggestions';
+import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
 
 export interface ModelDraft {
@@ -41,7 +44,7 @@ function probeState(probe: TeamModelProbe | 'testing'): string {
     return probe.ok ? 'ok' : 'error';
 }
 
-function probeLabel(probe: TeamModelProbe | 'testing'): string {
+function probeLabel(probe: TeamModelProbe | 'testing', autoFree: boolean): string {
     if (probe === 'testing') {
         return 'Asking the endpoint…';
     }
@@ -50,8 +53,13 @@ function probeLabel(probe: TeamModelProbe | 'testing'): string {
         return probe.reason ?? 'The endpoint did not answer.';
     }
 
-    const found =
-        probe.found === true ? 'your model is available' : 'your model is not in its listing';
+    const found = autoFree
+        ? probe.found === true
+            ? 'free models are available to switch between'
+            : 'no free model is available right now'
+        : probe.found === true
+          ? 'your model is available'
+          : 'your model is not in its listing';
     const context =
         (probe.context ?? 0) > 0 ? `, ${probe.context?.toLocaleString()} token window` : '';
 
@@ -62,6 +70,7 @@ export function ModelDialog({
     open,
     mode,
     teamId,
+    modelId,
     draft,
     providers,
     catalog,
@@ -75,6 +84,8 @@ export function ModelDialog({
     open: boolean;
     mode: 'create' | 'edit';
     teamId: number;
+    // The model being edited, so its stored key can list the endpoint's models.
+    modelId?: number;
     draft: ModelDraft;
     providers: ProviderPreset[];
     catalog: CatalogModel[];
@@ -87,19 +98,87 @@ export function ModelDialog({
 }) {
     const [provider, setProvider] = useState('');
     const [discovered, setDiscovered] = useState<string[]>([]);
+    const [listing, setListing] = useState<
+        'loading' | { count: number } | { reason: string } | null
+    >(null);
     const [probe, setProbe] = useState<TeamModelProbe | 'testing' | null>(null);
 
     const preset = providers.find((candidate) => candidate.key === provider) ?? providers[0];
     const usesCatalog = mode === 'create' && preset?.catalog === true;
     const url = usesCatalog ? catalogUrl : draft.baseUrl.trim();
+    const apiKey = draft.apiKey.trim();
+
+    // OpenRouter's catalog names every model with its price, so it is offered instead of a
+    // plain listing, and it is the only endpoint auto-free can pick from.
+    const openRouter = usesCatalog || isOpenRouterUrl(url);
+    const autoFree = draft.model === MODEL_AUTO_FREE;
 
     const suggestions =
         discovered.length > 0 ? discovered : (preset?.models ?? []).map((entry) => entry.id);
-    const listId =
-        mode === 'create' && usesCatalog
-            ? 'catalog-models'
-            : suggestions.length > 0
-              ? 'endpoint-models'
+    const listId = openRouter
+        ? 'catalog-models'
+        : suggestions.length > 0
+          ? 'endpoint-models'
+          : undefined;
+
+    // Lists the endpoint's models as soon as there is an address to ask, and again once the
+    // address or key settles after a change, so the Model field offers them without a test.
+    // Editing passes the model's id, so a blank key lists with the stored one.
+    useEffect(() => {
+        if (!open || url === '' || openRouter) {
+            setListing(null);
+
+            return;
+        }
+
+        let active = true;
+
+        setListing('loading');
+
+        const timer = setTimeout(() => {
+            modelListIds(teamId, url, apiKey, mode === 'edit' ? modelId : undefined)
+                .then((result) => {
+                    if (!active) {
+                        return;
+                    }
+
+                    setDiscovered(result.ids);
+                    setListing(
+                        result.ok
+                            ? { count: result.ids.length }
+                            : { reason: result.reason ?? 'The endpoint did not list its models.' },
+                    );
+                })
+                .catch((cause: unknown) => {
+                    if (!active) {
+                        return;
+                    }
+
+                    setDiscovered([]);
+                    setListing({
+                        reason:
+                            cause instanceof ApiError
+                                ? cause.result
+                                : 'The endpoint did not list its models.',
+                    });
+                });
+        }, MODEL_LIST_DELAY);
+
+        return () => {
+            active = false;
+
+            clearTimeout(timer);
+        };
+    }, [open, url, apiKey, openRouter, teamId, mode, modelId]);
+
+    const modelHint = openRouter
+        ? 'Every model in the OpenRouter catalog, with its price. Type to search.'
+        : listing === 'loading'
+          ? 'Asking the endpoint for its models…'
+          : listing !== null && 'count' in listing
+            ? `${listing.count.toLocaleString()} model${listing.count === 1 ? '' : 's'} offered. Pick one, or type an id.`
+            : listing !== null
+              ? listing.reason
               : undefined;
 
     const chooseModel = useCallback(
@@ -118,27 +197,23 @@ export function ModelDialog({
         [catalog, preset, draft, onChange],
     );
 
+    // Switching provider points the form at its address; the listing effect above then asks it
+    // for its models. Auto-free only exists on OpenRouter, so leaving it clears that choice.
     const chooseProvider = useCallback(
-        async (key: string) => {
+        (key: string) => {
             const next = providers.find((candidate) => candidate.key === key);
 
             setProvider(key);
             setDiscovered([]);
             setProbe(null);
 
-            onChange({ ...draft, baseUrl: next?.url ?? '' });
-
-            if (next !== undefined && next.url !== '' && !next.catalog) {
-                try {
-                    setDiscovered(
-                        (await modelProbe(teamId, next.url, draft.apiKey.trim(), '')).ids ?? [],
-                    );
-                } catch {
-                    setDiscovered([]);
-                }
-            }
+            onChange({
+                ...draft,
+                baseUrl: next?.url ?? '',
+                model: next?.catalog !== true && draft.model === MODEL_AUTO_FREE ? '' : draft.model,
+            });
         },
-        [providers, draft, onChange, teamId],
+        [providers, draft, onChange],
     );
 
     const test = useCallback(async () => {
@@ -149,7 +224,13 @@ export function ModelDialog({
         setProbe('testing');
 
         try {
-            const result = await modelProbe(teamId, url, draft.apiKey.trim(), draft.model.trim());
+            const result = await modelProbe(
+                teamId,
+                url,
+                apiKey,
+                draft.model.trim(),
+                mode === 'edit' ? modelId : undefined,
+            );
 
             setProbe(result);
             setDiscovered(result.ids ?? []);
@@ -163,7 +244,7 @@ export function ModelDialog({
                 reason: cause instanceof ApiError ? cause.result : 'The endpoint did not answer.',
             });
         }
-    }, [teamId, url, draft, onChange]);
+    }, [teamId, url, apiKey, draft, onChange, mode, modelId]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -240,20 +321,42 @@ export function ModelDialog({
                         )}
                     </Field>
 
-                    <Field label="Model">
-                        {(id) => (
-                            <Input
-                                id={id}
-                                value={draft.model}
-                                onChange={(event) => chooseModel(event.target.value)}
-                                maxLength={128}
-                                required
-                                list={listId}
-                                className="font-mono"
-                                placeholder="anthropic/claude-sonnet-4.5"
-                            />
-                        )}
-                    </Field>
+                    {openRouter && (
+                        <Field
+                            label="Auto-free"
+                            hint="Picks a free OpenRouter model for each reply, tool-capable first, and moves to the next one when a model is rate limited, down or gone.">
+                            {(id) => (
+                                <Switch
+                                    id={id}
+                                    checked={autoFree}
+                                    onCheckedChange={(on) =>
+                                        onChange({
+                                            ...draft,
+                                            model: on ? MODEL_AUTO_FREE : '',
+                                            contextTokens: on ? '' : draft.contextTokens,
+                                        })
+                                    }
+                                />
+                            )}
+                        </Field>
+                    )}
+
+                    {!autoFree && (
+                        <Field label="Model" hint={modelHint}>
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    value={draft.model}
+                                    onChange={(event) => chooseModel(event.target.value)}
+                                    maxLength={128}
+                                    required
+                                    list={listId}
+                                    className="font-mono"
+                                    placeholder="anthropic/claude-sonnet-4.5"
+                                />
+                            )}
+                        </Field>
+                    )}
 
                     {!usesCatalog && (
                         <Field label="Endpoint URL">
@@ -274,23 +377,25 @@ export function ModelDialog({
                         </Field>
                     )}
 
-                    <Field
-                        label="Context window"
-                        hint="Read from the provider when you test or save. Fill it in only for an endpoint that does not publish its own.">
-                        {(id) => (
-                            <Input
-                                id={id}
-                                type="number"
-                                min={0}
-                                value={draft.contextTokens}
-                                onChange={(event) =>
-                                    onChange({ ...draft, contextTokens: event.target.value })
-                                }
-                                className="font-mono"
-                                placeholder="Detected automatically"
-                            />
-                        )}
-                    </Field>
+                    {!autoFree && (
+                        <Field
+                            label="Context window"
+                            hint="Read from the provider when you test or save. Fill it in only for an endpoint that does not publish its own.">
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    type="number"
+                                    min={0}
+                                    value={draft.contextTokens}
+                                    onChange={(event) =>
+                                        onChange({ ...draft, contextTokens: event.target.value })
+                                    }
+                                    className="font-mono"
+                                    placeholder="Detected automatically"
+                                />
+                            )}
+                        </Field>
+                    )}
 
                     <Field
                         label={mode === 'edit' ? 'Replacement key' : 'API key'}
@@ -323,7 +428,7 @@ export function ModelDialog({
                             type="Body"
                             as="output"
                             className={PROBE_TONE[probeState(probe)]}
-                            message={probeLabel(probe)}
+                            message={probeLabel(probe, autoFree)}
                         />
                     )}
 
@@ -345,7 +450,7 @@ export function ModelDialog({
                         <Stack direction="Horizontal" className="gap-2">
                             <Button
                                 type="button"
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => onOpenChange(false)}
                                 message="Cancel"
                             />

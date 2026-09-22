@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
-import { readCompletion, readToolCalls } from './agent.reply.js';
-import { createAssembler, isOpenRouter } from './agent.transport.js';
+import { readCompletion, readToolCalls } from '../routes/agent/agent.reply.js';
+import { createAssembler, isOpenRouter } from '../routes/agent/agent.transport.js';
 
 const tests: Array<[string, () => void]> = [
     [

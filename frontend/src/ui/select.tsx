@@ -29,7 +29,7 @@ function Select({
                     onChange?.(event);
                     onValueChange?.(event.target.value);
                 }}
-                className="h-9 w-full appearance-none rounded-md border border-input bg-transparent py-2 pr-8 pl-3 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[size=sm]:h-8 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:ring-destructive/40 [&:has(option[value='']:checked)]:text-muted-foreground [&>option]:bg-popover [&>option]:text-popover-foreground"
+                className="h-9 w-full appearance-none rounded-md border border-input bg-transparent py-2 pr-8 pl-3 text-sm leading-control whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[size=sm]:h-8 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:ring-destructive/40 [&:has(option[value='']:checked)]:text-muted-foreground [&>option]:bg-popover [&>option]:text-popover-foreground"
                 {...props}>
                 {placeholder !== undefined && (
                     <option value="" disabled hidden>

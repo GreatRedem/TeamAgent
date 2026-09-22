@@ -384,7 +384,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                         <DialogFooter>
                             <Button
                                 type="button"
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => setCreating(false)}
                                 message="Cancel"
                             />

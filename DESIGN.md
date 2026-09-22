@@ -102,12 +102,27 @@ The scale is Tailwind's, plus three named steps. Nothing outside it.
 | Caption                     | `text-xs`                    | 12px |
 | Meta, chips, machine values | `text-2xs`                   | 11px |
 
-**Line height is one rule everywhere:** `calc(1em + 0.25rem)`, set once on `*` in
-`styles/index.css`. Every size gets the same 4px of lead, so large text sits tight
-and small text stays readable: 11px → 15px, 14px → 18px, 26px → 30px. The scale
-steps are font sizes only (`--text-*: initial` clears Tailwind's own, each with its
-line height), so no size utility changes it, and no component overrides it. There are no `leading-*` utilities in
-this codebase; if one appears, it is a bug.
+**Line height is chosen by role.** The type scale steps are font sizes only
+(`--text-*: initial` clears Tailwind's own, each with its line height). Line height
+is a separate token, one of four, defined in `styles/index.css` (`--leading-*: initial`
+clears Tailwind's named steps, so these are the only ones):
+
+| Role    | Class             | Value | Used for                                                                                                  |
+| ------- | ----------------- | ----- | --------------------------------------------------------------------------------------------------------- |
+| Display | `leading-display` | 1.2   | page titles, stat figures                                                                                 |
+| Heading | `leading-heading` | 1.3   | card, dialog, section, list-item and empty-state titles, legends                                          |
+| Control | `leading-control` | 1.25  | one line in a fixed-height box: buttons, badges, labels, inputs, selects, menu items, nav tabs, table cells |
+| Body    | `leading-body`    | 1.5   | anything that reads or wraps: paragraphs, descriptions, helper and error text, captions, data values, text areas, code blocks; the page default |
+
+Large, short text sits tight; text that reads or wraps gets room. A control's box has
+a fixed height, so its line height only has to hold one line without clipping. Body
+is the page default, set on `body`; `Text` types and `src/ui` primitives set the
+rest. No other line height is used.
+
+Vazirmatn's vertical metrics (ascent 1.03em, descent 0.54em) are sized for Arabic and
+sat Latin text 0.11em high in every line box. The Latin `@font-face` subsets override
+them to 0.95em and 0.25em, which fits Latin ink including accents and descenders and
+centres capitals in buttons, badges and inputs. The Arabic subset keeps its own.
 
 Hierarchy comes from weight, spacing and position. Never from size alone, and
 never from an uppercase tracked-out label above a heading. Prose is capped near
@@ -153,7 +168,7 @@ instance.
 | Header nav row          | 48px   |
 | Capability row          | 56px   |
 | Status dot              | 6px    |
-| Heatmap cell            | 12px   |
+| Heatmap cell            | fills the week column, 10px minimum |
 
 ---
 
@@ -163,11 +178,12 @@ shadcn primitives in `src/ui`: `button`, `input`, `label`, `textarea`,
 `select`, `card`, `dialog`, `dropdown-menu`, `badge`, `separator`, `skeleton`,
 `table`, `switch`, `alert`, plus this project's `text` and `stack`, which carry
 all copy and every layout box, and `pressable`, `code-block`, `image`,
-`suggestions`, `data-value`, `brand`, `status-dot` and the `scene` background.
+`suggestions`, `data-value`, `brand`, `status-dot`, `tabs` and the `scene` background.
 Nothing outside `src/ui` writes raw HTML or SVG; `AGENTS.md` section 2 has the
-rule and lint enforces it. They sit on native elements: `dialog` is a
+rule. They sit on native elements: `dialog` is a
 `<dialog>`, `dropdown-menu` a popover placed by CSS anchor positioning, `select` a
-native `<select>`. `card` is customised to a 20px rhythm for
+native `<select>`, `tabs` buttons on the WAI-ARIA tab pattern with every panel kept
+mounted. `card` is customised to a 20px rhythm for
 console density, and its spacing and surface are props (`gap`, `flush`, `variant`).
 
 This project's own primitives sit beside them and compose those:

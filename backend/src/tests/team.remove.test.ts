@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { teamRemove } from './team.service.js';
+import { teamRemove } from '../routes/team/team.service.js';
 
 // Self-check for deleting a project, the one path here that loses data for good. Run with:
-// npx tsx --tsconfig backend/tsconfig.json backend/src/routes/team/team.remove.test.ts
+// npx tsx --tsconfig backend/tsconfig.json backend/src/tests/team.remove.test.ts
 
 const OWNER = 7;
 const TEAM = 42;

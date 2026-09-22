@@ -35,9 +35,11 @@ export {
 } from './conversation';
 export {
     type CatalogModel,
+    isOpenRouterUrl,
     modelCatalog,
     modelCreate,
     modelList,
+    modelListIds,
     modelProbe,
     modelRemove,
     modelTest,

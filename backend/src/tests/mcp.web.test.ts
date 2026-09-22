@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { checkPublicUrl, isPrivateAddress } from './mcp.web.js';
+import { checkPublicUrl, isPrivateAddress } from '../routes/mcp/mcp.web.js';
 
 const BLOCKED = [
     '127.0.0.1',

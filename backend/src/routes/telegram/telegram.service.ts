@@ -25,9 +25,19 @@ import {
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
 import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
+import {
+    AUTO_ATTEMPTS,
+    freeCandidates,
+    isAutoFree,
+    pickFree,
+    rest,
+    restFor,
+} from '../model/model.auto.js';
+import { fetchCatalog } from '../model/model.provider.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
+import { telegramHtml } from './telegram.format.js';
 import {
     DEFAULT_PERMISSIONS,
     hasPermission,
@@ -309,7 +319,7 @@ async function telegramCall(
     token: string,
     method: string,
     payload: unknown,
-): Promise<{ ok: boolean; status: number; result?: unknown }> {
+): Promise<{ ok: boolean; status: number; result?: unknown; description?: string }> {
     try {
         const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
             method: 'POST',
@@ -319,13 +329,49 @@ async function telegramCall(
         });
 
         const body = (await response.json().catch(() => undefined)) as
-            | { result?: unknown }
+            | { result?: unknown; description?: string }
             | undefined;
 
-        return { ok: response.ok, status: response.status, result: body?.result };
+        return {
+            ok: response.ok,
+            status: response.status,
+            result: body?.result,
+            description: body?.description,
+        };
     } catch {
         return { ok: false, status: 0 };
     }
+}
+
+// Sends or edits a reply with its Markdown rendered the way Telegram formats text. If Telegram
+// cannot parse what came out, the reply goes plain rather than not at all; an edit that changes
+// nothing Telegram shows counts as done.
+async function telegramText(
+    token: string,
+    method: 'sendMessage' | 'editMessageText',
+    payload: Record<string, unknown>,
+    text: string,
+): Promise<{ ok: boolean; status: number; result?: unknown }> {
+    const unchanged = (sent: { description?: string }) =>
+        /message is not modified/i.test(sent.description ?? '');
+
+    const rich = await telegramCall(token, method, {
+        ...payload,
+        text: telegramHtml(text),
+        parse_mode: 'HTML',
+    });
+
+    if (rich.ok || unchanged(rich)) {
+        return { ...rich, ok: true };
+    }
+
+    if (rich.status !== 400) {
+        return rich;
+    }
+
+    const plain = await telegramCall(token, method, { ...payload, text });
+
+    return unchanged(plain) ? { ...plain, ok: true } : plain;
 }
 
 function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
@@ -355,7 +401,7 @@ function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
 
         try {
             if (messageId === undefined) {
-                const sent = await telegramCall(token, 'sendMessage', { chat_id: chatId, text });
+                const sent = await telegramText(token, 'sendMessage', { chat_id: chatId }, text);
                 const id = (sent.result as { message_id?: unknown } | undefined)?.message_id;
 
                 if (sent.ok && typeof id === 'number') {
@@ -364,11 +410,12 @@ function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
                 }
             } else if (
                 (
-                    await telegramCall(token, 'editMessageText', {
-                        chat_id: chatId,
-                        message_id: messageId,
+                    await telegramText(
+                        token,
+                        'editMessageText',
+                        { chat_id: chatId, message_id: messageId },
                         text,
-                    })
+                    )
                 ).ok
             ) {
                 sentText = text;
@@ -628,6 +675,19 @@ async function deliverAgentReply(
         return;
     }
 
+    // Auto-free: the free models this reply may use, tool-capable ones first when the agent has
+    // tools. `chosen` is the model in use: fixed for an ordinary model; for auto-free, the
+    // first free model that answers, kept for the rest of the reply until it fails.
+    const auto = isAutoFree(model.model);
+    const catalog = auto ? (await fetchCatalog()).models : [];
+    const toolReady = freeCandidates(catalog, tools.length > 0);
+    const pool = toolReady.length > 0 ? toolReady : freeCandidates(catalog, false);
+
+    let chosen: { id: string; context: number } | null = auto
+        ? null
+        : { id: model.model, context: model.context_tokens };
+    let served = model.model;
+
     const stopTyping = startTyping(bot.token, chatId, log);
 
     const streamer = createStreamer(bot.token, chatId, log);
@@ -647,23 +707,93 @@ async function deliverAgentReply(
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
             const roundStartedAt = Date.now();
 
-            const sending = fitToContext(messages, model.context_tokens);
+            // One call to the model. An auto-free reply tries free models in turn: a model
+            // that fails for its own reasons is rested and the next one asked, at most
+            // AUTO_ATTEMPTS per round; a failure every model would share ends the round.
+            const ask = async (withTools: boolean) => {
+                const tried = new Set<string>();
 
-            const ask = (withTools: boolean) =>
-                sendCompletion({
-                    baseUrl: model.base_url,
-                    apiKey: model.api_key,
-                    model: model.model,
-                    messages: sending,
-                    maxTokens: completionCap(model.context_tokens),
-                    ...(withTools && { tools: toOpenAITools(tools) }),
-                    timeoutMs: AGENT_TIMEOUT,
-                    ...(!withTools && { onText: (partial: string) => streamer.push(partial) }),
-                });
+                for (let attempt = 1; ; attempt += 1) {
+                    const target = chosen ?? pickFree(pool, tried);
+
+                    if (target === null) {
+                        return {
+                            ok: false,
+                            status: 0,
+                            payload: { error: { message: 'no free model is available' } },
+                            sending: messages,
+                        };
+                    }
+
+                    const sending = fitToContext(messages, target.context);
+                    const result = await sendCompletion({
+                        baseUrl: model.base_url,
+                        apiKey: model.api_key,
+                        model: target.id,
+                        messages: sending,
+                        maxTokens: completionCap(target.context),
+                        ...(withTools && { tools: toOpenAITools(tools) }),
+                        timeoutMs: AGENT_TIMEOUT,
+                        ...(!withTools && { onText: (partial: string) => streamer.push(partial) }),
+                    });
+
+                    served = target.id;
+
+                    if (!auto) {
+                        return { ...result, sending };
+                    }
+
+                    tried.add(target.id);
+
+                    const restMs = result.ok
+                        ? null
+                        : restFor(
+                              result.status,
+                              readError(result.payload),
+                              withTools && isToolRefusal(result.payload),
+                          );
+
+                    if (result.ok || restMs === null || attempt >= AUTO_ATTEMPTS) {
+                        chosen = result.ok ? target : null;
+
+                        return { ...result, sending };
+                    }
+
+                    rest(target.id, restMs);
+                    chosen = null;
+
+                    log.warn(
+                        {
+                            module: 'agent',
+                            botId: bot.id,
+                            agentId: agent.id,
+                            modelId: model.id,
+                            free: target.id,
+                            status: result.status,
+                            restMs,
+                        },
+                        'free model failed: switching to the next',
+                    );
+
+                    await recordExchange(fastify, log, {
+                        team_id: bot.team_id,
+                        agent_id: agent.id,
+                        model_id: model.id,
+                        user_id: user.id,
+                        round,
+                        request: JSON.stringify(sending),
+                        response: JSON.stringify(result.payload ?? null),
+                        tool_calls: 0,
+                        duration_ms: Date.now() - roundStartedAt,
+                        outcome: 'error',
+                        reason: `${target.id} - ${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`,
+                    });
+                }
+            };
 
             const offering = toolsUsable && tools.length > 0 && round < MAX_TOOL_ROUNDS;
 
-            let { ok, status: code, payload } = await ask(offering);
+            let { ok, status: code, payload, sending } = await ask(offering);
 
             if (!ok && offering && isToolRefusal(payload)) {
                 log.warn(
@@ -693,7 +823,7 @@ async function deliverAgentReply(
 
                 toolsUsable = false;
 
-                ({ ok, status: code, payload } = await ask(false));
+                ({ ok, status: code, payload, sending } = await ask(false));
             }
 
             const status = ok ? '' : code === 0 ? 'no response' : `http ${code}`;
@@ -713,7 +843,8 @@ async function deliverAgentReply(
                 tool_calls: calls.length,
                 duration_ms: Date.now() - roundStartedAt,
                 outcome: ok ? 'ok' : 'error',
-                reason: status,
+                // For auto-free, name the free model that served this round.
+                reason: auto ? [served, status].filter((part) => part !== '').join(' - ') : status,
             });
 
             if (calls.length === 0 || round === MAX_TOOL_ROUNDS) {
@@ -759,7 +890,7 @@ async function deliverAgentReply(
             target: `agent:${agent.id}`,
             outcome: 'error',
             durationMs: Date.now() - startedAt,
-            detail: `agent ${agent.id} (${agent.name}) - model ${model.id} (${model.model}) unreachable`,
+            detail: `agent ${agent.id} (${agent.name}) - model ${model.id} (${served}) unreachable`,
         });
 
         await streamer.discard();
@@ -818,10 +949,12 @@ async function deliverAgentReply(
     }
 
     if (!(await streamer.finish(text))) {
-        const sent = await telegramCall(bot.token, 'sendMessage', {
-            chat_id: chatId,
-            text: text.slice(0, TELEGRAM_TEXT_MAX),
-        });
+        const sent = await telegramText(
+            bot.token,
+            'sendMessage',
+            { chat_id: chatId },
+            text.slice(0, TELEGRAM_TEXT_MAX),
+        );
 
         if (!sent.ok) {
             log.warn(
@@ -867,7 +1000,7 @@ async function deliverAgentReply(
         outcome: 'ok',
         durationMs: Date.now() - startedAt,
         actor: 'agent',
-        detail: `agent ${agent.id} (${agent.name}) · model ${model.id} (${model.model}) · profile ${user.id} · ${messages.length} messages in · ${text.length} chars out · ${toolRuns} tool call(s)`,
+        detail: `agent ${agent.id} (${agent.name}) · model ${model.id} (${served}) · profile ${user.id} · ${messages.length} messages in · ${text.length} chars out · ${toolRuns} tool call(s)`,
     });
 }
 

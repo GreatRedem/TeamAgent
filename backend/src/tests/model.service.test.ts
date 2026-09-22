@@ -6,8 +6,8 @@ import {
     PROVIDERS,
     readCatalog,
     readContextLength,
-} from './model.provider.js';
-import { probeModel } from './model.service.js';
+} from '../routes/model/model.provider.js';
+import { probeModel } from '../routes/model/model.service.js';
 
 const BASE = 'https://api.example.com/v1';
 const KEY = 'sk-test-abcdef0123456789';
@@ -218,6 +218,7 @@ const tests: Array<[string, () => Promise<void>]> = [
                         name: 'Claude Sonnet 4.5',
                         context_length: 200000,
                         pricing: { prompt: '0.000003', completion: '0.000015' },
+                        supported_parameters: ['tools', 'temperature'],
                         description: 'x'.repeat(4000),
                     },
                 ],
@@ -230,8 +231,20 @@ const tests: Array<[string, () => Promise<void>]> = [
                     context: 200000,
                     prompt: 3,
                     completion: 15,
+                    tools: true,
                 },
             ]);
+        },
+    ],
+
+    [
+        'a model that does not list tool support is marked as having none',
+        async () => {
+            const [model] = readCatalog({
+                data: [{ id: 'free/plain', supported_parameters: ['temperature'] }],
+            });
+
+            assert.equal(model.tools, false);
         },
     ],
 

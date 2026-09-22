@@ -5,7 +5,7 @@ import { findOwnedTeam, readPage, readTeamId, takePage } from '../team/team.acce
 import { AuditLog } from './audit.entity.js';
 import { schemaAuditHeatmap, schemaAuditList } from './audit.schema.js';
 
-const HEATMAP_DAYS = 84;
+const HEATMAP_DAYS = 364;
 
 const LIST_LIMIT = 60;
 

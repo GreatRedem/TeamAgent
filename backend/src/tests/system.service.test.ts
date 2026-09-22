@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import os from 'node:os';
 
-import { cpuPercent, disk } from './system.service.js';
+import { cpuPercent, disk } from '../routes/system/system.service.js';
 
 const tests: Array<[string, () => void | Promise<void>]> = [
     [

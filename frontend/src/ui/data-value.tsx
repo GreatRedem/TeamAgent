@@ -11,7 +11,7 @@ export function DataList({
     return (
         <dl
             className={cn(
-                'm-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 text-sm',
+                'm-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 text-sm leading-body',
                 dense ? 'gap-y-1.5' : 'gap-y-2',
                 className,
             )}

@@ -10,7 +10,7 @@ import {
     removeMember,
     serializeRoster,
     upsertMember,
-} from './team.roster.js';
+} from '../routes/team/team.roster.js';
 
 const sample = serializeRoster({
     members: [

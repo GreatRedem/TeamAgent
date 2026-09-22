@@ -12,7 +12,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { cn } from '@/libs/cn';
-import { AUDIT_RESULT } from '@/libs/constant';
+import { AUDIT_RESULT, HEAT_SCALE, HEAT_SCALE_FAILED } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
@@ -20,7 +20,6 @@ import { DataList, DataRow } from '@/ui/data-value';
 import { Pressable } from '@/ui/pressable';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { Text } from '@/ui/text';
 
 import { Heatmap } from './heatmap';
@@ -122,26 +121,152 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
     const selected = rows.find((entry) => entry.id === selectedId) ?? rows[0] ?? null;
     const trip = selected === null ? null : roundTrip(selected);
 
+    // Over the past year: what finished (including skips) and what failed, per day.
+    const succeededTotal = heatmap?.days.reduce((sum, day) => sum + day.total - day.errors, 0) ?? 0;
+    const failedTotal = heatmap?.days.reduce((sum, day) => sum + day.errors, 0) ?? 0;
+
+    const cards = (list: AuditEntry[]) => (
+        <Stack
+            direction="Vertical"
+            as="ul"
+            className="gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2">
+            {list.map((entry) => {
+                const row = roundTrip(entry);
+                const result = AUDIT_RESULT[entry.outcome];
+                const open = selected?.id === entry.id;
+
+                return (
+                    <Stack direction="Vertical" as="li" key={entry.id}>
+                        <Pressable
+                            aria-pressed={open}
+                            aria-label={`Show the entry from ${clock(entry.created_at)}`}
+                            className="flex h-full w-full flex-col gap-1.5 rounded-lg border bg-card p-3 transition-colors hover:border-input hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary/60 aria-pressed:bg-accent/40"
+                            onClick={() => setSelectedId(entry.id)}>
+                            <Stack
+                                direction="Horizontal"
+                                as="span"
+                                className="min-w-0 items-baseline justify-between gap-2">
+                                <Text
+                                    type="BodyStrong"
+                                    as="span"
+                                    className="truncate"
+                                    message={
+                                        row !== null && row.agent !== '' ? row.agent : entry.actor
+                                    }
+                                />
+                                <Text
+                                    type="DataMuted"
+                                    as="time"
+                                    className="shrink-0"
+                                    dateTime={entry.created_at}
+                                    message={clock(entry.created_at)}
+                                />
+                            </Stack>
+
+                            <Text
+                                type="DataMuted"
+                                as="span"
+                                className="truncate"
+                                message={
+                                    row !== null && row.model !== '' ? row.model : entry.action
+                                }
+                            />
+
+                            <Stack
+                                direction="Horizontal"
+                                as="span"
+                                className="min-w-0 items-baseline justify-between gap-2">
+                                <Text
+                                    type="DataMuted"
+                                    as="span"
+                                    className="truncate"
+                                    message={
+                                        row !== null && row.messages !== ''
+                                            ? `${Number(row.messages).toLocaleString()} in / ${Number(row.chars).toLocaleString()} chars`
+                                            : entry.target === ''
+                                              ? '—'
+                                              : entry.target
+                                    }
+                                />
+                                <Stack
+                                    direction="Horizontal"
+                                    as="span"
+                                    className="shrink-0 items-baseline gap-2">
+                                    {entry.duration_ms > 0 && (
+                                        <Text
+                                            type="DataMuted"
+                                            as="span"
+                                            message={`${entry.duration_ms.toLocaleString()} ms`}
+                                        />
+                                    )}
+                                    <Text
+                                        type="BodyStrong"
+                                        as="span"
+                                        className={result.className}
+                                        message={result.label}
+                                    />
+                                </Stack>
+                            </Stack>
+                        </Pressable>
+                    </Stack>
+                );
+            })}
+        </Stack>
+    );
+
     return (
         <Stack direction="Vertical" className="gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Twelve weeks of activity</CardTitle>
-                    <CardDescription>
-                        {heatmap === null
-                            ? 'Counting what this project has done.'
-                            : `${heatmap.total.toLocaleString()} action${heatmap.total === 1 ? '' : 's'} recorded${heatmap.busiest > 0 ? `, ${heatmap.busiest} on the busiest day` : ''}.`}
-                    </CardDescription>
-                </CardHeader>
+            <Stack direction="Vertical" className="gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Succeeded</CardTitle>
+                        <CardDescription>
+                            {heatmap === null
+                                ? 'Counting what this project got done.'
+                                : `${succeededTotal.toLocaleString()} action${succeededTotal === 1 ? '' : 's'} finished in the past year.`}
+                        </CardDescription>
+                    </CardHeader>
 
-                <CardContent>
-                    {heatmap === null ? (
-                        <Skeleton radius="lg" className="h-28" />
-                    ) : (
-                        <Heatmap days={heatmap.days} busiest={heatmap.busiest} />
-                    )}
-                </CardContent>
-            </Card>
+                    <CardContent>
+                        {heatmap === null ? (
+                            <Skeleton radius="lg" className="h-40" />
+                        ) : (
+                            <Heatmap
+                                days={heatmap.days}
+                                count={(day) => day.total - day.errors}
+                                scale={HEAT_SCALE}
+                                noun={['action', 'actions']}
+                            />
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Failed</CardTitle>
+                        <CardDescription>
+                            {heatmap === null
+                                ? 'Counting what went wrong.'
+                                : failedTotal === 0
+                                  ? 'Nothing failed in the past year.'
+                                  : `${failedTotal.toLocaleString()} failure${failedTotal === 1 ? '' : 's'} in the past year.`}
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardContent>
+                        {heatmap === null ? (
+                            <Skeleton radius="lg" className="h-40" />
+                        ) : (
+                            <Heatmap
+                                days={heatmap.days}
+                                count={(day) => day.errors}
+                                scale={HEAT_SCALE_FAILED}
+                                noun={['failure', 'failures']}
+                            />
+                        )}
+                    </CardContent>
+                </Card>
+            </Stack>
 
             <Stack
                 direction="Vertical"
@@ -157,7 +282,6 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             direction="Horizontal"
                             className="col-start-2 row-span-2 row-start-1 gap-1 self-start justify-self-end rounded-md bg-muted p-1">
                             <Button
-                                type="button"
                                 size="sm"
                                 variant={failuresOnly ? 'ghost' : 'secondary'}
                                 aria-pressed={!failuresOnly}
@@ -166,7 +290,6 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             />
 
                             <Button
-                                type="button"
                                 size="sm"
                                 variant={failuresOnly ? 'secondary-destructive' : 'ghost'}
                                 aria-pressed={failuresOnly}
@@ -215,85 +338,9 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                         )}
 
                         {rows.length > 0 && (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow hoverable={false}>
-                                        <TableHead className="ps-5">Time</TableHead>
-                                        <TableHead>Who</TableHead>
-                                        <TableHead className="hidden md:table-cell">What</TableHead>
-                                        <TableHead className="hidden lg:table-cell">Size</TableHead>
-                                        <TableHead numeric>ms</TableHead>
-                                        <TableHead numeric className="pe-5">
-                                            Result
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-
-                                <TableBody>
-                                    {rows.map((entry) => {
-                                        const row = roundTrip(entry);
-                                        const result = AUDIT_RESULT[entry.outcome];
-                                        const open = selected?.id === entry.id;
-
-                                        return (
-                                            <TableRow
-                                                key={entry.id}
-                                                data-state={open ? 'selected' : undefined}
-                                                className="cursor-pointer"
-                                                onClick={() => setSelectedId(entry.id)}>
-                                                <TableCell className="ps-5">
-                                                    <Pressable
-                                                        aria-pressed={open}
-                                                        aria-label={`Show the entry from ${clock(entry.created_at)}`}
-                                                        className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                                                        onClick={() => setSelectedId(entry.id)}>
-                                                        <Text
-                                                            type="DataMuted"
-                                                            as="span"
-                                                            message={clock(entry.created_at)}
-                                                        />
-                                                    </Pressable>
-                                                </TableCell>
-                                                <TableCell className="max-w-[10rem] truncate">
-                                                    {row !== null && row.agent !== ''
-                                                        ? row.agent
-                                                        : entry.actor}
-                                                </TableCell>
-                                                <TableCell className="hidden max-w-[14rem] truncate font-mono text-2xs text-muted-foreground md:table-cell">
-                                                    {row !== null && row.model !== ''
-                                                        ? row.model
-                                                        : entry.action}
-                                                </TableCell>
-                                                <TableCell className="hidden max-w-[12rem] truncate font-mono text-2xs text-muted-foreground lg:table-cell">
-                                                    {row !== null && row.messages !== ''
-                                                        ? `${Number(row.messages).toLocaleString()} in / ${Number(row.chars).toLocaleString()} chars`
-                                                        : entry.target}
-                                                </TableCell>
-                                                <TableCell
-                                                    numeric
-                                                    className={cn(
-                                                        'font-mono text-2xs',
-                                                        entry.outcome === 'error'
-                                                            ? 'text-destructive'
-                                                            : 'text-muted-foreground',
-                                                    )}>
-                                                    {entry.duration_ms > 0
-                                                        ? entry.duration_ms.toLocaleString()
-                                                        : '—'}
-                                                </TableCell>
-                                                <TableCell
-                                                    numeric
-                                                    className={cn(
-                                                        'pe-5 font-medium',
-                                                        result.className,
-                                                    )}>
-                                                    {result.label}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
+                            <Stack direction="Vertical" className="px-5">
+                                {cards(rows)}
+                            </Stack>
                         )}
                     </CardContent>
 

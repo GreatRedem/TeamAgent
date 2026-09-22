@@ -201,7 +201,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                     <DialogFooter>
                         <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             onClick={() => setCreating(false)}
                             message="Cancel"
                         />
@@ -289,7 +289,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                 <CardContent className="grid gap-3">
                                     <Text
                                         type="BodyMuted"
-                                        className="line-clamp-2 min-h-10"
+                                        className="line-clamp-2 min-h-[2lh]"
                                         message={
                                             agent.description === ''
                                                 ? 'No description yet.'

@@ -57,7 +57,7 @@ function Item({
             data-variant={variant}
             data-size={size}
             className={cn(
-                'group/item flex flex-wrap items-center rounded-md border border-transparent text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-accent/50',
+                'group/item flex flex-wrap items-center rounded-md border border-transparent text-sm leading-body transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-accent/50',
                 itemVariant[variant],
                 itemSize[size],
                 !flush && 'px-4',
@@ -110,7 +110,10 @@ function ItemTitle({ className, ...props }: React.ComponentProps<'div'>) {
     return (
         <div
             data-slot="item-title"
-            className={cn('flex w-fit items-center gap-2 text-sm font-medium', className)}
+            className={cn(
+                'flex w-fit items-center gap-2 text-sm leading-heading font-medium',
+                className,
+            )}
             {...props}
         />
     );
@@ -121,7 +124,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<'p'>) {
         <p
             data-slot="item-description"
             className={cn(
-                'line-clamp-2 text-sm font-normal text-balance text-muted-foreground',
+                'line-clamp-2 text-sm leading-body font-normal text-balance text-muted-foreground',
                 '[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary',
                 className,
             )}

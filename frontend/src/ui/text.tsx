@@ -2,23 +2,25 @@ import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
 
+// Each type is a typography role: size, weight and line height together. Types without a size
+// (Foreground, ForegroundMuted, Strong, Mono) inherit all three from where they sit.
 const textType = {
-    Title: 'text-page font-semibold tracking-tight',
-    Heading: 'text-base font-semibold',
+    Title: 'text-page font-semibold tracking-tight leading-display',
+    Heading: 'text-base font-semibold leading-heading',
     Foreground: '',
     ForegroundMuted: 'text-muted-foreground',
     Strong: 'font-medium',
-    Body: 'text-sm',
-    BodyStrong: 'text-sm font-medium',
-    BodyMuted: 'text-sm text-muted-foreground',
-    Caption: 'text-2xs text-muted-foreground',
+    Body: 'text-sm leading-body',
+    BodyStrong: 'text-sm font-medium leading-body',
+    BodyMuted: 'text-sm text-muted-foreground leading-body',
+    Caption: 'text-2xs text-muted-foreground leading-body',
     Mono: 'font-mono',
-    Data: 'font-mono text-2xs',
-    DataMuted: 'font-mono text-2xs text-muted-foreground',
-    DataDestructive: 'font-mono text-2xs text-destructive',
-    DataBody: 'font-mono text-sm',
-    DataStrong: 'font-mono text-sm font-semibold',
-    Stat: 'font-mono text-stat font-medium',
+    Data: 'font-mono text-2xs leading-body',
+    DataMuted: 'font-mono text-2xs text-muted-foreground leading-body',
+    DataDestructive: 'font-mono text-2xs text-destructive leading-body',
+    DataBody: 'font-mono text-sm leading-body',
+    DataStrong: 'font-mono text-sm font-semibold leading-body',
+    Stat: 'font-mono text-stat font-medium leading-display',
 };
 
 type TextType = keyof typeof textType;

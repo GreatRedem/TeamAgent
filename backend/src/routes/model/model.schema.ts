@@ -124,13 +124,14 @@ export const schemaModelCatalog = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['id', 'name', 'context', 'prompt', 'completion'],
+                        required: ['id', 'name', 'context', 'prompt', 'completion', 'tools'],
                         properties: {
                             id: { type: 'string' },
                             name: { type: 'string' },
                             context: { type: 'integer' },
                             prompt: { type: 'number' },
                             completion: { type: 'number' },
+                            tools: { type: 'boolean' },
                         },
                     },
                 },
@@ -147,6 +148,7 @@ export const schemaModelProbe = {
             base_url: { type: 'string' },
             api_key: { type: 'string' },
             model: { type: 'string' },
+            model_id: { type: 'integer' },
         },
     },
     response: {
@@ -158,6 +160,31 @@ export const schemaModelProbe = {
                 models: { type: 'integer' },
                 found: { type: 'boolean' },
                 context: { type: 'integer' },
+                ids: { type: 'array', items: { type: 'string' } },
+                reason: { type: 'string' },
+            },
+        },
+    },
+} as const;
+
+// Lists an endpoint's models for the form. `model_id` lets an edit form list with the stored
+// key when it leaves the key blank.
+export const schemaModelListIds = {
+    body: {
+        type: 'object',
+        required: ['base_url', 'api_key'],
+        properties: {
+            base_url: { type: 'string' },
+            api_key: { type: 'string' },
+            model_id: { type: 'integer' },
+        },
+    },
+    response: {
+        200: {
+            type: 'object',
+            required: ['ok', 'ids'],
+            properties: {
+                ok: { type: 'boolean' },
                 ids: { type: 'array', items: { type: 'string' } },
                 reason: { type: 'string' },
             },

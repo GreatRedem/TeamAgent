@@ -72,8 +72,8 @@ Feature / Page / Layout  →  components from @/ui  →  native HTML
   such as `motion.div` that render a raw element.
 - Custom SVG, such as the background scene, lives in `src/ui` too
   (`src/ui/scene`).
-- Lint enforces it. `lint/no-raw-html.grit` is a Biome plugin that fails
-  `npm run lint` on any of the above outside `src/ui`.
+- Nothing checks it automatically, so check it in review: search a change for
+  lowercase JSX tags outside `src/ui`.
 
 The primitives that carry the app:
 
@@ -144,10 +144,11 @@ Installed and ready to import from `@/ui`:
 - Skeleton
 - Switch
 - Table
+- Tabs (native, on the WAI-ARIA tab pattern)
 - Text
 - Textarea
 
-Anything else in the registry (Sheet, Drawer, Tabs, Popover, Command, Avatar,
+Anything else in the registry (Sheet, Drawer, Popover, Command, Avatar,
 Form) is not installed yet. Add it with `npx shadcn@latest add <name>` rather
 than hand-rolling a substitute.
 
@@ -287,10 +288,26 @@ Maintain a clear hierarchy:
 
 Do not use font size alone to create hierarchy. Use spacing, weight and semantic structure.
 
-Line height is one rule, set once on `*` in `styles/index.css`:
-`calc(1em + 0.25rem)`, 4px of lead on top of the text. 11px text gets 15px lines,
-14px body 18px, a 26px title 30px. The type scale carries font sizes only, so no
-size utility changes it. Do not write a `leading-*` class.
+Line height is a role, not a number. There are four, defined once in
+`styles/index.css`, and they are the only line heights in the project:
+
+| Role    | Class             | Value | Used for                                                                                                  |
+| ------- | ----------------- | ----- | --------------------------------------------------------------------------------------------------------- |
+| Display | `leading-display` | 1.2   | page titles, stat figures                                                                                 |
+| Heading | `leading-heading` | 1.3   | card, dialog, section, list-item and empty-state titles, legends                                          |
+| Control | `leading-control` | 1.25  | one line in a fixed-height box: buttons, badges, labels, inputs, selects, menu items, nav tabs, table cells |
+| Body    | `leading-body`    | 1.5   | anything that reads or wraps: paragraphs, descriptions, helper and error text, captions, data values, text areas, code blocks; the page default |
+
+- `Text` types and the `src/ui` primitives already carry their role, so a page never
+  sets line height: pick the `Text` type or primitive for what the text is.
+- A new primitive in `src/ui` picks one of the four by what it is: the table above
+  decides, not the font size.
+- Never write another `leading-*` (`leading-tight`, `leading-6`, `leading-[18px]`), the
+  size shorthand (`text-sm/6`, `text-sm/relaxed`), or `lineHeight` in a style.
+  Tailwind's named steps are cleared, so `leading-tight` and friends generate no CSS.
+- Tall text boxes are not fixed with padding or `translate`. Vazirmatn's own metrics are
+  sized for Arabic, so the Latin `@font-face` subsets override them (`ascent-override`,
+  `descent-override`) and Latin text centres in its line box.
 
 ---
 

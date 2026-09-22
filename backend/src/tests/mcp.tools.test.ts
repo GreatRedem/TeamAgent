@@ -4,10 +4,15 @@ import {
     AGENT_PERMISSIONS,
     DEFAULT_AGENT_PERMISSIONS,
     serializeAgentPermissions,
-} from '../agent/agent.permission.js';
-import { readToolCalls } from '../agent/agent.reply.js';
-import { PERMISSIONS as PROFILE_PERMISSIONS } from '../telegram/telegram.permission.js';
-import { allowedTools, DOCUMENT_NAME_PATTERN, TOOLS, toOpenAITools } from './mcp.tools.js';
+} from '../routes/agent/agent.permission.js';
+import { readToolCalls } from '../routes/agent/agent.reply.js';
+import {
+    allowedTools,
+    DOCUMENT_NAME_PATTERN,
+    TOOLS,
+    toOpenAITools,
+} from '../routes/mcp/mcp.tools.js';
+import { PERMISSIONS as PROFILE_PERMISSIONS } from '../routes/telegram/telegram.permission.js';
 
 const call = (id: string, name: string, args: unknown) => ({
     choices: [

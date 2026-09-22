@@ -17,7 +17,7 @@ import {
     readCompletion,
     readError,
     TELEGRAM_TEXT_MAX,
-} from './agent.reply.js';
+} from '../routes/agent/agent.reply.js';
 
 const docs = [
     { name: 'knowledge.md', content: '# Knowledge\nFacts.' },

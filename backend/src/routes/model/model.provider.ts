@@ -60,6 +60,8 @@ export interface CatalogModel {
     context: number;
     prompt: number;
     completion: number;
+    // Whether the model accepts tool definitions, which an agent needs to use its tools.
+    tools: boolean;
 }
 
 function toMillion(value: unknown): number {
@@ -119,6 +121,7 @@ export function readCatalog(payload: unknown): CatalogModel[] {
             context_length?: unknown;
             pricing?: { prompt?: unknown; completion?: unknown };
             architecture?: { output_modalities?: unknown };
+            supported_parameters?: unknown;
         };
 
         if (typeof entry.id !== 'string' || entry.id === '') {
@@ -139,6 +142,9 @@ export function readCatalog(payload: unknown): CatalogModel[] {
                 : 0,
             prompt: toMillion(entry.pricing?.prompt),
             completion: toMillion(entry.pricing?.completion),
+            tools:
+                Array.isArray(entry.supported_parameters) &&
+                entry.supported_parameters.includes('tools'),
         });
     }
 

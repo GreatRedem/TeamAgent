@@ -1,5 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
-import { Bot, Cpu, LayoutGrid, MessageSquare, Settings2 } from 'lucide-react';
+import {
+    Bot,
+    Cpu,
+    FileText,
+    LayoutGrid,
+    MessageSquare,
+    Settings2,
+    ShieldCheck,
+} from 'lucide-react';
 
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
@@ -16,6 +24,13 @@ export const CONFIRM_TIMEOUT = 4000;
 export const METRICS_REFRESH = 10_000;
 
 export const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+// A model set to this uses a free OpenRouter model for each reply and moves to the next one
+// when a model is busy or fails. The backend stores and recognises the same value.
+export const MODEL_AUTO_FREE = 'auto:free';
+
+// How long the model form waits after the address or key stops changing before it lists models.
+export const MODEL_LIST_DELAY = 500;
 
 export const PAGE_WIDTH = 'mx-auto w-full max-w-5xl';
 
@@ -35,6 +50,15 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
 
+// The agent page's tabs, in order; the first is the one it opens on.
+export const AGENT_TABS = [
+    { value: 'settings', label: 'Settings', icon: Settings2 },
+    { value: 'capabilities', label: 'Capabilities', icon: ShieldCheck },
+    { value: 'files', label: 'Files', icon: FileText },
+] as const;
+
+export type AgentTab = (typeof AGENT_TABS)[number]['value'];
+
 export const TEAM_TITLES: Record<string, { title: string; description: string }> = {
     '': { title: 'Overview', description: 'How this project is running right now.' },
     overview: { title: 'Overview', description: 'How this project is running right now.' },
@@ -47,6 +71,15 @@ export const TEAM_TITLES: Record<string, { title: string; description: string }>
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const HEAT_SCALE = ['bg-scale-0', 'bg-scale-1', 'bg-scale-2', 'bg-scale-3', 'bg-scale-4'];
+
+// The failure heatmap: red is for failures only.
+export const HEAT_SCALE_FAILED = [
+    'bg-scale-0',
+    'bg-scale-fail-1',
+    'bg-scale-fail-2',
+    'bg-scale-fail-3',
+    'bg-scale-fail-4',
+];
 
 export const STATUS_FILL: Record<'live' | 'degraded' | 'off' | 'failed', string> = {
     live: 'bg-primary ring-3 ring-primary/15',

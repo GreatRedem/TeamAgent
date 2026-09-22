@@ -3,14 +3,17 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent } from '../agent/agent.entity.js';
+import { isOpenRouter } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamModel } from '../team/team.entity.js';
+import { freeCandidates, isAutoFree } from './model.auto.js';
 import { fetchCatalog, OPENROUTER_URL, PROVIDERS, readContextLength } from './model.provider.js';
 import {
     schemaModelCatalog,
     schemaModelCreate,
     schemaModelList,
+    schemaModelListIds,
     schemaModelProbe,
     schemaModelRemove,
     schemaModelTest,
@@ -118,6 +121,11 @@ function readModelBody(request: FastifyRequest) {
         throw new BadRequestResponse('ERROR_MIN_LENGTH');
     }
 
+    // Auto-free picks from the OpenRouter catalog, the only listing that says what is free.
+    if (isAutoFree(model) && !isOpenRouter(baseUrl)) {
+        throw new BadRequestResponse('MODEL_AUTO_FREE_UNSUPPORTED');
+    }
+
     return { name, model, baseUrl, contextTokens };
 }
 
@@ -221,6 +229,50 @@ export async function probeModel(
     };
 }
 
+// An auto-free model is never in a listing under its own name. What matters is that free
+// models exist to switch between; the largest context among them is the most it can hold.
+async function withAutoFree(probe: ModelProbe, model: string): Promise<ModelProbe> {
+    if (!probe.ok || !isAutoFree(model)) {
+        return probe;
+    }
+
+    const free = freeCandidates((await fetchCatalog()).models, false);
+
+    return {
+        ...probe,
+        found: free.length > 0,
+        ...(free.length > 0 && { context: free[0].context }),
+    };
+}
+
+// The key that lists an endpoint's models: the one typed into the form, or, when an edit
+// form leaves it blank, the stored one, but only against the origin it was saved for, so a
+// changed URL can never carry the stored key to another server.
+export function listingKey(
+    typed: string,
+    baseUrl: string,
+    stored: { base_url: string; api_key: string } | null,
+): string {
+    if (typed !== '' || stored === null) {
+        return typed;
+    }
+
+    try {
+        return new URL(baseUrl).origin === new URL(stored.base_url).origin ? stored.api_key : '';
+    } catch {
+        return '';
+    }
+}
+
+// The model an edit form names with `model_id`, so a blank key can fall back to its stored one.
+async function readStoredModel(fastify: FastifyInstance, request: FastifyRequest, teamId: number) {
+    const raw = (request.body as { model_id?: unknown } | undefined)?.model_id;
+
+    return typeof raw === 'number' && Number.isInteger(raw) && raw > 0
+        ? await findOwnedModel(fastify, teamId, raw, request.account_id)
+        : null;
+}
+
 async function detectContext(baseUrl: string, apiKey: string, model: string): Promise<number> {
     try {
         return (await probeModel(baseUrl, apiKey, model, DETECT_TIMEOUT)).context ?? 0;
@@ -244,8 +296,11 @@ export function modelCreate(fastify: FastifyInstance) {
             throw new BadRequestResponse('MODEL_ALREADY_ADDED');
         }
 
+        // An auto-free model's context changes with the model it picks, so none is stored.
         const detected =
-            contextTokens > 0 ? contextTokens : await detectContext(baseUrl, apiKey, model);
+            contextTokens > 0 || isAutoFree(model)
+                ? contextTokens
+                : await detectContext(baseUrl, apiKey, model);
 
         const saved = await repository.save({
             team_id: teamId,
@@ -405,9 +460,16 @@ export function modelTest(fastify: FastifyInstance) {
 
         const model = await findOwnedModel(fastify, teamId, modelId, request.account_id);
 
-        const probe = await probeModel(model.base_url, model.api_key, model.model);
+        const probe = await withAutoFree(
+            await probeModel(model.base_url, model.api_key, model.model),
+            model.model,
+        );
 
-        if ((probe.context ?? 0) > 0 && probe.context !== model.context_tokens) {
+        if (
+            !isAutoFree(model.model) &&
+            (probe.context ?? 0) > 0 &&
+            probe.context !== model.context_tokens
+        ) {
             await fastify.db
                 .getRepository(TeamModel)
                 .update({ id: model.id, team_id: teamId }, { context_tokens: probe.context });
@@ -450,12 +512,16 @@ export function modelProbe(fastify: FastifyInstance) {
         await findOwnedTeam(fastify, teamId, request.account_id);
 
         const baseUrl = readBaseUrl(request);
-        const apiKey = readApiKey(request);
+        const apiKey = listingKey(
+            readApiKey(request),
+            baseUrl,
+            await readStoredModel(fastify, request, teamId),
+        );
 
         const raw = (request.body as { model?: unknown } | undefined)?.model;
         const model = typeof raw === 'string' ? raw.trim().slice(0, MODEL_MAX) : '';
 
-        const probe = await probeModel(baseUrl, apiKey, model);
+        const probe = await withAutoFree(await probeModel(baseUrl, apiKey, model), model);
 
         request.log.info(
             {
@@ -482,6 +548,43 @@ export function modelProbe(fastify: FastifyInstance) {
     };
 
     return { schema: schemaModelProbe, config: { ...authGuard() }, handler };
+}
+
+// Lists an endpoint's model ids so the form can offer them as you type. Read-only and run
+// automatically, so it is logged but not added to the audit trail.
+export function modelListIds(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const baseUrl = readBaseUrl(request);
+        const typed = readApiKey(request);
+
+        const stored = await readStoredModel(fastify, request, teamId);
+
+        const probe = await probeModel(baseUrl, listingKey(typed, baseUrl, stored), '');
+
+        request.log.debug(
+            {
+                module: 'model',
+                teamId,
+                accountId: request.account_id,
+                ok: probe.ok,
+                reason: probe.reason,
+                listed: probe.ids?.length ?? 0,
+            },
+            'model endpoint listed',
+        );
+
+        reply.send({
+            ok: probe.ok,
+            ids: probe.ids ?? [],
+            ...(probe.reason !== undefined && { reason: probe.reason }),
+        });
+    };
+
+    return { schema: schemaModelListIds, config: { ...authGuard() }, handler };
 }
 
 export function modelCatalog() {

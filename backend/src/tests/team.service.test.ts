@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { probeTelegram } from './team.service.js';
+import { probeTelegram } from '../routes/team/team.service.js';
 
 const TOKEN = '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
 
