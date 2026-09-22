@@ -423,3 +423,10 @@ export const WALLETS: { id: string; name: string; rdns: string; keyword: string;
             blurb: 'The browser extension you may already have',
         },
     ];
+
+export const LOGO_SRC = '/logo.png';
+
+export const BRAND_SIZES: Record<'sm' | 'lg', string> = {
+    sm: 'size-8 rounded-md',
+    lg: 'size-12 rounded-lg',
+};
