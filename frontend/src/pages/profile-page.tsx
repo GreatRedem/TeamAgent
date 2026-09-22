@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bot } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -24,6 +24,7 @@ import { teamPath } from '@/libs/navigation';
 import { profileName } from '@/libs/profileName';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
+import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
 import { CodeBlock } from '@/ui/code-block';
@@ -260,7 +261,7 @@ export function ProfilePage() {
                             <CardHeader>
                                 <CardTitle>Notes the agents keep</CardTitle>
                                 <CardDescription>
-                                    Files an agent has written about this person.
+                                    Each agent keeps its own files about this person.
                                 </CardDescription>
                             </CardHeader>
 
@@ -279,8 +280,20 @@ export function ProfilePage() {
                                         key={file.id}>
                                         <Stack
                                             direction="Horizontal"
-                                            className="flex-wrap items-baseline justify-between gap-2">
-                                            <Text type="DataStrong" message={file.name} />
+                                            className="flex-wrap items-center justify-between gap-2">
+                                            <Stack
+                                                direction="Horizontal"
+                                                className="min-w-0 flex-wrap items-center gap-2">
+                                                <Badge variant="secondary">
+                                                    <Bot aria-hidden="true" />
+                                                    {file.agent_id === 0
+                                                        ? 'Before per-agent notes'
+                                                        : file.agent_name === ''
+                                                          ? 'Removed agent'
+                                                          : file.agent_name}
+                                                </Badge>
+                                                <Text type="DataStrong" message={file.name} />
+                                            </Stack>
                                             <Text
                                                 type="DataMuted"
                                                 message={tokenLabel(file.content)}

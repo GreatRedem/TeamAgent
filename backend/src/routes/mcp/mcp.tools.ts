@@ -45,13 +45,15 @@ What this person wants remembered between conversations.
 export const TOOLS: ToolDefinition[] = [
     {
         name: 'preferences_list',
-        description: 'List the markdown files stored for the person you are talking to.',
+        description:
+            'List the markdown files you keep for the person you are talking to. Other agents keep their own.',
         permission: 'prefs.read',
         inputSchema: { type: 'object', properties: {}, required: [] },
     },
     {
         name: 'preferences_read',
-        description: "Read one of the person's markdown files, for example preferences.md.",
+        description:
+            'Read one of the markdown files you keep for this person, for example preferences.md.',
         permission: 'prefs.read',
         inputSchema: {
             type: 'object',
@@ -62,7 +64,7 @@ export const TOOLS: ToolDefinition[] = [
     {
         name: 'preferences_write',
         description:
-            "Replace the whole contents of one of the person's markdown files, creating it if needed. Read it first unless you intend to discard what is there.",
+            'Replace the whole contents of one of the markdown files you keep for this person, creating it if needed. Read it first unless you intend to discard what is there.',
         permission: 'prefs.write',
         inputSchema: {
             type: 'object',
@@ -76,7 +78,7 @@ export const TOOLS: ToolDefinition[] = [
     {
         name: 'preferences_append',
         description:
-            "Add a line to the end of one of the person's markdown files without rewriting it.",
+            'Add a line to the end of one of the markdown files you keep for this person without rewriting it.',
         permission: 'prefs.write',
         inputSchema: {
             type: 'object',
@@ -135,7 +137,7 @@ export const TOOLS: ToolDefinition[] = [
     {
         name: 'team_member_read',
         description:
-            'Read what has been recorded about one member of the team. Use the member_id from team_members.',
+            'Read what you have recorded about one member of the team. Use the member_id from team_members.',
         permission: 'team.read',
         inputSchema: {
             type: 'object',
@@ -149,7 +151,7 @@ export const TOOLS: ToolDefinition[] = [
     {
         name: 'team_member_note',
         description:
-            'Remember something about one member of the team by adding a line to their notes. It appends, so nothing already recorded is lost.',
+            'Remember something about one member of the team by adding a line to your notes on them. It appends, so nothing already recorded is lost.',
         permission: 'team.write',
         inputSchema: {
             type: 'object',
@@ -301,15 +303,22 @@ async function writeRosterContent(
         : repository.save({ team_id: teamId, name: ROSTER_FILE, content }));
 }
 
-async function ensureSeeded(fastify: FastifyInstance, userId: number): Promise<void> {
+// Gives an agent its own preferences.md for a person the first time it looks; each agent keeps
+// its own notes, so one agent never reads or overwrites another's.
+async function ensureSeeded(
+    fastify: FastifyInstance,
+    userId: number,
+    agentId: number,
+): Promise<void> {
     const repository = fastify.db.getRepository(TelegramUserDocument);
 
-    if ((await repository.countBy({ user_id: userId })) > 0) {
+    if ((await repository.countBy({ user_id: userId, agent_id: agentId })) > 0) {
         return;
     }
 
     await repository.save({
         user_id: userId,
+        agent_id: agentId,
         name: 'preferences.md',
         content: PREFERENCES_TEMPLATE,
     });
@@ -574,7 +583,11 @@ export async function runTool(
         }
 
         const documents = fastify.db.getRepository(TelegramUserDocument);
-        const stored = await documents.findOneBy({ user_id: member.id, name: noteName });
+        const stored = await documents.findOneBy({
+            user_id: member.id,
+            agent_id: agent.id,
+            name: noteName,
+        });
 
         if (tool.name === 'team_member_read') {
             return stored
@@ -604,7 +617,12 @@ export async function runTool(
         if (stored) {
             await documents.update({ id: stored.id }, { content: merged });
         } else {
-            await documents.save({ user_id: member.id, name: noteName, content: merged });
+            await documents.save({
+                user_id: member.id,
+                agent_id: agent.id,
+                name: noteName,
+                content: merged,
+            });
         }
 
         await audit(fastify, fastify.log, {
@@ -637,10 +655,10 @@ export async function runTool(
     }
 
     if (tool.name === 'preferences_list') {
-        await ensureSeeded(fastify, user.id);
+        await ensureSeeded(fastify, user.id, agent.id);
 
         const documents = await repository.find({
-            where: { user_id: user.id },
+            where: { user_id: user.id, agent_id: agent.id },
             order: { name: 'ASC' },
         });
 
@@ -662,9 +680,13 @@ export async function runTool(
     }
 
     if (tool.name === 'preferences_read') {
-        await ensureSeeded(fastify, user.id);
+        await ensureSeeded(fastify, user.id, agent.id);
 
-        const document = await repository.findOneBy({ user_id: user.id, name: fileName });
+        const document = await repository.findOneBy({
+            user_id: user.id,
+            agent_id: agent.id,
+            name: fileName,
+        });
 
         if (!document) {
             return refuse('no such file');
@@ -682,7 +704,11 @@ export async function runTool(
         return refuse(`content exceeds ${DOCUMENT_CONTENT_MAX} characters`);
     }
 
-    const existing = await repository.findOneBy({ user_id: user.id, name: fileName });
+    const existing = await repository.findOneBy({
+        user_id: user.id,
+        agent_id: agent.id,
+        name: fileName,
+    });
 
     if (tool.name === 'preferences_append') {
         const merged = existing
@@ -696,7 +722,12 @@ export async function runTool(
         if (existing) {
             await repository.update({ id: existing.id }, { content: merged });
         } else {
-            await repository.save({ user_id: user.id, name: fileName, content: merged });
+            await repository.save({
+                user_id: user.id,
+                agent_id: agent.id,
+                name: fileName,
+                content: merged,
+            });
         }
 
         return { ok: true, content: JSON.stringify({ name: fileName, chars: merged.length }) };
@@ -705,7 +736,12 @@ export async function runTool(
     if (existing) {
         await repository.update({ id: existing.id }, { content: body });
     } else {
-        await repository.save({ user_id: user.id, name: fileName, content: body });
+        await repository.save({
+            user_id: user.id,
+            agent_id: agent.id,
+            name: fileName,
+            content: body,
+        });
     }
 
     return { ok: true, content: JSON.stringify({ name: fileName, chars: body.length }) };

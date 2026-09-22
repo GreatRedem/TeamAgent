@@ -5,6 +5,7 @@ import { BadRequestResponse } from '../../utils/response.js';
 import { audit } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
+import { TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from './agent.entity.js';
 import {
     AGENT_PERMISSIONS,
@@ -319,6 +320,9 @@ export function agentRemove(fastify: FastifyInstance) {
         }
 
         await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
+
+        // The notes it kept on people go with it; no other agent could read them.
+        await fastify.db.getRepository(TelegramUserDocument).delete({ agent_id: agentId });
 
         const detached = await fastify.db
             .getRepository(TeamBot)

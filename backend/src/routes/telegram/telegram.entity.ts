@@ -47,7 +47,7 @@ export class TelegramUser {
 }
 
 @Entity({ name: 'telegram_user_document' })
-@Unique(['user_id', 'name'])
+@Unique(['user_id', 'agent_id', 'name'])
 export class TelegramUserDocument {
     @PrimaryGeneratedColumn()
     id: number;
@@ -55,6 +55,12 @@ export class TelegramUserDocument {
     @Index()
     @Column({ type: 'int' })
     user_id: number;
+
+    // The agent that keeps this file: each agent keeps its own notes on a person. 0 marks a
+    // file from before that, which no agent owns.
+    @Index()
+    @Column({ type: 'int', default: 0 })
+    agent_id: number;
 
     @Column({ type: 'varchar', length: 64 })
     name: string;

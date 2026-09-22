@@ -211,9 +211,8 @@ consolidate rather than fork.
 One column, centred, capped at `max-w-5xl`. The header is capped the same, so
 the two edges line up on every screen.
 
-The header is fixed and collapses to a handle when the pointer has been away for
-1.6 seconds. It reopens on hover, on focus, on entering the top strip, or after
-120px of continuous upward pointer travel. Touch devices never collapse it.
+The header is fixed and always fully open: it does not narrow or hide when the
+pointer is idle.
 Content clears it with `pt-24`, or `pt-32` inside a project where the nav row
 adds a second row.
 

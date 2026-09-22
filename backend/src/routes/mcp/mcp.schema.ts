@@ -35,9 +35,11 @@ export const schemaProfileFiles = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['id', 'name', 'content', 'updated_at'],
+                        required: ['id', 'agent_id', 'agent_name', 'name', 'content', 'updated_at'],
                         properties: {
                             id: { type: 'integer' },
+                            agent_id: { type: 'integer' },
+                            agent_name: { type: 'string' },
                             name: { type: 'string' },
                             content: { type: 'string' },
                             updated_at: { type: 'string' },

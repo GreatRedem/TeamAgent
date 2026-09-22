@@ -34,12 +34,6 @@ export const MODEL_LIST_DELAY = 500;
 
 export const PAGE_WIDTH = 'mx-auto w-full max-w-5xl';
 
-export const HEADER_OPEN_ZONE = 110;
-
-export const HEADER_LIFT_TRAVEL = 120;
-
-export const HEADER_IDLE_DELAY = 1600;
-
 export const TEAM_NAMES = new Map<number, string>();
 
 export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [

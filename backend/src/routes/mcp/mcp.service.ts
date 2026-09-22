@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
+import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { schemaMcpTools, schemaProfileFiles } from './mcp.schema.js';
@@ -42,14 +43,23 @@ export function profileFiles(fastify: FastifyInstance) {
 
         const { limit, offset } = readPage(request, FILE_PAGE);
 
+        // Each agent keeps its own files on a person, so they come grouped by agent.
         const [rows, total] = await fastify.db.getRepository(TelegramUserDocument).findAndCount({
             where: { user_id: user.id },
-            order: { name: 'ASC' },
+            order: { agent_id: 'ASC', name: 'ASC' },
             skip: offset,
             take: limit + 1,
         });
 
         const { items, has_more } = takePage(rows, limit);
+
+        const agents = new Map(
+            (
+                await fastify.db
+                    .getRepository(TeamAgent)
+                    .find({ where: { team_id: teamId }, select: { id: true, name: true } })
+            ).map((agent) => [agent.id, agent.name]),
+        );
 
         reply.send({
             limit,
@@ -58,6 +68,8 @@ export function profileFiles(fastify: FastifyInstance) {
             total,
             files: items.map((file) => ({
                 id: file.id,
+                agent_id: file.agent_id,
+                agent_name: agents.get(file.agent_id) ?? '',
                 name: file.name,
                 content: file.content,
                 updated_at: file.updated_at,
