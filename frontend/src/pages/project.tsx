@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
-import { ApiError, type Team, teamDetails, teamUpdate } from '@/apis';
+import { ApiError, type Team, teamArchive, teamDetails, teamRemove, teamUpdate } from '@/apis';
+import { ConfirmButton } from '@/components/confirm-button';
 import { Field } from '@/components/field';
 import { PageHeader } from '@/components/page-header';
 import { ActivityPanel } from '@/components/project/activity-panel';
@@ -10,12 +11,12 @@ import { BotsPanel } from '@/components/project/bots-panel';
 import { MachinePanel } from '@/components/project/machine-panel';
 import { ModelsPanel } from '@/components/project/models-panel';
 import { PeoplePanel } from '@/components/project/people-panel';
-import { TEAM_TITLES } from '@/libs/constant';
+import { TEAM_NAMES, TEAM_TITLES } from '@/libs/constant';
 import { teamPath } from '@/libs/navigation';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
 import { Input } from '@/ui/input';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
@@ -37,6 +38,7 @@ export function Project() {
     const [busy, setBusy] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [archiving, setArchiving] = useState(false);
 
     useEffect(() => {
         if (readAccessToken() === null) {
@@ -109,6 +111,42 @@ export function Project() {
         },
         [teamId, name, description],
     );
+
+    // Archiving is reversible; deleting is only offered once the project is archived.
+    const archive = useCallback(
+        async (archived: boolean) => {
+            setError(null);
+            setArchiving(true);
+
+            try {
+                setTeam(await teamArchive(teamId, archived));
+            } catch (cause) {
+                setError(
+                    cause instanceof ApiError ? cause.result : 'The project could not be updated.',
+                );
+            } finally {
+                setArchiving(false);
+            }
+        },
+        [teamId],
+    );
+
+    const remove = useCallback(async () => {
+        setError(null);
+        setArchiving(true);
+
+        try {
+            await teamRemove(teamId);
+            TEAM_NAMES.delete(teamId);
+
+            void navigate('/dashboard', { replace: true });
+        } catch (cause) {
+            setError(
+                cause instanceof ApiError ? cause.result : 'The project could not be deleted.',
+            );
+            setArchiving(false);
+        }
+    }, [teamId, navigate]);
 
     if (!idInvalid && tab === 'activity') {
         return <Navigate to={teamPath(teamId)} replace />;
@@ -231,6 +269,49 @@ export function Project() {
                             </Stack>
                         </Stack>
                     </CardContent>
+                </Card>
+            )}
+
+            {team !== null && tab === 'settings' && (
+                <Card className="max-w-xl">
+                    <CardHeader>
+                        <CardTitle>
+                            {team.archived_at === null ? 'Archive' : 'This project is archived'}
+                        </CardTitle>
+                        <CardDescription>
+                            {team.archived_at === null
+                                ? 'An archived project leaves the project list. Its bots keep their settings, and you can restore it or delete it from here.'
+                                : `Archived ${new Date(team.archived_at).toLocaleDateString()}. Restore it to bring it back to the project list, or delete it for good.`}
+                        </CardDescription>
+                    </CardHeader>
+
+                    <CardFooter className="gap-2">
+                        {team.archived_at === null ? (
+                            <Button
+                                variant="outline"
+                                disabled={archiving}
+                                onClick={() => void archive(true)}
+                                message={archiving ? 'Archiving…' : 'Archive project'}
+                            />
+                        ) : (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    disabled={archiving}
+                                    onClick={() => void archive(false)}
+                                    message={archiving ? 'Restoring…' : 'Unarchive'}
+                                />
+                                <ConfirmButton
+                                    label="Delete project"
+                                    title="Delete this project?"
+                                    description="Its bots, agents, models, conversations and records are removed with it. This cannot be undone."
+                                    confirmLabel="Delete for good"
+                                    disabled={archiving}
+                                    onConfirm={() => void remove()}
+                                />
+                            </>
+                        )}
+                    </CardFooter>
                 </Card>
             )}
         </>

@@ -5,6 +5,7 @@ const team = {
         id: { type: 'integer' },
         name: { type: 'string' },
         description: { type: 'string' },
+        archived_at: { type: ['string', 'null'] },
         created_at: { type: 'string' },
         updated_at: { type: 'string' },
     },
@@ -24,7 +25,38 @@ export const schemaTeamCreate = {
     },
 } as const;
 
+export const schemaTeamArchive = {
+    body: {
+        type: 'object',
+        required: ['archived'],
+        properties: {
+            archived: { type: 'boolean' },
+        },
+    },
+    response: {
+        200: team,
+    },
+} as const;
+
+export const schemaTeamRemove = {
+    response: {
+        200: {
+            type: 'object',
+            required: ['result'],
+            properties: {
+                result: { type: 'string' },
+            },
+        },
+    },
+} as const;
+
 export const schemaTeamList = {
+    querystring: {
+        type: 'object',
+        properties: {
+            archived: { type: 'boolean' },
+        },
+    },
     response: {
         200: {
             type: 'object',

@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, LayoutGrid, Settings2 } from 'lucide-react';
+import { Check, ChevronsUpDown, LayoutGrid } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -105,15 +105,6 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
                 ))}
 
                 <DropdownMenuSeparator />
-
-                {teamId !== 0 && (
-                    <DropdownMenuItem asChild>
-                        <Link to={teamPath(teamId, 'settings')}>
-                            <Settings2 aria-hidden="true" />
-                            Project settings
-                        </Link>
-                    </DropdownMenuItem>
-                )}
 
                 <DropdownMenuItem asChild>
                     <Link to="/dashboard">

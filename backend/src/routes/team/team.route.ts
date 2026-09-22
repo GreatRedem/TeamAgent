@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import {
+    teamArchive,
     teamBotCreate,
     teamBotList,
     teamBotRemove,
@@ -9,6 +10,7 @@ import {
     teamCreate,
     teamDetails,
     teamList,
+    teamRemove,
     teamRosterRead,
     teamRosterWrite,
     teamUpdate,
@@ -19,6 +21,8 @@ export default async function (fastify: FastifyInstance) {
     fastify.get('/team', teamList(fastify));
     fastify.get('/team/:id', teamDetails(fastify));
     fastify.patch('/team/:id', teamUpdate(fastify));
+    fastify.delete('/team/:id', teamRemove(fastify));
+    fastify.patch('/team/:id/archive', teamArchive(fastify));
 
     fastify.get('/team/:id/roster', teamRosterRead(fastify));
     fastify.put('/team/:id/roster', teamRosterWrite(fastify));

@@ -45,7 +45,7 @@ Backend types are checked by `npm run build:api`, not by `npm run typecheck`.
 Backend self-checks are standalone scripts, one per area:
 
 ```
-npx tsx backend/src/routes/<area>/<name>.test.ts
+npx tsx --tsconfig backend/tsconfig.json backend/src/routes/<area>/<name>.test.ts
 ```
 
 ## Tooling notes

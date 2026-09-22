@@ -52,6 +52,17 @@
     --scale-3: #2f9c83;
     --scale-4: #3fcbb0;
 
+    /* Hues for the smaller diamonds in the background scene. */
+    --gem-pink: #f472b6;
+    --gem-green: #4ade80;
+    --gem-cyan: #22d3ee;
+    --gem-red: #f87171;
+    --gem-blue: #60a5fa;
+    --gem-orange: #fb923c;
+    --gem-purple: #a78bfa;
+    --gem-indigo: #818cf8;
+    --gem-yellow: #facc15;
+
     --radius: 0.5rem;
 
     --font-ui: Vazirmatn, "Segoe UI", system-ui, sans-serif;
@@ -150,7 +161,7 @@
     --font-sans: var(--font-ui);
     --font-mono: var(--font-data);
 
-    /* Sizes only: none carries a line height, so every element keeps the 1.5 set on * below. */
+    /* Sizes only: none carries a line height, so every element keeps the one set on * below. */
     --text-*: initial;
     --text-2xs: 0.6875rem;
     --text-xs: 0.75rem;
@@ -168,6 +179,7 @@
 
     --animate-drift: drift 18s ease-in-out infinite;
     --animate-float: float 20s ease-in-out infinite;
+    --animate-hue: hue 40s linear infinite;
 
     @keyframes drift {
         0%,
@@ -188,6 +200,48 @@
             transform: translate3d(0.6rem, -1.6rem, 0);
         }
     }
+
+    /* Ten hues, four seconds each, blended linearly from one to the next. */
+    @keyframes hue {
+        0%,
+        100% {
+            --glow-bright: var(--primary);
+        }
+        10% {
+            --glow-bright: var(--gem-cyan);
+        }
+        20% {
+            --glow-bright: var(--gem-blue);
+        }
+        30% {
+            --glow-bright: var(--gem-indigo);
+        }
+        40% {
+            --glow-bright: var(--gem-purple);
+        }
+        50% {
+            --glow-bright: var(--gem-pink);
+        }
+        60% {
+            --glow-bright: var(--gem-red);
+        }
+        70% {
+            --glow-bright: var(--gem-orange);
+        }
+        80% {
+            --glow-bright: var(--gem-yellow);
+        }
+        90% {
+            --glow-bright: var(--gem-green);
+        }
+    }
+}
+
+/* Registered as a colour so the hue animation blends it instead of snapping between values. */
+@property --glow-bright {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #3fcbb0;
 }
 
 @utility break-anywhere {
@@ -198,7 +252,9 @@
     * {
         @apply border-border outline-ring/50;
 
-        line-height: 1.5;
+        /* One rule for every size: 4px of lead on top of the text, so every size sits tight.
+           11px text gets 15px lines, 14px body 18px, a 26px title 30px. */
+        line-height: calc(1em + 0.25rem);
     }
 
     /* Tailwind 4 gives buttons the default cursor; anything you can press shows a pointer. */

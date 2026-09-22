@@ -481,6 +481,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
 
             {page !== null && models !== null && models.length > 0 && (
                 <Pager
+                    framed
                     page={page}
                     shown={models.length}
                     busy={paging}

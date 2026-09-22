@@ -1,14 +1,22 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { In, IsNull, Not } from 'typeorm';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
-import { TeamAgent } from '../agent/agent.entity.js';
+import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
+import { AuditLog } from '../audit/audit.entity.js';
 import { audit } from '../audit/audit.log.js';
+import {
+    TelegramMessage,
+    TelegramUser,
+    TelegramUserDocument,
+} from '../telegram/telegram.entity.js';
 import { createWebhookSecret } from '../telegram/telegram.service.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from './team.access.js';
-import { Team, TeamBot, TeamDocument } from './team.entity.js';
+import { Team, TeamBot, TeamDocument, TeamModel } from './team.entity.js';
 import { parseRoster, ROSTER_FILE, type Roster, serializeRoster } from './team.roster.js';
 import {
+    schemaTeamArchive,
     schemaTeamBotCreate,
     schemaTeamBotList,
     schemaTeamBotRemove,
@@ -17,6 +25,7 @@ import {
     schemaTeamCreate,
     schemaTeamDetails,
     schemaTeamList,
+    schemaTeamRemove,
     schemaTeamRoster,
     schemaTeamUpdate,
 } from './team.schema.js';
@@ -177,8 +186,14 @@ export function teamList(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const { limit, offset } = readPage(request, LIST_PAGE);
 
+        // Archived projects stay out of the list; ?archived=true lists only them.
+        const archived = (request.query as { archived?: boolean }).archived === true;
+
         const [rows, total] = await fastify.db.getRepository(Team).findAndCount({
-            where: { account_id: request.account_id },
+            where: {
+                account_id: request.account_id,
+                archived_at: archived ? Not(IsNull()) : IsNull(),
+            },
             order: { id: 'DESC' },
             skip: offset,
             take: limit + 1,
@@ -237,6 +252,92 @@ export function teamUpdate(fastify: FastifyInstance) {
     };
 
     return { schema: schemaTeamUpdate, config: { ...authGuard() }, handler };
+}
+
+export function teamArchive(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const id = readTeamId(request);
+        const { archived } = request.body as { archived: boolean };
+
+        await findOwnedTeam(fastify, id, request.account_id);
+
+        await fastify.db
+            .getRepository(Team)
+            .update(
+                { id, account_id: request.account_id },
+                { archived_at: archived ? new Date() : null },
+            );
+
+        const team = await findOwnedTeam(fastify, id, request.account_id);
+
+        request.log.info(
+            { module: 'team', teamId: id, accountId: request.account_id },
+            archived ? 'team archived' : 'team restored',
+        );
+
+        await audit(fastify, request.log, {
+            teamId: id,
+            accountId: request.account_id,
+            action: archived ? 'team.archive' : 'team.unarchive',
+            target: `team:${id}`,
+        });
+
+        reply.send(team);
+    };
+
+    return { schema: schemaTeamArchive, config: { ...authGuard() }, handler };
+}
+
+// Deleting is final, so only an archived project can go: archive first, then delete. Every row
+// the project owns goes with it in one transaction, so a failure leaves nothing half removed.
+export function teamRemove(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const id = readTeamId(request);
+
+        const team = await findOwnedTeam(fastify, id, request.account_id);
+
+        if (team.archived_at === null) {
+            throw new BadRequestResponse('TEAM_NOT_ARCHIVED');
+        }
+
+        await fastify.db.transaction(async (db) => {
+            const agents = await db.find(TeamAgent, {
+                where: { team_id: id },
+                select: { id: true },
+            });
+            const users = await db.find(TelegramUser, {
+                where: { team_id: id },
+                select: { id: true },
+            });
+
+            if (agents.length > 0) {
+                await db.delete(TeamAgentDocument, { agent_id: In(agents.map((a) => a.id)) });
+            }
+
+            if (users.length > 0) {
+                await db.delete(TelegramUserDocument, { user_id: In(users.map((u) => u.id)) });
+            }
+
+            await db.delete(TeamAgentExchange, { team_id: id });
+            await db.delete(TeamAgent, { team_id: id });
+            await db.delete(TelegramMessage, { team_id: id });
+            await db.delete(TelegramUser, { team_id: id });
+            await db.delete(TeamBot, { team_id: id });
+            await db.delete(TeamModel, { team_id: id });
+            await db.delete(TeamDocument, { team_id: id });
+            await db.delete(AuditLog, { team_id: id });
+            await db.delete(Team, { id, account_id: request.account_id });
+        });
+
+        request.log.info(
+            { module: 'team', teamId: id, accountId: request.account_id },
+            'team deleted',
+        );
+
+        reply.send({ result: 'OK' });
+    };
+
+    return { schema: schemaTeamRemove, config: { ...authGuard() }, handler };
 }
 
 export function teamBotCreate(fastify: FastifyInstance) {

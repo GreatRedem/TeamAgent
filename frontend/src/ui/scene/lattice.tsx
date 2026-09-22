@@ -52,7 +52,7 @@ export function Lattice() {
 
     return (
         <svg
-            className="absolute inset-x-0 top-0 h-[72%] w-full opacity-55 lg:opacity-100"
+            className="absolute inset-0 size-full opacity-55 lg:opacity-100"
             viewBox="0 0 1440 640"
             preserveAspectRatio="xMidYMid slice"
             role="presentation"

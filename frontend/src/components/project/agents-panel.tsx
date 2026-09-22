@@ -334,6 +334,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
 
             {page !== null && agents !== null && agents.length > 0 && (
                 <Pager
+                    framed
                     page={page}
                     shown={agents.length}
                     busy={paging}

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Bot, Cpu, LayoutGrid, MessageSquare } from 'lucide-react';
+import { Bot, Cpu, LayoutGrid, MessageSquare, Settings2 } from 'lucide-react';
 
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
@@ -32,6 +32,7 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'agents', label: 'Agents', icon: Bot },
     { id: 'bots', label: 'Bots', icon: MessageSquare },
     { id: 'models', label: 'Models', icon: Cpu },
+    { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
 
 export const TEAM_TITLES: Record<string, { title: string; description: string }> = {
@@ -80,8 +81,7 @@ export const PROVIDER_FALLBACK: ProviderPreset[] = [
 
 export const SCENE_PALETTE =
     '[--glow:var(--scale-2)] [--glow-bright:var(--primary)] [--ink:var(--foreground)] ' +
-    '[--facet-hi:var(--muted-foreground)] [--facet-lo:var(--neutral)] [--facet-deep:var(--accent)] ' +
-    '[--rock-hi:var(--input)] [--rock-deep:var(--background)] [--rock-rim:var(--muted-foreground)]';
+    '[--facet-hi:var(--muted-foreground)] [--facet-lo:var(--neutral)] [--facet-deep:var(--accent)]';
 
 export const SCENE_ROOT =
     'pointer-events-none fixed inset-0 -z-1 overflow-hidden ' +
@@ -189,6 +189,51 @@ function buildCrystal(): { vertices: Vec3[]; faces: CrystalFace[] } {
 
 export const CRYSTAL_MODEL = buildCrystal();
 
+// The main diamond breathes too, gently, so it stays the centrepiece.
+export const CRYSTAL_MAIN_PULSE = { amount: 0.08, frequency: 0.25, phase: 0 };
+
+// One wave of a small diamond's wander: up to `reach` screen percent, a minute or two a lap.
+const swarmWave = (reach: number) => ({
+    amplitude: reach * (0.4 + Math.random() * 0.6),
+    frequency: 0.04 + Math.random() * 0.08,
+    phase: Math.random() * Math.PI * 2,
+});
+
+// The hues the smaller diamonds wear, shuffled on each load so neighbours differ.
+const CRYSTAL_HUES = ['pink', 'green', 'cyan', 'red', 'blue', 'orange', 'purple']
+    .map((hue) => ({ hue, order: Math.random() }))
+    .toSorted((a, b) => a.order - b.order)
+    .map(({ hue }) => `var(--gem-${hue})`);
+
+// The smaller diamonds around the main one, drawn fresh on every load: five to eight of them,
+// mostly small with the odd large one, on alternating sides of the centre so they frame the
+// main diamond instead of covering it. Each turns at its own speed and direction, and wanders
+// on two slow waves per axis (in vw and vh) so it drifts in a direction that keeps changing.
+export const CRYSTAL_SWARM = Array.from({ length: 5 + Math.floor(Math.random() * 4) }, (_, i) => {
+    const size = 3 + Math.random() ** 1.6 * 8;
+
+    return {
+        key: `crystal-${i}`,
+        hue: CRYSTAL_HUES[i % CRYSTAL_HUES.length],
+        left: i % 2 === 0 ? 6 + Math.random() * 24 : 70 + Math.random() * 24,
+        top: 8 + Math.random() * 60,
+        size,
+        opacity: 0.35 + (size / 11) * 0.5,
+        speed: (0.6 + Math.random() * 0.8) * (Math.random() < 0.5 ? -1 : 1),
+        phase: Math.random() * Math.PI * 2,
+        waves: {
+            x: [swarmWave(6), swarmWave(4)],
+            y: [swarmWave(5), swarmWave(3)],
+        },
+        // Grows and shrinks around its size: how far, how fast (radians a second), where it starts.
+        pulse: {
+            amount: 0.2 + Math.random() * 0.25,
+            frequency: 0.15 + Math.random() * 0.25,
+            phase: Math.random() * Math.PI * 2,
+        },
+    };
+});
+
 // Two nodes closer than this, in lattice units, are linked. The link fades as they part.
 export const LATTICE_LINK_DISTANCE = 260;
 
@@ -253,160 +298,6 @@ export const DEBRIS_SPHERES: Shard[] = [
     { x: 372, y: 214, size: 9, opacity: 0.45 },
     { x: 300, y: 432, size: 16, opacity: 0.5 },
 ];
-
-export interface Slab {
-    points: [number, number][];
-    depth: number;
-    lit?: boolean;
-}
-
-export const TERRAIN_FAR: Slab[] = [
-    {
-        points: [
-            [0, 258],
-            [188, 232],
-            [232, 268],
-            [40, 296],
-        ],
-        depth: 26,
-    },
-    {
-        points: [
-            [210, 278],
-            [396, 242],
-            [452, 280],
-            [262, 316],
-        ],
-        depth: 22,
-    },
-    {
-        points: [
-            [436, 254],
-            [604, 228],
-            [656, 266],
-            [486, 294],
-        ],
-        depth: 30,
-    },
-    {
-        points: [
-            [648, 282],
-            [800, 250],
-            [858, 288],
-            [700, 318],
-        ],
-        depth: 24,
-    },
-    {
-        points: [
-            [852, 258],
-            [1016, 230],
-            [1078, 272],
-            [912, 300],
-        ],
-        depth: 28,
-    },
-    {
-        points: [
-            [1070, 286],
-            [1232, 248],
-            [1310, 286],
-            [1146, 320],
-        ],
-        depth: 22,
-    },
-    {
-        points: [
-            [1298, 262],
-            [1440, 244],
-            [1440, 288],
-            [1348, 300],
-        ],
-        depth: 26,
-    },
-];
-
-export const TERRAIN_NEAR: Slab[] = [
-    {
-        points: [
-            [0, 330],
-            [224, 302],
-            [286, 348],
-            [30, 380],
-        ],
-        depth: 44,
-        lit: true,
-    },
-    {
-        points: [
-            [336, 344],
-            [578, 316],
-            [642, 366],
-            [382, 398],
-        ],
-        depth: 46,
-        lit: true,
-    },
-    {
-        points: [
-            [716, 366],
-            [934, 338],
-            [1004, 388],
-            [772, 418],
-        ],
-        depth: 40,
-        lit: true,
-    },
-    {
-        points: [
-            [1086, 356],
-            [1314, 328],
-            [1396, 380],
-            [1156, 410],
-        ],
-        depth: 44,
-        lit: true,
-    },
-    {
-        points: [
-            [96, 392],
-            [386, 362],
-            [452, 414],
-            [60, 420],
-        ],
-        depth: 40,
-    },
-    {
-        points: [
-            [492, 402],
-            [788, 376],
-            [862, 420],
-            [430, 420],
-        ],
-        depth: 32,
-    },
-    {
-        points: [
-            [890, 410],
-            [1196, 384],
-            [1274, 420],
-            [846, 420],
-        ],
-        depth: 30,
-    },
-    {
-        points: [
-            [1248, 400],
-            [1440, 378],
-            [1440, 420],
-            [1212, 420],
-        ],
-        depth: 34,
-    },
-];
-
-export const TERRAIN_TRAIL =
-    'M1440 320 C 1288 334, 1200 354, 1056 358 C 914 362, 810 344, 674 354 C 552 364, 448 386, 356 406';
 
 export const BLANK_MODEL = { name: '', model: '', baseUrl: '', apiKey: '', contextTokens: '' };
 

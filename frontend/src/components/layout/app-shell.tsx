@@ -26,6 +26,8 @@ export function AppShell() {
 
     return (
         <Stack direction="Vertical" className="relative isolate min-h-dvh">
+            <Scene />
+
             <AppHeader />
 
             <Stack

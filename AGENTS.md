@@ -287,9 +287,10 @@ Maintain a clear hierarchy:
 
 Do not use font size alone to create hierarchy. Use spacing, weight and semantic structure.
 
-Line height is 1.5 across the whole project, set once on `*` in
-`styles/index.css`. The type scale carries font sizes only, so no size utility
-changes it. Do not write a `leading-*` class.
+Line height is one rule, set once on `*` in `styles/index.css`:
+`calc(1em + 0.25rem)`, 4px of lead on top of the text. 11px text gets 15px lines,
+14px body 18px, a 26px title 30px. The type scale carries font sizes only, so no
+size utility changes it. Do not write a `leading-*` class.
 
 ---
 

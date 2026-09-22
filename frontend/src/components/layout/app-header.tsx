@@ -7,7 +7,6 @@ import {
     HEADER_IDLE_DELAY,
     HEADER_LIFT_TRAVEL,
     HEADER_OPEN_ZONE,
-    PAGE_WIDTH,
     TEAM_NAMES,
 } from '@/libs/constant';
 import { activeTeamId, teamPath } from '@/libs/navigation';
@@ -108,26 +107,14 @@ export function AppHeader() {
             direction="Vertical"
             as="header"
             className="pointer-events-none fixed inset-x-0 top-0 z-30 px-4 pt-3 sm:px-6">
-            <Stack
-                direction="Vertical"
-                className={cn(
-                    'absolute top-1.5 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-input',
-                    'transition-opacity duration-300 ease-out motion-reduce:transition-none',
-                    open ? 'opacity-0' : 'opacity-100',
-                )}
-                aria-hidden="true"
-            />
-
+            {/* Idle, the bar stays put and narrows to a pill; it widens again when wanted. */}
             <Stack
                 direction="Vertical"
                 ref={host}
                 className={cn(
-                    PAGE_WIDTH,
-                    'pointer-events-auto overflow-hidden rounded-xl border bg-card/95 shadow-float backdrop-blur-xl',
-                    'transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none',
-                    open
-                        ? 'translate-y-0 opacity-100'
-                        : '-translate-y-[calc(100%+1.5rem)] opacity-0',
+                    'pointer-events-auto mx-auto w-full overflow-hidden rounded-xl border bg-card/95 shadow-float backdrop-blur-xl',
+                    'transition-[max-width] duration-300 ease-out motion-reduce:transition-none',
+                    open ? 'max-w-5xl' : 'max-w-sm',
                 )}>
                 <Stack direction="Horizontal" className="h-14 items-center gap-2 px-3">
                     <Brand to="/dashboard" />
@@ -151,36 +138,43 @@ export function AppHeader() {
 
                 {teamId !== 0 && (
                     <Stack
-                        direction="Horizontal"
-                        as="nav"
-                        className="[scrollbar-width:none] gap-1 overflow-x-auto border-t px-2 py-1.5 [&::-webkit-scrollbar]:hidden"
-                        aria-label="Project sections">
-                        {DESTINATIONS.map(({ id, label, icon: Icon }) => (
-                            <NavLink
-                                key={id}
-                                to={teamPath(teamId, id)}
-                                end
-                                className={({ isActive }) =>
-                                    cn(
-                                        'flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
-                                        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                                        isActive
-                                            ? 'bg-accent font-medium text-accent-foreground'
-                                            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                                    )
-                                }>
-                                {({ isActive }) => (
-                                    <>
-                                        <Icon
-                                            size={16}
-                                            className={isActive ? 'text-primary' : undefined}
-                                            aria-hidden="true"
-                                        />
-                                        {label}
-                                    </>
-                                )}
-                            </NavLink>
-                        ))}
+                        direction="Vertical"
+                        className={cn(
+                            'overflow-hidden transition-[max-height,opacity] duration-300 ease-out motion-reduce:transition-none',
+                            open ? 'max-h-14 opacity-100' : 'max-h-0 opacity-0',
+                        )}>
+                        <Stack
+                            direction="Horizontal"
+                            as="nav"
+                            className="[scrollbar-width:none] gap-1 overflow-x-auto border-t px-2 py-1.5 [&::-webkit-scrollbar]:hidden"
+                            aria-label="Project sections">
+                            {DESTINATIONS.map(({ id, label, icon: Icon }) => (
+                                <NavLink
+                                    key={id}
+                                    to={teamPath(teamId, id)}
+                                    end
+                                    className={({ isActive }) =>
+                                        cn(
+                                            'flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
+                                            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                                            isActive
+                                                ? 'bg-accent font-medium text-accent-foreground'
+                                                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                                        )
+                                    }>
+                                    {({ isActive }) => (
+                                        <>
+                                            <Icon
+                                                size={16}
+                                                className={isActive ? 'text-primary' : undefined}
+                                                aria-hidden="true"
+                                            />
+                                            {label}
+                                        </>
+                                    )}
+                                </NavLink>
+                            ))}
+                        </Stack>
                     </Stack>
                 )}
             </Stack>

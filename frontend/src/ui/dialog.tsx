@@ -67,6 +67,7 @@ function DialogTrigger({
 
     return (
         <Comp
+            type={asChild ? undefined : 'button'}
             data-slot="dialog-trigger"
             onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                 onClick?.(event);
@@ -87,6 +88,7 @@ function DialogClose({
 
     return (
         <Comp
+            type={asChild ? undefined : 'button'}
             data-slot="dialog-close"
             onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                 onClick?.(event);
@@ -161,9 +163,14 @@ function DialogContent({
             {...props}>
             {children}
             {showCloseButton && (
-                <DialogClose className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
-                    <XIcon />
-                    <span className="sr-only">Close</span>
+                <DialogClose asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="absolute top-3 right-3 text-muted-foreground"
+                        aria-label="Close"
+                        icon={<XIcon />}
+                    />
                 </DialogClose>
             )}
         </dialog>

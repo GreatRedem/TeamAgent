@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 
 import {
     CRYSTAL_CURVES,
@@ -20,7 +20,6 @@ import {
     toPoints,
     type Vec3,
 } from './projection';
-import { useRotation } from './use-rotation';
 
 function curvePoints(curve: (typeof CRYSTAL_CURVES)[number], yaw: number): Projected[] {
     const points: Projected[] = [];
@@ -44,8 +43,10 @@ function path(points: Projected[]): string {
         .join(' ');
 }
 
-export function Crystal() {
-    const yaw = useRotation();
+// One diamond at rotation `yaw`. `orbits` draws the rings around it; the smaller diamonds go
+// without, so the swarm stays light. Each copy names its own gradient and filters.
+export function Crystal({ yaw, orbits = true }: { yaw: number; orbits?: boolean }) {
+    const id = useId().replace(/[^\w-]/g, '');
 
     const scene = useMemo(() => {
         const points = CRYSTAL_MODEL.vertices.map((v) => rotate(v, yaw, SCENE_PITCH));
@@ -98,7 +99,7 @@ export function Crystal() {
             }
         }
 
-        const curves = CRYSTAL_CURVES.map((curve, index) => {
+        const curves = (orbits ? CRYSTAL_CURVES : []).map((curve, index) => {
             const { front, back } = splitByDepth(curvePoints(curve, yaw), 0.55);
 
             return { key: `curve-${index}`, curve, front, back };
@@ -109,7 +110,7 @@ export function Crystal() {
         );
 
         return { faces, edges, curves, sparks };
-    }, [yaw]);
+    }, [yaw, orbits]);
 
     return (
         <svg
@@ -118,12 +119,12 @@ export function Crystal() {
             role="presentation"
             focusable="false">
             <defs>
-                <radialGradient id="crystalCore" cx="0.5" cy="0.45" r="0.55">
+                <radialGradient id={`${id}-core`} cx="0.5" cy="0.45" r="0.55">
                     <stop offset="0%" stopColor="var(--glow-bright)" stopOpacity="0.32" />
                     <stop offset="100%" stopColor="var(--glow)" stopOpacity="0" />
                 </radialGradient>
 
-                <filter id="glowSoft" x="-60%" y="-60%" width="220%" height="220%">
+                <filter id={`${id}-soft`} x="-60%" y="-60%" width="220%" height="220%">
                     <feGaussianBlur stdDeviation="14" result="blur" />
                     <feMerge>
                         <feMergeNode in="blur" />
@@ -131,7 +132,7 @@ export function Crystal() {
                     </feMerge>
                 </filter>
 
-                <filter id="glowTight" x="-45%" y="-45%" width="190%" height="190%">
+                <filter id={`${id}-tight`} x="-45%" y="-45%" width="190%" height="190%">
                     <feGaussianBlur stdDeviation="3" result="blur" />
                     <feMerge>
                         <feMergeNode in="blur" />
@@ -140,9 +141,9 @@ export function Crystal() {
                 </filter>
             </defs>
 
-            <ellipse cx="0" cy="0" rx="250" ry="240" fill="url(#crystalCore)" />
+            <ellipse cx="0" cy="0" rx="250" ry="240" fill={`url(#${id}-core)`} />
 
-            <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
+            <g fill="none" strokeLinecap="round" filter={`url(#${id}-tight)`}>
                 {scene.curves.map(({ key, curve, back }) =>
                     back.map((run, i) => (
                         <path
@@ -176,7 +177,7 @@ export function Crystal() {
                 ))}
             </g>
 
-            <g filter="url(#glowSoft)">
+            <g filter={`url(#${id}-soft)`}>
                 {scene.sparks.map((spark, i) => (
                     <circle
                         // biome-ignore lint/suspicious/noArrayIndexKey: a fixed decorative spark; the list is static and never reorders, so the index is its identity
@@ -190,7 +191,7 @@ export function Crystal() {
                 ))}
             </g>
 
-            <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
+            <g fill="none" strokeLinecap="round" filter={`url(#${id}-tight)`}>
                 {scene.edges.map((edge) => (
                     <path
                         key={edge.key}
@@ -202,7 +203,7 @@ export function Crystal() {
                 ))}
             </g>
 
-            <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
+            <g fill="none" strokeLinecap="round" filter={`url(#${id}-tight)`}>
                 {scene.curves.map(({ key, curve, front }) =>
                     front.map((run, i) => (
                         <path

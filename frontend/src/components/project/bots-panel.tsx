@@ -570,6 +570,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
 
             {page !== null && bots !== null && bots.length > 0 && (
                 <Pager
+                    framed
                     page={page}
                     shown={bots.length}
                     busy={paging}

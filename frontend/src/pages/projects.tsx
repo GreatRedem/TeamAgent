@@ -1,4 +1,4 @@
-import { FolderPlus, Plus } from 'lucide-react';
+import { Archive, FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -38,6 +38,8 @@ export function Projects() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
+    // Archived projects stay out of the main list; this switches the page to them.
+    const [archived, setArchived] = useState(false);
 
     useEffect(() => {
         if (token === null) {
@@ -52,7 +54,9 @@ export function Projects() {
 
         let active = true;
 
-        teamList()
+        setTeams(null);
+
+        teamList(undefined, archived)
             .then((payload) => {
                 if (active) {
                     setTeams(payload.teams);
@@ -80,24 +84,27 @@ export function Projects() {
         return () => {
             active = false;
         };
-    }, [token]);
+    }, [token, archived]);
 
-    const goTo = useCallback(async (offset: number) => {
-        setPaging(true);
+    const goTo = useCallback(
+        async (offset: number) => {
+            setPaging(true);
 
-        try {
-            const next = await teamList({ offset });
+            try {
+                const next = await teamList({ offset }, archived);
 
-            setTeams(next.teams);
-            setPage(next);
-        } catch (cause) {
-            setError(
-                cause instanceof ApiError ? cause.result : 'Your projects could not be loaded.',
-            );
-        } finally {
-            setPaging(false);
-        }
-    }, []);
+                setTeams(next.teams);
+                setPage(next);
+            } catch (cause) {
+                setError(
+                    cause instanceof ApiError ? cause.result : 'Your projects could not be loaded.',
+                );
+            } finally {
+                setPaging(false);
+            }
+        },
+        [archived],
+    );
 
     const create = useCallback(
         async (event: React.FormEvent) => {
@@ -143,9 +150,23 @@ export function Projects() {
     return (
         <>
             <PageHeader
-                title="Projects"
-                description="A project holds the bots people message, the agents that answer, and the models behind them."
-                actions={createButton}
+                title={archived ? 'Archived projects' : 'Projects'}
+                description={
+                    archived
+                        ? 'Projects you have put away. Open one to restore it or delete it for good.'
+                        : 'A project holds the bots people message, the agents that answer, and the models behind them.'
+                }
+                actions={
+                    <>
+                        <Button
+                            variant="ghost"
+                            icon={archived ? <FolderOpen /> : <Archive />}
+                            message={archived ? 'Active projects' : 'Archived'}
+                            onClick={() => setArchived(!archived)}
+                        />
+                        {!archived && createButton}
+                    </>
+                }
             />
 
             <Dialog open={creating} onOpenChange={setCreating}>
@@ -221,12 +242,20 @@ export function Projects() {
                 </Stack>
             )}
 
-            {teams !== null && teams.length === 0 && (
+            {teams !== null && teams.length === 0 && !archived && (
                 <EmptyState
                     icon={FolderPlus}
                     title="No projects yet"
                     description="Start with one project. You can add a model, an agent and a bot to it in a few minutes."
                     action={createButton}
+                />
+            )}
+
+            {teams !== null && teams.length === 0 && archived && (
+                <EmptyState
+                    icon={Archive}
+                    title="Nothing archived"
+                    description="Archive a project from its settings to put it away without losing it."
                 />
             )}
 
@@ -265,8 +294,12 @@ export function Projects() {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        link={`/dashboard/team/${team.id}`}
-                                        message="Open"
+                                        link={
+                                            archived
+                                                ? `/dashboard/team/${team.id}/settings`
+                                                : `/dashboard/team/${team.id}`
+                                        }
+                                        message={archived ? 'Restore or delete' : 'Open'}
                                     />
                                 </CardFooter>
                             </Card>
@@ -277,6 +310,7 @@ export function Projects() {
 
             {page !== null && teams !== null && teams.length > 0 && (
                 <Pager
+                    framed
                     page={page}
                     shown={teams.length}
                     busy={paging}

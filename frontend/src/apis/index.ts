@@ -55,4 +55,12 @@ export {
 } from './permission';
 export { type ProfileFile, profileDetails, profileFiles, type TelegramProfileBot } from './profile';
 export { type SystemMetrics, systemMetrics } from './system';
-export { type Team, teamCreate, teamDetails, teamList, teamUpdate } from './team';
+export {
+    type Team,
+    teamArchive,
+    teamCreate,
+    teamDetails,
+    teamList,
+    teamRemove,
+    teamUpdate,
+} from './team';

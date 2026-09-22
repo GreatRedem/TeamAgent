@@ -52,6 +52,7 @@ type ButtonProps = Omit<React.ComponentProps<'button'>, 'children'> &
     };
 
 // Buttons take a `message` and an `icon`, never children. `link` turns one into navigation.
+// A button is `type="button"` unless it says otherwise, so only an explicit submit sends a form.
 function Button({
     className,
     variant = 'default',
@@ -60,6 +61,7 @@ function Button({
     icon,
     iconPosition = 'start',
     message,
+    type = 'button',
     ...props
 }: ButtonProps) {
     const glyph = icon && React.cloneElement(icon, { 'aria-hidden': true });
@@ -90,7 +92,7 @@ function Button({
     }
 
     return (
-        <button {...shared} {...props}>
+        <button type={type} {...shared} {...props}>
             {content}
         </button>
     );

@@ -102,10 +102,11 @@ The scale is Tailwind's, plus three named steps. Nothing outside it.
 | Caption                     | `text-xs`                    | 12px |
 | Meta, chips, machine values | `text-2xs`                   | 11px |
 
-**Line height is 1.5 everywhere.** It is set once, on `*` in
-`styles/index.css`. The scale steps are font sizes only (`--text-*: initial`
-clears Tailwind's own, each with its line height), so no size utility changes it,
-and no component overrides it. There are no `leading-*` utilities in
+**Line height is one rule everywhere:** `calc(1em + 0.25rem)`, set once on `*` in
+`styles/index.css`. Every size gets the same 4px of lead, so large text sits tight
+and small text stays readable: 11px → 15px, 14px → 18px, 26px → 30px. The scale
+steps are font sizes only (`--text-*: initial` clears Tailwind's own, each with its
+line height), so no size utility changes it, and no component overrides it. There are no `leading-*` utilities in
 this codebase; if one appears, it is a bug.
 
 Hierarchy comes from weight, spacing and position. Never from size alone, and

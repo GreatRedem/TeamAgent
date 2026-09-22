@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { Paged } from '@/apis';
+import { cn } from '@/libs/cn';
 import { Button } from '@/ui/button';
 import { Pagination, PaginationContent, PaginationItem } from '@/ui/pagination';
 import { Stack } from '@/ui/stack';
@@ -12,12 +13,15 @@ export function Pager({
     busy = false,
     noun,
     onPage,
+    framed = false,
 }: {
     page: Paged;
     shown: number;
     busy?: boolean;
     noun: string;
     onPage: (offset: number) => void;
+    // On its own surface, for a pager that sits on the page background rather than in a card.
+    framed?: boolean;
 }) {
     if (page.total === 0) {
         return null;
@@ -27,7 +31,12 @@ export function Pager({
     const to = page.offset + shown;
 
     return (
-        <Stack direction="Horizontal" className="w-full items-center justify-between gap-4">
+        <Stack
+            direction="Horizontal"
+            className={cn(
+                'w-full items-center justify-between gap-4',
+                framed && 'rounded-lg border bg-card/90 px-4 py-2.5 shadow-raised backdrop-blur-xl',
+            )}>
             <Stack direction="Horizontal" className="items-baseline gap-1" aria-live="polite">
                 <Text
                     type="DataMuted"
