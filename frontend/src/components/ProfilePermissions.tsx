@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, permissionCatalog, profilePermissionUpdate, type Permission, type TelegramProfile } from '../lib/api';
+import { Panel } from './Panel';
 
 interface ProfilePermissionsProps
 {
@@ -79,24 +80,22 @@ export function ProfilePermissions({ teamId, profile, onChange }: ProfilePermiss
     }, [ teamId, profile, onChange ]);
 
     return (
-        <section className="section">
-            <h2 className="section__title">Permissions</h2>
+        <Panel title="Permissions" sub="What this person may do. Anything not granted is denied">
+            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
 
-            { error !== null && <p className="status" data-state="error" role="alert">{ error }</p> }
-
-            { catalog === null && <p className="status">Loading permissions...</p> }
+            { catalog === null && <p className="note">Loading permissions...</p> }
 
             { catalog !== null && catalog.length > 0 && (
-                <ul className="list">
+                <ul className="rows mt-0">
                     { catalog.map((permission) =>
                     {
                         const granted = profile.permissions.includes(permission.key);
 
                         return (
-                            <li className="list__item list__item--row" key={ permission.key }>
-                                <span className="list__text">
-                                    <span className="list__name">{ permission.label }</span>
-                                    <span className="list__meta">{ permission.description }</span>
+                            <li className="rows__item rows__item--row" key={ permission.key }>
+                                <span className="rows__text">
+                                    <span className="rows__name">{ permission.label }</span>
+                                    <span className="rows__meta">{ permission.description }</span>
                                 </span>
 
                                 <button
@@ -116,6 +115,6 @@ export function ProfilePermissions({ teamId, profile, onChange }: ProfilePermiss
                     }) }
                 </ul>
             ) }
-        </section>
+        </Panel>
     );
 }

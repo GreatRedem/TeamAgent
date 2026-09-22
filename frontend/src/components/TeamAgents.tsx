@@ -3,7 +3,9 @@ import { Bot, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { Button } from './Button';
-import { ApiError, agentCreate, agentList, modelList, type TeamAgent, type TeamModel } from '../lib/api';
+import { PaginationFooter } from './PaginationFooter';
+import { Panel } from './Panel';
+import { ApiError, agentCreate, agentList, modelList, type Paged, type TeamAgent, type TeamModel } from '../lib/api';
 
 interface TeamAgentsProps
 {
@@ -20,6 +22,8 @@ interface TeamAgentsProps
 export function TeamAgents({ teamId }: TeamAgentsProps)
 {
     const [ agents, setAgents ] = useState<TeamAgent[] | null>(null);
+    const [ page, setPage ] = useState<Paged | null>(null);
+    const [ paging, setPaging ] = useState(false);
     const [ models, setModels ] = useState<TeamModel[] | null>(null);
 
     const [ name, setName ] = useState('');
@@ -42,6 +46,7 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
                 }
 
                 setAgents(agentPayload.agents);
+                setPage(agentPayload);
                 setModels(modelPayload.models);
 
                 // Preselect, so the common case is one click.
@@ -78,6 +83,7 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
             const agent = await agentCreate(teamId, name.trim(), description.trim(), Number(modelId));
 
             setAgents((current) => [ agent, ...current ?? [ ] ]);
+            setPage((current) => current && { ...current, total: current.total + 1 });
             setName('');
             setDescription('');
         }
@@ -93,18 +99,43 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
 
     const hasModels = models !== null && models.length > 0;
 
-    return (
-        <section className="section">
-            <h2 className="section__title">Agent</h2>
+    const goTo = useCallback(async(offset: number) =>
+    {
+        setPaging(true);
 
+        try
+        {
+            const next = await agentList(teamId, { offset });
+
+            setAgents(next.agents);
+            setPage(next);
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setPaging(false);
+        }
+    }, [ teamId ]);
+
+    return (
+        <Panel
+            title="Agents"
+            sub="What each agent is, the model it uses and the files that define it"
+            footer={ page !== null && agents !== null && (
+                <PaginationFooter page={ page } shown={ agents.length } busy={ paging } noun="agents" onPage={ (offset) => void goTo(offset) } />
+            ) }
+        >
             { models !== null && !hasModels && (
-                <p className="status" data-state="error">
+                <p className="note" data-state="error">
                     Add a model first — an agent has to be attached to one.
                 </p>
             ) }
 
             { hasModels && (
-                <form className="form" onSubmit={ add }>
+                <form className="form mt-0" onSubmit={ add }>
                     <label className="field">
                         <span className="field__label">Name</span>
 
@@ -152,24 +183,24 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
                 </form>
             ) }
 
-            { error !== null && <p className="status" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
 
-            { agents === null && <p className="status">Loading agents...</p> }
+            { agents === null && <p className="note">Loading agents...</p> }
 
             { agents !== null && agents.length === 0 && (
-                <p className="status">
+                <p className="note">
                     <Bot size={ 18 } aria-hidden="true" /> No agents yet.
                 </p>
             ) }
 
             { agents !== null && agents.length > 0 && (
-                <ul className="list">
+                <ul className="rows">
                     { agents.map((agent) => (
-                        <li className="list__item" key={ agent.id }>
-                            <Link className="list__link" to={ `/dashboard/team/${ teamId }/agent/${ agent.id }` }>
-                                <span className="list__name">{ agent.name }</span>
+                        <li className="rows__item" key={ agent.id }>
+                            <Link className="rows__link" to={ `/dashboard/team/${ teamId }/agent/${ agent.id }` }>
+                                <span className="rows__name">{ agent.name }</span>
 
-                                <span className="list__meta">
+                                <span className="rows__meta">
                                     { agent.model_name !== '' ? agent.model_name : 'no model attached' }
                                     { ' · ' }
                                     { agent.document_count } file{ agent.document_count === 1 ? '' : 's' }
@@ -180,6 +211,6 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
                     )) }
                 </ul>
             ) }
-        </section>
+        </Panel>
     );
 }

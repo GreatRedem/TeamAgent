@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Link } from 'react-router';
 
-import { ApiError, auditHeatmap, auditList, type AuditEntry, type HeatmapDay } from '../lib/api';
+import { ApiError, auditHeatmap, type HeatmapDay } from '../lib/api';
+import { Panel } from './Panel';
+import { teamPath } from './RailNav';
 
 interface TeamOverviewProps
 {
@@ -67,31 +69,28 @@ function level(day: HeatmapDay, busiest: number): number
     return Math.min(4, Math.ceil((day.total / Math.max(1, busiest)) * 4));
 }
 
-/** Activity and the recent audit trail for one team. */
+/** The project home: twelve weeks of activity. The trail itself is under Activity. */
 export function TeamOverview({ teamId }: TeamOverviewProps)
 {
     const [ heatmap, setHeatmap ] = useState<{ days: HeatmapDay[]; total: number; busiest: number } | null>(null);
-    const [ entries, setEntries ] = useState<AuditEntry[] | null>(null);
     const [ error, setError ] = useState<string | null>(null);
 
     useEffect(() =>
     {
         let active = true;
 
-        Promise.all([ auditHeatmap(teamId), auditList(teamId) ])
-            .then(([ map, list ]) =>
+        auditHeatmap(teamId)
+            .then((map) =>
             {
                 if (active)
                 {
                     setHeatmap(map);
-                    setEntries(list.entries);
                 }
             })
             .catch((cause: unknown) =>
             {
                 if (active)
                 {
-                    setEntries([ ]);
                     setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
                 }
             });
@@ -105,17 +104,18 @@ export function TeamOverview({ teamId }: TeamOverviewProps)
     const weeks = heatmap === null ? [ ] : toWeeks(heatmap.days);
 
     return (
-        <section className="section">
-            <h2 className="section__title">Overview</h2>
+        <Panel
+            eyebrow="Activity · 12 weeks"
+            title="Every change, every run"
+            actions={ <Link className="text-[13px] text-live no-underline hover:underline" to={ teamPath(teamId, 'activity') }>Open audit trail →</Link> }
+        >
+            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
 
-            { error !== null && <p className="status" data-state="error" role="alert">{ error }</p> }
-
-            { heatmap === null && error === null && <p className="status">Loading activity...</p> }
+            { heatmap === null && error === null && <p className="note">Loading activity...</p> }
 
             { heatmap !== null && (
                 <>
-                    <p className="status">
-                        <Activity size={ 18 } aria-hidden="true" />
+                    <p className="note mt-0 justify-start">
                         { heatmap.total } action{ heatmap.total === 1 ? '' : 's' } in the last 12 weeks
                         { heatmap.busiest > 0 && ` · busiest day ${ heatmap.busiest }` }
                     </p>
@@ -155,34 +155,6 @@ export function TeamOverview({ teamId }: TeamOverviewProps)
                     </p>
                 </>
             ) }
-
-            { entries !== null && entries.length === 0 && <p className="status">Nothing recorded yet.</p> }
-
-            { entries !== null && entries.length > 0 && (
-                <ul className="list">
-                    { entries.map((entry) => (
-                        <li className="list__item list__item--row" key={ entry.id }>
-                            <span className="list__text">
-                                <span className="list__name">
-                                    { entry.action }
-                                    { entry.target !== '' && <span className="list__meta"> { entry.target }</span> }
-                                </span>
-
-                                <span className="list__meta">
-                                    <span className="badge" data-mode={ entry.actor }>{ entry.actor }</span>
-                                    { new Date(entry.created_at).toLocaleString() }
-                                    { entry.duration_ms > 0 && ` · ${ entry.duration_ms }ms` }
-                                    { entry.detail !== '' && ` · ${ entry.detail }` }
-                                </span>
-                            </span>
-
-                            <span className="probe" data-state={ entry.outcome === 'ok' ? 'ok' : entry.outcome === 'error' ? 'error' : 'pending' }>
-                                { entry.outcome }
-                            </span>
-                        </li>
-                    )) }
-                </ul>
-            ) }
-        </section>
+        </Panel>
     );
 }

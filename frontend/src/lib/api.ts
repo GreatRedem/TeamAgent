@@ -87,9 +87,9 @@ export function teamCreate(name: string, description: string)
 }
 
 /** Teams owned by the signed-in account, newest first. */
-export function teamList()
+export function teamList(page?: Partial<Paged>)
 {
-    return request<{ teams: Team[] }>('GET', '/team');
+    return request<{ teams: Team[] } & Paged>('GET', `/team${ pageQuery(page) }`);
 }
 
 export function teamDetails(id: number)
@@ -121,9 +121,9 @@ export interface TeamBot
     created_at: string;
 }
 
-export function teamBotList(teamId: number)
+export function teamBotList(teamId: number, page?: Partial<Paged>)
 {
-    return request<{ bots: TeamBot[] }>('GET', `/team/${ teamId }/bot`);
+    return request<{ bots: TeamBot[] } & Paged>('GET', `/team/${ teamId }/bot${ pageQuery(page) }`);
 }
 
 export function teamBotCreate(teamId: number, name: string, token: string, publicUrl: string)
@@ -190,15 +190,45 @@ export interface TelegramMessage
     sent_at: string;
 }
 
-/** Everyone who has written to the team, most recent first. */
-export function conversationList(teamId: number)
+/**
+ * What every paged list returns alongside its rows.
+ *
+ * `total` is what the footer prints (`1–12 OF 3,481`); `limit` is the page
+ * size the server actually used, so the client never has to know the default.
+ */
+export interface Paged
 {
-    return request<{ conversations: TelegramProfile[] }>('GET', `/team/${ teamId }/conversation`);
+    limit: number;
+    offset: number;
+    has_more: boolean;
+    total: number;
 }
 
-export function conversationMessages(teamId: number, profileId: number)
+/** `?limit=&offset=`, omitted entirely when the caller wants the default page. */
+function pageQuery(page?: Partial<Paged>): string
 {
-    return request<{ profile: TelegramProfile; messages: TelegramMessage[] }>('GET', `/team/${ teamId }/conversation/${ profileId }`);
+    const params = new URLSearchParams();
+
+    if (page?.limit !== undefined) { params.set('limit', String(page.limit)); }
+    if (page?.offset !== undefined) { params.set('offset', String(page.offset)); }
+
+    const query = params.toString();
+
+    return query === '' ? '' : `?${ query }`;
+}
+/** Everyone who has written to the team, most recent first. */
+export function conversationList(teamId: number, page?: Partial<Paged>)
+{
+    return request<{ conversations: TelegramProfile[] } & Paged>('GET', `/team/${ teamId }/conversation${ pageQuery(page) }`);
+}
+
+/**
+ * One thread, newest page first. `offset` walks *backwards* into the past,
+ * so `has_more` means older messages exist -- the direction a reader scrolls.
+ */
+export function conversationMessages(teamId: number, profileId: number, page?: Partial<Paged>)
+{
+    return request<{ profile: TelegramProfile; messages: TelegramMessage[] } & Paged>('GET', `/team/${ teamId }/conversation/${ profileId }${ pageQuery(page) }`);
 }
 
 /** Points Telegram at the bot's own public url. Needs that url to be set. */
@@ -233,6 +263,8 @@ export interface TeamModel
     model: string;
     base_url: string;
     key_hint: string;
+    /** The model's context window; 0 when it was never recorded. */
+    context_tokens: number;
     created_at: string;
 }
 
@@ -241,23 +273,40 @@ export interface TeamModelProbe
     ok: boolean;
     models?: number;
     found?: boolean;
+    /** The window the endpoint declared, 0 or absent when it did not say. */
+    context?: number;
+    /** The names it listed. Only the unsaved-endpoint probe returns these. */
+    ids?: string[];
     reason?: string;
 }
 
-export function modelList(teamId: number)
+/**
+ * Tests an endpoint that has not been saved yet and reports what it lists.
+ *
+ * This is how the add form both checks a connection and discovers models for a
+ * provider whose listing cannot come from the shared catalog -- a local
+ * such a provider lists what *your* key allows, so it has to be read with that
+ * key rather than cached for everyone.
+ */
+export function modelProbe(teamId: number, baseUrl: string, apiKey: string, model: string)
 {
-    return request<{ models: TeamModel[] }>('GET', `/team/${ teamId }/model`);
+    return request<TeamModelProbe>('POST', `/team/${ teamId }/model/probe`, { base_url: baseUrl, api_key: apiKey, model });
 }
 
-export function modelCreate(teamId: number, name: string, model: string, baseUrl: string, apiKey: string)
+export function modelList(teamId: number, page?: Partial<Paged>)
 {
-    return request<TeamModel>('POST', `/team/${ teamId }/model`, { name, model, base_url: baseUrl, api_key: apiKey });
+    return request<{ models: TeamModel[] } & Paged>('GET', `/team/${ teamId }/model${ pageQuery(page) }`);
+}
+
+export function modelCreate(teamId: number, name: string, model: string, baseUrl: string, apiKey: string, contextTokens: number)
+{
+    return request<TeamModel>('POST', `/team/${ teamId }/model`, { name, model, base_url: baseUrl, api_key: apiKey, context_tokens: contextTokens });
 }
 
 /** An empty `apiKey` keeps the stored one, so a rename need not re-enter it. */
-export function modelUpdate(teamId: number, modelId: number, name: string, model: string, baseUrl: string, apiKey: string)
+export function modelUpdate(teamId: number, modelId: number, name: string, model: string, baseUrl: string, apiKey: string, contextTokens: number)
 {
-    return request<TeamModel>('PATCH', `/team/${ teamId }/model/${ modelId }`, { name, model, base_url: baseUrl, api_key: apiKey });
+    return request<TeamModel>('PATCH', `/team/${ teamId }/model/${ modelId }`, { name, model, base_url: baseUrl, api_key: apiKey, context_tokens: contextTokens });
 }
 
 export function modelRemove(teamId: number, modelId: number)
@@ -289,9 +338,24 @@ export interface CatalogModel
  * when the provider could not be reached, in which case `models` is whatever
  * the server still had.
  */
+/** One provider choice in the add form, defined by the server. */
+export interface ProviderPreset
+{
+    key: string;
+    label: string;
+    /** Prefilled into the url field; blank means the caller types their own. */
+    url: string;
+    /** Whether the catalog listing above describes this provider. */
+    catalog: boolean;
+    key_required: boolean;
+    /** Models it documents, for a provider that serves no listing of its own. */
+    models: { id: string; context: number }[];
+    hint: string;
+}
+
 export function modelCatalog()
 {
-    return request<{ base_url: string; models: CatalogModel[]; reason?: string }>('GET', '/model/catalog');
+    return request<{ base_url: string; providers: ProviderPreset[]; models: CatalogModel[]; reason?: string }>('GET', '/model/catalog');
 }
 
 /** One entry in the permission catalog the backend defines. */
@@ -339,9 +403,9 @@ export interface AgentDocument
     updated_at: string;
 }
 
-export function agentList(teamId: number)
+export function agentList(teamId: number, page?: Partial<Paged>)
 {
-    return request<{ agents: TeamAgent[] }>('GET', `/team/${ teamId }/agent`);
+    return request<{ agents: TeamAgent[] } & Paged>('GET', `/team/${ teamId }/agent${ pageQuery(page) }`);
 }
 
 export function agentCreate(teamId: number, name: string, description: string, modelId: number)
@@ -402,9 +466,9 @@ export interface HeatmapDay
     errors: number;
 }
 
-export function auditList(teamId: number)
+export function auditList(teamId: number, page?: Partial<Paged>)
 {
-    return request<{ entries: AuditEntry[] }>('GET', `/team/${ teamId }/audit`);
+    return request<{ entries: AuditEntry[] } & Paged>('GET', `/team/${ teamId }/audit${ pageQuery(page) }`);
 }
 
 export function auditHeatmap(teamId: number)
@@ -434,9 +498,9 @@ export function mcpTools(teamId: number)
     return request<{ tools: McpTool[] }>('GET', `/team/${ teamId }/mcp/tools`);
 }
 
-export function profileFiles(teamId: number, profileId: number)
+export function profileFiles(teamId: number, profileId: number, page?: Partial<Paged>)
 {
-    return request<{ files: ProfileFile[] }>('GET', `/team/${ teamId }/profile/${ profileId }/file`);
+    return request<{ files: ProfileFile[] } & Paged>('GET', `/team/${ teamId }/profile/${ profileId }/file${ pageQuery(page) }`);
 }
 
 /** One round-trip between an agent and its model, as the model saw it. */
@@ -464,7 +528,7 @@ export function agentPermissionUpdate(teamId: number, agentId: number, permissio
     return request<TeamAgent>('PATCH', `/team/${ teamId }/agent/${ agentId }/permission`, { permissions });
 }
 
-export function agentExchanges(teamId: number, agentId: number)
+export function agentExchanges(teamId: number, agentId: number, page?: Partial<Paged>)
 {
-    return request<{ exchanges: AgentExchange[] }>('GET', `/team/${ teamId }/agent/${ agentId }/exchange`);
+    return request<{ exchanges: AgentExchange[] } & Paged>('GET', `/team/${ teamId }/agent/${ agentId }/exchange${ pageQuery(page) }`);
 }

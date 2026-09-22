@@ -1,40 +1,47 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
-import { Button, ButtonLink } from '../components/Button';
-import { Tabs, type Tab } from '../components/Tabs';
+import { Button } from '../components/Button';
+import { Panel, PageHead } from '../components/Panel';
+import { TeamActivity } from '../components/TeamActivity';
 import { TeamAgents } from '../components/TeamAgents';
-import { TeamOverview } from '../components/TeamOverview';
 import { TeamBots } from '../components/TeamBots';
 import { TeamConversations } from '../components/TeamConversations';
 import { TeamModels } from '../components/TeamModels';
+import { TeamOverview } from '../components/TeamOverview';
 import { TeamProfiles } from '../components/TeamProfiles';
 import { ApiError, teamDetails, teamUpdate, type Team as TeamRecord } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
-/** Details for one team, with the same fields editable in place. */
-const TABS: Tab[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'telegram', label: 'Telegram' },
-    { id: 'model', label: 'Model' },
-    { id: 'agent', label: 'Agent' },
-    { id: 'conversation', label: 'Conversation' },
-    { id: 'profile', label: 'Profile' }
-];
+/**
+ * The screens a project has, keyed by the url segment after the team id. The
+ * five in the rail plus Settings, which is reached from the project switcher.
+ * `overview` is accepted as a spelling of the bare path.
+ */
+const TITLES: Record<string, string> = {
+    '': 'Overview',
+    overview: 'Overview',
+    agents: 'Agents',
+    bots: 'Bots',
+    models: 'Models',
+    activity: 'Activity',
+    settings: 'Settings'
+};
 
+/** One project: which screen of it is decided by the url, not by state. */
 export function Team()
 {
     const navigate = useNavigate();
 
-    const { id } = useParams<{ id: string }>();
+    const { id, tab = '' } = useParams<{ id: string; tab?: string }>();
 
     const teamId = Number(id);
 
     // Derived during render instead of pushed into state from the effect, so a
     // bad url does not cost an extra render pass to show its message.
     const idInvalid = !Number.isInteger(teamId) || teamId < 1;
+    const title = TITLES[tab];
 
     const [ team, setTeam ] = useState<TeamRecord | null>(null);
     const [ name, setName ] = useState('');
@@ -42,7 +49,6 @@ export function Team()
     const [ busy, setBusy ] = useState(false);
     const [ saved, setSaved ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
-    const [ tab, setTab ] = useState(TABS[0].id);
 
     useEffect(() =>
     {
@@ -124,102 +130,92 @@ export function Team()
         }
     }, [ teamId, name, description ]);
 
-    const shown = idInvalid ? 'TEAM_ID_INVALID' : error;
+    const shown = idInvalid ? 'TEAM_ID_INVALID' : title === undefined ? 'PAGE_NOT_FOUND' : error;
 
     return (
-        <section className="panel">
-            <header className="panel__head">
-                <h1 className="panel__title">{ team?.name ?? 'Team' }</h1>
+        <>
+            { /* Activity draws its own head: the failures filter lives in it. */ }
+            { (tab !== 'activity' || team === null) && (
+                <PageHead
+                    title={ title ?? 'Team' }
+                    sub={ team === null ? undefined : team.description === '' ? team.name : `${ team.name } · ${ team.description }` }
+                />
+            ) }
 
-                <ButtonLink to="/dashboard" icon={ <ArrowLeft size={ 18 } aria-hidden="true" /> }>
-                    Back
-                </ButtonLink>
-            </header>
+            { team === null && shown === null && <p className="note">Loading team...</p> }
 
-            { team !== null && <Tabs tabs={ TABS } active={ tab } onChange={ setTab } /> }
+            { shown !== null && <p className="note" data-state="error" role="alert">{ shown }</p> }
 
-            { team === null && shown === null && <p className="status">Loading team...</p> }
-
-            { shown !== null && <p className="status" data-state="error" role="alert">{ shown }</p> }
-
-            { team !== null && (
+            { team !== null && title !== undefined && (
                 <>
-                    <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" hidden={ tab !== 'overview' }>
-                        { tab === 'overview' && <TeamOverview teamId={ teamId } /> }
-                    </div>
+                    { (tab === '' || tab === 'overview') && <TeamOverview teamId={ teamId } /> }
 
-                    <section className="section" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden={ tab !== 'settings' }>
-                        <h2 className="section__title">Settings</h2>
+                    { tab === 'agents' && <TeamAgents teamId={ teamId } /> }
 
-                        <dl className="details">
-                            <div className="details__row">
-                                <dt className="details__key">Created</dt>
-                                <dd className="details__value">{ new Date(team.created_at).toLocaleString() }</dd>
-                            </div>
+                    { /* The people who write to the bots and their threads live
+                         under Bots: a conversation is a thing a bot has. */ }
+                    { tab === 'bots' && (
+                        <>
+                            <TeamBots teamId={ teamId } />
+                            <TeamConversations teamId={ teamId } />
+                            <TeamProfiles teamId={ teamId } />
+                        </>
+                    ) }
 
-                            <div className="details__row">
-                                <dt className="details__key">Updated</dt>
-                                <dd className="details__value">{ new Date(team.updated_at).toLocaleString() }</dd>
-                            </div>
-                        </dl>
+                    { tab === 'models' && <TeamModels teamId={ teamId } /> }
 
-                        <form className="form" onSubmit={ save }>
-                            <label className="field">
-                                <span className="field__label">Name</span>
+                    { tab === 'activity' && <TeamActivity teamId={ teamId } /> }
 
-                                <input
-                                    className="field__input"
-                                    value={ name }
-                                    onChange={ (event) => setName(event.target.value) }
-                                    minLength={ 2 }
-                                    maxLength={ 64 }
-                                    required
-                                />
-                            </label>
+                    { tab === 'settings' && (
+                        <Panel title="Settings" sub="The name and description this team is known by">
+                            <dl className="details mt-0">
+                                <div className="details__row">
+                                    <dt className="details__key">Created</dt>
+                                    <dd className="details__value">{ new Date(team.created_at).toLocaleString() }</dd>
+                                </div>
 
-                            <label className="field">
-                                <span className="field__label">Description</span>
+                                <div className="details__row">
+                                    <dt className="details__key">Updated</dt>
+                                    <dd className="details__value">{ new Date(team.updated_at).toLocaleString() }</dd>
+                                </div>
+                            </dl>
 
-                                <input
-                                    className="field__input"
-                                    value={ description }
-                                    onChange={ (event) => setDescription(event.target.value) }
-                                    maxLength={ 280 }
-                                    placeholder="Optional"
-                                />
-                            </label>
+                            <form className="form" onSubmit={ save }>
+                                <label className="field">
+                                    <span className="field__label">Name</span>
 
-                            <Button type="submit" disabled={ busy } icon={ <Save size={ 18 } aria-hidden="true" /> }>
-                                { busy ? 'Saving...' : 'Save changes' }
-                            </Button>
-                        </form>
+                                    <input
+                                        className="field__input"
+                                        value={ name }
+                                        onChange={ (event) => setName(event.target.value) }
+                                        minLength={ 2 }
+                                        maxLength={ 64 }
+                                        required
+                                    />
+                                </label>
 
-                        { saved && <output className="status">Saved.</output> }
-                    </section>
+                                <label className="field">
+                                    <span className="field__label">Description</span>
 
-                    { /* Mounted only when selected: each section fetches on mount,
-                         so rendering all five would fire every request up front. */ }
-                    <div id="panel-telegram" role="tabpanel" aria-labelledby="tab-telegram" hidden={ tab !== 'telegram' }>
-                        { tab === 'telegram' && <TeamBots teamId={ teamId } /> }
-                    </div>
+                                    <input
+                                        className="field__input"
+                                        value={ description }
+                                        onChange={ (event) => setDescription(event.target.value) }
+                                        maxLength={ 280 }
+                                        placeholder="Optional"
+                                    />
+                                </label>
 
-                    <div id="panel-model" role="tabpanel" aria-labelledby="tab-model" hidden={ tab !== 'model' }>
-                        { tab === 'model' && <TeamModels teamId={ teamId } /> }
-                    </div>
+                                <Button type="submit" disabled={ busy } icon={ <Save size={ 18 } aria-hidden="true" /> }>
+                                    { busy ? 'Saving...' : 'Save changes' }
+                                </Button>
+                            </form>
 
-                    <div id="panel-agent" role="tabpanel" aria-labelledby="tab-agent" hidden={ tab !== 'agent' }>
-                        { tab === 'agent' && <TeamAgents teamId={ teamId } /> }
-                    </div>
-
-                    <div id="panel-conversation" role="tabpanel" aria-labelledby="tab-conversation" hidden={ tab !== 'conversation' }>
-                        { tab === 'conversation' && <TeamConversations teamId={ teamId } /> }
-                    </div>
-
-                    <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" hidden={ tab !== 'profile' }>
-                        { tab === 'profile' && <TeamProfiles teamId={ teamId } /> }
-                    </div>
+                            { saved && <output className="note">Saved.</output> }
+                        </Panel>
+                    ) }
                 </>
             ) }
-        </section>
+        </>
     );
 }

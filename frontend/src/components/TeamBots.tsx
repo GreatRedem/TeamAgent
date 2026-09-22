@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bot, Plus } from 'lucide-react';
 
 import { Button } from './Button';
-import { ApiError, agentList, teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamBotWebhookRegister, type TeamAgent, type TeamBot, type TeamBotProbe } from '../lib/api';
+import { LED, type LedState } from './LED';
+import { PaginationFooter } from './PaginationFooter';
+import { Panel } from './Panel';
+import { ApiError, agentList, teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamBotWebhookRegister, type Paged, type TeamAgent, type TeamBot, type TeamBotProbe } from '../lib/api';
 
 function probeState(probe: TeamBotProbe | 'testing'): string
 {
@@ -30,6 +33,21 @@ function probeLabel(probe: TeamBotProbe | 'testing'): string
     return probe.username !== undefined && probe.username !== '' ? `Connected as @${ probe.username }` : 'Connected';
 }
 
+/**
+ * Lit once a check has passed; brass while one is running. A bot nobody has
+ * checked yet is unknown, and a failed check is words next to a grey dot, not
+ * a red one -- the LED says whether it is running, the probe says why not.
+ */
+function ledState(probe: TeamBotProbe | 'testing' | undefined): LedState
+{
+    if (probe === 'testing')
+    {
+        return 'degraded';
+    }
+
+    return probe?.ok === true ? 'live' : 'off';
+}
+
 interface TeamBotsProps
 {
     teamId: number;
@@ -39,6 +57,8 @@ interface TeamBotsProps
 export function TeamBots({ teamId }: TeamBotsProps)
 {
     const [ bots, setBots ] = useState<TeamBot[] | null>(null);
+    const [ page, setPage ] = useState<Paged | null>(null);
+    const [ paging, setPaging ] = useState(false);
     const [ name, setName ] = useState('');
     const [ token, setToken ] = useState('');
     const [ publicUrl, setPublicUrl ] = useState('');
@@ -72,6 +92,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
                 if (active)
                 {
                     setBots(botPayload.bots);
+                    setPage(botPayload);
                     setAgents(agentPayload.agents);
                 }
             })
@@ -102,6 +123,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
             const bot = await teamBotCreate(teamId, name.trim(), token.trim(), publicUrl.trim());
 
             setBots((current) => [ bot, ...current ?? [ ] ]);
+            setPage((current) => current && { ...current, total: current.total + 1 });
             setName('');
             setToken('');
             setPublicUrl('');
@@ -208,6 +230,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
             await teamBotRemove(teamId, botId);
 
             setBots((current) => current?.filter((bot) => bot.id !== botId) ?? null);
+            setPage((current) => current && { ...current, total: Math.max(0, current.total - 1) });
             setProbes((current) => { const { [botId]: _removed, ...rest } = current; return rest; });
         }
         catch (cause)
@@ -216,11 +239,36 @@ export function TeamBots({ teamId }: TeamBotsProps)
         }
     }, [ teamId, arming ]);
 
-    return (
-        <section className="section">
-            <h2 className="section__title">Telegram</h2>
+    const goTo = useCallback(async(offset: number) =>
+    {
+        setPaging(true);
 
-            <form className="form" onSubmit={ add }>
+        try
+        {
+            const next = await teamBotList(teamId, { offset });
+
+            setBots(next.bots);
+            setPage(next);
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setPaging(false);
+        }
+    }, [ teamId ]);
+
+    return (
+        <Panel
+            title="Bots"
+            sub="The Telegram bots this team runs, and which agent answers for each"
+            footer={ page !== null && bots !== null && (
+                <PaginationFooter page={ page } shown={ bots.length } busy={ paging } noun="bots" onPage={ (offset) => void goTo(offset) } />
+            ) }
+        >
+            <form className="form mt-0" onSubmit={ add }>
                 <label className="field">
                     <span className="field__label">Bot name</span>
 
@@ -271,27 +319,31 @@ export function TeamBots({ teamId }: TeamBotsProps)
                 </Button>
             </form>
 
-            { error !== null && <p className="status" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
 
-            { bots === null && <p className="status">Loading bots...</p> }
+            { bots === null && <p className="note">Loading bots...</p> }
 
             { bots !== null && bots.length === 0 && (
-                <p className="status">
+                <p className="note">
                     <Bot size={ 18 } aria-hidden="true" /> No bots yet. Add one above.
                 </p>
             ) }
 
             { bots !== null && bots.length > 0 && (
-                <ul className="list">
+                <ul className="rows">
                     { bots.map((bot) => (
-                        <li className="list__item list__item--row" key={ bot.id }>
-                            <span className="list__text">
-                                <span className="list__name">{ bot.name }</span>
+                        <li className="rows__item rows__item--row" key={ bot.id }>
+                            <span className="rows__text">
+                                <span className="rows__name flex items-center gap-2.5">
+                                    <LED state={ ledState(probes[bot.id]) } />
+                                    { bot.name }
+                                </span>
 
-                                <span className="list__meta">
+                                <span className="rows__meta">
                                     { bot.token_hint }
+                                    { ' ' }
                                     <span className="badge" data-mode={ bot.mode }>{ bot.mode }</span>
-                                    { bot.agent_name !== '' && <span className="badge" data-mode="agent">{ bot.agent_name }</span> }
+                                    { bot.agent_name !== '' && <> { ' ' }<span className="badge" data-mode="agent">{ bot.agent_name }</span></> }
                                 </span>
 
                                 { probes[bot.id] !== undefined && (
@@ -301,7 +353,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 ) }
                             </span>
 
-                            <span className="list__actions">
+                            <span className="rows__actions">
                                 <button
                                     className="ghost"
                                     type="button"
@@ -321,7 +373,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 </button>
                             </span>
 
-                            <span className="list__url">
+                            <span className="rows__url">
                                 <select
                                     className="field__input"
                                     aria-label={ `Agent answering for ${ bot.name }` }
@@ -337,7 +389,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 </select>
                             </span>
 
-                            <span className="list__url">
+                            <span className="rows__url">
                                 <input
                                     className="field__input"
                                     type="url"
@@ -361,6 +413,6 @@ export function TeamBots({ teamId }: TeamBotsProps)
                     )) }
                 </ul>
             ) }
-        </section>
+        </Panel>
     );
 }

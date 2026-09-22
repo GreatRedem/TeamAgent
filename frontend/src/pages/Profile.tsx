@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
 import { ButtonLink } from '../components/Button';
+import { PaginationFooter } from '../components/PaginationFooter';
+import { Panel, PageHead } from '../components/Panel';
 import { ProfilePermissions } from '../components/ProfilePermissions';
 import { profileName } from '../components/profileName';
-import { ApiError, profileDetails, profileFiles, type ProfileFile, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../lib/api';
+import { ApiError, profileDetails, profileFiles, type Paged, type ProfileFile, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
+import { tokenLabel } from '../lib/tokens';
 
 interface Details
 {
@@ -48,6 +51,8 @@ export function Profile()
 
     const [ details, setDetails ] = useState<Details | null>(null);
     const [ files, setFiles ] = useState<ProfileFile[]>([ ]);
+    const [ filePage, setFilePage ] = useState<Paged | null>(null);
+    const [ paging, setPaging ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
 
     useEffect(() =>
@@ -73,6 +78,7 @@ export function Profile()
                 {
                     setDetails(payload);
                     setFiles(filePayload.files);
+                    setFilePage(filePayload);
                 }
             })
             .catch((cause: unknown) =>
@@ -100,31 +106,52 @@ export function Profile()
         };
     }, [ teamId, personId, idsInvalid, navigate ]);
 
+    const goToFiles = useCallback(async(offset: number) =>
+    {
+        setPaging(true);
+
+        try
+        {
+            const next = await profileFiles(teamId, personId, { offset });
+
+            setFiles(next.files);
+            setFilePage(next);
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setPaging(false);
+        }
+    }, [ teamId, personId ]);
+
     const shown = idsInvalid ? 'PROFILE_ID_INVALID' : error;
 
     // Message rows carry a bot id; the header knows the names.
     const botNames = new Map((details?.bots ?? [ ]).map((bot) => [ bot.id, bot.name ]));
 
     return (
-        <section className="panel">
-            <header className="panel__head">
-                <h1 className="panel__title">{ details !== null ? profileName(details.profile) : 'Profile' }</h1>
+        <>
+            <PageHead
+                title={ details !== null ? profileName(details.profile) : 'Profile' }
+                sub={ details !== null && details.profile.username !== '' ? `@${ details.profile.username }` : undefined }
+                actions={ (
+                    <ButtonLink to={ `/dashboard/team/${ teamId }/bots` } icon={ <ArrowLeft size={ 18 } aria-hidden="true" /> }>
+                        Back
+                    </ButtonLink>
+                ) }
+            />
 
-                <ButtonLink to={ `/dashboard/team/${ teamId }` } icon={ <ArrowLeft size={ 18 } aria-hidden="true" /> }>
-                    Back
-                </ButtonLink>
-            </header>
+            { details === null && shown === null && <p className="note">Loading profile...</p> }
 
-            { details === null && shown === null && <p className="status">Loading profile...</p> }
-
-            { shown !== null && <p className="status" data-state="error" role="alert">{ shown }</p> }
+            { shown !== null && <p className="note" data-state="error" role="alert">{ shown }</p> }
 
             { details !== null && (
                 <>
-                    <section className="section">
-                        <h2 className="section__title">Identity</h2>
-
-                        <dl className="details">
+                    <Panel title="Identity" sub="What Telegram tells us about this person">
+                        <dl className="details mt-0">
                             <Field label="Telegram ID" value={ details.profile.telegram_id } />
                             <Field label="Username" value={ details.profile.username !== '' ? `@${ details.profile.username }` : '' } />
                             <Field label="First name" value={ details.profile.first_name } />
@@ -134,7 +161,7 @@ export function Profile()
                             <Field label="First seen" value={ new Date(details.profile.created_at).toLocaleString() } />
                             <Field label="Last seen" value={ new Date(details.profile.last_seen_at).toLocaleString() } />
                         </dl>
-                    </section>
+                    </Panel>
 
                     <ProfilePermissions
                         teamId={ teamId }
@@ -142,56 +169,63 @@ export function Profile()
                         onChange={ (updated) => setDetails({ ...details, profile: updated }) }
                     />
 
-                    <section className="section">
-                        <h2 className="section__title">Bots</h2>
-
-                        { details.bots.length === 0 && <p className="status">No stored messages to attribute.</p> }
+                    <Panel title="Bots" sub="Which of the team’s bots they have written to">
+                        { details.bots.length === 0 && <p className="note">No stored messages to attribute.</p> }
 
                         { details.bots.length > 0 && (
-                            <ul className="list">
+                            <ul className="rows mt-0">
                                 { details.bots.map((bot) => (
-                                    <li className="list__item list__item--row" key={ bot.id }>
-                                        <span className="list__text">
-                                            <span className="list__name">{ bot.name }</span>
-                                            <span className="list__meta">last { new Date(bot.last_seen_at).toLocaleString() }</span>
+                                    <li className="rows__item rows__item--row" key={ bot.id }>
+                                        <span className="rows__text">
+                                            <span className="rows__name">{ bot.name }</span>
+                                            <span className="rows__meta">last { new Date(bot.last_seen_at).toLocaleString() }</span>
                                         </span>
 
-                                        <span className="list__meta">{ bot.message_count } message{ bot.message_count === 1 ? '' : 's' }</span>
+                                        <span className="rows__meta">{ bot.message_count } message{ bot.message_count === 1 ? '' : 's' }</span>
                                     </li>
                                 )) }
                             </ul>
                         ) }
-                    </section>
+                    </Panel>
 
-                    <section className="section">
-                        <h2 className="section__title">Files</h2>
-
-                        <p className="status">
+                    <Panel
+                        title="Files"
+                        sub="Notes agents keep about them"
+                        footer={ filePage !== null && (
+                            <PaginationFooter page={ filePage } shown={ files.length } busy={ paging } noun="files" onPage={ (offset) => void goToFiles(offset) } />
+                        ) }
+                    >
+                        <p className="note mt-0">
                             Written by agents through the internal tools. Read-only here — editing them by
                             hand would change what an agent believes without the agent seeing it happen.
                         </p>
 
-                        { files.length === 0 && <p className="status">No files yet.</p> }
+                        { files.length === 0 && <p className="note">No files yet.</p> }
 
                         { files.map((file) => (
                             <article className="doc" key={ file.id }>
                                 <header className="doc__head">
                                     <span className="doc__name">{ file.name }</span>
-                                    <span className="list__meta">{ new Date(file.updated_at).toLocaleString() }</span>
+
+                                    { /* Read through a tool when an agent asks for it, so this is
+                                         a cost per lookup rather than one paid on every message. */ }
+                                    <span className="doc__cost" title="Estimated tokens, charged when an agent reads this file">
+                                        { tokenLabel(file.content) }
+                                    </span>
+
+                                    <span className="rows__meta">{ new Date(file.updated_at).toLocaleString() }</span>
                                 </header>
 
                                 <pre className="doc__editor doc__editor--read">{ file.content }</pre>
                             </article>
                         )) }
-                    </section>
+                    </Panel>
 
-                    <section className="section">
-                        <h2 className="section__title">Conversations</h2>
-
-                        { details.messages.length === 0 && <p className="status">No messages stored yet.</p> }
+                    <Panel title="Conversations" sub="Everything they have written, oldest first">
+                        { details.messages.length === 0 && <p className="note">No messages stored yet.</p> }
 
                         { details.messages.length > 0 && (
-                            <div className="thread__body thread__body--plain">
+                            <div className="thread__body thread__body--plain mt-0">
                                 { details.messages.map((message) => (
                                     <p className="bubble" data-direction={ message.direction } key={ message.id }>
                                         <span className="bubble__text">{ message.text }</span>
@@ -204,9 +238,9 @@ export function Profile()
                                 )) }
                             </div>
                         ) }
-                    </section>
+                    </Panel>
                 </>
             ) }
-        </section>
+        </>
     );
 }

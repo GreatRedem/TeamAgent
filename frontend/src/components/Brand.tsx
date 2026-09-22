@@ -1,32 +1,23 @@
 import { Link } from 'react-router';
 
 /**
- * Logo mark plus wordmark. The mark is drawn rather than imported so it scales
- * and inherits `currentColor` with the rest of the chrome.
+ * The mark: a 26px live-teal tile with the N drawn in the ink that sits on it.
+ * Drawn rather than imported so it scales and follows the tokens.
+ *
+ * `to` exists because the mark means "home", and home is the sign-in page only
+ * until you are signed in.
  */
-export function Brand()
+export function Brand({ to = '/' }: { to?: string })
 {
     return (
-        <Link className="brand" to="/" aria-label="Nura, back to sign in">
-            <svg className="brand__mark" viewBox="0 0 32 32" role="presentation" focusable="false">
-                <path
-                    d="M6 25V9.5a1 1 0 0 1 1.75-.66L24 27"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.4"
-                    strokeLinecap="round"
-                />
-                <path
-                    d="M26 7v15.5a1 1 0 0 1-1.75.66L8 5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.4"
-                    strokeLinecap="round"
-                    opacity="0.55"
-                />
+        <Link
+            className="inline-flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-live text-live-ink no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-live"
+            to={ to }
+            aria-label={ to === '/' ? 'Nura, back to sign in' : 'Nura, back to your projects' }
+        >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3.5 12.5V3.5l9 9v-9" />
             </svg>
-
-            <span className="brand__word">Nura</span>
         </Link>
     );
 }

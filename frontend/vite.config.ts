@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) =>
 {
@@ -12,7 +13,9 @@ export default defineConfig(({ mode }) =>
     const env = loadEnv(mode, '../', 'NODE_PORT');
 
     return {
-        plugins: [ react() ],
+        // Tailwind 4 has no config file: the theme is declared in
+        // `src/index.css` over `src/tokens.css`, and this plugin compiles it.
+        plugins: [ react(), tailwindcss() ],
         // Dependencies are hoisted to the workspace root by npm, so keep Vite's
         // own cache beside them instead of creating a frontend/node_modules
         // that holds nothing else.

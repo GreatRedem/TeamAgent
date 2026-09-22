@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LogOut, Plus, Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 
 import { Button } from '../components/Button';
-import { ApiError, teamCreate, teamList, type Team } from '../lib/api';
+import { PaginationFooter } from '../components/PaginationFooter';
+import { Panel, PageHead } from '../components/Panel';
+import { ApiError, teamCreate, teamList, type Paged, type Team } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 
 export function Dashboard()
@@ -13,17 +15,12 @@ export function Dashboard()
     const [ token, setToken ] = useState<string | null>(() => readAccessToken());
 
     const [ teams, setTeams ] = useState<Team[] | null>(null);
+    const [ page, setPage ] = useState<Paged | null>(null);
+    const [ paging, setPaging ] = useState(false);
     const [ name, setName ] = useState('');
     const [ description, setDescription ] = useState('');
     const [ busy, setBusy ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
-
-    const signOut = useCallback(() =>
-    {
-        clearAccessToken();
-
-        setToken(null);
-    }, []);
 
     // Nothing here is a security boundary -- the backend rejects an absent or
     // invalid token on its own. This only keeps signed-out users off the view.
@@ -50,6 +47,7 @@ export function Dashboard()
                 if (active)
                 {
                     setTeams(payload.teams);
+                    setPage(payload);
                 }
             })
             .catch((cause: unknown) =>
@@ -63,7 +61,8 @@ export function Dashboard()
                 // leaving the view stuck on an error it cannot recover from.
                 if (cause instanceof ApiError && cause.status === 401)
                 {
-                    signOut();
+                    clearAccessToken();
+                    setToken(null);
 
                     return;
                 }
@@ -76,7 +75,28 @@ export function Dashboard()
         {
             active = false;
         };
-    }, [ token, signOut ]);
+    }, [ token ]);
+
+    const goTo = useCallback(async(offset: number) =>
+    {
+        setPaging(true);
+
+        try
+        {
+            const next = await teamList({ offset });
+
+            setTeams(next.teams);
+            setPage(next);
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setPaging(false);
+        }
+    }, []);
 
     const create = useCallback(async(event: React.FormEvent) =>
     {
@@ -90,6 +110,7 @@ export function Dashboard()
             const team = await teamCreate(name.trim(), description.trim());
 
             setTeams((current) => [ team, ...current ?? [ ] ]);
+            setPage((current) => current && { ...current, total: current.total + 1 });
             setName('');
             setDescription('');
         }
@@ -109,70 +130,73 @@ export function Dashboard()
     }
 
     return (
-        <section className="panel">
-            <header className="panel__head">
-                <h1 className="panel__title">Teams</h1>
+        <>
+            <PageHead title="Projects" sub="Every team this wallet owns" />
 
-                <Button type="button" onClick={ signOut } icon={ <LogOut size={ 18 } aria-hidden="true" /> }>
-                    Sign out
-                </Button>
-            </header>
+            <Panel title="New project" sub="A team is a set of bots, agents and models that belong together">
+                <form className="form mt-0" onSubmit={ create }>
+                    <label className="field">
+                        <span className="field__label">Name</span>
 
-            <form className="form" onSubmit={ create }>
-                <label className="field">
-                    <span className="field__label">Name</span>
+                        <input
+                            className="field__input"
+                            value={ name }
+                            onChange={ (event) => setName(event.target.value) }
+                            minLength={ 2 }
+                            maxLength={ 64 }
+                            required
+                            placeholder="Night shift"
+                        />
+                    </label>
 
-                    <input
-                        className="field__input"
-                        value={ name }
-                        onChange={ (event) => setName(event.target.value) }
-                        minLength={ 2 }
-                        maxLength={ 64 }
-                        required
-                        placeholder="Night shift"
-                    />
-                </label>
+                    <label className="field">
+                        <span className="field__label">Description</span>
 
-                <label className="field">
-                    <span className="field__label">Description</span>
+                        <input
+                            className="field__input"
+                            value={ description }
+                            onChange={ (event) => setDescription(event.target.value) }
+                            maxLength={ 280 }
+                            placeholder="Optional"
+                        />
+                    </label>
 
-                    <input
-                        className="field__input"
-                        value={ description }
-                        onChange={ (event) => setDescription(event.target.value) }
-                        maxLength={ 280 }
-                        placeholder="Optional"
-                    />
-                </label>
+                    <Button type="submit" disabled={ busy } icon={ <Plus size={ 18 } aria-hidden="true" /> }>
+                        { busy ? 'Creating...' : 'Create team' }
+                    </Button>
+                </form>
+            </Panel>
 
-                <Button type="submit" disabled={ busy } icon={ <Plus size={ 18 } aria-hidden="true" /> }>
-                    { busy ? 'Creating...' : 'Create team' }
-                </Button>
-            </form>
+            <Panel
+                title="Teams"
+                footer={ page !== null && teams !== null && (
+                    <PaginationFooter page={ page } shown={ teams.length } busy={ paging } noun="teams" onPage={ (offset) => void goTo(offset) } />
+                ) }
+            >
+                { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
 
-            { error !== null && <p className="status" data-state="error" role="alert">{ error }</p> }
+                { teams === null && <p className="note">Loading teams...</p> }
 
-            { teams === null && <p className="status">Loading teams...</p> }
+                { teams !== null && teams.length === 0 && (
+                    <p className="note">
+                        <Users size={ 18 } aria-hidden="true" /> No teams yet. Create the first one above.
+                    </p>
+                ) }
 
-            { teams !== null && teams.length === 0 && (
-                <p className="status">
-                    <Users size={ 18 } aria-hidden="true" /> No teams yet. Create the first one above.
-                </p>
-            ) }
+                { teams !== null && teams.length > 0 && (
+                    <ul className="rows mt-0">
+                        { teams.map((team) => (
+                            <li className="rows__item" key={ team.id }>
+                                <Link className="rows__link" to={ `/dashboard/team/${ team.id }` }>
+                                    <span className="rows__name">{ team.name }</span>
 
-            { teams !== null && teams.length > 0 && (
-                <ul className="list">
-                    { teams.map((team) => (
-                        <li className="list__item" key={ team.id }>
-                            <Link className="list__link" to={ `/dashboard/team/${ team.id }` }>
-                                <span className="list__name">{ team.name }</span>
-
-                                { team.description !== '' && <span className="list__meta">{ team.description }</span> }
-                            </Link>
-                        </li>
-                    )) }
-                </ul>
-            ) }
-        </section>
+                                    { team.description !== '' && <span className="rows__meta">{ team.description }</span> }
+                                </Link>
+                            </li>
+                        )) }
+                    </ul>
+                ) }
+            </Panel>
+        </>
     );
 }

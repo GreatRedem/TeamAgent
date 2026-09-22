@@ -85,13 +85,13 @@ export function WalletSignIn()
                 onClick={ () => void signIn() }
                 disabled={ busy }
                 icon={ busy
-                    ? <LoaderCircle className="spin" size={ 18 } aria-hidden="true" />
+                    ? <LoaderCircle className="animate-spin" size={ 18 } aria-hidden="true" />
                     : <Wallet size={ 18 } aria-hidden="true" /> }
             >
                 { busy ? status.step : 'Sign in with Wallet' }
             </Button>
 
-            <output className="status" data-state={ status.kind }>
+            <output className="note" data-state={ status.kind }>
                 { status.kind === 'error' && <><CircleAlert size={ 16 } aria-hidden="true" />{ status.message }</> }
             </output>
         </>

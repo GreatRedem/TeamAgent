@@ -3,11 +3,28 @@ import { ArrowLeft, FilePlus, Save } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
 import { Button, ButtonLink } from '../components/Button';
+import { PaginationFooter } from '../components/PaginationFooter';
+import { Panel, PageHead } from '../components/Panel';
 import {
     ApiError, agentDetails, agentDocumentCreate, agentDocumentRemove, agentDocumentUpdate,
     agentExchanges, agentPermissionCatalog, agentPermissionUpdate, agentUpdate, modelList,
-    type AgentDocument, type AgentExchange, type Permission, type TeamAgent, type TeamModel } from '../lib/api';
+    type AgentDocument, type AgentExchange, type Paged, type Permission, type TeamAgent, type TeamModel } from '../lib/api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
+import { tokenLabel } from '../lib/tokens';
+
+/**
+ * Whether a document rides along in every system prompt or is fetched only
+ * when the agent asks for it.
+ *
+ * Mirrors `ALWAYS_INLINE` and `DOCUMENT_INLINE_MAX` in
+ * `backend/src/routes/agent/agent.reply.ts`; the backend decides, this only
+ * labels what it will do. Kept in sync by hand -- the alternative is another
+ * field on the documents response for something that is purely a label.
+ */
+function alwaysSent(name: string, content: string): boolean
+{
+    return name === 'instructions.md' || name === 'guardrails.md' || content.trim().length <= 400;
+}
 
 /** One markdown file, edited in place. */
 function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
@@ -76,7 +93,19 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
             <header className="doc__head">
                 <span className="doc__name">{ document.name }</span>
 
-                <span className="list__actions">
+                { /* Whether this file is a cost on every message or only when
+                     the agent opens it -- see `alwaysSent`. */ }
+                <span
+                    className="doc__cost"
+                    data-deferred={ alwaysSent(document.name, content) ? undefined : '' }
+                    title={ alwaysSent(document.name, content)
+                        ? 'Estimated tokens, sent on every message this agent answers'
+                        : 'Estimated tokens, charged only when the agent opens this file' }
+                >
+                    { tokenLabel(content) } · { alwaysSent(document.name, content) ? 'every message' : 'on demand' }
+                </span>
+
+                <span className="rows__actions">
                     <button className="ghost" type="button" disabled={ busy || !dirty } onClick={ () => void save() }>
                         { busy ? 'Saving...' : dirty ? 'Save' : 'Saved' }
                     </button>
@@ -101,7 +130,7 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
                 aria-label={ `Contents of ${ document.name }` }
             />
 
-            { error !== null && <p className="status" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
         </article>
     );
 }
@@ -135,6 +164,8 @@ export function Agent()
     const [ capabilities, setCapabilities ] = useState<Permission[]>([ ]);
     const [ savingCapability, setSavingCapability ] = useState<string | null>(null);
     const [ exchanges, setExchanges ] = useState<AgentExchange[]>([ ]);
+    const [ exchangePage, setExchangePage ] = useState<Paged | null>(null);
+    const [ paging, setPaging ] = useState(false);
     const [ openExchange, setOpenExchange ] = useState<number | null>(null);
 
     useEffect(() =>
@@ -166,6 +197,7 @@ export function Agent()
                 setModels(modelPayload.models);
                 setCapabilities(catalog.permissions);
                 setExchanges(exchangePayload.exchanges);
+                setExchangePage(exchangePayload);
                 setName(details.agent.name);
                 setDescription(details.agent.description);
                 setModelId(String(details.agent.model_id));
@@ -219,6 +251,28 @@ export function Agent()
             setSavingAgent(false);
         }
     }, [ teamId, thisAgent, name, description, modelId ]);
+
+    const goToExchanges = useCallback(async(offset: number) =>
+    {
+        setPaging(true);
+
+        try
+        {
+            const next = await agentExchanges(teamId, thisAgent, { offset });
+
+            setExchanges(next.exchanges);
+            setExchangePage(next);
+            setOpenExchange(null);
+        }
+        catch (cause)
+        {
+            setError(cause instanceof ApiError ? cause.result : 'REQUEST_FAILED');
+        }
+        finally
+        {
+            setPaging(false);
+        }
+    }, [ teamId, thisAgent ]);
 
     const addDocument = useCallback(async(event: React.FormEvent) =>
     {
@@ -275,31 +329,31 @@ export function Agent()
     const shown = idsInvalid ? 'AGENT_ID_INVALID' : error;
 
     return (
-        <section className="panel">
-            <header className="panel__head">
-                <h1 className="panel__title">{ agent?.name ?? 'Agent' }</h1>
+        <>
+            <PageHead
+                title={ agent?.name ?? 'Agent' }
+                sub={ agent === null ? undefined : agent.description !== '' ? agent.description : agent.model_name !== '' ? agent.model_name : 'no model attached' }
+                actions={ (
+                    <ButtonLink to={ `/dashboard/team/${ teamId }/agents` } icon={ <ArrowLeft size={ 18 } aria-hidden="true" /> }>
+                        Back
+                    </ButtonLink>
+                ) }
+            />
 
-                <ButtonLink to={ `/dashboard/team/${ teamId }` } icon={ <ArrowLeft size={ 18 } aria-hidden="true" /> }>
-                    Back
-                </ButtonLink>
-            </header>
+            { agent === null && shown === null && <p className="note">Loading agent...</p> }
 
-            { agent === null && shown === null && <p className="status">Loading agent...</p> }
-
-            { shown !== null && <p className="status" data-state="error" role="alert">{ shown }</p> }
+            { shown !== null && <p className="note" data-state="error" role="alert">{ shown }</p> }
 
             { agent !== null && (
                 <>
-                    <section className="section">
-                        <h2 className="section__title">Settings</h2>
-
+                    <Panel title="Settings" sub="What this agent is, and the model it is bound to">
                         { agent.model_name === '' && (
-                            <p className="status" data-state="error">
+                            <p className="note mt-0" data-state="error">
                                 No model attached — the model this agent used was removed. Pick another below.
                             </p>
                         ) }
 
-                        <form className="form" onSubmit={ saveAgent }>
+                        <form className="form mt-0" onSubmit={ saveAgent }>
                             <label className="field">
                                 <span className="field__label">Name</span>
 
@@ -347,26 +401,20 @@ export function Agent()
                             </Button>
                         </form>
 
-                        { saved && <output className="status">Saved.</output> }
-                    </section>
+                        { saved && <output className="note">Saved.</output> }
+                    </Panel>
 
-                    <section className="section">
-                        <h2 className="section__title">Capabilities</h2>
-
-                        <p className="status">
-                            What this agent may do through the internal tools, for every person it talks to.
-                        </p>
-
-                        <ul className="list">
+                    <Panel title="Capabilities" sub="What this agent may do through the internal tools, for every person it talks to. Every capability is off until granted">
+                        <ul className="rows mt-0">
                             { capabilities.map((capability) =>
                             {
                                 const granted = agent.permissions.includes(capability.key);
 
                                 return (
-                                    <li className="list__item list__item--row" key={ capability.key }>
-                                        <span className="list__text">
-                                            <span className="list__name">{ capability.label }</span>
-                                            <span className="list__meta">{ capability.description }</span>
+                                    <li className="rows__item rows__item--row" key={ capability.key }>
+                                        <span className="rows__text">
+                                            <span className="rows__name">{ capability.label }</span>
+                                            <span className="rows__meta">{ capability.description }</span>
                                         </span>
 
                                         <button
@@ -382,28 +430,27 @@ export function Agent()
                                 );
                             }) }
                         </ul>
-                    </section>
+                    </Panel>
 
-                    <section className="section">
-                        <h2 className="section__title">Model conversations</h2>
-
-                        <p className="status">
-                            Every round-trip with the model, as the model saw it: system prompt, replayed
-                            history, tool calls and results.
-                        </p>
-
-                        { exchanges.length === 0 && <p className="status">Nothing recorded yet.</p> }
+                    <Panel
+                        title="Model conversations"
+                        sub="Every round-trip as the model saw it: system prompt, replayed history, tool calls and results"
+                        footer={ exchangePage !== null && (
+                            <PaginationFooter page={ exchangePage } shown={ exchanges.length } busy={ paging } noun="exchanges" onPage={ (offset) => void goToExchanges(offset) } />
+                        ) }
+                    >
+                        { exchanges.length === 0 && <p className="note mt-0">Nothing recorded yet.</p> }
 
                         { exchanges.map((exchange) => (
-                            <article className="doc" key={ exchange.id }>
+                            <article className="doc first:mt-0" key={ exchange.id }>
                                 <header className="doc__head">
                                     <span className="doc__name">
                                         round { exchange.round }
-                                        <span className="list__meta"> { new Date(exchange.created_at).toLocaleString() }</span>
+                                        <span className="rows__meta"> { new Date(exchange.created_at).toLocaleString() }</span>
                                     </span>
 
-                                    <span className="list__actions">
-                                        <span className="list__meta">
+                                    <span className="rows__actions">
+                                        <span className="rows__meta">
                                             { exchange.duration_ms }ms, { exchange.tool_calls } tool calls
                                         </span>
 
@@ -433,14 +480,10 @@ export function Agent()
                                 ) }
                             </article>
                         )) }
-                    </section>
+                    </Panel>
 
-                    <section className="section">
-                        <h2 className="section__title">Files</h2>
-
-                        <p className="status">These markdown files define what this agent does.</p>
-
-                        <form className="form" onSubmit={ addDocument }>
+                    <Panel title="Files" sub="The markdown that defines how this agent behaves">
+                        <form className="form mt-0" onSubmit={ addDocument }>
                             <label className="field">
                                 <span className="field__label">New file</span>
 
@@ -471,9 +514,9 @@ export function Agent()
                                 onRemoved={ (removedId) => setDocuments((current) => current.filter((item) => item.id !== removedId)) }
                             />
                         )) }
-                    </section>
+                    </Panel>
                 </>
             ) }
-        </section>
+        </>
     );
 }
