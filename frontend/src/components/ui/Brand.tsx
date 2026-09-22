@@ -1,12 +1,5 @@
 import { Link } from 'react-router';
 
-/**
- * The mark: a 26px live-teal tile with the N drawn in the ink that sits on it.
- * Drawn rather than imported so it scales and follows the tokens.
- *
- * `to` exists because the mark means "home", and home is the sign-in page only
- * until you are signed in.
- */
 export function Brand({ to = '/' }: { to?: string })
 {
     return (

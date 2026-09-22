@@ -1,29 +1,13 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-import type { Paged } from '../lib/api';
+import type { Paged } from '../../api';
+import { CLASS_PAGER } from '../../lib/constant';
 import { MonoLabel } from './MonoLabel';
 
-const PAGER = 'inline-flex size-11 items-center justify-center rounded-chip border border-edge bg-well text-ink-4 '
-    + 'lg:size-7 enabled:border-edge-strong enabled:bg-raised enabled:text-ink-2 enabled:hover:text-ink disabled:cursor-not-allowed';
-
-/**
- * The footer under every list: the range and the total (`1–12 OF 3,481`),
- * then previous and next.
- *
- * Pages replace rather than append. These lists are read to find something
- * specific -- an audit entry, a message, a person -- and a page that keeps
- * growing under the scrollbar makes what you just saw harder to get back to.
- *
- * The range is a polite live region, so a screen reader hears where the list
- * landed after a page turn rather than nothing at all. The buttons are 44px on
- * mobile and 28px in desktop list rows, the two minimums the spec sets.
- */
 export function PaginationFooter({ page, shown, busy = false, noun, onPage }: {
     page: Paged;
-    /** Rows actually on screen, which the last page has fewer of than `limit`. */
     shown: number;
     busy?: boolean;
-    /** Plural, lowercase, in the user's words: 'models', 'messages'. */
     noun: string;
     onPage: (offset: number) => void;
 })
@@ -44,7 +28,7 @@ export function PaginationFooter({ page, shown, busy = false, noun, onPage }: {
 
             <div className="flex gap-1.5">
                 <button
-                    className={ PAGER }
+                    className={ CLASS_PAGER }
                     type="button"
                     aria-label={ `Previous ${ noun }` }
                     disabled={ busy || page.offset === 0 }
@@ -54,7 +38,7 @@ export function PaginationFooter({ page, shown, busy = false, noun, onPage }: {
                 </button>
 
                 <button
-                    className={ PAGER }
+                    className={ CLASS_PAGER }
                     type="button"
                     aria-label={ `Next ${ noun }` }
                     disabled={ busy || !page.has_more }

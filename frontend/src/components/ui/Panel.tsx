@@ -2,23 +2,11 @@ import type { HTMLAttributes, ReactNode } from 'react';
 
 import { MonoLabel } from './MonoLabel';
 
-/**
- * The surface everything sits on: `--nura-panel` fill, 1px `--nura-line`
- * border, 12px radius. A header row and a footer row are separated from the
- * body by `--nura-line-soft`.
- *
- * The body is padded by default; a panel whose body is a list of rows passes
- * `flush`, because the rows carry their own padding and dividers and a padded
- * wrapper would put a gutter around a table.
- */
 export function Panel({ title, eyebrow, sub, actions, footer, flush = false, className, children, ...rest }: {
     title?: ReactNode;
-    /** A mono label above the title, e.g. `ACTIVITY · 12 WEEKS`. */
     eyebrow?: string;
     sub?: ReactNode;
-    /** Sits at the right of the header row: a link, a button, a count. */
     actions?: ReactNode;
-    /** Usually a `PaginationFooter`; it draws its own top rule. */
     footer?: ReactNode;
     flush?: boolean;
     className?: string;
@@ -46,10 +34,6 @@ export function Panel({ title, eyebrow, sub, actions, footer, flush = false, cla
     );
 }
 
-/**
- * The heading of a screen: what this is, one line of context, and the one
- * action that belongs to the whole page rather than to a panel on it.
- */
 export function PageHead({ title, sub, actions }: {
     title: ReactNode;
     sub?: ReactNode;
