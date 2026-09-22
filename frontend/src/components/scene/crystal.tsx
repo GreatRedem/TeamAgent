@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
-import { CRYSTAL_CURVES, CRYSTAL_MODEL, CRYSTAL_SPARKS, SCENE_LIGHT, SCENE_PITCH, SCENE_SCALE } from '../../lib/constant';
+import { CRYSTAL_CURVES, CRYSTAL_MODEL, CRYSTAL_SPARKS, SCENE_LIGHT, SCENE_PITCH, SCENE_SCALE } from '@/lib/constant';
 import { centroid, dot, faceNormal, project, rotate, splitByDepth, toPoints, type Projected, type Vec3 } from './projection';
-import { useRotation } from './useRotation';
+import { useRotation } from './use-rotation';
 
 function curvePoints(curve: typeof CRYSTAL_CURVES[number], yaw: number): Projected[]
 {
@@ -55,7 +55,7 @@ export function Crystal()
                     light
                 };
             })
-            .sort((a, b) => a.depth - b.depth);
+            .toSorted((a, b) => a.depth - b.depth);
 
         const seen = new Set<string>();
         const edges: { key: string; d: string; depth: number }[] = [ ];

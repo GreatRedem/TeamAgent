@@ -1,4 +1,4 @@
-import { DEBRIS_CUBES, DEBRIS_SPHERES } from '../../lib/constant';
+import { DEBRIS_CUBES, DEBRIS_SPHERES } from '@/lib/constant';
 
 export function Debris()
 {

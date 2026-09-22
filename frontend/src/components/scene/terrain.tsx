@@ -1,4 +1,4 @@
-import { TERRAIN_FAR, TERRAIN_NEAR, TERRAIN_TRAIL, type Slab } from '../../lib/constant';
+import { TERRAIN_FAR, TERRAIN_NEAR, TERRAIN_TRAIL, type Slab } from '@/lib/constant';
 
 function toPath(points: [number, number][])
 {

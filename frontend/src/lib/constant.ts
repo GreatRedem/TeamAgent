@@ -1,9 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
-import { Bot, Layers, LayoutGrid, MessageSquare } from 'lucide-react';
+import { Bot, Cpu, LayoutGrid, MessageSquare } from 'lucide-react';
 
-import type { AuditEntry } from '../api/audit';
-import type { ProviderPreset } from '../api/model';
-import { noise, type Vec3 } from '../components/scene/projection';
+import type { AuditEntry } from '@/api/audit';
+import type { ProviderPreset } from '@/api/model';
+import { noise, type Vec3 } from '@/components/scene/projection';
 
 export const API_BASE_URL = '/api';
 
@@ -11,7 +11,13 @@ export const ACCESS_TOKEN_KEY = 'accessToken';
 
 export const TOKENS_PER_CHARACTER = 4;
 
-export const HEADER_WIDTH = 'w-full max-w-[64rem]';
+export const CONFIRM_TIMEOUT = 4000;
+
+export const METRICS_REFRESH = 10_000;
+
+export const BYTE_UNITS = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
+
+export const PAGE_WIDTH = 'mx-auto w-full max-w-5xl';
 
 export const HEADER_OPEN_ZONE = 110;
 
@@ -25,136 +31,51 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: '', label: 'Overview', icon: LayoutGrid },
     { id: 'agents', label: 'Agents', icon: Bot },
     { id: 'bots', label: 'Bots', icon: MessageSquare },
-    { id: 'models', label: 'Models', icon: Layers }
+    { id: 'models', label: 'Models', icon: Cpu }
 ];
 
-export const TEAM_TITLES: Record<string, string> = {
-    '': 'Overview',
-    overview: 'Overview',
-    agents: 'Agents',
-    bots: 'Bots',
-    models: 'Models',
-    settings: 'Settings'
+export const TEAM_TITLES: Record<string, { title: string; description: string }> = {
+    '': { title: 'Overview', description: 'How this project is running right now.' },
+    overview: { title: 'Overview', description: 'How this project is running right now.' },
+    agents: { title: 'Agents', description: 'The roles that answer, and the models behind them.' },
+    bots: { title: 'Bots', description: 'The bots people message, and who has messaged them.' },
+    models: { title: 'Models', description: 'The endpoints this project can call.' },
+    settings: { title: 'Settings', description: 'What this project is called.' }
 };
 
 export const WEEKDAYS = [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ];
 
-export const HEAT_LEVELS = [ 'bg-heat-0', 'bg-heat-1', 'bg-heat-2', 'bg-heat-3', 'bg-heat-4' ];
+export const HEAT_SCALE = [ 'bg-scale-0', 'bg-scale-1', 'bg-scale-2', 'bg-scale-3', 'bg-scale-4' ];
+
+export const STATUS_FILL: Record<'live' | 'degraded' | 'off' | 'failed', string> = {
+    live: 'bg-primary ring-3 ring-primary/15',
+    degraded: 'bg-warning',
+    off: 'bg-neutral',
+    failed: 'bg-destructive'
+};
 
 export const AUDIT_RESULT: Record<AuditEntry['outcome'], { label: string; className: string }> = {
-    ok: { label: 'OK', className: 'text-live' },
-    error: { label: 'FAILED', className: 'text-fail' },
-    skipped: { label: 'SKIPPED', className: 'text-pending' }
+    ok: { label: 'OK', className: 'text-primary' },
+    error: { label: 'Failed', className: 'text-destructive' },
+    skipped: { label: 'Skipped', className: 'text-warning' }
+};
+
+export const PROBE_TONE: Record<string, string> = {
+    ok: 'text-primary',
+    pending: 'text-warning',
+    error: 'text-destructive'
 };
 
 export const PROVIDER_FALLBACK: ProviderPreset[] = [
     { key: 'custom', label: 'Other OpenAI-compatible endpoint', url: '', catalog: false, key_required: false, models: [ ], hint: '' }
 ];
 
-export const BYTE_UNITS = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
+export const SCENE_PALETTE = '[--glow:var(--scale-2)] [--glow-bright:var(--primary)] [--ink:var(--foreground)] '
+    + '[--facet-hi:var(--muted-foreground)] [--facet-lo:var(--neutral)] [--facet-deep:var(--accent)] '
+    + '[--rock-hi:var(--input)] [--rock-deep:var(--background)] [--rock-rim:var(--muted-foreground)]';
 
-export const METRICS_REFRESH = 10_000;
-
-const CONTROL_BASE = 'inline-flex cursor-pointer items-center justify-center justify-self-start gap-2.5 '
-    + 'rounded-control border text-sm no-underline transition-colors '
-    + 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-live '
-    + 'disabled:cursor-not-allowed disabled:opacity-50';
-
-export const CLASS_BUTTON = `${ CONTROL_BASE } min-h-11 border-edge-strong bg-raised px-4 font-medium text-ink hover:bg-panel-hover`;
-
-export const CLASS_GHOST = `${ CONTROL_BASE } min-h-9 border-edge-strong bg-transparent px-3 text-ink-2 hover:bg-raised hover:text-ink`;
-
-export const CLASS_GHOST_DANGER = `${ CONTROL_BASE } min-h-9 border-fail-edge bg-transparent px-3 text-fail hover:bg-fail-wash`;
-
-export const CLASS_GHOST_ARMED = `${ CONTROL_BASE } min-h-9 border-fail bg-fail-wash px-3 text-fail`;
-
-export const CLASS_ICON_BUTTON = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-control '
-    + 'border border-transparent bg-transparent text-ink-3 transition-colors hover:bg-raised hover:text-ink '
-    + 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-live';
-
-export const CLASS_BADGE = 'inline-flex items-center rounded-chip bg-live-wash px-1.5 py-0.5 font-mono text-[11px] text-live';
-
-export const CLASS_BADGE_MUTED = 'inline-flex items-center rounded-chip bg-raised px-1.5 py-0.5 font-mono text-[11px] text-ink-2';
-
-export const CLASS_CARD_GRID = 'm-0 grid list-none gap-3 p-0 sm:grid-cols-2 xl:grid-cols-3';
-
-export const CLASS_CARD = 'flex h-full flex-col gap-2.5 rounded-control border border-edge bg-raised p-4 text-ink no-underline transition-colors hover:border-edge-strong';
-
-export const CLASS_CARD_LINK = `${ CLASS_CARD } focus-visible:border-edge-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-live`;
-
-export const CLASS_CARD_NAME = 'truncate text-[15px] font-semibold';
-
-export const CLASS_CARD_META = 'font-mono text-[11px] text-ink-3 [overflow-wrap:anywhere]';
-
-export const CLASS_CARD_BODY = 'text-[13px] text-ink-2 [overflow-wrap:anywhere]';
-
-export const CLASS_CARD_ACTIONS = 'mt-auto flex flex-wrap items-center gap-2 pt-1';
-
-export const CLASS_ROWS = 'm-0 grid list-none gap-2 p-0';
-
-export const CLASS_ROW_LINK = 'grid gap-1 rounded-control border border-edge bg-raised px-4 py-3.5 text-ink no-underline transition-colors hover:border-edge-strong focus-visible:border-edge-strong';
-
-export const CLASS_ROW = 'flex flex-wrap items-center justify-between gap-3 rounded-control border border-edge bg-raised px-4 py-3';
-
-export const CLASS_ROW_TEXT = 'grid min-w-0 gap-1';
-
-export const CLASS_ROW_NAME = 'font-semibold';
-
-export const CLASS_ROW_META = 'text-sm text-ink-2 [overflow-wrap:anywhere]';
-
-export const CLASS_ROW_ACTIONS = 'flex flex-wrap items-center gap-2';
-
-export const CLASS_ROW_FORM = 'flex min-w-0 flex-1 flex-wrap items-center gap-2';
-
-export const CLASS_DETAILS = 'grid gap-2';
-
-export const CLASS_DETAILS_ROW = 'flex flex-wrap justify-between gap-3 border-b border-edge pb-2 text-sm';
-
-export const CLASS_DETAILS_KEY = 'text-ink-3';
-
-export const CLASS_DETAILS_VALUE = '[overflow-wrap:anywhere]';
-
-export const CLASS_FORM = 'grid gap-3.5';
-
-export const CLASS_FORM_ACTIONS = 'flex flex-wrap items-center gap-2.5';
-
-export const CLASS_FIELD = 'grid gap-2';
-
-export const CLASS_FIELD_LABEL = 'text-[13px] text-ink-3';
-
-export const CLASS_FIELD_INPUT = 'min-h-11 w-full rounded-control border border-edge bg-well px-3 text-ink placeholder:text-ink-4 focus:border-edge-strong focus:outline-none';
-
-export const CLASS_FIELD_HINT = 'text-xs leading-relaxed text-ink-3';
-
-export const CLASS_NOTE = 'flex min-h-5 items-start gap-2 text-sm text-ink-2 [overflow-wrap:anywhere]';
-
-export const CLASS_NOTE_ERROR = 'flex min-h-5 items-start gap-2 text-sm text-fail [overflow-wrap:anywhere]';
-
-export const CLASS_PROBE: Record<string, string> = {
-    ok: 'text-[13px] text-live',
-    pending: 'text-[13px] text-pending',
-    error: 'text-[13px] text-fail'
-};
-
-export const CLASS_DOC = 'rounded-panel border border-edge bg-panel p-4';
-
-export const CLASS_DOC_HEAD = 'mb-2.5 flex flex-wrap items-center gap-3';
-
-export const CLASS_DOC_NAME = 'font-mono text-sm font-semibold';
-
-export const CLASS_DOC_COST = 'me-auto whitespace-nowrap font-mono text-xs text-ink-3';
-
-export const CLASS_DOC_EDITOR = 'w-full rounded-control border border-edge-strong bg-well p-3 font-mono text-[13px] leading-relaxed text-ink focus:outline-none';
-
-export const CLASS_DOC_READER = `${ CLASS_DOC_EDITOR } m-0 max-h-80 overflow-auto whitespace-pre-wrap`;
-
-export const CLASS_THREAD = 'w-full cursor-pointer rounded-control border-0 bg-transparent p-0 text-start text-ink';
-
-export const CLASS_THREAD_BODY = 'mt-3 grid gap-2 border-t border-edge pt-3';
-
-export const CLASS_BUBBLE_TEXT = 'block whitespace-pre-wrap [overflow-wrap:anywhere]';
-
-export const CLASS_BUBBLE_TIME = 'mt-1 block text-[11px] text-ink-4';
+export const SCENE_ROOT = 'pointer-events-none fixed inset-0 -z-1 overflow-hidden '
+    + 'bg-[radial-gradient(120%_90%_at_50%_8%,var(--card)_0%,transparent_60%),linear-gradient(180deg,var(--well)_0%,var(--background)_100%)]';
 
 export const SCENE_FOCAL = 4.2;
 
@@ -316,32 +237,4 @@ export const TERRAIN_NEAR: Slab[] = [
 
 export const TERRAIN_TRAIL = 'M1440 320 C 1288 334, 1200 354, 1056 358 C 914 362, 810 344, 674 354 C 552 364, 448 386, 356 406';
 
-export const CLASS_MONO_LABEL = 'font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3';
-
-export const CLASS_PAGER = 'inline-flex size-11 items-center justify-center rounded-chip border border-edge bg-well text-ink-4 '
-    + 'lg:size-7 enabled:border-edge-strong enabled:bg-raised enabled:text-ink-2 enabled:hover:text-ink disabled:cursor-not-allowed';
-
-export const CLASS_AUDIT_COLUMNS = 'grid grid-cols-[0.8fr_1fr_0.6fr_0.8fr] gap-3 px-[18px] md:grid-cols-[0.7fr_0.8fr_1.3fr_0.9fr_0.6fr_0.8fr]';
-
-export const CLASS_FILTER = 'inline-flex h-11 items-center gap-[7px] rounded-control border px-3.5 text-[13px] lg:h-[34px]';
-
-export const CLASS_MENU_ITEM = 'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm text-ink-2 no-underline hover:bg-raised hover:text-ink';
-
-export const CLASS_NAV_LINK = 'flex h-9 shrink-0 items-center gap-2 rounded-control px-2.5 text-sm no-underline transition-colors';
-
-export const LED_FILL: Record<'live' | 'degraded' | 'off', string> = {
-    live: 'bg-live ring-3 ring-live/15',
-    degraded: 'bg-pending',
-    off: 'bg-off'
-};
-
-export const CLASS_SCENE_PALETTE = '[--glow:var(--nura-heat-2)] [--glow-bright:var(--nura-live)] [--ink:var(--nura-text)] '
-    + '[--facet-hi:var(--nura-text-2)] [--facet-lo:var(--nura-off)] [--facet-deep:var(--nura-raised)] '
-    + '[--rock-hi:var(--nura-line-strong)] [--rock-deep:var(--nura-bg)] [--rock-rim:var(--nura-text-3)]';
-
-export const CLASS_SCENE_ROOT = 'pointer-events-none fixed inset-0 -z-1 overflow-hidden '
-    + 'bg-[radial-gradient(120%_90%_at_50%_8%,var(--nura-panel-hover)_0%,transparent_60%),linear-gradient(180deg,var(--nura-well)_0%,var(--nura-bg)_100%)]';
-
-export const CLASS_BUBBLE_IN = 'm-0 grid gap-0.5 rounded-control border border-edge bg-raised px-3 py-2 text-sm';
-
-export const CLASS_BUBBLE_OUT = 'm-0 grid gap-0.5 rounded-control border border-live-edge bg-live-wash px-3 py-2 text-sm';
+export const BLANK_MODEL = { name: '', model: '', baseUrl: '', apiKey: '', contextTokens: '' };

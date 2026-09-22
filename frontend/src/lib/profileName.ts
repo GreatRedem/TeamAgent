@@ -1,4 +1,4 @@
-import type { TelegramProfile } from '../api';
+import type { TelegramProfile } from '@/api';
 
 export function profileName(profile: TelegramProfile): string
 {

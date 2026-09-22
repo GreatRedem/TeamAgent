@@ -1,4 +1,4 @@
-import { SCENE_PARTICLES } from '../../lib/constant';
+import { SCENE_PARTICLES } from '@/lib/constant';
 
 export function Particles()
 {

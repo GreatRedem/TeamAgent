@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { SCENE_FRAME, SCENE_PERIOD } from '../../lib/constant';
+import { SCENE_FRAME, SCENE_PERIOD } from '@/lib/constant';
 
 export function useRotation(): number
 {

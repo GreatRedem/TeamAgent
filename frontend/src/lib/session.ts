@@ -1,4 +1,4 @@
-import { ACCESS_TOKEN_KEY } from './constant';
+import { ACCESS_TOKEN_KEY } from '@/lib/constant';
 
 export function readAccessToken(): string | null
 {

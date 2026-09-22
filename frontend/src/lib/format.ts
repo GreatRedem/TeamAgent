@@ -1,4 +1,4 @@
-import { BYTE_UNITS, TOKENS_PER_CHARACTER } from './constant';
+import { BYTE_UNITS, TOKENS_PER_CHARACTER } from '@/lib/constant';
 
 export function tokenLabel(text: string): string
 {

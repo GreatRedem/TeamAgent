@@ -1,4 +1,4 @@
-import { LATTICE_LINKS, LATTICE_NODES, LATTICE_VERTICALS } from '../../lib/constant';
+import { LATTICE_LINKS, LATTICE_NODES, LATTICE_VERTICALS } from '@/lib/constant';
 
 export function Lattice()
 {
