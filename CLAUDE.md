@@ -4,53 +4,85 @@ NuraAI — agent platform. Wallet sign-in, Telegram bots, agents defined by
 markdown files, OpenAI-compatible model endpoints, a `team.json` roster, and a
 full record of every model round-trip.
 
-## Design source
+## Where the rules live
 
-- `design/SPEC.md` — component list, screen-by-screen intent, states to build.
-- `design/tokens.css` — colours, type, radii, elevation, DaisyUI theme mapping.
-- `design/screens/*.html` — **reference comps only.** Read them for spacing,
-  hierarchy and colour use. Never import them, never copy their inline styles
-  into a component, never ship them.
+- `AGENTS.md` — how to work on the UI. Read it before changing any interface.
+- `DESIGN.md` — the design system itself: tokens, type, sizing, components.
+  `AGENTS.md` defers to it, so it is the file to check a value against.
+- `.claude/skills/` — design skills vendored into the repo, with a README
+  saying where each came from and how to refresh it.
 
-Before changing any UI, read SPEC.md and tokens.css.
+Do not restate UI rules here. One rulebook, one design system.
 
-## UI rules
+## Layout
 
-- **Red means broken.** `error` is for failures only. Volume, traffic and
-  activity stay teal however high the number gets. A busy week is never red.
-- **Mono for machine values.** Addresses, nonces, token counts, latency, model
-  ids, file paths, handles, timestamps → JetBrains Mono. Prose → Archivo.
-- **No new design values.** Every colour, radius, font size and shadow comes
-  from `tokens.css`. If something is genuinely missing, ask before inventing it.
-- **Deny by default is visible.** A capability that is off renders off — grey
-  track, grey knob, muted label. Never pre-check one.
-- **Every list is paginated**, with a footer showing range and total
-  (`1–12 OF 3,481`), not bare arrows.
-- **Failures get words.** Anywhere a model call can fail, render what failed and
-  what to do next. Never a spinner that just stops.
-- **Real elements.** `<button>`, `<a href>`, `<input>` + `<label>`. No clickable
-  divs or spans. `aria-label` on icon-only buttons. Text at 4.5:1 minimum.
-- **Touch targets:** 44px minimum on mobile. Desktop chrome may go to 36px,
-  list-row icon buttons to 28px.
+```
+backend/src/routes/<area>/   entity, schema, service, route per area
+backend/src/plugins/         auth, rate limit, typeorm, telegram polling
+frontend/src/api/            one module per backend area, re-exported from index
+frontend/src/components/ui/  shadcn primitives plus this project's own
+frontend/src/components/     layout, project panels, agent, scene
+frontend/src/pages/          one file per route
+frontend/src/lib/constant.ts every constant the frontend reads
+frontend/src/styles/         tokens.css and the Tailwind theme over it
+```
+
+Routes are autoloaded from `*.route.ts` and entities from `*.entity.ts`, so a
+new area needs no registration.
+
+## Commands
+
+```
+npm run dev              api and web together
+npm run typecheck        frontend only
+npm run build            backend tsc, then the web bundle
+npm run lint             oxlint across both workspaces
+npm run format:check     oxfmt
+```
+
+Backend types are checked by `npm run build:api`, not by `npm run typecheck`.
+
+Backend self-checks are standalone scripts, one per area:
+
+```
+npx tsx backend/src/routes/<area>/<name>.test.ts
+```
+
+## Tooling notes
+
+- On Windows, call `npx.cmd` rather than `npx` from a bash shell; bare `npx`
+  fails on the space in `C:\Program Files`.
+- `npm run format:check` currently fails across the whole repo. oxfmt's defaults
+  disagree with this codebase's Allman brace style, and running `npm run format`
+  would rewrite every file. Leave it alone unless the house style is the thing
+  being changed.
+- `@shadcn/lint` is registered in `.oxlintrc.json` under `jsPlugins`. Two rules
+  are on and clean; four more are available and off. `DESIGN.md` explains which
+  and why.
 
 ## Working rules
 
-- **Stay in scope.** A UI task is presentation only — don't change routes, data
+- **Stay in scope.** A UI task is presentation only. Do not change routes, data
   fetching, props, state shape or API calls unless the task says so.
-- **If a component isn't in SPEC.md, leave it alone.** Don't refactor adjacent
-  code you happen to be reading.
-- **One screen or one step per session.** Finish it, then stop.
+- **Reuse before writing.** A primitive for the concept probably already exists
+  in `components/ui`. Check before adding a second one.
+- **Constants live in `lib/constant.ts`.** Do not declare module-level values in
+  a component file. shadcn primitives keep their own `cva` variants, which is
+  their contract and the one exception.
 - **Show diffs** for anything touching more than two files, before moving on.
-- Don't add a dependency without asking. DaisyUI and Tailwind are already here.
-- Sample data in the comps (names, handles, addresses, numbers) is placeholder.
-  Wire real data; don't copy the strings.
+- **Do not add a dependency without asking.** React, react-router, Tailwind,
+  shadcn/ui with Radix, `class-variance-authority`, `cn`, `tw-animate-css` and
+  lucide are already here.
+- **Placeholder data is placeholder.** Wire real data; do not ship the sample
+  names, handles or addresses.
 
 ## Before you say you're done
 
 ```
-[YOUR TYPECHECK COMMAND]
-[YOUR LINT COMMAND]
-[YOUR BUILD COMMAND]
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-All three pass, or say plainly what's still failing.
+All three pass, or say plainly what is still failing. `format:check` is expected
+to fail for the reason above.
