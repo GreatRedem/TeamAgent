@@ -4,6 +4,11 @@
         "target": "esnext",
         "module": "esnext",
         "moduleResolution": "bundler",
+        "paths": {
+            "@/*": [
+                "./src/*"
+            ]
+        },
         "lib": [
             "ESNext",
             "DOM",

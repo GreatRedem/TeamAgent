@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { defineConfig, loadEnv } from 'vite';
 
 import react from '@vitejs/plugin-react';
@@ -16,6 +18,9 @@ export default defineConfig(({ mode }) =>
         // Tailwind 4 has no config file: the theme is declared in
         // `src/index.css` over `src/tokens.css`, and this plugin compiles it.
         plugins: [ react(), tailwindcss() ],
+        resolve: {
+            alias: { '@': path.resolve(import.meta.dirname, './src') }
+        },
         // Dependencies are hoisted to the workspace root by npm, so keep Vite's
         // own cache beside them instead of creating a frontend/node_modules
         // that holds nothing else.
@@ -29,7 +34,7 @@ export default defineConfig(({ mode }) =>
                 '/api': {
                     target: `http://127.0.0.1:${ env['NODE_PORT'] ?? 1000 }`,
                     changeOrigin: true,
-                    rewrite: (path) => path.replace(/^\/api/, '')
+                    rewrite: (url) => url.replace(/^\/api/, '')
                 }
             }
         },

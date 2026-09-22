@@ -27,6 +27,7 @@
         "service:deploy": "npm run build:api && npm run service:restart"
     },
     "devDependencies": {
+        "@shadcn/lint": "^0.2.0",
         "concurrently": "^10.0.5",
         "oxfmt": "^0.68.0",
         "oxlint": "^1.83.0"
