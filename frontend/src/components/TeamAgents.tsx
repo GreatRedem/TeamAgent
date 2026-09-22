@@ -1,31 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Bot, Plus } from 'lucide-react';
+import { Bot, FileText, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 
-import { Button } from './Button';
-import { PaginationFooter } from './PaginationFooter';
-import { Panel } from './Panel';
-import { ApiError, agentCreate, agentList, modelList, type Paged, type TeamAgent, type TeamModel } from '../lib/api';
+import { ApiError, agentCreate, agentList, modelList, type Paged, type TeamAgent, type TeamModel } from '../api';
+import {
+    CLASS_BADGE,
+    CLASS_BADGE_MUTED,
+    CLASS_CARD_BODY,
+    CLASS_CARD_GRID,
+    CLASS_CARD_LINK,
+    CLASS_CARD_NAME,
+    CLASS_FIELD,
+    CLASS_FIELD_INPUT,
+    CLASS_FIELD_LABEL,
+    CLASS_FORM,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR
+} from '../lib/constant';
+import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
+import { PaginationFooter } from './ui/PaginationFooter';
+import { Panel } from './ui/Panel';
 
-interface TeamAgentsProps
-{
-    teamId: number;
-}
-
-/**
- * The team's agents.
- *
- * An agent has to be bound to a model, so the form loads the team's models and
- * offers them as a choice; with none configured there is nothing valid to
- * submit and the form says so rather than failing on send.
- */
-export function TeamAgents({ teamId }: TeamAgentsProps)
+export function TeamAgents({ teamId }: { teamId: number })
 {
     const [ agents, setAgents ] = useState<TeamAgent[] | null>(null);
     const [ page, setPage ] = useState<Paged | null>(null);
     const [ paging, setPaging ] = useState(false);
     const [ models, setModels ] = useState<TeamModel[] | null>(null);
 
+    const [ creating, setCreating ] = useState(false);
     const [ name, setName ] = useState('');
     const [ description, setDescription ] = useState('');
     const [ modelId, setModelId ] = useState('');
@@ -49,7 +53,6 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
                 setPage(agentPayload);
                 setModels(modelPayload.models);
 
-                // Preselect, so the common case is one click.
                 if (modelPayload.models.length > 0)
                 {
                     setModelId(String(modelPayload.models[0].id));
@@ -86,6 +89,7 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
             setPage((current) => current && { ...current, total: current.total + 1 });
             setName('');
             setDescription('');
+            setCreating(false);
         }
         catch (cause)
         {
@@ -96,8 +100,6 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
             setBusy(false);
         }
     }, [ teamId, name, description, modelId ]);
-
-    const hasModels = models !== null && models.length > 0;
 
     const goTo = useCallback(async(offset: number) =>
     {
@@ -120,27 +122,33 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
         }
     }, [ teamId ]);
 
+    const hasModels = models !== null && models.length > 0;
+
     return (
         <Panel
             title="Agents"
             sub="What each agent is, the model it uses and the files that define it"
+            actions={ (
+                <Button type="button" disabled={ !hasModels } icon={ <Plus size={ 18 } aria-hidden="true" /> } onClick={ () => setCreating(true) }>
+                    Create agent
+                </Button>
+            ) }
             footer={ page !== null && agents !== null && (
                 <PaginationFooter page={ page } shown={ agents.length } busy={ paging } noun="agents" onPage={ (offset) => void goTo(offset) } />
             ) }
         >
-            { models !== null && !hasModels && (
-                <p className="note" data-state="error">
-                    Add a model first — an agent has to be attached to one.
-                </p>
-            ) }
-
-            { hasModels && (
-                <form className="form mt-0" onSubmit={ add }>
-                    <label className="field">
-                        <span className="field__label">Name</span>
+            <Modal
+                open={ creating }
+                title="New agent"
+                sub="An agent is a named role bound to one of the team's models"
+                onClose={ () => setCreating(false) }
+            >
+                <form className={ CLASS_FORM } onSubmit={ add }>
+                    <label className={ CLASS_FIELD }>
+                        <span className={ CLASS_FIELD_LABEL }>Name</span>
 
                         <input
-                            className="field__input"
+                            className={ CLASS_FIELD_INPUT }
                             value={ name }
                             onChange={ (event) => setName(event.target.value) }
                             minLength={ 2 }
@@ -150,11 +158,11 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
                         />
                     </label>
 
-                    <label className="field">
-                        <span className="field__label">Description</span>
+                    <label className={ CLASS_FIELD }>
+                        <span className={ CLASS_FIELD_LABEL }>Description</span>
 
                         <input
-                            className="field__input"
+                            className={ CLASS_FIELD_INPUT }
                             value={ description }
                             onChange={ (event) => setDescription(event.target.value) }
                             maxLength={ 280 }
@@ -162,49 +170,66 @@ export function TeamAgents({ teamId }: TeamAgentsProps)
                         />
                     </label>
 
-                    <label className="field">
-                        <span className="field__label">Model</span>
+                    <label className={ CLASS_FIELD }>
+                        <span className={ CLASS_FIELD_LABEL }>Model</span>
 
                         <select
-                            className="field__input"
+                            className={ CLASS_FIELD_INPUT }
                             value={ modelId }
                             onChange={ (event) => setModelId(event.target.value) }
                             required
                         >
-                            { models.map((model) => (
+                            { models?.map((model) => (
                                 <option key={ model.id } value={ model.id }>{ model.name } · { model.model }</option>
                             )) }
                         </select>
                     </label>
 
+                    { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
+
                     <Button type="submit" disabled={ busy } icon={ <Plus size={ 18 } aria-hidden="true" /> }>
                         { busy ? 'Creating...' : 'Create agent' }
                     </Button>
                 </form>
+            </Modal>
+
+            { models !== null && !hasModels && (
+                <p className={ CLASS_NOTE_ERROR }>Add a model first — an agent has to be attached to one.</p>
             ) }
 
-            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+            { error !== null && !creating && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
 
-            { agents === null && <p className="note">Loading agents...</p> }
+            { agents === null && <p className={ CLASS_NOTE }>Loading agents...</p> }
 
             { agents !== null && agents.length === 0 && (
-                <p className="note">
+                <p className={ CLASS_NOTE }>
                     <Bot size={ 18 } aria-hidden="true" /> No agents yet.
                 </p>
             ) }
 
             { agents !== null && agents.length > 0 && (
-                <ul className="rows">
+                <ul className={ CLASS_CARD_GRID }>
                     { agents.map((agent) => (
-                        <li className="rows__item" key={ agent.id }>
-                            <Link className="rows__link" to={ `/dashboard/team/${ teamId }/agent/${ agent.id }` }>
-                                <span className="rows__name">{ agent.name }</span>
+                        <li key={ agent.id }>
+                            <Link className={ CLASS_CARD_LINK } to={ `/dashboard/team/${ teamId }/agent/${ agent.id }` }>
+                                <span className="flex items-center gap-2">
+                                    <Bot size={ 16 } className="shrink-0 text-live" aria-hidden="true" />
+                                    <span className={ CLASS_CARD_NAME }>{ agent.name }</span>
+                                </span>
 
-                                <span className="rows__meta">
-                                    { agent.model_name !== '' ? agent.model_name : 'no model attached' }
-                                    { ' · ' }
-                                    { agent.document_count } file{ agent.document_count === 1 ? '' : 's' }
-                                    { agent.description !== '' && ` · ${ agent.description }` }
+                                <span className={ CLASS_CARD_BODY }>
+                                    { agent.description === '' ? 'No description' : agent.description }
+                                </span>
+
+                                <span className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+                                    <span className={ agent.model_name === '' ? CLASS_BADGE_MUTED : CLASS_BADGE }>
+                                        { agent.model_name === '' ? 'no model' : agent.model_name }
+                                    </span>
+
+                                    <span className={ CLASS_BADGE_MUTED }>
+                                        <FileText size={ 11 } className="me-1" aria-hidden="true" />
+                                        { agent.document_count } file{ agent.document_count === 1 ? '' : 's' }
+                                    </span>
                                 </span>
                             </Link>
                         </li>

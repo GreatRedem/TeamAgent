@@ -2,11 +2,25 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 
-import { Button } from '../components/Button';
-import { PaginationFooter } from '../components/PaginationFooter';
-import { Panel, PageHead } from '../components/Panel';
-import { ApiError, teamCreate, teamList, type Paged, type Team } from '../lib/api';
+import { ApiError, teamCreate, teamList, type Paged, type Team } from '../api';
+import {
+    CLASS_CARD_GRID,
+    CLASS_CARD_LINK,
+    CLASS_CARD_META,
+    CLASS_CARD_NAME,
+    CLASS_CARD_BODY,
+    CLASS_FIELD,
+    CLASS_FIELD_INPUT,
+    CLASS_FIELD_LABEL,
+    CLASS_FORM,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR
+} from '../lib/constant';
 import { clearAccessToken, readAccessToken } from '../lib/session';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { PaginationFooter } from '../components/ui/PaginationFooter';
+import { Panel, PageHead } from '../components/ui/Panel';
 
 export function Dashboard()
 {
@@ -17,13 +31,12 @@ export function Dashboard()
     const [ teams, setTeams ] = useState<Team[] | null>(null);
     const [ page, setPage ] = useState<Paged | null>(null);
     const [ paging, setPaging ] = useState(false);
+    const [ creating, setCreating ] = useState(false);
     const [ name, setName ] = useState('');
     const [ description, setDescription ] = useState('');
     const [ busy, setBusy ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
 
-    // Nothing here is a security boundary -- the backend rejects an absent or
-    // invalid token on its own. This only keeps signed-out users off the view.
     useEffect(() =>
     {
         if (token === null)
@@ -57,8 +70,6 @@ export function Dashboard()
                     return;
                 }
 
-                // An expired token is the common case here; drop it rather than
-                // leaving the view stuck on an error it cannot recover from.
                 if (cause instanceof ApiError && cause.status === 401)
                 {
                     clearAccessToken();
@@ -113,6 +124,7 @@ export function Dashboard()
             setPage((current) => current && { ...current, total: current.total + 1 });
             setName('');
             setDescription('');
+            setCreating(false);
         }
         catch (cause)
         {
@@ -131,15 +143,28 @@ export function Dashboard()
 
     return (
         <>
-            <PageHead title="Projects" sub="Every team this wallet owns" />
+            <PageHead
+                title="Projects"
+                sub="Every team this wallet owns"
+                actions={ (
+                    <Button type="button" icon={ <Plus size={ 18 } aria-hidden="true" /> } onClick={ () => setCreating(true) }>
+                        Create project
+                    </Button>
+                ) }
+            />
 
-            <Panel title="New project" sub="A team is a set of bots, agents and models that belong together">
-                <form className="form mt-0" onSubmit={ create }>
-                    <label className="field">
-                        <span className="field__label">Name</span>
+            <Modal
+                open={ creating }
+                title="New project"
+                sub="A team is a set of bots, agents and models that belong together"
+                onClose={ () => setCreating(false) }
+            >
+                <form className={ CLASS_FORM } onSubmit={ create }>
+                    <label className={ CLASS_FIELD }>
+                        <span className={ CLASS_FIELD_LABEL }>Name</span>
 
                         <input
-                            className="field__input"
+                            className={ CLASS_FIELD_INPUT }
                             value={ name }
                             onChange={ (event) => setName(event.target.value) }
                             minLength={ 2 }
@@ -149,11 +174,11 @@ export function Dashboard()
                         />
                     </label>
 
-                    <label className="field">
-                        <span className="field__label">Description</span>
+                    <label className={ CLASS_FIELD }>
+                        <span className={ CLASS_FIELD_LABEL }>Description</span>
 
                         <input
-                            className="field__input"
+                            className={ CLASS_FIELD_INPUT }
                             value={ description }
                             onChange={ (event) => setDescription(event.target.value) }
                             maxLength={ 280 }
@@ -161,11 +186,13 @@ export function Dashboard()
                         />
                     </label>
 
+                    { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
+
                     <Button type="submit" disabled={ busy } icon={ <Plus size={ 18 } aria-hidden="true" /> }>
-                        { busy ? 'Creating...' : 'Create team' }
+                        { busy ? 'Creating...' : 'Create project' }
                     </Button>
                 </form>
-            </Panel>
+            </Modal>
 
             <Panel
                 title="Teams"
@@ -173,24 +200,30 @@ export function Dashboard()
                     <PaginationFooter page={ page } shown={ teams.length } busy={ paging } noun="teams" onPage={ (offset) => void goTo(offset) } />
                 ) }
             >
-                { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+                { error !== null && !creating && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
 
-                { teams === null && <p className="note">Loading teams...</p> }
+                { teams === null && <p className={ CLASS_NOTE }>Loading teams...</p> }
 
                 { teams !== null && teams.length === 0 && (
-                    <p className="note">
-                        <Users size={ 18 } aria-hidden="true" /> No teams yet. Create the first one above.
+                    <p className={ CLASS_NOTE }>
+                        <Users size={ 18 } aria-hidden="true" /> No teams yet. Create the first one with the button above.
                     </p>
                 ) }
 
                 { teams !== null && teams.length > 0 && (
-                    <ul className="rows mt-0">
+                    <ul className={ CLASS_CARD_GRID }>
                         { teams.map((team) => (
-                            <li className="rows__item" key={ team.id }>
-                                <Link className="rows__link" to={ `/dashboard/team/${ team.id }` }>
-                                    <span className="rows__name">{ team.name }</span>
+                            <li key={ team.id }>
+                                <Link className={ CLASS_CARD_LINK } to={ `/dashboard/team/${ team.id }` }>
+                                    <span className={ CLASS_CARD_NAME }>{ team.name }</span>
 
-                                    { team.description !== '' && <span className="rows__meta">{ team.description }</span> }
+                                    <span className={ CLASS_CARD_BODY }>
+                                        { team.description === '' ? 'No description' : team.description }
+                                    </span>
+
+                                    <span className={ `${ CLASS_CARD_META } mt-auto` }>
+                                        TEAM { team.id } · { new Date(team.created_at).toLocaleDateString() }
+                                    </span>
                                 </Link>
                             </li>
                         )) }
