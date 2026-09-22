@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NuraAI — Wallet sign-in</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Archivo,'Helvetica Neue',sans-serif;background:#0B0D0F;color:#EBEEEF}
+a{color:#3FCBB0}a:hover{color:#6FDCC6}
+</style>
+<style>
+body{display:flex;justify-content:center;align-items:flex-start;padding:24px;background:#0B0D0F}
+</style>
+</head>
+<body>
+<div style="width:1440px;height:960px;box-sizing:border-box;display:flex;align-items:center;gap:100px;padding:0 100px;background:#0B0D0F;background-image:linear-gradient(#12171A 1px,transparent 1px),linear-gradient(90deg,#12171A 1px,transparent 1px);background-size:64px 64px;">
+
+  <div style="display:flex;flex-direction:column;gap:34px;width:560px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:30px;height:30px;border-radius:8px;background:#3FCBB0;display:flex;align-items:center;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#06231D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5V3.5l9 9v-9"></path></svg>
+      </div>
+      <span style="font-size:17px;font-weight:600;letter-spacing:-0.01em;">NuraAI</span>
+    </div>
+
+    <h1 style="margin:0;font-size:60px;line-height:1.02;letter-spacing:-0.03em;font-weight:600;text-wrap:pretty;">Sign in with your wallet.</h1>
+
+    <p style="margin:0;max-width:450px;font-size:17px;line-height:1.6;color:#AAB3B8;">No password, no email. The server writes the challenge, you sign it once, and that signature is spent the moment it is used.</p>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#3FCBB0;box-shadow:0 0 0 3px rgba(63,203,176,.14);"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#AAB3B8;">SERVER-AUTHORED NONCE</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#3FCBB0;box-shadow:0 0 0 3px rgba(63,203,176,.14);"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#AAB3B8;">SINGLE USE</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#D9A441;box-shadow:0 0 0 3px rgba(217,164,65,.14);"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#AAB3B8;">5-MINUTE EXPIRY</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="width:432px;box-sizing:border-box;background:#121518;border:1px solid #262D33;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:20px;box-shadow:0 26px 60px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04);">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">CHALLENGE</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#D9A441;border:1px solid #4A3A1B;background:#1C1710;border-radius:999px;padding:4px 10px;">EXPIRES IN 4:12</span>
+    </div>
+
+    <div style="background:#0E1114;border:1px solid #232A2F;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:13px;line-height:1.5;color:#EBEEEF;">nuraai.app asks you to sign in. This signature proves the key is yours.</div>
+      <div style="height:1px;background:#1F262B;margin:4px 0;"></div>
+      <div style="display:grid;grid-template-columns:74px 1fr;gap:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;">
+        <span style="color:#7E888E;">address</span><span style="color:#EBEEEF;">0x9f4b…4C2a</span>
+        <span style="color:#7E888E;">nonce</span><span style="color:#3FCBB0;">7c1f9a4e2b83d015</span>
+        <span style="color:#7E888E;">issued</span><span style="color:#AAB3B8;">2026-09-20 14:02:11Z</span>
+        <span style="color:#7E888E;">expires</span><span style="color:#AAB3B8;">2026-09-20 14:07:11Z</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <a href="02-desktop-overview.html" style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:9px;background:#3FCBB0;color:#06231D;font-size:15px;font-weight:600;text-decoration:none;">Sign with browser wallet</a>
+      <button type="button" style="height:48px;border-radius:9px;background:transparent;border:1px solid #323A41;color:#EBEEEF;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;">WalletConnect</button>
+    </div>
+
+    <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#7E888E;">SIGNATURE ONLY — NO TRANSACTION, NO GAS. THE NONCE IS DISCARDED AFTER ONE USE.</p>
+  </div>
+
+</div>
+</body>
+</html>

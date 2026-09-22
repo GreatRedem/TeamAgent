@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NuraAI — Telegram bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:Archivo,'Helvetica Neue',sans-serif;background:#0B0D0F;color:#EBEEEF}
+a{color:#3FCBB0}a:hover{color:#6FDCC6}
+</style>
+<style>
+body{display:flex;justify-content:center;align-items:flex-start;padding:24px;background:#0B0D0F}
+</style>
+</head>
+<body>
+<div style="width:1440px;height:960px;box-sizing:border-box;display:flex;flex-direction:column;background:#0B0D0F;">
+
+  <header style="height:64px;margin:16px 24px 0;box-sizing:border-box;background:#121518;border:1px solid #262D33;border-radius:12px;padding:0 14px;display:flex;align-items:center;gap:14px;box-shadow:0 12px 30px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04);">
+    <div style="width:26px;height:26px;border-radius:7px;background:#3FCBB0;display:flex;align-items:center;justify-content:center;">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#06231D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5V3.5l9 9v-9"></path></svg>
+    </div>
+    <div style="width:1px;height:24px;background:#262D33;"></div>
+    <button type="button" style="display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:8px;background:#1E2429;border:1px solid #323A41;color:#EBEEEF;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;">
+      Nura Core
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:#3FCBB0;border:1px solid #21453D;border-radius:4px;padding:2px 5px;">TEAM</span>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#7E888E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5 8 10.5l4-4"></path></svg>
+    </button>
+    <div style="flex-grow:1;"></div>
+    <label for="q-bo" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);">Search</label>
+    <input id="q-bo" type="search" placeholder="Search runs, threads, files" style="height:36px;width:268px;box-sizing:border-box;background:#0E1114;border:1px solid #262D33;border-radius:8px;padding:0 12px;color:#EBEEEF;font-family:inherit;font-size:13px;">
+    <button type="button" style="display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:8px;background:#0E1114;border:1px solid #262D33;color:#EBEEEF;font-family:'JetBrains Mono',monospace;font-size:12px;cursor:pointer;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#3FCBB0;"></span>0x9f4b…4C2a
+    </button>
+  </header>
+
+  <div style="flex-grow:1;display:flex;gap:20px;padding:16px 24px 24px;min-height:0;">
+
+    <nav style="width:216px;box-sizing:border-box;background:#121518;border:1px solid #262D33;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;padding:8px 10px 10px;">PROJECT</div>
+      <a href="02-desktop-overview.html" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:8px;text-decoration:none;color:#AAB3B8;font-size:14px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"></rect><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"></rect><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"></rect><rect x="9" y="9" width="4.5" height="4.5" rx="1"></rect></svg>
+        Overview
+      </a>
+      <a href="03-desktop-agent.html" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:8px;text-decoration:none;color:#AAB3B8;font-size:14px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2.5"></rect><circle cx="6.3" cy="7.6" r="0.9"></circle><circle cx="9.7" cy="7.6" r="0.9"></circle></svg>
+        Agents
+      </a>
+      <a href="04-desktop-bot.html" aria-current="page" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:8px;text-decoration:none;background:#1E2429;color:#EBEEEF;font-size:14px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#3FCBB0" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3.5h11v7.5h-6L4 14v-3H2.5z"></path></svg>
+        Bots
+      </a>
+      <a href="05-desktop-models.html" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:8px;text-decoration:none;color:#AAB3B8;font-size:14px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5 14 5.5 8 8.5 2 5.5z"></path><path d="M2 9.2 8 12.2l6-3"></path></svg>
+        Models
+      </a>
+      <a href="06-desktop-activity.html" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:8px;text-decoration:none;color:#AAB3B8;font-size:14px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.5h2.8l2-5.2 2.6 9.4 1.8-4.2H14"></path></svg>
+        Activity
+      </a>
+      <div style="flex-grow:1;"></div>
+      <div style="border-top:1px solid #1F262B;padding:12px 10px 4px;display:flex;flex-direction:column;gap:8px;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">BOTS</span>
+        <a href="04-desktop-bot.html" style="font-size:13px;text-decoration:none;color:#EBEEEF;">@nura_support_bot</a>
+        <a href="04-desktop-bot.html" style="font-size:13px;text-decoration:none;color:#AAB3B8;">@nura_ops_bot</a>
+        <a href="04-desktop-bot.html" style="font-size:13px;text-decoration:none;color:#AAB3B8;">@nura_dev_bot</a>
+      </div>
+    </nav>
+
+    <main style="flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:16px;">
+
+      <section style="background:#121518;border:1px solid #262D33;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:28px;">
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:214px;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#3FCBB0;box-shadow:0 0 0 3px rgba(63,203,176,.14);"></span>
+            <h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.02em;">@nura_support_bot</h1>
+          </div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">AGENT · SUPPORT</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">DELIVERY</span>
+          <div style="display:flex;background:#0E1114;border:1px solid #262D33;border-radius:8px;padding:3px;gap:3px;">
+            <button type="button" style="height:30px;padding:0 14px;border-radius:6px;background:#1E2429;border:1px solid #323A41;color:#EBEEEF;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">Webhook</button>
+            <button type="button" style="height:30px;padding:0 14px;border-radius:6px;background:transparent;border:1px solid transparent;color:#7E888E;font-family:inherit;font-size:13px;cursor:pointer;">Polling</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:7px;flex-grow:1;min-width:0;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">SECRET TOKEN</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="flex-grow:1;height:36px;box-sizing:border-box;background:#0E1114;border:1px solid #262D33;border-radius:8px;padding:0 12px;display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:#AAB3B8;">••••••••••••••••3f7a</span>
+            <button type="button" style="height:36px;padding:0 12px;border-radius:8px;background:#1E2429;border:1px solid #323A41;color:#EBEEEF;font-family:inherit;font-size:13px;cursor:pointer;">Rotate</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">DEDUPLICATED TODAY</span>
+          <span style="font-size:22px;font-weight:600;letter-spacing:-0.02em;">18<span style="font-size:13px;font-weight:400;color:#7E888E;"> redelivered updates dropped</span></span>
+        </div>
+      </section>
+
+      <div style="flex-grow:1;display:flex;gap:16px;min-height:0;">
+
+        <section style="width:352px;background:#121518;border:1px solid #262D33;border-radius:12px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #1F262B;">
+            <span style="font-size:15px;font-weight:500;">Threads</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">38 PEOPLE</span>
+          </div>
+          <div style="flex-grow:1;display:flex;flex-direction:column;">
+            <a href="04-desktop-bot.html" aria-current="page" style="display:flex;gap:11px;padding:12px 16px;text-decoration:none;background:#171C20;border-bottom:1px solid #161B1F;">
+              <span style="width:32px;height:32px;border-radius:9px;background:#1E2429;border:1px solid #323A41;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#AAB3B8;">SK</span>
+              <span style="flex-grow:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                <span style="display:flex;justify-content:space-between;"><span style="font-size:14px;color:#EBEEEF;">Sara K.</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">14:03</span></span>
+                <span style="font-size:12px;color:#7E888E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">did my ticket get a reply yet?</span>
+              </span>
+            </a>
+            <a href="04-desktop-bot.html" style="display:flex;gap:11px;padding:12px 16px;text-decoration:none;border-bottom:1px solid #161B1F;">
+              <span style="width:32px;height:32px;border-radius:9px;background:#1E2429;border:1px solid #323A41;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#AAB3B8;">AR</span>
+              <span style="flex-grow:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                <span style="display:flex;justify-content:space-between;"><span style="font-size:14px;color:#AAB3B8;">Ali R.</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">13:51</span></span>
+                <span style="font-size:12px;color:#7E888E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">which contract address is live now</span>
+              </span>
+            </a>
+            <a href="04-desktop-bot.html" style="display:flex;gap:11px;padding:12px 16px;text-decoration:none;border-bottom:1px solid #161B1F;">
+              <span style="width:32px;height:32px;border-radius:9px;background:#1E2429;border:1px solid #323A41;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#AAB3B8;">MT</span>
+              <span style="flex-grow:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                <span style="display:flex;justify-content:space-between;"><span style="font-size:14px;color:#AAB3B8;">Mina T.</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">13:20</span></span>
+                <span style="font-size:12px;color:#7E888E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">relayer restarted, all good</span>
+              </span>
+            </a>
+            <a href="04-desktop-bot.html" style="display:flex;gap:11px;padding:12px 16px;text-decoration:none;border-bottom:1px solid #161B1F;">
+              <span style="width:32px;height:32px;border-radius:9px;background:#1E2429;border:1px solid #323A41;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#AAB3B8;">RB</span>
+              <span style="flex-grow:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                <span style="display:flex;justify-content:space-between;"><span style="font-size:14px;color:#AAB3B8;">Reza B.</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">12:44</span></span>
+                <span style="font-size:12px;color:#7E888E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">send me the node checklist again</span>
+              </span>
+            </a>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #1F262B;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">1–4 OF 38</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" aria-label="Previous page" style="width:28px;height:28px;border-radius:6px;background:#161A1D;border:1px solid #262D33;color:#5C656B;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"></path></svg>
+              </button>
+              <button type="button" aria-label="Next page" style="width:28px;height:28px;border-radius:6px;background:#1E2429;border:1px solid #323A41;color:#AAB3B8;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"></path></svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section style="flex-grow:1;min-width:0;background:#121518;border:1px solid #262D33;border-radius:12px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #1F262B;">
+            <span style="width:30px;height:30px;border-radius:9px;background:#1E2429;border:1px solid #323A41;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#AAB3B8;">SK</span>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:14px;">Sara K.</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#7E888E;">@sara_k · SUPPORT · THREAD 4c1a…</span>
+            </div>
+            <div style="flex-grow:1;"></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:#3FCBB0;border:1px solid #21453D;background:#101E1B;border-radius:5px;padding:4px 8px;">PROFILE STORED</span>
+          </div>
+
+          <div style="flex-grow:1;display:flex;min-height:0;">
+            <div style="flex-grow:1;min-width:0;padding:18px;display:flex;flex-direction:column;gap:14px;">
+
+              <div style="align-self:flex-start;max-width:74%;display:flex;flex-direction:column;gap:5px;">
+                <div style="background:#1B2024;border:1px solid #2A3238;border-radius:12px 12px 12px 4px;padding:11px 14px;font-size:14px;line-height:1.55;">did my ticket get a reply yet?</div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#5C656B;padding-left:4px;">14:03:38 · UPDATE 88214</span>
+              </div>
+
+              <div style="align-self:flex-end;max-width:74%;display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+                <div style="background:#152B27;border:1px solid #22463F;border-radius:12px 12px 4px 12px;padding:11px 14px;font-size:14px;line-height:1.55;color:#EBEEEF;">Yes — Mina answered it 20 minutes ago and moved it to<span style="display:inline-block;width:8px;height:15px;background:#3FCBB0;vertical-align:-2px;margin-left:3px;"></span></div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#3FCBB0;padding-right:4px;">WRITING INTO THE MESSAGE · 214 MS</span>
+              </div>
+
+              <div style="align-self:flex-end;max-width:74%;display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+                <div style="background:#241715;border:1px solid #57302A;border-radius:12px 12px 4px 12px;padding:11px 14px;font-size:14px;line-height:1.55;color:#F0CFC8;">I couldn't reach the model just then — it timed out after 30s. Nothing was lost, ask me again and I'll retry.</div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#E4705C;padding-right:4px;">FAILURE TOLD TO THE PERSON · 13:58:02</span>
+              </div>
+
+              <div style="flex-grow:1;"></div>
+
+              <div style="display:flex;align-items:center;gap:10px;">
+                <label for="reply-bo" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);">Send as the bot</label>
+                <input id="reply-bo" type="text" placeholder="Send as @nura_support_bot" style="flex-grow:1;height:44px;box-sizing:border-box;background:#0E1114;border:1px solid #262D33;border-radius:10px;padding:0 14px;color:#EBEEEF;font-family:inherit;font-size:14px;">
+                <button type="button" aria-label="Send message" style="width:44px;height:44px;border-radius:10px;background:#3FCBB0;border:none;color:#06231D;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 8h10"></path><path d="M8.5 4 12.5 8l-4 4"></path></svg>
+                </button>
+              </div>
+            </div>
+
+            <div style="width:262px;border-left:1px solid #1F262B;padding:16px;display:flex;flex-direction:column;gap:16px;">
+              <div style="display:flex;flex-direction:column;gap:9px;">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">WHAT THE AGENT KNOWS</span>
+                <span style="font-size:13px;line-height:1.55;color:#AAB3B8;">Prefers short answers.</span>
+                <span style="font-size:13px;line-height:1.55;color:#AAB3B8;">Support rank on the roster.</span>
+                <span style="font-size:13px;line-height:1.55;color:#AAB3B8;">Asked about ticket 2291 twice this week.</span>
+              </div>
+              <div style="height:1px;background:#1F262B;"></div>
+              <div style="display:flex;flex-direction:column;gap:9px;">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#7E888E;">THREAD</span>
+                <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#7E888E;">Messages</span><span style="font-family:'JetBrains Mono',monospace;">38</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#7E888E;">First seen</span><span style="font-family:'JetBrains Mono',monospace;">12 JUN</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#7E888E;">Answering</span><span style="font-family:'JetBrains Mono',monospace;color:#3FCBB0;">NEWEST</span></div>
+              </div>
+              <div style="height:1px;background:#1F262B;"></div>
+              <a href="06-desktop-activity.html" style="font-size:13px;text-decoration:none;">See this thread's round-trips →</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>
