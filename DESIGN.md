@@ -103,6 +103,10 @@ The scale is Tailwind's, plus three named steps. Nothing outside it.
 | Caption                     | `text-xs`                    | 12px |
 | Meta, chips, machine values | `text-2xs`                   | 11px |
 
+**Line height is 1.5 everywhere.** Every step of the scale declares it, the body
+sets it, and no component overrides it. There are no `leading-*` utilities in
+this codebase; if one appears, it is a bug.
+
 Hierarchy comes from weight, spacing and position. Never from size alone, and
 never from an uppercase tracked-out label above a heading. Prose is capped near
 60 characters per line.
@@ -198,7 +202,11 @@ no screen scrolls sideways.
 ## 8. Screens
 
 **Sign in.** No header. The crystal scene fills the viewport and one card sits on
-it. One button, one sentence of reassurance, failures in words underneath.
+it. The button opens a wallet picker rather than connecting straight away, so
+the person chooses between Nura Wallet and MetaMask. Wallets are discovered over
+EIP-6963, so a row shows the wallet's own icon when it is installed and reads
+"Not installed in this browser" when it is not. Failures appear in the picker,
+against the wallet that produced them.
 
 **Projects.** Card grid. Name, what it is for, when it was made, one way in.
 

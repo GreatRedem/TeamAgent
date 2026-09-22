@@ -16,10 +16,6 @@ export function SignIn() {
                 </p>
 
                 <WalletSignIn />
-
-                <p className="mt-6 mb-0 text-2xs text-muted-foreground">
-                    Signing proves you hold the wallet. It never moves funds and never costs gas.
-                </p>
             </div>
         </section>
     );

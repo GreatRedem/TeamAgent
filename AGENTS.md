@@ -212,6 +212,9 @@ Maintain a clear hierarchy:
 
 Do not use font size alone to create hierarchy. Use spacing, weight and semantic structure.
 
+Line height is 1.5 across the whole project. Do not write a `leading-*` class.
+The type scale already sets it.
+
 ---
 
 ## 8. Colors

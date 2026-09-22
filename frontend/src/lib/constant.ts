@@ -403,3 +403,23 @@ export const TERRAIN_TRAIL =
     'M1440 320 C 1288 334, 1200 354, 1056 358 C 914 362, 810 344, 674 354 C 552 364, 448 386, 356 406';
 
 export const BLANK_MODEL = { name: '', model: '', baseUrl: '', apiKey: '', contextTokens: '' };
+
+export const WALLET_DISCOVERY_TIMEOUT = 350;
+
+export const WALLETS: { id: string; name: string; rdns: string; keyword: string; blurb: string }[] =
+    [
+        {
+            id: 'nura',
+            name: 'Nura Wallet',
+            rdns: 'ai.nura.wallet',
+            keyword: 'nura',
+            blurb: 'Built for Nura, signs without leaving the app',
+        },
+        {
+            id: 'metamask',
+            name: 'MetaMask',
+            rdns: 'io.metamask',
+            keyword: 'metamask',
+            blurb: 'The browser extension you may already have',
+        },
+    ];
