@@ -1,7 +1,6 @@
 import { pageQuery, request, type Paged } from './client';
 
-export interface TelegramProfile
-{
+export interface TelegramProfile {
     id: number;
     telegram_id: string;
     username: string;
@@ -14,8 +13,7 @@ export interface TelegramProfile
     created_at: string;
 }
 
-export interface TelegramMessage
-{
+export interface TelegramMessage {
     id: number;
     bot_id: number;
     text: string;
@@ -23,12 +21,16 @@ export interface TelegramMessage
     sent_at: string;
 }
 
-export function conversationList(teamId: number, page?: Partial<Paged>)
-{
-    return request<{ conversations: TelegramProfile[] } & Paged>('GET', `/team/${ teamId }/conversation${ pageQuery(page) }`);
+export function conversationList(teamId: number, page?: Partial<Paged>) {
+    return request<{ conversations: TelegramProfile[] } & Paged>(
+        'GET',
+        `/team/${teamId}/conversation${pageQuery(page)}`,
+    );
 }
 
-export function conversationMessages(teamId: number, profileId: number, page?: Partial<Paged>)
-{
-    return request<{ profile: TelegramProfile; messages: TelegramMessage[] } & Paged>('GET', `/team/${ teamId }/conversation/${ profileId }${ pageQuery(page) }`);
+export function conversationMessages(teamId: number, profileId: number, page?: Partial<Paged>) {
+    return request<{ profile: TelegramProfile; messages: TelegramMessage[] } & Paged>(
+        'GET',
+        `/team/${teamId}/conversation/${profileId}${pageQuery(page)}`,
+    );
 }

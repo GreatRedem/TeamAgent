@@ -1,9 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 
-import { teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamCreate, teamDetails, teamList, teamRosterRead, teamRosterWrite, teamUpdate } from './team.service.js';
+import {
+    teamBotCreate,
+    teamBotList,
+    teamBotRemove,
+    teamBotTest,
+    teamBotUpdate,
+    teamCreate,
+    teamDetails,
+    teamList,
+    teamRosterRead,
+    teamRosterWrite,
+    teamUpdate,
+} from './team.service.js';
 
-export default async function(fastify: FastifyInstance)
-{
+export default async function (fastify: FastifyInstance) {
     fastify.post('/team', teamCreate(fastify));
     fastify.get('/team', teamList(fastify));
     fastify.get('/team/:id', teamDetails(fastify));

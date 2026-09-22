@@ -48,29 +48,29 @@ One semantic set, shadcn's vocabulary, defined once in `tokens.css`. The
 Tailwind colour namespace is reset, so only these exist and a hex value outside
 `tokens.css` cannot be written by accident.
 
-| Token | Value | Use |
-|---|---|---|
-| `background` | `#0b0d0f` | the page |
-| `foreground` | `#e8ecee` | primary text |
-| `card` | `#121518` | every panel and card |
-| `popover` | `#161b1f` | menus and dialogs |
-| `muted` | `#161b1f` | quiet fills, skeletons |
-| `muted-foreground` | `#8b959b` | secondary text and labels |
-| `secondary` | `#1b2126` | secondary buttons and chips |
-| `accent` | `#1e252a` | hover and selected rows |
-| `border` | `#242b31` | every hairline |
-| `input` | `#2f373e` | control borders |
-| `ring` | `#3fcbb0` | focus |
-| `well` | `#0e1114` | recessed code and message blocks |
+| Token              | Value     | Use                              |
+| ------------------ | --------- | -------------------------------- |
+| `background`       | `#0b0d0f` | the page                         |
+| `foreground`       | `#e8ecee` | primary text                     |
+| `card`             | `#121518` | every panel and card             |
+| `popover`          | `#161b1f` | menus and dialogs                |
+| `muted`            | `#161b1f` | quiet fills, skeletons           |
+| `muted-foreground` | `#8b959b` | secondary text and labels        |
+| `secondary`        | `#1b2126` | secondary buttons and chips      |
+| `accent`           | `#1e252a` | hover and selected rows          |
+| `border`           | `#242b31` | every hairline                   |
+| `input`            | `#2f373e` | control borders                  |
+| `ring`             | `#3fcbb0` | focus                            |
+| `well`             | `#0e1114` | recessed code and message blocks |
 
 Signals carry one meaning each and always pair with a foreground:
 
-| Token | Value | Means |
-|---|---|---|
-| `primary` | `#3fcbb0` | live, granted, healthy, OK, and the primary action |
-| `warning` | `#d9a441` | pending, expiring, degraded, stood down |
-| `destructive` | `#e4705c` | a failure, and nothing else |
-| `neutral` | `#4a5257` | paused, unknown, off |
+| Token         | Value     | Means                                              |
+| ------------- | --------- | -------------------------------------------------- |
+| `primary`     | `#3fcbb0` | live, granted, healthy, OK, and the primary action |
+| `warning`     | `#d9a441` | pending, expiring, degraded, stood down            |
+| `destructive` | `#e4705c` | a failure, and nothing else                        |
+| `neutral`     | `#4a5257` | paused, unknown, off                               |
 
 `scale-0` through `scale-4` is the heatmap ramp. `chart-1` through `chart-5` is
 reserved for future charts.
@@ -94,14 +94,14 @@ carries everything the machine produced.
 
 The scale is Tailwind's, plus three named steps. Nothing outside it.
 
-| Role | Class | Size |
-|---|---|---|
-| Page title | `text-page font-semibold` | 26px |
-| Stat number | `text-stat font-medium` mono | 34px |
-| Section and card title | `text-base font-semibold` | 16px |
-| Body | `text-sm` | 14px |
-| Caption | `text-xs` | 12px |
-| Meta, chips, machine values | `text-2xs` | 11px |
+| Role                        | Class                        | Size |
+| --------------------------- | ---------------------------- | ---- |
+| Page title                  | `text-page font-semibold`    | 26px |
+| Stat number                 | `text-stat font-medium` mono | 34px |
+| Section and card title      | `text-base font-semibold`    | 16px |
+| Body                        | `text-sm`                    | 14px |
+| Caption                     | `text-xs`                    | 12px |
+| Meta, chips, machine values | `text-2xs`                   | 11px |
 
 Hierarchy comes from weight, spacing and position. Never from size alone, and
 never from an uppercase tracked-out label above a heading. Prose is capped near
@@ -122,13 +122,13 @@ Three shadows: `shadow-raised` for a card, `shadow-float` for the header,
 
 Spacing is Tailwind's 4px scale. Arbitrary values need a reason.
 
-| Where | Value |
-|---|---|
-| Page gutter | `px-4` phone, `px-6` from `sm` |
-| Between sections | `gap-6` |
-| Card padding | `p-5`, internal `gap-5` |
-| Form | `gap-5`, field internals `gap-2` |
-| Card grids | `gap-3` |
+| Where            | Value                            |
+| ---------------- | -------------------------------- |
+| Page gutter      | `px-4` phone, `px-6` from `sm`   |
+| Between sections | `gap-6`                          |
+| Card padding     | `p-5`, internal `gap-5`          |
+| Form             | `gap-5`, field internals `gap-2` |
+| Card grids       | `gap-3`                          |
 
 ---
 
@@ -137,17 +137,17 @@ Spacing is Tailwind's 4px scale. Arbitrary values need a reason.
 shadcn owns these. Read them from the component, do not restate them on the
 instance.
 
-| Element | Height |
-|---|---|
-| Button default | 36px |
-| Button `sm` | 32px |
-| Button `lg` | 40px |
-| Input, select, textarea | 36px |
-| Header bar | 56px |
-| Header nav row | 48px |
-| Capability row | 56px |
-| Status dot | 6px |
-| Heatmap cell | 12px |
+| Element                 | Height |
+| ----------------------- | ------ |
+| Button default          | 36px   |
+| Button `sm`             | 32px   |
+| Button `lg`             | 40px   |
+| Input, select, textarea | 36px   |
+| Header bar              | 56px   |
+| Header nav row          | 48px   |
+| Capability row          | 56px   |
+| Status dot              | 6px    |
+| Heatmap cell            | 12px   |
 
 ---
 
@@ -160,18 +160,18 @@ console density; the rest are stock.
 
 This project's own primitives sit beside them and compose those:
 
-| Component | Purpose |
-|---|---|
-| `page-header` | title, one line of description, the page's primary action |
-| `field` | label, control, hint and error as one unit with wired-up ids |
-| `empty-state` | icon, what is missing, what to do about it, the action |
-| `confirm-button` | arm then confirm for anything destructive, self-disarming |
-| `capability-row` | mono key, description, switch. Off is grey |
-| `stat` | label, 34px mono number, optional meter and context line |
-| `status-dot` | live, degraded, off, failed |
-| `pagination-footer` | range, total, previous, next |
-| `data-value` | the mono treatment for a machine value, and `DataList` for pairs |
-| `brand` | the teal mark |
+| Component           | Purpose                                                          |
+| ------------------- | ---------------------------------------------------------------- |
+| `page-header`       | title, one line of description, the page's primary action        |
+| `field`             | label, control, hint and error as one unit with wired-up ids     |
+| `empty-state`       | icon, what is missing, what to do about it, the action           |
+| `confirm-button`    | arm then confirm for anything destructive, self-disarming        |
+| `capability-row`    | mono key, description, switch. Off is grey                       |
+| `stat`              | label, 34px mono number, optional meter and context line         |
+| `status-dot`        | live, degraded, off, failed                                      |
+| `pagination-footer` | range, total, previous, next                                     |
+| `data-value`        | the mono treatment for a machine value, and `DataList` for pairs |
+| `brand`             | the teal mark                                                    |
 
 One component per concept. If a second version of any of these appears,
 consolidate rather than fork.

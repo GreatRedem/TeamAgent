@@ -1,9 +1,16 @@
-import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
+import {
+    Entity,
+    Index,
+    PrimaryGeneratedColumn,
+    Column,
+    CreateDateColumn,
+    UpdateDateColumn,
+    Unique,
+} from 'typeorm';
 
 @Entity({ name: 'telegram_user' })
-@Unique([ 'team_id', 'telegram_id' ])
-export class TelegramUser
-{
+@Unique(['team_id', 'telegram_id'])
+export class TelegramUser {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -40,9 +47,8 @@ export class TelegramUser
 }
 
 @Entity({ name: 'telegram_user_document' })
-@Unique([ 'user_id', 'name' ])
-export class TelegramUserDocument
-{
+@Unique(['user_id', 'name'])
+export class TelegramUserDocument {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -64,9 +70,8 @@ export class TelegramUserDocument
 }
 
 @Entity({ name: 'telegram_message' })
-@Unique([ 'bot_id', 'update_id' ])
-export class TelegramMessage
-{
+@Unique(['bot_id', 'update_id'])
+export class TelegramMessage {
     @PrimaryGeneratedColumn()
     id: number;
 

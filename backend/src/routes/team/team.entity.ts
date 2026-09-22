@@ -1,8 +1,15 @@
-import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
+import {
+    Entity,
+    Index,
+    PrimaryGeneratedColumn,
+    Column,
+    CreateDateColumn,
+    UpdateDateColumn,
+    Unique,
+} from 'typeorm';
 
 @Entity({ name: 'team' })
-export class Team
-{
+export class Team {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -24,9 +31,8 @@ export class Team
 }
 
 @Entity({ name: 'team_document' })
-@Unique([ 'team_id', 'name' ])
-export class TeamDocument
-{
+@Unique(['team_id', 'name'])
+export class TeamDocument {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -48,9 +54,8 @@ export class TeamDocument
 }
 
 @Entity({ name: 'team_bot' })
-@Unique([ 'team_id', 'token' ])
-export class TeamBot
-{
+@Unique(['team_id', 'token'])
+export class TeamBot {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -81,9 +86,8 @@ export class TeamBot
 }
 
 @Entity({ name: 'team_model' })
-@Unique([ 'team_id', 'base_url', 'model' ])
-export class TeamModel
-{
+@Unique(['team_id', 'base_url', 'model'])
+export class TeamModel {
     @PrimaryGeneratedColumn()
     id: number;
 

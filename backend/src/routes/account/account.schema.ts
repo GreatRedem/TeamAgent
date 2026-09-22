@@ -1,38 +1,38 @@
 export const schemaAccountWalletNonce = {
     body: {
         type: 'object',
-        required: [ 'address' ],
+        required: ['address'],
         properties: {
-            address: { type: 'string' }
-        }
+            address: { type: 'string' },
+        },
     },
     response: {
         200: {
             type: 'object',
-            required: [ 'message' ],
+            required: ['message'],
             properties: {
-                message: { type: 'string' }
-            }
-        }
-    }
+                message: { type: 'string' },
+            },
+        },
+    },
 } as const;
 
 export const schemaAccountWalletSignIn = {
     body: {
         type: 'object',
-        required: [ 'address', 'signature' ],
+        required: ['address', 'signature'],
         properties: {
             address: { type: 'string' },
-            signature: { type: 'string' }
-        }
+            signature: { type: 'string' },
+        },
     },
     response: {
         200: {
             type: 'object',
-            required: [ 'accessToken' ],
+            required: ['accessToken'],
             properties: {
-                accessToken: { type: 'string' }
-            }
-        }
-    }
+                accessToken: { type: 'string' },
+            },
+        },
+    },
 } as const;

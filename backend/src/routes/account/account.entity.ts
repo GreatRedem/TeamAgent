@@ -1,8 +1,7 @@
 import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity({ name: 'account' })
-export class Account
-{
+export class Account {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -17,8 +16,7 @@ export class Account
 }
 
 @Entity({ name: 'account_session' })
-export class AccountSession
-{
+export class AccountSession {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -43,8 +41,7 @@ export class AccountSession
 }
 
 @Entity({ name: 'account_nonce' })
-export class AccountNonce
-{
+export class AccountNonce {
     @PrimaryGeneratedColumn()
     id: number;
 

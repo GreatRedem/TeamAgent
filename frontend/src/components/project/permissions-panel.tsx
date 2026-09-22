@@ -6,7 +6,15 @@ import { CapabilityRow } from '@/components/ui/capability-row';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function PermissionsPanel({ title, description, catalog, granted, saving, error, onToggle }: {
+export function PermissionsPanel({
+    title,
+    description,
+    catalog,
+    granted,
+    saving,
+    error,
+    onToggle,
+}: {
     title: string;
     description: string;
     catalog: Permission[] | null;
@@ -14,41 +22,48 @@ export function PermissionsPanel({ title, description, catalog, granted, saving,
     saving: string | null;
     error: string | null;
     onToggle: (key: string) => void;
-})
-{
+}) {
     const prefix = useId();
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{ title }</CardTitle>
-                <CardDescription>{ description }</CardDescription>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
             </CardHeader>
 
             <CardContent>
-                { error !== null && <Alert variant="destructive"><AlertDescription>{ error }</AlertDescription></Alert> }
+                {error !== null && (
+                    <Alert variant="destructive">
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
 
-                { catalog === null && (
+                {catalog === null && (
                     <div className="grid gap-2">
-                        { [ 0, 1, 2 ].map((i) => <Skeleton className="h-14" key={ i } />) }
+                        {[0, 1, 2].map((i) => (
+                            <Skeleton className="h-14" key={i} />
+                        ))}
                     </div>
-                ) }
+                )}
 
-                { catalog !== null && catalog.length === 0 && (
-                    <p className="m-0 text-sm text-muted-foreground">There is nothing to grant here yet.</p>
-                ) }
+                {catalog !== null && catalog.length === 0 && (
+                    <p className="m-0 text-sm text-muted-foreground">
+                        There is nothing to grant here yet.
+                    </p>
+                )}
 
-                { catalog?.map((permission) => (
+                {catalog?.map((permission) => (
                     <CapabilityRow
-                        key={ permission.key }
-                        id={ `${ prefix }-${ permission.key }` }
-                        label={ permission.label }
-                        description={ permission.description }
-                        granted={ granted.includes(permission.key) }
-                        busy={ saving === permission.key }
-                        onToggle={ () => onToggle(permission.key) }
+                        key={permission.key}
+                        id={`${prefix}-${permission.key}`}
+                        label={permission.label}
+                        description={permission.description}
+                        granted={granted.includes(permission.key)}
+                        busy={saving === permission.key}
+                        onToggle={() => onToggle(permission.key)}
                     />
-                )) }
+                ))}
             </CardContent>
         </Card>
     );

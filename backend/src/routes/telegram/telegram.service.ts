@@ -1,22 +1,50 @@
-import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
-import { authGuard } from '../../plugins/authentication.js';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { TeamBot, TeamModel } from '../team/team.entity.js';
+import { authGuard } from '../../plugins/authentication.js';
+import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
-import { ERROR_TEXT_MAX, HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, completionCap, earlierTurns, fitToContext, isToolRefusal, readAssistantTurn, readCompletion, readError, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
+import {
+    ERROR_TEXT_MAX,
+    HISTORY_LIMIT,
+    MAX_TOOL_ROUNDS,
+    TELEGRAM_TEXT_MAX,
+    buildMessages,
+    buildSystemPrompt,
+    completionCap,
+    earlierTurns,
+    fitToContext,
+    isToolRefusal,
+    readAssistantTurn,
+    readCompletion,
+    readError,
+    readToolCalls,
+    type ChatMessage,
+} from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
+import { audit } from '../audit/audit.log.js';
 import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
+import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
-import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
-import { schemaConversationList, schemaConversationMessages, schemaPermissionCatalog, schemaProfileDetails, schemaProfilePermissionUpdate, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
-
-import { audit } from '../audit/audit.log.js';
-
-import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
+import {
+    DEFAULT_PERMISSIONS,
+    PERMISSIONS,
+    hasPermission,
+    isKnownPermission,
+    parsePermissions,
+    serializePermissions,
+} from './telegram.permission.js';
+import {
+    schemaConversationList,
+    schemaConversationMessages,
+    schemaPermissionCatalog,
+    schemaProfileDetails,
+    schemaProfilePermissionUpdate,
+    schemaTelegramWebhook,
+    schemaTelegramWebhookRegister,
+} from './telegram.schema.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 const TELEGRAM_TIMEOUT = 5000;
@@ -33,15 +61,12 @@ const MESSAGE_PAGE = 200;
 
 const CONVERSATION_PAGE = 50;
 
-export function createWebhookSecret(): string
-{
+export function createWebhookSecret(): string {
     return randomBytes(32).toString('hex');
 }
 
-function secretMatches(expected: string, received: unknown): boolean
-{
-    if (expected === '' || typeof received !== 'string')
-    {
+function secretMatches(expected: string, received: unknown): boolean {
+    if (expected === '' || typeof received !== 'string') {
         return false;
     }
 
@@ -51,8 +76,7 @@ function secretMatches(expected: string, received: unknown): boolean
     return timingSafeEqual(a, b);
 }
 
-function toProfile(user: TelegramUser)
-{
+function toProfile(user: TelegramUser) {
     return {
         id: user.id,
         telegram_id: user.telegram_id,
@@ -63,18 +87,16 @@ function toProfile(user: TelegramUser)
         message_count: user.message_count,
         permissions: parsePermissions(user.permissions),
         last_seen_at: user.last_seen_at,
-        created_at: user.created_at
+        created_at: user.created_at,
     };
 }
 
-interface InboundMessage
-{
+interface InboundMessage {
     updateId: string;
     chatId: string;
     text: string;
     sentAt: Date;
-    from:
-    {
+    from: {
         id: string;
         username: string;
         firstName: string;
@@ -83,66 +105,56 @@ interface InboundMessage
     };
 }
 
-export function readInboundMessage(body: unknown): InboundMessage | undefined
-{
-    if (typeof body !== 'object' || body === null)
-    {
+export function readInboundMessage(body: unknown): InboundMessage | undefined {
+    if (typeof body !== 'object' || body === null) {
         return undefined;
     }
 
     const update = body as Record<string, unknown>;
 
-    if (typeof update['update_id'] !== 'number' && typeof update['update_id'] !== 'string')
-    {
+    if (typeof update['update_id'] !== 'number' && typeof update['update_id'] !== 'string') {
         return undefined;
     }
 
     const message = update['message'];
 
-    if (typeof message !== 'object' || message === null)
-    {
+    if (typeof message !== 'object' || message === null) {
         return undefined;
     }
 
     const { chat, from, text, date } = message as Record<string, unknown>;
 
-    if (typeof chat !== 'object' || chat === null || typeof from !== 'object' || from === null)
-    {
+    if (typeof chat !== 'object' || chat === null || typeof from !== 'object' || from === null) {
         return undefined;
     }
 
     const chatRecord = chat as Record<string, unknown>;
     const fromRecord = from as Record<string, unknown>;
 
-    if (chatRecord['type'] !== 'private')
-    {
+    if (chatRecord['type'] !== 'private') {
         return undefined;
     }
 
-    if (fromRecord['is_bot'] === true)
-    {
+    if (fromRecord['is_bot'] === true) {
         return undefined;
     }
 
-    if (typeof text !== 'string' || text === '')
-    {
+    if (typeof text !== 'string' || text === '') {
         return undefined;
     }
 
     const senderId = fromRecord['id'];
     const chatId = chatRecord['id'];
 
-    if (typeof senderId !== 'number' && typeof senderId !== 'string')
-    {
+    if (typeof senderId !== 'number' && typeof senderId !== 'string') {
         return undefined;
     }
 
-    if (typeof chatId !== 'number' && typeof chatId !== 'string')
-    {
+    if (typeof chatId !== 'number' && typeof chatId !== 'string') {
         return undefined;
     }
 
-    const text_ = (value: unknown) => typeof value === 'string' ? value : '';
+    const text_ = (value: unknown) => (typeof value === 'string' ? value : '');
 
     return {
         updateId: String(update['update_id']),
@@ -154,24 +166,26 @@ export function readInboundMessage(body: unknown): InboundMessage | undefined
             username: text_(fromRecord['username']).slice(0, 64),
             firstName: text_(fromRecord['first_name']).slice(0, 128),
             lastName: text_(fromRecord['last_name']).slice(0, 128),
-            languageCode: text_(fromRecord['language_code']).slice(0, 16)
-        }
+            languageCode: text_(fromRecord['language_code']).slice(0, 16),
+        },
     };
 }
 
-export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body: unknown, log: FastifyBaseLogger): Promise<'stored' | 'ignored' | 'duplicate' | 'blocked'>
-{
+export async function ingestUpdate(
+    fastify: FastifyInstance,
+    bot: TeamBot,
+    body: unknown,
+    log: FastifyBaseLogger,
+): Promise<'stored' | 'ignored' | 'duplicate' | 'blocked'> {
     const inbound = readInboundMessage(body);
 
-    if (!inbound)
-    {
+    if (!inbound) {
         return 'ignored';
     }
 
     const messages = fastify.db.getRepository(TelegramMessage);
 
-    if (await messages.findOneBy({ bot_id: bot.id, update_id: inbound.updateId }))
-    {
+    if (await messages.findOneBy({ bot_id: bot.id, update_id: inbound.updateId })) {
         return 'duplicate';
     }
 
@@ -182,32 +196,42 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
         first_name: inbound.from.firstName,
         last_name: inbound.from.lastName,
         language_code: inbound.from.languageCode,
-        last_seen_at: inbound.sentAt
+        last_seen_at: inbound.sentAt,
     };
 
     let user = await users.findOneBy({ team_id: bot.team_id, telegram_id: inbound.from.id });
 
-    if (!user)
-    {
+    if (!user) {
         user = await users.save({
             team_id: bot.team_id,
             telegram_id: inbound.from.id,
             message_count: 0,
             permissions: serializePermissions(DEFAULT_PERMISSIONS),
-            ...profileFields });
+            ...profileFields,
+        });
 
-        log.info({ module: 'telegram', teamId: bot.team_id, userId: user.id }, 'telegram profile created');
-    }
-    else
-    {
+        log.info(
+            { module: 'telegram', teamId: bot.team_id, userId: user.id },
+            'telegram profile created',
+        );
+    } else {
         await users.update({ id: user.id }, profileFields);
     }
 
-    if (!hasPermission(user.permissions, 'chat'))
-    {
-        log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message refused: no chat permission');
+    if (!hasPermission(user.permissions, 'chat')) {
+        log.info(
+            { module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id },
+            'telegram message refused: no chat permission',
+        );
 
-        await audit(fastify, log, { teamId: bot.team_id, actor: 'telegram', action: 'telegram.message', target: `profile:${ user.id }`, outcome: 'skipped', detail: `bot ${ bot.id } - sender lacks the chat permission` });
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'telegram',
+            action: 'telegram.message',
+            target: `profile:${user.id}`,
+            outcome: 'skipped',
+            detail: `bot ${bot.id} - sender lacks the chat permission`,
+        });
 
         return 'blocked';
     }
@@ -220,41 +244,60 @@ export async function ingestUpdate(fastify: FastifyInstance, bot: TeamBot, body:
         chat_id: inbound.chatId,
         text: inbound.text,
         direction: 'in',
-        sent_at: inbound.sentAt });
+        sent_at: inbound.sentAt,
+    });
 
     await users.increment({ id: user.id }, 'message_count', 1);
 
-    log.info({ module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id }, 'telegram message stored');
+    log.info(
+        { module: 'telegram', teamId: bot.team_id, botId: bot.id, userId: user.id },
+        'telegram message stored',
+    );
 
     await audit(fastify, log, {
         teamId: bot.team_id,
         actor: 'telegram',
         action: 'telegram.message',
-        target: `profile:${ user.id }`,
-        detail: `bot ${ bot.id } (${ bot.name }) - ${ inbound.text.length } chars - update ${ inbound.updateId }` });
+        target: `profile:${user.id}`,
+        detail: `bot ${bot.id} (${bot.name}) - ${inbound.text.length} chars - update ${inbound.updateId}`,
+    });
 
-    void deliverAgentReply(fastify, bot, user, inbound.chatId, inbound.text, stored.id, log)
-        .catch((error: unknown) => log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'));
+    void deliverAgentReply(fastify, bot, user, inbound.chatId, inbound.text, stored.id, log).catch(
+        (error: unknown) =>
+            log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'),
+    );
 
     return 'stored';
 }
 
-async function recordExchange(fastify: FastifyInstance, log: FastifyBaseLogger, entry: {
-    team_id: number; agent_id: number; model_id: number; user_id: number; round: number;
-    request: string; response: string; tool_calls: number; duration_ms: number; outcome: string; reason: string;
-}): Promise<void>
-{
-    try
-    {
+async function recordExchange(
+    fastify: FastifyInstance,
+    log: FastifyBaseLogger,
+    entry: {
+        team_id: number;
+        agent_id: number;
+        model_id: number;
+        user_id: number;
+        round: number;
+        request: string;
+        response: string;
+        tool_calls: number;
+        duration_ms: number;
+        outcome: string;
+        reason: string;
+    },
+): Promise<void> {
+    try {
         await fastify.db.getRepository(TeamAgentExchange).save({
             ...entry,
             request: entry.request.slice(0, EXCHANGE_MAX),
-            response: entry.response.slice(0, EXCHANGE_MAX)
+            response: entry.response.slice(0, EXCHANGE_MAX),
         });
-    }
-    catch (error)
-    {
-        log.error({ module: 'agent', agentId: entry.agent_id, err: error }, 'exchange record failed');
+    } catch (error) {
+        log.error(
+            { module: 'agent', agentId: entry.agent_id, err: error },
+            'exchange record failed',
+        );
     }
 }
 
@@ -262,186 +305,185 @@ const STREAM_EDIT_INTERVAL = 1200;
 
 const STREAM_FIRST_CHARS = 24;
 
-async function telegramCall(token: string, method: string, payload: unknown): Promise<{ ok: boolean; status: number; result?: unknown }>
-{
-    try
-    {
-        const response = await fetch(`${ TELEGRAM_API }/bot${ token }/${ method }`, {
+async function telegramCall(
+    token: string,
+    method: string,
+    payload: unknown,
+): Promise<{ ok: boolean; status: number; result?: unknown }> {
+    try {
+        const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) });
+            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT),
+        });
 
-        const body = await response.json().catch(() => undefined) as { result?: unknown } | undefined;
+        const body = (await response.json().catch(() => undefined)) as
+            | { result?: unknown }
+            | undefined;
 
         return { ok: response.ok, status: response.status, result: body?.result };
-    }
-    catch
-    {
+    } catch {
         return { ok: false, status: 0 };
     }
 }
 
-function createStreamer(token: string, chatId: string, log: FastifyBaseLogger)
-{
+function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
     let messageId: number | undefined;
     let sentText = '';
     let pending = '';
     let last = 0;
     let busy = false;
 
-    const flush = async(force: boolean) =>
-    {
+    const flush = async (force: boolean) => {
         const text = pending.slice(0, TELEGRAM_TEXT_MAX);
 
-        if (busy || text === sentText || text.trim() === '')
-        {
+        if (busy || text === sentText || text.trim() === '') {
             return;
         }
 
-        if (!force && Date.now() - last < STREAM_EDIT_INTERVAL)
-        {
+        if (!force && Date.now() - last < STREAM_EDIT_INTERVAL) {
             return;
         }
 
-        if (messageId === undefined && !force && text.length < STREAM_FIRST_CHARS)
-        {
+        if (messageId === undefined && !force && text.length < STREAM_FIRST_CHARS) {
             return;
         }
 
         busy = true;
         last = Date.now();
 
-        try
-        {
-            if (messageId === undefined)
-            {
+        try {
+            if (messageId === undefined) {
                 const sent = await telegramCall(token, 'sendMessage', { chat_id: chatId, text });
                 const id = (sent.result as { message_id?: unknown } | undefined)?.message_id;
 
-                if (sent.ok && typeof id === 'number')
-                {
+                if (sent.ok && typeof id === 'number') {
                     messageId = id;
                     sentText = text;
                 }
-            }
-            else if ((await telegramCall(token, 'editMessageText', { chat_id: chatId, message_id: messageId, text })).ok)
-            {
+            } else if (
+                (
+                    await telegramCall(token, 'editMessageText', {
+                        chat_id: chatId,
+                        message_id: messageId,
+                        text,
+                    })
+                ).ok
+            ) {
                 sentText = text;
             }
-        }
-        finally
-        {
+        } finally {
             busy = false;
         }
     };
 
     return {
-        push(text: string)
-        {
+        push(text: string) {
             pending = text;
 
-            void flush(false).catch(() => { });
+            void flush(false).catch(() => {});
         },
 
         started: () => messageId !== undefined,
 
-        async finish(text: string): Promise<boolean>
-        {
+        async finish(text: string): Promise<boolean> {
             pending = text;
 
-            for (let attempt = 0; busy && attempt < 20; attempt += 1)
-            {
+            for (let attempt = 0; busy && attempt < 20; attempt += 1) {
                 await new Promise((resolve) => setTimeout(resolve, 50).unref());
             }
 
-            await flush(true).catch(() => { });
+            await flush(true).catch(() => {});
 
             return messageId !== undefined && sentText === text.slice(0, TELEGRAM_TEXT_MAX);
         },
 
-        async discard()
-        {
-            if (messageId === undefined)
-            {
+        async discard() {
+            if (messageId === undefined) {
                 return;
             }
 
-            const removed = await telegramCall(token, 'deleteMessage', { chat_id: chatId, message_id: messageId });
+            const removed = await telegramCall(token, 'deleteMessage', {
+                chat_id: chatId,
+                message_id: messageId,
+            });
 
-            if (!removed.ok)
-            {
-                log.warn({ module: 'agent', status: removed.status }, 'could not remove a part-written reply');
+            if (!removed.ok) {
+                log.warn(
+                    { module: 'agent', status: removed.status },
+                    'could not remove a part-written reply',
+                );
             }
 
             messageId = undefined;
             sentText = '';
-        }
+        },
     };
 }
 
-function failureNotice(status: number): string
-{
-    if (status === 0)
-    {
+function failureNotice(status: number): string {
+    if (status === 0) {
         return 'I could not reach the model just now. Please try again in a moment.';
     }
 
-    if (status === 401 || status === 403)
-    {
+    if (status === 401 || status === 403) {
         return 'This bot is not set up correctly yet: its model rejected the request. Someone on the team needs to look at it.';
     }
 
-    if (status === 402)
-    {
+    if (status === 402) {
         return 'This bot has run out of model credit. Someone on the team needs to top it up.';
     }
 
-    if (status === 429)
-    {
+    if (status === 429) {
         return 'The model is busy right now. Please try again in a minute.';
     }
 
     return 'Something went wrong while answering. Please try again in a moment.';
 }
 
-async function notifyFailure(bot: TeamBot, chatId: string, status: number, log: FastifyBaseLogger): Promise<void>
-{
-    const sent = await telegramCall(bot.token, 'sendMessage', { chat_id: chatId, text: failureNotice(status) });
+async function notifyFailure(
+    bot: TeamBot,
+    chatId: string,
+    status: number,
+    log: FastifyBaseLogger,
+): Promise<void> {
+    const sent = await telegramCall(bot.token, 'sendMessage', {
+        chat_id: chatId,
+        text: failureNotice(status),
+    });
 
-    if (!sent.ok)
-    {
-        log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'could not tell the person the reply failed');
+    if (!sent.ok) {
+        log.warn(
+            { module: 'agent', botId: bot.id, status: sent.status },
+            'could not tell the person the reply failed',
+        );
     }
 }
 
-function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () => void
-{
+function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () => void {
     let stopped = false;
     let timer: ReturnType<typeof setInterval> | undefined;
     let guard: ReturnType<typeof setTimeout> | undefined;
 
-    const stop = () =>
-    {
+    const stop = () => {
         stopped = true;
 
         clearInterval(timer);
         clearTimeout(guard);
     };
 
-    const ping = () =>
-    {
-        if (stopped)
-        {
+    const ping = () => {
+        if (stopped) {
             return;
         }
 
-        void fetch(`${ TELEGRAM_API }/bot${ token }/sendChatAction`, {
+        void fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
-            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) })
-            .catch(() => log.debug({ module: 'agent' }, 'typing action failed'));
+            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT),
+        }).catch(() => log.debug({ module: 'agent' }, 'typing action failed'));
     };
 
     ping();
@@ -455,9 +497,14 @@ function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () 
     return stop;
 }
 
-async function supersededBy(fastify: FastifyInstance, userId: number, messageId: number): Promise<boolean>
-{
-    const newer = await fastify.db.getRepository(TelegramMessage).createQueryBuilder('message')
+async function supersededBy(
+    fastify: FastifyInstance,
+    userId: number,
+    messageId: number,
+): Promise<boolean> {
+    const newer = await fastify.db
+        .getRepository(TelegramMessage)
+        .createQueryBuilder('message')
         .where('message.user_id = :userId', { userId })
         .andWhere('message.direction = :direction', { direction: 'in' })
         .andWhere('message.id > :messageId', { messageId })
@@ -466,50 +513,90 @@ async function supersededBy(fastify: FastifyInstance, userId: number, messageId:
     return newer > 0;
 }
 
-async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: TelegramUser, chatId: string, incoming: string, messageId: number, log: FastifyBaseLogger)
-{
-    if (bot.agent_id === 0)
-    {
+async function deliverAgentReply(
+    fastify: FastifyInstance,
+    bot: TeamBot,
+    user: TelegramUser,
+    chatId: string,
+    incoming: string,
+    messageId: number,
+    log: FastifyBaseLogger,
+) {
+    if (bot.agent_id === 0) {
         return;
     }
 
-    if (!hasPermission(user.permissions, 'model'))
-    {
-        log.info({ module: 'agent', botId: bot.id, userId: user.id }, 'agent reply skipped: no model permission');
+    if (!hasPermission(user.permissions, 'model')) {
+        log.info(
+            { module: 'agent', botId: bot.id, userId: user.id },
+            'agent reply skipped: no model permission',
+        );
 
-        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `bot:${ bot.id }`, outcome: 'skipped', detail: `profile ${ user.id } lacks the model permission` });
-
-        return;
-    }
-
-    const agent = await fastify.db.getRepository(TeamAgent).findOneBy({ id: bot.agent_id, team_id: bot.team_id });
-
-    if (!agent || agent.model_id === 0)
-    {
-        log.warn({ module: 'agent', botId: bot.id, agentId: bot.agent_id }, 'agent reply skipped: agent or model missing');
-
-        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `agent:${ bot.agent_id }`, outcome: 'skipped', detail: `bot ${ bot.id } - agent missing or has no model attached` });
-
-        return;
-    }
-
-    const model = await fastify.db.getRepository(TeamModel).findOneBy({ id: agent.model_id, team_id: bot.team_id });
-
-    if (!model)
-    {
-        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply skipped: model missing');
-
-        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `agent:${ agent.id }`, outcome: 'skipped', detail: `agent ${ agent.name } - model ${ agent.model_id } missing` });
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'agent',
+            action: 'agent.request',
+            target: `bot:${bot.id}`,
+            outcome: 'skipped',
+            detail: `profile ${user.id} lacks the model permission`,
+        });
 
         return;
     }
 
-    const documents = await fastify.db.getRepository(TeamAgentDocument).find({ where: { agent_id: agent.id } });
+    const agent = await fastify.db
+        .getRepository(TeamAgent)
+        .findOneBy({ id: bot.agent_id, team_id: bot.team_id });
+
+    if (!agent || agent.model_id === 0) {
+        log.warn(
+            { module: 'agent', botId: bot.id, agentId: bot.agent_id },
+            'agent reply skipped: agent or model missing',
+        );
+
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'agent',
+            action: 'agent.request',
+            target: `agent:${bot.agent_id}`,
+            outcome: 'skipped',
+            detail: `bot ${bot.id} - agent missing or has no model attached`,
+        });
+
+        return;
+    }
+
+    const model = await fastify.db
+        .getRepository(TeamModel)
+        .findOneBy({ id: agent.model_id, team_id: bot.team_id });
+
+    if (!model) {
+        log.warn(
+            { module: 'agent', botId: bot.id, agentId: agent.id },
+            'agent reply skipped: model missing',
+        );
+
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'agent',
+            action: 'agent.request',
+            target: `agent:${agent.id}`,
+            outcome: 'skipped',
+            detail: `agent ${agent.name} - model ${agent.model_id} missing`,
+        });
+
+        return;
+    }
+
+    const documents = await fastify.db
+        .getRepository(TeamAgentDocument)
+        .find({ where: { agent_id: agent.id } });
 
     const history = await fastify.db.getRepository(TelegramMessage).find({
         where: { team_id: bot.team_id, user_id: user.id },
         order: { id: 'DESC' },
-        take: HISTORY_LIMIT + 1 });
+        take: HISTORY_LIMIT + 1,
+    });
 
     const earlier = earlierTurns(history, messageId);
 
@@ -517,13 +604,26 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
     const lazyDocuments = tools.some((tool) => tool.name === 'document_read');
 
-    const messages: ChatMessage[] = buildMessages(buildSystemPrompt(documents, lazyDocuments), earlier, incoming);
+    const messages: ChatMessage[] = buildMessages(
+        buildSystemPrompt(documents, lazyDocuments),
+        earlier,
+        incoming,
+    );
 
-    if (await supersededBy(fastify, user.id, messageId))
-    {
-        log.info({ module: 'agent', botId: bot.id, userId: user.id, messageId }, 'agent reply stood down: newer message arrived');
+    if (await supersededBy(fastify, user.id, messageId)) {
+        log.info(
+            { module: 'agent', botId: bot.id, userId: user.id, messageId },
+            'agent reply stood down: newer message arrived',
+        );
 
-        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.request', target: `agent:${ agent.id }`, outcome: 'skipped', detail: `message ${ messageId } superseded before the model was called` });
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'agent',
+            action: 'agent.request',
+            target: `agent:${agent.id}`,
+            outcome: 'skipped',
+            detail: `message ${messageId} superseded before the model was called`,
+        });
 
         return;
     }
@@ -543,31 +643,39 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
     let lastStatus = 0;
 
-    try
-    {
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1)
-        {
+    try {
+        for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
             const roundStartedAt = Date.now();
 
             const sending = fitToContext(messages, model.context_tokens);
 
-            const ask = (withTools: boolean) => sendCompletion({
-                baseUrl: model.base_url,
-                apiKey: model.api_key,
-                model: model.model,
-                messages: sending,
-                maxTokens: completionCap(model.context_tokens),
-                ...withTools && { tools: toOpenAITools(tools) },
-                timeoutMs: AGENT_TIMEOUT,
-                ...!withTools && { onText: (partial: string) => streamer.push(partial) } });
+            const ask = (withTools: boolean) =>
+                sendCompletion({
+                    baseUrl: model.base_url,
+                    apiKey: model.api_key,
+                    model: model.model,
+                    messages: sending,
+                    maxTokens: completionCap(model.context_tokens),
+                    ...(withTools && { tools: toOpenAITools(tools) }),
+                    timeoutMs: AGENT_TIMEOUT,
+                    ...(!withTools && { onText: (partial: string) => streamer.push(partial) }),
+                });
 
             const offering = toolsUsable && tools.length > 0 && round < MAX_TOOL_ROUNDS;
 
             let { ok, status: code, payload } = await ask(offering);
 
-            if (!ok && offering && isToolRefusal(payload))
-            {
-                log.warn({ module: 'agent', botId: bot.id, agentId: agent.id, modelId: model.id, reason: readError(payload).slice(0, ERROR_TEXT_MAX) }, 'model refused tools: retrying without them');
+            if (!ok && offering && isToolRefusal(payload)) {
+                log.warn(
+                    {
+                        module: 'agent',
+                        botId: bot.id,
+                        agentId: agent.id,
+                        modelId: model.id,
+                        reason: readError(payload).slice(0, ERROR_TEXT_MAX),
+                    },
+                    'model refused tools: retrying without them',
+                );
 
                 await recordExchange(fastify, log, {
                     team_id: bot.team_id,
@@ -580,14 +688,15 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
                     tool_calls: 0,
                     duration_ms: Date.now() - roundStartedAt,
                     outcome: 'error',
-                    reason: `tools refused - http ${ code }` });
+                    reason: `tools refused - http ${code}`,
+                });
 
                 toolsUsable = false;
 
                 ({ ok, status: code, payload } = await ask(false));
             }
 
-            const status = ok ? '' : code === 0 ? 'no response' : `http ${ code }`;
+            const status = ok ? '' : code === 0 ? 'no response' : `http ${code}`;
 
             lastStatus = ok ? 0 : code;
 
@@ -604,22 +713,20 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
                 tool_calls: calls.length,
                 duration_ms: Date.now() - roundStartedAt,
                 outcome: ok ? 'ok' : 'error',
-                reason: status
+                reason: status,
             });
 
-            if (calls.length === 0 || round === MAX_TOOL_ROUNDS)
-            {
+            if (calls.length === 0 || round === MAX_TOOL_ROUNDS) {
                 text = readCompletion(payload);
 
-                failure = [ status, readError(payload) ].filter((part) => part !== '').join(' - ');
+                failure = [status, readError(payload)].filter((part) => part !== '').join(' - ');
 
                 break;
             }
 
             messages.push(readAssistantTurn(payload) as ChatMessage);
 
-            for (const call of calls)
-            {
+            for (const call of calls) {
                 const toolStartedAt = Date.now();
 
                 const result = await runTool(fastify, agent, user, call.name, call.arguments);
@@ -630,53 +737,57 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
                     teamId: bot.team_id,
                     actor: 'agent',
                     action: 'agent.tool',
-                    target: `profile:${ user.id }`,
+                    target: `profile:${user.id}`,
                     outcome: result.ok ? 'ok' : 'error',
                     durationMs: Date.now() - toolStartedAt,
-                    detail: `${ call.name } · agent ${ agent.id } (${ agent.name }) · round ${ round } · args ${ Object.keys(call.arguments).join(',') || 'none' }${ result.ok ? '' : ` · ${ result.content.slice(0, 90) }` }` });
+                    detail: `${call.name} · agent ${agent.id} (${agent.name}) · round ${round} · args ${Object.keys(call.arguments).join(',') || 'none'}${result.ok ? '' : ` · ${result.content.slice(0, 90)}`}`,
+                });
 
                 messages.push({ role: 'tool', tool_call_id: call.id, content: result.content });
             }
         }
-    }
-    catch
-    {
-        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: model unreachable');
+    } catch {
+        log.warn(
+            { module: 'agent', botId: bot.id, agentId: agent.id },
+            'agent reply failed: model unreachable',
+        );
 
         await audit(fastify, log, {
             teamId: bot.team_id,
             actor: 'agent',
             action: 'agent.request',
-            target: `agent:${ agent.id }`,
+            target: `agent:${agent.id}`,
             outcome: 'error',
             durationMs: Date.now() - startedAt,
-            detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } (${ model.model }) unreachable` });
+            detail: `agent ${agent.id} (${agent.name}) - model ${model.id} (${model.model}) unreachable`,
+        });
 
         await streamer.discard();
 
         await notifyFailure(bot, chatId, 0, log);
 
         return;
-    }
-    finally
-    {
+    } finally {
         stopTyping();
     }
 
-    if (text === undefined)
-    {
+    if (text === undefined) {
         const reason = failure === '' ? 'the model returned no text' : failure;
 
-        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id, modelId: model.id, reason }, 'agent reply failed: no usable completion');
+        log.warn(
+            { module: 'agent', botId: bot.id, agentId: agent.id, modelId: model.id, reason },
+            'agent reply failed: no usable completion',
+        );
 
         await audit(fastify, log, {
             teamId: bot.team_id,
             actor: 'agent',
             action: 'agent.request',
-            target: `agent:${ agent.id }`,
+            target: `agent:${agent.id}`,
             outcome: 'error',
             durationMs: Date.now() - startedAt,
-            detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } returned no usable completion after ${ toolRuns } tool call(s) - ${ reason }` });
+            detail: `agent ${agent.id} (${agent.name}) - model ${model.id} returned no usable completion after ${toolRuns} tool call(s) - ${reason}`,
+        });
 
         await streamer.discard();
 
@@ -685,33 +796,47 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         return;
     }
 
-    if (await supersededBy(fastify, user.id, messageId))
-    {
-        log.info({ module: 'agent', botId: bot.id, userId: user.id, messageId }, 'agent reply discarded: newer message arrived while composing');
+    if (await supersededBy(fastify, user.id, messageId)) {
+        log.info(
+            { module: 'agent', botId: bot.id, userId: user.id, messageId },
+            'agent reply discarded: newer message arrived while composing',
+        );
 
         await audit(fastify, log, {
             teamId: bot.team_id,
             actor: 'agent',
             action: 'agent.request',
-            target: `agent:${ agent.id }`,
+            target: `agent:${agent.id}`,
             outcome: 'skipped',
             durationMs: Date.now() - startedAt,
-            detail: `message ${ messageId } superseded while composing - ${ text.length } chars discarded` });
+            detail: `message ${messageId} superseded while composing - ${text.length} chars discarded`,
+        });
 
         await streamer.discard();
 
         return;
     }
 
-    if (!await streamer.finish(text))
-    {
-        const sent = await telegramCall(bot.token, 'sendMessage', { chat_id: chatId, text: text.slice(0, TELEGRAM_TEXT_MAX) });
+    if (!(await streamer.finish(text))) {
+        const sent = await telegramCall(bot.token, 'sendMessage', {
+            chat_id: chatId,
+            text: text.slice(0, TELEGRAM_TEXT_MAX),
+        });
 
-        if (!sent.ok)
-        {
-            log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'agent reply failed: telegram would not take it');
+        if (!sent.ok) {
+            log.warn(
+                { module: 'agent', botId: bot.id, status: sent.status },
+                'agent reply failed: telegram would not take it',
+            );
 
-            await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram refused with ${ sent.status } - ${ text.length } chars` });
+            await audit(fastify, log, {
+                teamId: bot.team_id,
+                actor: 'agent',
+                action: 'agent.reply',
+                target: `bot:${bot.id}`,
+                outcome: 'error',
+                detail: `telegram refused with ${sent.status} - ${text.length} chars`,
+            });
 
             await streamer.discard();
 
@@ -727,30 +852,35 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         chat_id: chatId,
         text,
         direction: 'out',
-        sent_at: new Date() });
+        sent_at: new Date(),
+    });
 
-    log.info({ module: 'agent', botId: bot.id, agentId: agent.id, userId: user.id }, 'agent replied');
+    log.info(
+        { module: 'agent', botId: bot.id, agentId: agent.id, userId: user.id },
+        'agent replied',
+    );
 
     await audit(fastify, log, {
         teamId: bot.team_id,
         action: 'agent.request',
-        target: `agent:${ agent.id }`,
+        target: `agent:${agent.id}`,
         outcome: 'ok',
         durationMs: Date.now() - startedAt,
         actor: 'agent',
-        detail: `agent ${ agent.id } (${ agent.name }) · model ${ model.id } (${ model.model }) · profile ${ user.id } · ${ messages.length } messages in · ${ text.length } chars out · ${ toolRuns } tool call(s)` });
+        detail: `agent ${agent.id} (${agent.name}) · model ${model.id} (${model.model}) · profile ${user.id} · ${messages.length} messages in · ${text.length} chars out · ${toolRuns} tool call(s)`,
+    });
 }
 
-export function telegramWebhook(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function telegramWebhook(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const botId = readParamId(request, 'botId', 'BOT_ID_INVALID');
 
         const bot = await fastify.db.getRepository(TeamBot).findOneBy({ id: botId });
 
-        if (!bot || !secretMatches(bot.webhook_secret, request.headers['x-telegram-bot-api-secret-token']))
-        {
+        if (
+            !bot ||
+            !secretMatches(bot.webhook_secret, request.headers['x-telegram-bot-api-secret-token'])
+        ) {
             request.log.warn({ module: 'telegram', botId }, 'webhook rejected');
 
             throw new UnauthorizedResponse('WEBHOOK_REJECTED');
@@ -761,24 +891,23 @@ export function telegramWebhook(fastify: FastifyInstance)
         reply.send({ ok: true });
     };
 
-    return { schema: schemaTelegramWebhook, config: { }, handler };
+    return { schema: schemaTelegramWebhook, config: {}, handler };
 }
 
-export function conversationList(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function conversationList(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readParamId(request, 'id', 'TEAM_ID_INVALID');
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
         const { limit, offset } = readPage(request, CONVERSATION_PAGE);
 
-        const [ rows, total ] = await fastify.db.getRepository(TelegramUser).findAndCount({
+        const [rows, total] = await fastify.db.getRepository(TelegramUser).findAndCount({
             where: { team_id: teamId },
             order: { last_seen_at: 'DESC' },
             skip: offset,
-            take: limit + 1 });
+            take: limit + 1,
+        });
 
         const { items, has_more } = takePage(rows, limit);
 
@@ -788,29 +917,29 @@ export function conversationList(fastify: FastifyInstance)
     return { schema: schemaConversationList, config: { ...authGuard() }, handler };
 }
 
-export function conversationMessages(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function conversationMessages(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readParamId(request, 'id', 'TEAM_ID_INVALID');
         const userId = readParamId(request, 'userId', 'PROFILE_ID_INVALID');
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const user = await fastify.db.getRepository(TelegramUser).findOneBy({ id: userId, team_id: teamId });
+        const user = await fastify.db
+            .getRepository(TelegramUser)
+            .findOneBy({ id: userId, team_id: teamId });
 
-        if (!user)
-        {
+        if (!user) {
             throw new BadRequestResponse('PROFILE_NOT_FOUND');
         }
 
         const { limit, offset } = readPage(request, MESSAGE_PAGE);
 
-        const [ rows, total ] = await fastify.db.getRepository(TelegramMessage).findAndCount({
+        const [rows, total] = await fastify.db.getRepository(TelegramMessage).findAndCount({
             where: { team_id: teamId, user_id: user.id },
             order: { id: 'DESC' },
             skip: offset,
-            take: limit + 1 });
+            take: limit + 1,
+        });
 
         const { items, has_more } = takePage(rows, limit);
 
@@ -820,47 +949,65 @@ export function conversationMessages(fastify: FastifyInstance)
             offset,
             total,
             has_more,
-            messages: items.reverse().map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, direction: message.direction, sent_at: message.sent_at })) });
+            messages: items.reverse().map((message) => ({
+                id: message.id,
+                bot_id: message.bot_id,
+                text: message.text,
+                direction: message.direction,
+                sent_at: message.sent_at,
+            })),
+        });
     };
 
     return { schema: schemaConversationMessages, config: { ...authGuard() }, handler };
 }
 
-export function profileDetails(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function profileDetails(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readParamId(request, 'id', 'TEAM_ID_INVALID');
         const profileId = readParamId(request, 'profileId', 'PROFILE_ID_INVALID');
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const user = await fastify.db.getRepository(TelegramUser).findOneBy({ id: profileId, team_id: teamId });
+        const user = await fastify.db
+            .getRepository(TelegramUser)
+            .findOneBy({ id: profileId, team_id: teamId });
 
-        if (!user)
-        {
+        if (!user) {
             throw new BadRequestResponse('PROFILE_NOT_FOUND');
         }
 
         const messages = await fastify.db.getRepository(TelegramMessage).find({
             where: { team_id: teamId, user_id: user.id },
             order: { id: 'DESC' },
-            take: MESSAGE_PAGE });
+            take: MESSAGE_PAGE,
+        });
 
         messages.reverse();
 
-        const names = new Map((await fastify.db.getRepository(TeamBot).findBy({ team_id: teamId })).map((bot) => [ bot.id, bot.name ]));
+        const names = new Map(
+            (await fastify.db.getRepository(TeamBot).findBy({ team_id: teamId })).map((bot) => [
+                bot.id,
+                bot.name,
+            ]),
+        );
 
-        const perBot = new Map<number, { id: number; name: string; message_count: number; last_seen_at: Date }>();
+        const perBot = new Map<
+            number,
+            { id: number; name: string; message_count: number; last_seen_at: Date }
+        >();
 
-        for (const message of messages)
-        {
-            const entry = perBot.get(message.bot_id) ?? { id: message.bot_id, name: names.get(message.bot_id) ?? 'Removed bot', message_count: 0, last_seen_at: message.sent_at };
+        for (const message of messages) {
+            const entry = perBot.get(message.bot_id) ?? {
+                id: message.bot_id,
+                name: names.get(message.bot_id) ?? 'Removed bot',
+                message_count: 0,
+                last_seen_at: message.sent_at,
+            };
 
             entry.message_count += 1;
 
-            if (message.sent_at > entry.last_seen_at)
-            {
+            if (message.sent_at > entry.last_seen_at) {
                 entry.last_seen_at = message.sent_at;
             }
 
@@ -869,17 +1016,22 @@ export function profileDetails(fastify: FastifyInstance)
 
         reply.send({
             profile: toProfile(user),
-            bots: [ ...perBot.values() ].sort((a, b) => b.message_count - a.message_count),
-            messages: messages.map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, direction: message.direction, sent_at: message.sent_at })) });
+            bots: [...perBot.values()].sort((a, b) => b.message_count - a.message_count),
+            messages: messages.map((message) => ({
+                id: message.id,
+                bot_id: message.bot_id,
+                text: message.text,
+                direction: message.direction,
+                sent_at: message.sent_at,
+            })),
+        });
     };
 
     return { schema: schemaProfileDetails, config: { ...authGuard() }, handler };
 }
 
-export function permissionCatalog(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function permissionCatalog(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         await findOwnedTeam(fastify, readTeamId(request), request.account_id);
 
         reply.send({ permissions: PERMISSIONS });
@@ -888,10 +1040,8 @@ export function permissionCatalog(fastify: FastifyInstance)
     return { schema: schemaPermissionCatalog, config: { ...authGuard() }, handler };
 }
 
-export function profilePermissionUpdate(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function profilePermissionUpdate(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
         const profileId = readParamId(request, 'profileId', 'PROFILE_ID_INVALID');
 
@@ -900,15 +1050,12 @@ export function profilePermissionUpdate(fastify: FastifyInstance)
         const body = request.body as { permissions?: unknown } | undefined;
         const requested = body?.permissions;
 
-        if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string'))
-        {
+        if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string')) {
             throw new BadRequestResponse('PERMISSIONS_INVALID');
         }
 
-        for (const key of requested as string[])
-        {
-            if (!isKnownPermission(key))
-            {
+        for (const key of requested as string[]) {
+            if (!isKnownPermission(key)) {
                 throw new BadRequestResponse('PERMISSION_UNKNOWN');
             }
         }
@@ -917,8 +1064,7 @@ export function profilePermissionUpdate(fastify: FastifyInstance)
 
         const user = await users.findOneBy({ id: profileId, team_id: teamId });
 
-        if (!user)
-        {
+        if (!user) {
             throw new BadRequestResponse('PROFILE_NOT_FOUND');
         }
 
@@ -926,9 +1072,24 @@ export function profilePermissionUpdate(fastify: FastifyInstance)
 
         await users.update({ id: user.id, team_id: teamId }, { permissions });
 
-        request.log.info({ module: 'telegram', teamId, userId: user.id, accountId: request.account_id, permissions }, 'profile permissions updated');
+        request.log.info(
+            {
+                module: 'telegram',
+                teamId,
+                userId: user.id,
+                accountId: request.account_id,
+                permissions,
+            },
+            'profile permissions updated',
+        );
 
-        await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'profile.permissions', target: `profile:${ user.id }`, detail: permissions === '' ? 'all revoked' : permissions });
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'profile.permissions',
+            target: `profile:${user.id}`,
+            detail: permissions === '' ? 'all revoked' : permissions,
+        });
 
         reply.send(toProfile({ ...user, permissions }));
     };
@@ -936,10 +1097,8 @@ export function profilePermissionUpdate(fastify: FastifyInstance)
     return { schema: schemaProfilePermissionUpdate, config: { ...authGuard() }, handler };
 }
 
-export function telegramWebhookRegister(fastify: FastifyInstance)
-{
-    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
-    {
+export function telegramWebhookRegister(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readParamId(request, 'id', 'TEAM_ID_INVALID');
         const botId = readParamId(request, 'botId', 'BOT_ID_INVALID');
 
@@ -949,49 +1108,53 @@ export function telegramWebhookRegister(fastify: FastifyInstance)
 
         const bot = await bots.findOneBy({ id: botId, team_id: teamId });
 
-        if (!bot)
-        {
+        if (!bot) {
             throw new BadRequestResponse('BOT_NOT_FOUND');
         }
 
-        if (bot.public_url === '')
-        {
+        if (bot.public_url === '') {
             reply.send({ ok: false, reason: 'BOT_PUBLIC_URL_NOT_SET' });
 
             return;
         }
 
-        if (bot.webhook_secret === '')
-        {
+        if (bot.webhook_secret === '') {
             bot.webhook_secret = createWebhookSecret();
 
             await bots.update({ id: bot.id }, { webhook_secret: bot.webhook_secret });
         }
 
-        const url = `${ bot.public_url.replace(/\/+$/, '') }/api/telegram/webhook/${ bot.id }`;
+        const url = `${bot.public_url.replace(/\/+$/, '')}/api/telegram/webhook/${bot.id}`;
 
         let ok = false;
 
-        try
-        {
-            const response = await fetch(`${ TELEGRAM_API }/bot${ bot.token }/setWebhook`, {
+        try {
+            const response = await fetch(`${TELEGRAM_API}/bot${bot.token}/setWebhook`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ url, secret_token: bot.webhook_secret, allowed_updates: [ 'message' ] }),
-                signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) });
+                body: JSON.stringify({
+                    url,
+                    secret_token: bot.webhook_secret,
+                    allowed_updates: ['message'],
+                }),
+                signal: AbortSignal.timeout(TELEGRAM_TIMEOUT),
+            });
 
-            const payload = await response.json().catch(() => undefined) as { ok?: boolean } | undefined;
+            const payload = (await response.json().catch(() => undefined)) as
+                | { ok?: boolean }
+                | undefined;
 
             ok = response.ok && payload?.ok === true;
-        }
-        catch
-        {
+        } catch {
             reply.send({ ok: false, reason: 'BOT_UNREACHABLE' });
 
             return;
         }
 
-        request.log.info({ module: 'telegram', teamId, botId: bot.id, ok }, 'telegram webhook registered');
+        request.log.info(
+            { module: 'telegram', teamId, botId: bot.id, ok },
+            'telegram webhook registered',
+        );
 
         reply.send(ok ? { ok, url } : { ok, reason: 'BOT_TOKEN_REJECTED' });
     };

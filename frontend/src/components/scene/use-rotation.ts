@@ -2,34 +2,29 @@ import { useEffect, useState } from 'react';
 
 import { SCENE_FRAME, SCENE_PERIOD } from '@/lib/constant';
 
-export function useRotation(): number
-{
-    const [ angle, setAngle ] = useState(0);
+export function useRotation(): number {
+    const [angle, setAngle] = useState(0);
 
-    useEffect(() =>
-    {
+    useEffect(() => {
         const query = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-        if (query.matches)
-        {
+        if (query.matches) {
             return;
         }
 
         let frame = 0;
         let last = 0;
 
-        const tick = (now: number) =>
-        {
+        const tick = (now: number) => {
             frame = requestAnimationFrame(tick);
 
-            if (now - last < SCENE_FRAME)
-            {
+            if (now - last < SCENE_FRAME) {
                 return;
             }
 
             last = now;
 
-            setAngle((now % SCENE_PERIOD) / SCENE_PERIOD * Math.PI * 2);
+            setAngle(((now % SCENE_PERIOD) / SCENE_PERIOD) * Math.PI * 2);
         };
 
         frame = requestAnimationFrame(tick);

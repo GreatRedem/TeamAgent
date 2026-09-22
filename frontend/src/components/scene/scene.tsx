@@ -1,14 +1,14 @@
 import { SCENE_PALETTE, SCENE_ROOT } from '@/lib/constant';
+
 import { Crystal } from './crystal';
 import { Debris } from './debris';
 import { Lattice } from './lattice';
 import { Particles } from './particles';
 import { Terrain } from './terrain';
 
-export function Scene()
-{
+export function Scene() {
     return (
-        <div className={ `${ SCENE_ROOT } ${ SCENE_PALETTE }` } aria-hidden="true">
+        <div className={`${SCENE_ROOT} ${SCENE_PALETTE}`} aria-hidden="true">
             <div className="absolute -top-[10%] left-1/2 aspect-square w-[min(120vw,60rem)] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--glow-bright)_28%,transparent)_0%,transparent_62%)]" />
 
             <Particles />

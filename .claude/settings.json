@@ -1,7 +1,7 @@
 {
-  "enabledPlugins": {
-    "frontend-design@claude-plugins-official": false,
-    "modern-web-guidance@claude-plugins-official": false,
-    "superdesign@claude-plugins-official": false
-  }
+    "enabledPlugins": {
+        "frontend-design@claude-plugins-official": false,
+        "modern-web-guidance@claude-plugins-official": false,
+        "superdesign@claude-plugins-official": false
+    }
 }

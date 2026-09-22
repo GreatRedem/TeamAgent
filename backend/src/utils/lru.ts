@@ -1,12 +1,9 @@
-export default class LRUCache<K, V>
-{
+export default class LRUCache<K, V> {
     private capacity: number;
     private cache: Map<K, V>;
 
-    constructor(capacity: number)
-    {
-        if (capacity <= 0)
-        {
+    constructor(capacity: number) {
+        if (capacity <= 0) {
             capacity = 1;
         }
 
@@ -14,10 +11,8 @@ export default class LRUCache<K, V>
         this.cache = new Map<K, V>();
     }
 
-    get(key: K)
-    {
-        if (!this.cache.has(key))
-        {
+    get(key: K) {
+        if (!this.cache.has(key)) {
             return undefined;
         }
 
@@ -29,18 +24,13 @@ export default class LRUCache<K, V>
         return value;
     }
 
-    set(key: K, value: V)
-    {
-        if (this.cache.has(key))
-        {
+    set(key: K, value: V) {
+        if (this.cache.has(key)) {
             this.cache.delete(key);
-        }
-        else if (this.cache.size >= this.capacity)
-        {
+        } else if (this.cache.size >= this.capacity) {
             const oldestKey = this.cache.keys().next().value;
 
-            if (oldestKey)
-            {
+            if (oldestKey) {
                 this.cache.delete(oldestKey);
             }
         }
@@ -48,23 +38,19 @@ export default class LRUCache<K, V>
         this.cache.set(key, value);
     }
 
-    has(key: K)
-    {
+    has(key: K) {
         return this.cache.has(key);
     }
 
-    delete(key: K)
-    {
+    delete(key: K) {
         return this.cache.delete(key);
     }
 
-    clear()
-    {
+    clear() {
         this.cache.clear();
     }
 
-    size()
-    {
+    size() {
         return this.cache.size;
     }
 }

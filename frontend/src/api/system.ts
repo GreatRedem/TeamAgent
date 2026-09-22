@@ -1,7 +1,6 @@
 import { request } from './client';
 
-export interface SystemMetrics
-{
+export interface SystemMetrics {
     cpu_percent: number;
     cpu_cores: number;
     memory_total: number;
@@ -13,7 +12,6 @@ export interface SystemMetrics
     uptime_seconds: number;
 }
 
-export function systemMetrics()
-{
+export function systemMetrics() {
     return request<SystemMetrics>('GET', '/system/metrics');
 }

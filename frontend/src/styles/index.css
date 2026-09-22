@@ -1,136 +1,152 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "./tokens.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './tokens.css';
 
 @font-face {
-  font-family: Vazirmatn;
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url('/fonts/vazirmatn-latin-wght-normal.woff2') format('woff2-variations');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    font-family: Vazirmatn;
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url('/fonts/vazirmatn-latin-wght-normal.woff2') format('woff2-variations');
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+        U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: Vazirmatn;
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url('/fonts/vazirmatn-latin-ext-wght-normal.woff2') format('woff2-variations');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    font-family: Vazirmatn;
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url('/fonts/vazirmatn-latin-ext-wght-normal.woff2') format('woff2-variations');
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+        U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+        U+2C60-2C7F, U+A720-A7FF;
 }
 
 @font-face {
-  font-family: Vazirmatn;
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url('/fonts/vazirmatn-arabic-wght-normal.woff2') format('woff2-variations');
-  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+    font-family: Vazirmatn;
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url('/fonts/vazirmatn-arabic-wght-normal.woff2') format('woff2-variations');
+    unicode-range:
+        U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E,
+        U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
 }
 
 @theme inline {
-  --color-*: initial;
+    --color-*: initial;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-well: var(--well);
-  --color-neutral: var(--neutral);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-well: var(--well);
+    --color-neutral: var(--neutral);
 
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
 
-  --color-scale-0: var(--scale-0);
-  --color-scale-1: var(--scale-1);
-  --color-scale-2: var(--scale-2);
-  --color-scale-3: var(--scale-3);
-  --color-scale-4: var(--scale-4);
+    --color-scale-0: var(--scale-0);
+    --color-scale-1: var(--scale-1);
+    --color-scale-2: var(--scale-2);
+    --color-scale-3: var(--scale-3);
+    --color-scale-4: var(--scale-4);
 
-  --color-transparent: transparent;
-  --color-current: currentColor;
-  --color-white: #fff;
-  --color-black: #000;
+    --color-transparent: transparent;
+    --color-current: currentColor;
+    --color-white: #fff;
+    --color-black: #000;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: var(--font-ui);
-  --font-mono: var(--font-data);
+    --font-sans: var(--font-ui);
+    --font-mono: var(--font-data);
 
-  --text-2xs: 0.6875rem;
-  --text-2xs--line-height: 1rem;
-  --text-page: 1.625rem;
-  --text-page--line-height: 2rem;
-  --text-stat: 2.125rem;
-  --text-stat--line-height: 2.25rem;
+    --text-2xs: 0.6875rem;
+    --text-2xs--line-height: 1rem;
+    --text-page: 1.625rem;
+    --text-page--line-height: 2rem;
+    --text-stat: 2.125rem;
+    --text-stat--line-height: 2.25rem;
 
-  --shadow-raised: var(--elevation-raised);
-  --shadow-float: var(--elevation-float);
-  --shadow-lift: var(--elevation-lift);
+    --shadow-raised: var(--elevation-raised);
+    --shadow-float: var(--elevation-float);
+    --shadow-lift: var(--elevation-lift);
 
-  --animate-drift: drift 18s ease-in-out infinite;
-  --animate-float: float 20s ease-in-out infinite;
+    --animate-drift: drift 18s ease-in-out infinite;
+    --animate-float: float 20s ease-in-out infinite;
 
-  @keyframes drift {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-1.25rem); }
-  }
+    @keyframes drift {
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-1.25rem);
+        }
+    }
 
-  @keyframes float {
-    0%, 100% { transform: translate3d(0, 0, 0); }
-    50% { transform: translate3d(0.6rem, -1.6rem, 0); }
-  }
+    @keyframes float {
+        0%,
+        100% {
+            transform: translate3d(0, 0, 0);
+        }
+        50% {
+            transform: translate3d(0.6rem, -1.6rem, 0);
+        }
+    }
 }
 
 @utility break-anywhere {
-  overflow-wrap: anywhere;
+    overflow-wrap: anywhere;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
+    * {
+        @apply border-border outline-ring/50;
+    }
 
-  body {
-    @apply bg-background font-sans text-sm text-foreground;
+    body {
+        @apply bg-background font-sans text-sm text-foreground;
 
-    overflow-x: hidden;
-    font-variant-numeric: tabular-nums;
-    text-rendering: optimizeLegibility;
-  }
+        overflow-x: hidden;
+        font-variant-numeric: tabular-nums;
+        text-rendering: optimizeLegibility;
+    }
 
-  :where(h1, h2, h3, h4) {
-    text-wrap: balance;
-  }
+    :where(h1, h2, h3, h4) {
+        text-wrap: balance;
+    }
 
-  :where(p) {
-    text-wrap: pretty;
-  }
-
+    :where(p) {
+        text-wrap: pretty;
+    }
 }

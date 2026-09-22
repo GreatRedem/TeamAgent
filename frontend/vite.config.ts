@@ -1,12 +1,10 @@
 import path from 'node:path';
 
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
 
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-
-export default defineConfig(({ mode }) =>
-{
+export default defineConfig(({ mode }) => {
     // The backend port lives in the root `.env` as NODE_PORT. Read it rather
     // than duplicating the number here, so changing it in one place does not
     // leave the dev proxy pointing at a dead port. The prefix is the full
@@ -17,9 +15,9 @@ export default defineConfig(({ mode }) =>
     return {
         // Tailwind 4 has no config file: the theme is declared in
         // `src/index.css` over `src/tokens.css`, and this plugin compiles it.
-        plugins: [ react(), tailwindcss() ],
+        plugins: [react(), tailwindcss()],
         resolve: {
-            alias: { '@': path.resolve(import.meta.dirname, './src') }
+            alias: { '@': path.resolve(import.meta.dirname, './src') },
         },
         // Dependencies are hoisted to the workspace root by npm, so keep Vite's
         // own cache beside them instead of creating a frontend/node_modules
@@ -32,11 +30,11 @@ export default defineConfig(({ mode }) =>
             // does the same in production.
             proxy: {
                 '/api': {
-                    target: `http://127.0.0.1:${ env['NODE_PORT'] ?? 1000 }`,
+                    target: `http://127.0.0.1:${env['NODE_PORT'] ?? 1000}`,
                     changeOrigin: true,
-                    rewrite: (url) => url.replace(/^\/api/, '')
-                }
-            }
+                    rewrite: (url) => url.replace(/^\/api/, ''),
+                },
+            },
         },
         build: {
             outDir: '../.dist-frontend',
@@ -45,7 +43,7 @@ export default defineConfig(({ mode }) =>
             emptyOutDir: true,
             // Served as static files behind nginx; a manifest is not needed and
             // sourcemaps are kept out of the published bundle.
-            reportCompressedSize: false
-        }
+            reportCompressedSize: false,
+        },
     };
 });

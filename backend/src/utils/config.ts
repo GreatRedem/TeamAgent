@@ -3,23 +3,19 @@ import { dirname, join, resolve } from 'node:path';
 
 import { config as loadEnv } from 'dotenv';
 
-function findEnvFile(from: string): string | undefined
-{
+function findEnvFile(from: string): string | undefined {
     let directory = from;
 
-    for (;;)
-    {
+    for (;;) {
         const candidate = join(directory, '.env');
 
-        if (existsSync(candidate))
-        {
+        if (existsSync(candidate)) {
             return candidate;
         }
 
         const parent = dirname(directory);
 
-        if (parent === directory)
-        {
+        if (parent === directory) {
             return undefined;
         }
 
@@ -31,29 +27,26 @@ const envFile = findEnvFile(import.meta.dirname);
 
 loadEnv({ path: envFile });
 
-const builder = (name: string) =>
-{
+const builder = (name: string) => {
     const value = process.env[name];
 
-    if (value === undefined)
-    {
-        throw new TypeError(`Missing required environment variable: ${ name }`);
+    if (value === undefined) {
+        throw new TypeError(`Missing required environment variable: ${name}`);
     }
 
-    const asNumber = () =>
-    {
+    const asNumber = () => {
         const result = Number.parseInt(value, 10);
 
-        if (Number.isNaN(result))
-        {
-            throw new TypeError(`Invalid value for environment variable: ${ name } - ${ typeof value } - ${ value }`);
+        if (Number.isNaN(result)) {
+            throw new TypeError(
+                `Invalid value for environment variable: ${name} - ${typeof value} - ${value}`,
+            );
         }
 
         return result;
     };
 
-    const asString = () =>
-    {
+    const asString = () => {
         return value;
     };
 
@@ -62,13 +55,11 @@ const builder = (name: string) =>
 
 const NODE_PORT = builder('NODE_PORT').asNumber();
 
-const NODE_ENV = (() =>
-{
+const NODE_ENV = (() => {
     const value = builder('NODE_ENV').asString();
 
-    if (![ 'development', 'production' ].includes(value))
-    {
-        throw new TypeError(`Invalid format type for environment variable: NODE_ENV - ${ value }`);
+    if (!['development', 'production'].includes(value)) {
+        throw new TypeError(`Invalid format type for environment variable: NODE_ENV - ${value}`);
     }
 
     return value as 'development' | 'production';
@@ -76,12 +67,10 @@ const NODE_ENV = (() =>
 
 const NODE_DB = builder('NODE_DB').asString();
 
-const NODE_DB_CA = (() =>
-{
+const NODE_DB_CA = (() => {
     const value = process.env['NODE_DB_CA'];
 
-    if (!value)
-    {
+    if (!value) {
         return undefined;
     }
 
@@ -92,8 +81,7 @@ const NODE_COOKIE = builder('NODE_COOKIE').asString();
 const SESSION_ACCESS_SECRET = builder('SESSION_ACCESS_SECRET').asString();
 const SESSION_REFRESH_SECRET = builder('SESSION_REFRESH_SECRET').asString();
 
-export default
-{
+export default {
     NODE_PORT,
     NODE_ENV,
     NODE_DB,
@@ -101,5 +89,5 @@ export default
     NODE_COOKIE,
 
     SESSION_ACCESS_SECRET,
-    SESSION_REFRESH_SECRET
+    SESSION_REFRESH_SECRET,
 };

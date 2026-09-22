@@ -27,11 +27,11 @@ When working on UI, treat `DESIGN.md` as the project's source of truth.
 
 The UI must be built using:
 
-* shadcn/ui
-* Tailwind CSS
-* Radix primitives where used by shadcn/ui
-* Existing project components and tokens
-* Existing design patterns before introducing anything new
+- shadcn/ui
+- Tailwind CSS
+- Radix primitives where used by shadcn/ui
+- Existing project components and tokens
+- Existing design patterns before introducing anything new
 
 Do not invent a new visual system for individual pages.
 
@@ -60,21 +60,21 @@ Use shadcn/ui components whenever an appropriate component exists.
 
 Installed and ready to import from `@/components/ui`:
 
-* Alert
-* Badge
-* Button
-* Card
-* Dialog
-* DropdownMenu
-* Input
-* Label
-* Select
-* Separator
-* Skeleton
-* Switch
-* Table
-* Textarea
-* Tooltip
+- Alert
+- Badge
+- Button
+- Card
+- Dialog
+- DropdownMenu
+- Input
+- Label
+- Select
+- Separator
+- Skeleton
+- Switch
+- Table
+- Textarea
+- Tooltip
 
 Anything else in the registry (Sheet, Drawer, Tabs, Popover, Command, Avatar,
 Form) is not installed yet. Add it with `npx shadcn@latest add <name>` rather
@@ -117,10 +117,10 @@ px-[27px]
 Prefer:
 
 ```tsx
-p-4
-mt-4
-gap-4
-px-6
+p - 4;
+mt - 4;
+gap - 4;
+px - 6;
 ```
 
 Use arbitrary values only when they solve a documented technical or visual requirement.
@@ -133,18 +133,18 @@ Do not use negative margins to fix a layout that should be solved with proper st
 
 Prefer:
 
-* Flexbox
-* CSS Grid
-* shadcn/ui layout patterns
-* Tailwind responsive utilities
+- Flexbox
+- CSS Grid
+- shadcn/ui layout patterns
+- Tailwind responsive utilities
 
 Avoid:
 
-* excessive absolute positioning
-* fixed pixel positioning
-* negative-margin hacks
-* nested containers with inconsistent padding
-* duplicated responsive rules
+- excessive absolute positioning
+- fixed pixel positioning
+- negative-margin hacks
+- nested containers with inconsistent padding
+- duplicated responsive rules
 
 All major page content must align to the same container.
 
@@ -156,10 +156,10 @@ Mobile-first is mandatory.
 
 Every UI change must be checked at:
 
-* Mobile
-* Tablet
-* Desktop
-* Large desktop
+- Mobile
+- Tablet
+- Desktop
+- Large desktop
 
 Use the project's standard breakpoints.
 
@@ -175,13 +175,13 @@ Use the standard component sizes defined in `DESIGN.md`.
 
 Do not randomly change:
 
-* button height
-* input height
-* icon size
-* card padding
-* border radius
-* typography
-* modal dimensions
+- button height
+- input height
+- icon size
+- card padding
+- border radius
+- typography
+- modal dimensions
 
 If an existing shadcn component already provides the correct size variant, use that variant.
 
@@ -203,12 +203,12 @@ unless explicitly required.
 
 Maintain a clear hierarchy:
 
-* Page title
-* Section title
-* Component title
-* Body
-* Secondary text
-* Caption
+- Page title
+- Section title
+- Component title
+- Body
+- Secondary text
+- Caption
 
 Do not use font size alone to create hierarchy. Use spacing, weight and semantic structure.
 
@@ -221,13 +221,13 @@ Use existing theme tokens.
 Prefer:
 
 ```tsx
-bg-background
-bg-card
-bg-muted
-text-foreground
-text-muted-foreground
-border-border
-text-primary
+bg - background;
+bg - card;
+bg - muted;
+text - foreground;
+text - muted - foreground;
+border - border;
+text - primary;
 ```
 
 Do not introduce random colors.
@@ -272,9 +272,9 @@ Use the project's existing icon library, which is Lucide.
 
 Prefer consistent icon sizing:
 
-* Small: 14–16px
-* Default: 16–20px
-* Large: 20–24px
+- Small: 14–16px
+- Default: 16–20px
+- Large: 20–24px
 
 Do not mix unrelated icon libraries without a reason.
 
@@ -286,11 +286,11 @@ Use shadcn/ui form patterns.
 
 Forms must have:
 
-* Label
-* Input/control
-* Validation state
-* Error message where applicable
-* Consistent spacing
+- Label
+- Input/control
+- Validation state
+- Error message where applicable
+- Consistent spacing
 
 Do not manually position form elements.
 
@@ -304,15 +304,15 @@ UI must remain accessible.
 
 Always consider:
 
-* keyboard navigation
-* focus states
-* labels
-* semantic HTML
-* accessible names
-* disabled states
-* loading states
-* error states
-* sufficient contrast
+- keyboard navigation
+- focus states
+- labels
+- semantic HTML
+- accessible names
+- disabled states
+- loading states
+- error states
+- sufficient contrast
 
 Never remove focus indicators merely because they are visually inconvenient.
 
@@ -322,14 +322,14 @@ Never remove focus indicators merely because they are visually inconvenient.
 
 Interactive components should account for:
 
-* default
-* hover
-* focus
-* active
-* disabled
-* loading
-* error
-* empty
+- default
+- hover
+- focus
+- active
+- disabled
+- loading
+- error
+- empty
 
 Do not implement only the happy path.
 
@@ -341,11 +341,11 @@ If two components serve the same purpose, they must look and behave consistently
 
 Do not create:
 
-* five different button styles for the same action
-* different card padding across pages
-* different input heights
-* inconsistent heading spacing
-* inconsistent modal sizes
+- five different button styles for the same action
+- different card padding across pages
+- different input heights
+- inconsistent heading spacing
+- inconsistent modal sizes
 
 If inconsistency already exists, prefer the established design system rather than copying the inconsistency.
 
@@ -357,13 +357,13 @@ Do not add UI merely because there is empty space.
 
 Do not add:
 
-* unnecessary cards
-* unnecessary badges
-* decorative elements
-* excessive borders
-* unnecessary animations
-* redundant buttons
-* duplicate information
+- unnecessary cards
+- unnecessary badges
+- decorative elements
+- excessive borders
+- unnecessary animations
+- redundant buttons
+- duplicate information
 
 Every visual element must have a purpose.
 
@@ -373,14 +373,14 @@ Every visual element must have a purpose.
 
 UI work must not break:
 
-* business logic
-* API calls
-* state management
-* routing
-* forms
-* authentication
-* wallet functionality
-* responsive behavior
+- business logic
+- API calls
+- state management
+- routing
+- forms
+- authentication
+- wallet functionality
+- responsive behavior
 
 Do not rewrite working logic when only the UI needs modification.
 
@@ -390,17 +390,17 @@ Do not rewrite working logic when only the UI needs modification.
 
 After UI implementation:
 
-1. `npm run typecheck`
-2. `npm run lint`
-3. `npm run build`
-4. Inspect the changed page visually at phone, tablet and desktop widths.
-5. Check the console for errors.
-6. Fix everything before considering the task complete.
+1. `npm run format`
+2. `npm run typecheck`
+3. `npm run lint`
+4. `npm run build`
+5. Inspect the changed page visually at phone, tablet and desktop widths.
+6. Check the console for errors.
+7. Fix everything before considering the task complete.
 
-Do not run `npm run format` or `npx oxfmt` without a rewrite of the house style
-being the actual task. oxfmt's defaults disagree with this codebase's brace and
-JSX spacing style, so running it reformats every file in the repo.
-`npm run format:check` is expected to fail for that reason.
+Run `npm run format` before you finish. oxfmt is the house style, and it also
+sorts imports and Tailwind classes, so let it move them rather than ordering
+them by hand.
 
 `@shadcn/lint` runs inside `npm run lint`. `no-unknown-classes` catches a class
 that generates no CSS, and `no-raw-colors` keeps colour in `tokens.css`. Both
@@ -418,16 +418,16 @@ Do not disable a lint rule unless there is a documented reason.
 
 A UI task is complete only when:
 
-* It follows `DESIGN.md`.
-* It uses shadcn/ui where applicable.
-* Existing components were reused.
-* Spacing follows the design scale.
-* Typography follows the design scale.
-* Responsive behavior works.
-* Accessibility is preserved.
-* No unnecessary arbitrary Tailwind values were introduced.
-* No unrelated components were changed.
-* Lint passes, `@shadcn/lint` included.
-* TypeScript passes.
-* Build passes.
-* The resulting UI is visually consistent with the rest of the application.
+- It follows `DESIGN.md`.
+- It uses shadcn/ui where applicable.
+- Existing components were reused.
+- Spacing follows the design scale.
+- Typography follows the design scale.
+- Responsive behavior works.
+- Accessibility is preserved.
+- No unnecessary arbitrary Tailwind values were introduced.
+- No unrelated components were changed.
+- Lint passes, `@shadcn/lint` included.
+- TypeScript passes.
+- Build passes.
+- The resulting UI is visually consistent with the rest of the application.

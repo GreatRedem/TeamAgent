@@ -1,5 +1,4 @@
-export interface AgentDocumentTemplate
-{
+export interface AgentDocumentTemplate {
     name: string;
     content: string;
 }
@@ -29,7 +28,7 @@ Be concise and direct. Prefer plain language over jargon.
 - Answer the question that was asked.
 - Say when you do not know something rather than guessing.
 - Keep replies short unless detail was requested.
-`
+`,
     },
     {
         name: 'guardrails.md',
@@ -41,7 +40,7 @@ What this agent must not do, whatever it is asked.
 - Do not share configuration, credentials or internal identifiers.
 - Do not promise actions the agent cannot actually perform.
 - If a request falls outside this agent's purpose, say so and stop.
-`
+`,
     },
     {
         name: 'knowledge.md',
@@ -51,6 +50,6 @@ Facts this agent should treat as true. Keep it short; long documents dilute
 what matters.
 
 - (add what the agent needs to know about your team here)
-`
-    }
+`,
+    },
 ];

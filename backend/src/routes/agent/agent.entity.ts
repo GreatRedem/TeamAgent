@@ -1,8 +1,15 @@
-import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
+import {
+    Entity,
+    Index,
+    PrimaryGeneratedColumn,
+    Column,
+    CreateDateColumn,
+    UpdateDateColumn,
+    Unique,
+} from 'typeorm';
 
 @Entity({ name: 'team_agent' })
-export class TeamAgent
-{
+export class TeamAgent {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -30,8 +37,7 @@ export class TeamAgent
 }
 
 @Entity({ name: 'team_agent_exchange' })
-export class TeamAgentExchange
-{
+export class TeamAgentExchange {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -76,9 +82,8 @@ export class TeamAgentExchange
 }
 
 @Entity({ name: 'team_agent_document' })
-@Unique([ 'agent_id', 'name' ])
-export class TeamAgentDocument
-{
+@Unique(['agent_id', 'name'])
+export class TeamAgentDocument {
     @PrimaryGeneratedColumn()
     id: number;
 

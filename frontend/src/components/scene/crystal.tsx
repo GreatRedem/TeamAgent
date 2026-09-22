@@ -1,20 +1,36 @@
 import { useMemo } from 'react';
 
-import { CRYSTAL_CURVES, CRYSTAL_MODEL, CRYSTAL_SPARKS, SCENE_LIGHT, SCENE_PITCH, SCENE_SCALE } from '@/lib/constant';
-import { centroid, dot, faceNormal, project, rotate, splitByDepth, toPoints, type Projected, type Vec3 } from './projection';
+import {
+    CRYSTAL_CURVES,
+    CRYSTAL_MODEL,
+    CRYSTAL_SPARKS,
+    SCENE_LIGHT,
+    SCENE_PITCH,
+    SCENE_SCALE,
+} from '@/lib/constant';
+
+import {
+    centroid,
+    dot,
+    faceNormal,
+    project,
+    rotate,
+    splitByDepth,
+    toPoints,
+    type Projected,
+    type Vec3,
+} from './projection';
 import { useRotation } from './use-rotation';
 
-function curvePoints(curve: typeof CRYSTAL_CURVES[number], yaw: number): Projected[]
-{
-    const points: Projected[] = [ ];
+function curvePoints(curve: (typeof CRYSTAL_CURVES)[number], yaw: number): Projected[] {
+    const points: Projected[] = [];
 
-    for (let i = 0; i <= curve.samples; i += 1)
-    {
+    for (let i = 0; i <= curve.samples; i += 1) {
         const t = (i / curve.samples) * Math.PI * 2 * curve.turns;
 
         const r = curve.radius(t);
 
-        const raw: Vec3 = [ Math.cos(t) * r, curve.height(t), Math.sin(t) * r ];
+        const raw: Vec3 = [Math.cos(t) * r, curve.height(t), Math.sin(t) * r];
 
         points.push(project(rotate(raw, yaw, SCENE_PITCH + curve.tilt * 0.35), SCENE_SCALE));
     }
@@ -22,23 +38,21 @@ function curvePoints(curve: typeof CRYSTAL_CURVES[number], yaw: number): Project
     return points;
 }
 
-function path(points: Projected[]): string
-{
-    return points.map((p, i) => `${ i === 0 ? 'M' : 'L' }${ p.x.toFixed(2) } ${ p.y.toFixed(2) }`).join(' ');
+function path(points: Projected[]): string {
+    return points
+        .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+        .join(' ');
 }
 
-export function Crystal()
-{
+export function Crystal() {
     const yaw = useRotation();
 
-    const scene = useMemo(() =>
-    {
+    const scene = useMemo(() => {
         const points = CRYSTAL_MODEL.vertices.map((v) => rotate(v, yaw, SCENE_PITCH));
         const flat = points.map((v) => project(v, SCENE_SCALE));
 
         const faces = CRYSTAL_MODEL.faces
-            .map((face) =>
-            {
+            .map((face) => {
                 const corners = face.vertices.map((i) => points[i]);
                 const normal = faceNormal(corners[0], corners[1], corners[2]);
                 const middle = centroid(corners);
@@ -52,29 +66,25 @@ export function Crystal()
                     depth: middle[2],
                     inner: face.inner === true,
                     facing,
-                    light
+                    light,
                 };
             })
             .toSorted((a, b) => a.depth - b.depth);
 
         const seen = new Set<string>();
-        const edges: { key: string; d: string; depth: number }[] = [ ];
+        const edges: { key: string; d: string; depth: number }[] = [];
 
-        for (const face of CRYSTAL_MODEL.faces)
-        {
-            if (face.inner === true)
-            {
+        for (const face of CRYSTAL_MODEL.faces) {
+            if (face.inner === true) {
                 continue;
             }
 
-            for (let i = 0; i < face.vertices.length; i += 1)
-            {
+            for (let i = 0; i < face.vertices.length; i += 1) {
                 const a = face.vertices[i];
                 const b = face.vertices[(i + 1) % face.vertices.length];
-                const key = a < b ? `${ a }-${ b }` : `${ b }-${ a }`;
+                const key = a < b ? `${a}-${b}` : `${b}-${a}`;
 
-                if (seen.has(key))
-                {
+                if (seen.has(key)) {
                     continue;
                 }
 
@@ -82,26 +92,32 @@ export function Crystal()
 
                 edges.push({
                     key,
-                    d: `M${ flat[a].x.toFixed(2) } ${ flat[a].y.toFixed(2) } L${ flat[b].x.toFixed(2) } ${ flat[b].y.toFixed(2) }`,
-                    depth: (points[a][2] + points[b][2]) / 2
+                    d: `M${flat[a].x.toFixed(2)} ${flat[a].y.toFixed(2)} L${flat[b].x.toFixed(2)} ${flat[b].y.toFixed(2)}`,
+                    depth: (points[a][2] + points[b][2]) / 2,
                 });
             }
         }
 
-        const curves = CRYSTAL_CURVES.map((curve, index) =>
-        {
+        const curves = CRYSTAL_CURVES.map((curve, index) => {
             const { front, back } = splitByDepth(curvePoints(curve, yaw), 0.55);
 
-            return { key: `curve-${ index }`, curve, front, back };
+            return { key: `curve-${index}`, curve, front, back };
         });
 
-        const sparks = CRYSTAL_SPARKS.map((spark) => project(rotate(spark, yaw, SCENE_PITCH), SCENE_SCALE));
+        const sparks = CRYSTAL_SPARKS.map((spark) =>
+            project(rotate(spark, yaw, SCENE_PITCH), SCENE_SCALE),
+        );
 
         return { faces, edges, curves, sparks };
-    }, [ yaw ]);
+    }, [yaw]);
 
     return (
-        <svg className="absolute inset-0 size-full" viewBox="-300 -330 600 660" role="presentation" focusable="false">
+        <svg
+            className="absolute inset-0 size-full"
+            viewBox="-300 -330 600 660"
+            role="presentation"
+            focusable="false"
+        >
             <defs>
                 <radialGradient id="crystalCore" cx="0.5" cy="0.45" r="0.55">
                     <stop offset="0%" stopColor="var(--glow-bright)" stopOpacity="0.32" />
@@ -128,56 +144,75 @@ export function Crystal()
             <ellipse cx="0" cy="0" rx="250" ry="240" fill="url(#crystalCore)" />
 
             <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
-                { scene.curves.map(({ key, curve, back }) => back.map((run, i) => (
-                    <path
-                        key={ `${ key }-back-${ i }` }
-                        d={ path(run) }
-                        stroke="var(--glow-bright)"
-                        strokeWidth={ curve.width }
-                        opacity={ curve.opacity * 0.4 }
-                    />
-                ))) }
+                {scene.curves.map(({ key, curve, back }) =>
+                    back.map((run, i) => (
+                        <path
+                            key={`${key}-back-${i}`}
+                            d={path(run)}
+                            stroke="var(--glow-bright)"
+                            strokeWidth={curve.width}
+                            opacity={curve.opacity * 0.4}
+                        />
+                    )),
+                )}
             </g>
 
             <g>
-                { scene.faces.map((face) => (
+                {scene.faces.map((face) => (
                     <polygon
-                        key={ face.key }
-                        points={ face.points }
-                        fill={ face.inner ? 'var(--facet-hi)' : (face.light > 0.55 ? 'var(--facet-hi)' : face.light > 0.25 ? 'var(--facet-lo)' : 'var(--facet-deep)') }
-                        opacity={ face.inner ? 0.07 : (face.facing ? 0.12 : 0.34 + face.light * 0.5) }
+                        key={face.key}
+                        points={face.points}
+                        fill={
+                            face.inner
+                                ? 'var(--facet-hi)'
+                                : face.light > 0.55
+                                  ? 'var(--facet-hi)'
+                                  : face.light > 0.25
+                                    ? 'var(--facet-lo)'
+                                    : 'var(--facet-deep)'
+                        }
+                        opacity={face.inner ? 0.07 : face.facing ? 0.12 : 0.34 + face.light * 0.5}
                     />
-                )) }
+                ))}
             </g>
 
             <g filter="url(#glowSoft)">
-                { scene.sparks.map((spark, i) => (
-                    <circle key={ `spark-${ i }` } cx={ spark.x } cy={ spark.y } r={ 2.4 } fill="var(--glow-bright)" opacity={ 0.5 + spark.z * 0.25 } />
-                )) }
+                {scene.sparks.map((spark, i) => (
+                    <circle
+                        key={`spark-${i}`}
+                        cx={spark.x}
+                        cy={spark.y}
+                        r={2.4}
+                        fill="var(--glow-bright)"
+                        opacity={0.5 + spark.z * 0.25}
+                    />
+                ))}
             </g>
 
             <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
-                { scene.edges.map((edge) => (
+                {scene.edges.map((edge) => (
                     <path
-                        key={ edge.key }
-                        d={ edge.d }
+                        key={edge.key}
+                        d={edge.d}
                         stroke="var(--glow-bright)"
-                        strokeWidth={ edge.depth > 0 ? 1.7 : 1 }
-                        opacity={ 0.3 + Math.max(0, edge.depth) * 0.62 }
+                        strokeWidth={edge.depth > 0 ? 1.7 : 1}
+                        opacity={0.3 + Math.max(0, edge.depth) * 0.62}
                     />
-                )) }
+                ))}
             </g>
 
             <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
-                { scene.curves.map(({ key, curve, front }) => front.map((run, i) => (
-                    <path
-                        key={ `${ key }-front-${ i }` }
-                        d={ path(run) }
-                        stroke="var(--glow-bright)"
-                        strokeWidth={ curve.width }
-                        opacity={ curve.opacity }
-                    />
-                ))) }
+                {scene.curves.map(({ key, curve, front }) =>
+                    front.map((run, i) => (
+                        <path
+                            key={`${key}-front-${i}`}
+                            d={path(run)}
+                            stroke="var(--glow-bright)"
+                            strokeWidth={curve.width}
+                            opacity={curve.opacity}
+                        />
+                    )),
+                )}
             </g>
         </svg>
     );

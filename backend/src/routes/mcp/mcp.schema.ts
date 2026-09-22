@@ -2,30 +2,30 @@ export const schemaMcpTools = {
     response: {
         200: {
             type: 'object',
-            required: [ 'tools' ],
+            required: ['tools'],
             properties: {
                 tools: {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'name', 'description', 'permission' ],
+                        required: ['name', 'description', 'permission'],
                         properties: {
                             name: { type: 'string' },
                             description: { type: 'string' },
-                            permission: { type: 'string' }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                            permission: { type: 'string' },
+                        },
+                    },
+                },
+            },
+        },
+    },
 } as const;
 
 export const schemaProfileFiles = {
     response: {
         200: {
             type: 'object',
-            required: [ 'files', 'limit', 'offset', 'has_more', 'total' ],
+            required: ['files', 'limit', 'offset', 'has_more', 'total'],
             properties: {
                 limit: { type: 'integer' },
                 offset: { type: 'integer' },
@@ -35,16 +35,16 @@ export const schemaProfileFiles = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'id', 'name', 'content', 'updated_at' ],
+                        required: ['id', 'name', 'content', 'updated_at'],
                         properties: {
                             id: { type: 'integer' },
                             name: { type: 'string' },
                             content: { type: 'string' },
-                            updated_at: { type: 'string' }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                            updated_at: { type: 'string' },
+                        },
+                    },
+                },
+            },
+        },
+    },
 } as const;

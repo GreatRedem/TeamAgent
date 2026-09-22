@@ -1,6 +1,6 @@
 const model = {
     type: 'object',
-    required: [ 'id', 'name', 'model', 'base_url', 'key_hint', 'context_tokens', 'created_at' ],
+    required: ['id', 'name', 'model', 'base_url', 'key_hint', 'context_tokens', 'created_at'],
     properties: {
         id: { type: 'integer' },
         name: { type: 'string' },
@@ -8,81 +8,81 @@ const model = {
         base_url: { type: 'string' },
         key_hint: { type: 'string' },
         context_tokens: { type: 'integer' },
-        created_at: { type: 'string' }
-    }
+        created_at: { type: 'string' },
+    },
 } as const;
 
 const body = {
     type: 'object',
-    required: [ 'name', 'model', 'base_url', 'api_key' ],
+    required: ['name', 'model', 'base_url', 'api_key'],
     properties: {
         name: { type: 'string' },
         model: { type: 'string' },
         base_url: { type: 'string' },
         api_key: { type: 'string' },
-        context_tokens: { type: 'integer' }
-    }
+        context_tokens: { type: 'integer' },
+    },
 } as const;
 
 export const schemaModelCreate = {
     body,
-    response: { 200: model }
+    response: { 200: model },
 } as const;
 
 export const schemaModelList = {
     response: {
         200: {
             type: 'object',
-            required: [ 'models', 'limit', 'offset', 'has_more', 'total' ],
+            required: ['models', 'limit', 'offset', 'has_more', 'total'],
             properties: {
                 limit: { type: 'integer' },
                 offset: { type: 'integer' },
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
-                models: { type: 'array', items: model }
-            }
-        }
-    }
+                models: { type: 'array', items: model },
+            },
+        },
+    },
 } as const;
 
 export const schemaModelUpdate = {
     body,
-    response: { 200: model }
+    response: { 200: model },
 } as const;
 
 export const schemaModelRemove = {
     response: {
         200: {
             type: 'object',
-            required: [ 'result' ],
+            required: ['result'],
             properties: {
-                result: { type: 'string' }
-            }
-        }
-    }
+                result: { type: 'string' },
+            },
+        },
+    },
 } as const;
 
 export const schemaModelTest = {
     response: {
         200: {
             type: 'object',
-            required: [ 'ok' ],
+            required: ['ok'],
             properties: {
                 ok: { type: 'boolean' },
                 context: { type: 'integer' },
                 models: { type: 'integer' },
                 found: { type: 'boolean' },
-                reason: { type: 'string' }
-            }
-        }
-    }
+                reason: { type: 'string' },
+            },
+        },
+    },
 } as const;
 
 export const schemaModelCatalog = {
     response: {
         200: {
             type: 'object',
-            required: [ 'base_url', 'models', 'providers' ],
+            required: ['base_url', 'models', 'providers'],
             properties: {
                 base_url: { type: 'string' },
                 reason: { type: 'string' },
@@ -90,7 +90,15 @@ export const schemaModelCatalog = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'key', 'label', 'url', 'catalog', 'key_required', 'models', 'hint' ],
+                        required: [
+                            'key',
+                            'label',
+                            'url',
+                            'catalog',
+                            'key_required',
+                            'models',
+                            'hint',
+                        ],
                         properties: {
                             key: { type: 'string' },
                             label: { type: 'string' },
@@ -101,58 +109,58 @@ export const schemaModelCatalog = {
                                 type: 'array',
                                 items: {
                                     type: 'object',
-                                    required: [ 'id', 'context' ],
+                                    required: ['id', 'context'],
                                     properties: {
                                         id: { type: 'string' },
-                                        context: { type: 'integer' }
-                                    }
-                                }
+                                        context: { type: 'integer' },
+                                    },
+                                },
                             },
-                            hint: { type: 'string' }
-                        }
-                    }
+                            hint: { type: 'string' },
+                        },
+                    },
                 },
                 models: {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [ 'id', 'name', 'context', 'prompt', 'completion' ],
+                        required: ['id', 'name', 'context', 'prompt', 'completion'],
                         properties: {
                             id: { type: 'string' },
                             name: { type: 'string' },
                             context: { type: 'integer' },
                             prompt: { type: 'number' },
-                            completion: { type: 'number' }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                            completion: { type: 'number' },
+                        },
+                    },
+                },
+            },
+        },
+    },
 } as const;
 
 export const schemaModelProbe = {
     body: {
         type: 'object',
-        required: [ 'base_url', 'api_key' ],
+        required: ['base_url', 'api_key'],
         properties: {
             base_url: { type: 'string' },
             api_key: { type: 'string' },
-            model: { type: 'string' }
-        }
+            model: { type: 'string' },
+        },
     },
     response: {
         200: {
             type: 'object',
-            required: [ 'ok' ],
+            required: ['ok'],
             properties: {
                 ok: { type: 'boolean' },
                 models: { type: 'integer' },
                 found: { type: 'boolean' },
                 context: { type: 'integer' },
                 ids: { type: 'array', items: { type: 'string' } },
-                reason: { type: 'string' }
-            }
-        }
-    }
+                reason: { type: 'string' },
+            },
+        },
+    },
 } as const;

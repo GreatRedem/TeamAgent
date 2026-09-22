@@ -4,12 +4,8 @@
         "target": "esnext",
         "module": "nodenext",
         "moduleResolution": "nodenext",
-        "lib": [
-            "ESNext"
-        ],
-        "types": [
-            "node"
-        ],
+        "lib": ["ESNext"],
+        "types": ["node"],
         // Type Safety
         "strict": true,
         "noImplicitOverride": true,
@@ -34,7 +30,5 @@
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true
     },
-    "include": [
-        "src"
-    ]
+    "include": ["src"]
 }

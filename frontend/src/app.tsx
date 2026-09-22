@@ -8,17 +8,16 @@ import { Project } from '@/pages/project';
 import { Projects } from '@/pages/projects';
 import { SignIn } from '@/pages/sign-in';
 
-export function App()
-{
+export function App() {
     return (
         <Routes>
-            <Route element={ <AppShell /> }>
-                <Route index element={ <SignIn /> } />
-                <Route path="dashboard" element={ <Projects /> } />
-                <Route path="dashboard/team/:id/:tab?" element={ <Project /> } />
-                <Route path="dashboard/team/:id/profile/:profileId" element={ <ProfilePage /> } />
-                <Route path="dashboard/team/:id/agent/:agentId" element={ <Agent /> } />
-                <Route path="*" element={ <NotFound /> } />
+            <Route element={<AppShell />}>
+                <Route index element={<SignIn />} />
+                <Route path="dashboard" element={<Projects />} />
+                <Route path="dashboard/team/:id/:tab?" element={<Project />} />
+                <Route path="dashboard/team/:id/profile/:profileId" element={<ProfilePage />} />
+                <Route path="dashboard/team/:id/agent/:agentId" element={<Agent />} />
+                <Route path="*" element={<NotFound />} />
             </Route>
         </Routes>
     );

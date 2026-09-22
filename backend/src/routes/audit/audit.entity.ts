@@ -1,9 +1,8 @@
 import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity({ name: 'audit_log' })
-@Index([ 'team_id', 'created_at' ])
-export class AuditLog
-{
+@Index(['team_id', 'created_at'])
+export class AuditLog {
     @PrimaryGeneratedColumn()
     id: number;
 

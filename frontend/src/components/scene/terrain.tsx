@@ -1,46 +1,42 @@
 import { TERRAIN_FAR, TERRAIN_NEAR, TERRAIN_TRAIL, type Slab } from '@/lib/constant';
 
-function toPath(points: [number, number][])
-{
-    return points.map(([ x, y ]) => `${ x },${ y }`).join(' ');
+function toPath(points: [number, number][]) {
+    return points.map(([x, y]) => `${x},${y}`).join(' ');
 }
 
-function Blocks({ slabs, face, side }: { slabs: Slab[]; face: string; side: string })
-{
+function Blocks({ slabs, face, side }: { slabs: Slab[]; face: string; side: string }) {
     return (
         <g>
-            { slabs.map((slab) =>
-            {
-                const [ , , front, left ] = slab.points;
+            {slabs.map((slab) => {
+                const [, , front, left] = slab.points;
                 const skirt: [number, number][] = [
                     left,
                     front,
-                    [ front[0], front[1] + slab.depth ],
-                    [ left[0], left[1] + slab.depth ]
+                    [front[0], front[1] + slab.depth],
+                    [left[0], left[1] + slab.depth],
                 ];
 
                 return (
-                    <g key={ toPath(slab.points) }>
-                        <polygon points={ toPath(skirt) } fill={ side } />
-                        <polygon points={ toPath(slab.points) } fill={ face } />
-                        { slab.lit === true && (
+                    <g key={toPath(slab.points)}>
+                        <polygon points={toPath(skirt)} fill={side} />
+                        <polygon points={toPath(slab.points)} fill={face} />
+                        {slab.lit === true && (
                             <path
-                                d={ `M${ slab.points[0][0] } ${ slab.points[0][1] } L${ slab.points[1][0] } ${ slab.points[1][1] }` }
+                                d={`M${slab.points[0][0]} ${slab.points[0][1]} L${slab.points[1][0]} ${slab.points[1][1]}`}
                                 fill="none"
                                 stroke="var(--rock-rim)"
                                 strokeWidth="1"
                                 opacity="0.3"
                             />
-                        ) }
+                        )}
                     </g>
                 );
-            }) }
+            })}
         </g>
     );
 }
 
-export function Terrain()
-{
+export function Terrain() {
     return (
         <svg
             className="absolute inset-x-0 bottom-0 h-[clamp(14rem,38vh,26rem)] w-full lg:h-[clamp(22rem,50vh,40rem)]"
@@ -70,12 +66,12 @@ export function Terrain()
                 </filter>
             </defs>
 
-            <Blocks slabs={ TERRAIN_FAR } face="url(#rockFar)" side="var(--rock-deep)" />
+            <Blocks slabs={TERRAIN_FAR} face="url(#rockFar)" side="var(--rock-deep)" />
 
             <path
                 id="dataPath"
                 className="opacity-55"
-                d={ TERRAIN_TRAIL }
+                d={TERRAIN_TRAIL}
                 fill="none"
                 stroke="var(--glow-bright)"
                 strokeWidth="3.6"
@@ -83,13 +79,18 @@ export function Terrain()
                 filter="url(#trailGlow)"
             />
 
-            <circle className="opacity-85 motion-reduce:hidden" r="4.5" fill="var(--ink)" filter="url(#trailGlow)">
+            <circle
+                className="opacity-85 motion-reduce:hidden"
+                r="4.5"
+                fill="var(--ink)"
+                filter="url(#trailGlow)"
+            >
                 <animateMotion dur="9s" repeatCount="indefinite" rotate="auto">
                     <mpath href="#dataPath" />
                 </animateMotion>
             </circle>
 
-            <Blocks slabs={ TERRAIN_NEAR } face="url(#rockNear)" side="var(--rock-deep)" />
+            <Blocks slabs={TERRAIN_NEAR} face="url(#rockNear)" side="var(--rock-deep)" />
         </svg>
     );
 }

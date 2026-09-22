@@ -52,10 +52,10 @@ npx tsx backend/src/routes/<area>/<name>.test.ts
 
 - On Windows, call `npx.cmd` rather than `npx` from a bash shell; bare `npx`
   fails on the space in `C:\Program Files`.
-- `npm run format:check` currently fails across the whole repo. oxfmt's defaults
-  disagree with this codebase's Allman brace style, and running `npm run format`
-  would rewrite every file. Leave it alone unless the house style is the thing
-  being changed.
+- oxfmt is the house style. Run `npm run format` before committing. It also
+  sorts imports and Tailwind classes, so expect those to move.
+- The vendored skills under `.claude/skills` are excluded from the formatter, so
+  they stay byte-identical to the copies upstream.
 - `@shadcn/lint` is registered in `.oxlintrc.json` under `jsPlugins`. Two rules
   are on and clean; four more are available and off. `DESIGN.md` explains which
   and why.
@@ -79,10 +79,10 @@ npx tsx backend/src/routes/<area>/<name>.test.ts
 ## Before you say you're done
 
 ```
+npm run format
 npm run typecheck
 npm run lint
 npm run build
 ```
 
-All three pass, or say plainly what is still failing. `format:check` is expected
-to fail for the reason above.
+All four pass, or say plainly what is still failing.

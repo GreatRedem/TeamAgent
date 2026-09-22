@@ -1,9 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 
-import { modelCatalog, modelCreate, modelList, modelProbe, modelRemove, modelTest, modelUpdate } from './model.service.js';
+import {
+    modelCatalog,
+    modelCreate,
+    modelList,
+    modelProbe,
+    modelRemove,
+    modelTest,
+    modelUpdate,
+} from './model.service.js';
 
-export default async function(fastify: FastifyInstance)
-{
+export default async function (fastify: FastifyInstance) {
     fastify.get('/model/catalog', modelCatalog());
 
     fastify.post('/team/:id/model', modelCreate(fastify));

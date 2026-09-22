@@ -8,8 +8,7 @@ import './styles/index.css';
 
 const container = document.getElementById('root');
 
-if (!container)
-{
+if (!container) {
     throw new Error('Root container #root is missing from index.html');
 }
 
@@ -18,5 +17,5 @@ createRoot(container).render(
         <BrowserRouter>
             <App />
         </BrowserRouter>
-    </StrictMode>
+    </StrictMode>,
 );
