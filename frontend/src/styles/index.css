@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "./tokens.css";
 
 @font-face {
@@ -31,61 +32,70 @@
 @theme inline {
   --color-*: initial;
 
-  --color-page: var(--nura-bg);
-  --color-panel: var(--nura-panel);
-  --color-panel-hover: var(--nura-panel-hover);
-  --color-raised: var(--nura-raised);
-  --color-well: var(--nura-well);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-well: var(--well);
+  --color-neutral: var(--neutral);
 
-  --color-edge: var(--nura-line);
-  --color-edge-soft: var(--nura-line-soft);
-  --color-edge-row: var(--nura-line-row);
-  --color-edge-strong: var(--nura-line-strong);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  --color-ink: var(--nura-text);
-  --color-ink-2: var(--nura-text-2);
-  --color-ink-3: var(--nura-text-3);
-  --color-ink-4: var(--nura-text-4);
-
-  --color-live: var(--nura-live);
-  --color-live-ink: var(--nura-live-ink);
-  --color-live-wash: var(--nura-live-wash);
-  --color-live-edge: var(--nura-live-edge);
-
-  --color-pending: var(--nura-pending);
-  --color-pending-wash: var(--nura-pending-wash);
-  --color-pending-edge: var(--nura-pending-edge);
-
-  --color-fail: var(--nura-fail);
-  --color-fail-text: var(--nura-fail-text);
-  --color-fail-wash: var(--nura-fail-wash);
-  --color-fail-edge: var(--nura-fail-edge);
-
-  --color-off: var(--nura-off);
-
-  --color-heat-0: var(--nura-heat-0);
-  --color-heat-1: var(--nura-heat-1);
-  --color-heat-2: var(--nura-heat-2);
-  --color-heat-3: var(--nura-heat-3);
-  --color-heat-4: var(--nura-heat-4);
+  --color-scale-0: var(--scale-0);
+  --color-scale-1: var(--scale-1);
+  --color-scale-2: var(--scale-2);
+  --color-scale-3: var(--scale-3);
+  --color-scale-4: var(--scale-4);
 
   --color-transparent: transparent;
   --color-current: currentColor;
+  --color-white: #fff;
   --color-black: #000;
 
-  --radius-panel: var(--nura-r-panel);
-  --radius-control: var(--nura-r-control);
-  --radius-chip: var(--nura-r-chip);
-  --radius-pill: var(--nura-r-pill);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
-  --shadow-float: var(--nura-shadow);
-  --shadow-lift: var(--nura-shadow-lift);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-data);
 
-  --font-sans: var(--nura-font-ui);
-  --font-mono: var(--nura-font-mono);
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-page: 1.625rem;
+  --text-page--line-height: 2rem;
+  --text-stat: 2.125rem;
+  --text-stat--line-height: 2.25rem;
+
+  --shadow-raised: var(--elevation-raised);
+  --shadow-float: var(--elevation-float);
+  --shadow-lift: var(--elevation-lift);
 
   --animate-drift: drift 18s ease-in-out infinite;
-  --animate-float: float var(--dot-duration, 20s) ease-in-out infinite;
+  --animate-float: float 20s ease-in-out infinite;
 
   @keyframes drift {
     0%, 100% { transform: translateY(0); }
@@ -98,16 +108,29 @@
   }
 }
 
+@utility break-anywhere {
+  overflow-wrap: anywhere;
+}
+
 @layer base {
-  html
-  {
-    color-scheme: dark;
+  * {
+    @apply border-border outline-ring/50;
   }
 
-  body
-  {
-    @apply bg-page font-sans text-ink;
+  body {
+    @apply bg-background font-sans text-sm text-foreground;
 
     overflow-x: hidden;
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
   }
+
+  :where(h1, h2, h3, h4) {
+    text-wrap: balance;
+  }
+
+  :where(p) {
+    text-wrap: pretty;
+  }
+
 }

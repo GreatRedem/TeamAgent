@@ -1,50 +1,61 @@
 :root {
-  --nura-bg:          #0B0D0F;
-  --nura-panel:       #121518;
-  --nura-panel-hover: #171C20;
-  --nura-raised:      #1E2429;
-  --nura-well:        #0E1114;
+  color-scheme: dark;
 
-  --nura-line:        #262D33;
-  --nura-line-soft:   #1F262B;
-  --nura-line-row:    #161B1F;
-  --nura-line-strong: #323A41;
+  --background: #0b0d0f;
+  --foreground: #e8ecee;
 
-  --nura-text:        #EBEEEF;
-  --nura-text-2:      #AAB3B8;
-  --nura-text-3:      #7E888E;
-  --nura-text-4:      #5C656B;
+  --card: #121518;
+  --card-foreground: #e8ecee;
 
-  --nura-live:        #3FCBB0;
-  --nura-live-ink:    #06231D;
-  --nura-live-wash:   #152B27;
-  --nura-live-edge:   #22463F;
+  --popover: #161b1f;
+  --popover-foreground: #e8ecee;
 
-  --nura-pending:     #D9A441;
-  --nura-pending-wash:#1C1710;
-  --nura-pending-edge:#4A3A1B;
+  --primary: #3fcbb0;
+  --primary-foreground: #04211b;
 
-  --nura-fail:        #E4705C;
-  --nura-fail-text:   #F0CFC8;
-  --nura-fail-wash:   #241715;
-  --nura-fail-edge:   #57302A;
+  --secondary: #1b2126;
+  --secondary-foreground: #e8ecee;
 
-  --nura-off:         #4A5257;
+  --muted: #161b1f;
+  --muted-foreground: #8b959b;
 
-  --nura-heat-0: #151A1D;
-  --nura-heat-1: #1E3A34;
-  --nura-heat-2: #276E5C;
-  --nura-heat-3: #33A488;
-  --nura-heat-4: #3FCBB0;
+  --accent: #1e252a;
+  --accent-foreground: #e8ecee;
 
-  --nura-font-ui:   Vazirmatn, 'Segoe UI', system-ui, sans-serif;
-  --nura-font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+  --destructive: #e4705c;
+  --destructive-foreground: #2a1512;
 
-  --nura-r-panel:   12px;
-  --nura-r-control: 8px;
-  --nura-r-chip:    6px;
-  --nura-r-pill:    999px;
+  --warning: #d9a441;
+  --warning-foreground: #211705;
 
-  --nura-shadow: 0 12px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
-  --nura-shadow-lift: 0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+  --success: #3fcbb0;
+  --success-foreground: #04211b;
+
+  --border: #242b31;
+  --input: #2f373e;
+  --ring: #3fcbb0;
+
+  --well: #0e1114;
+  --neutral: #4a5257;
+
+  --chart-1: #3fcbb0;
+  --chart-2: #d9a441;
+  --chart-3: #e4705c;
+  --chart-4: #6aa9d8;
+  --chart-5: #8b959b;
+
+  --scale-0: #151a1d;
+  --scale-1: #1b3a34;
+  --scale-2: #22675a;
+  --scale-3: #2f9c83;
+  --scale-4: #3fcbb0;
+
+  --radius: 0.5rem;
+
+  --font-ui: Vazirmatn, 'Segoe UI', system-ui, sans-serif;
+  --font-data: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+
+  --elevation-raised: 0 1px 0 rgb(255 255 255 / 4%) inset;
+  --elevation-float: 0 12px 30px rgb(0 0 0 / 45%), 0 1px 0 rgb(255 255 255 / 4%) inset;
+  --elevation-lift: 0 24px 60px rgb(0 0 0 / 55%), 0 1px 0 rgb(255 255 255 / 4%) inset;
 }
