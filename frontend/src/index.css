@@ -1,1162 +1,442 @@
-/* ---------------------------------------------------------------- tokens */
+@import "tailwindcss";
+@import "./tokens.css";
 
-:root
-{
+/*
+ * The design tokens, exposed as utilities.
+ *
+ * `tokens.css` is the contract and the only file that names a colour. This
+ * block gives every token a Tailwind name (`bg-panel`, `text-ink-3`,
+ * `border-edge`, `rounded-control`) so the markup can use it; nothing here
+ * invents a value. `inline` because every entry is a reference to another
+ * variable: without it a utility would emit `var(--color-panel)` and resolve
+ * it wherever the element sits, rather than where the token was defined.
+ *
+ * The signal colours carry one meaning each. `live` is the only positive
+ * state; `pending` is brass for expiring and degraded; `fail` is for failures
+ * and nothing else -- never for volume, never for "off".
+ */
+@theme inline {
+  --color-*: initial;
+
+  --color-page: var(--nura-bg);
+  --color-panel: var(--nura-panel);
+  --color-panel-hover: var(--nura-panel-hover);
+  --color-raised: var(--nura-raised);
+  --color-well: var(--nura-well);
+
+  --color-edge: var(--nura-line);
+  --color-edge-soft: var(--nura-line-soft);
+  --color-edge-row: var(--nura-line-row);
+  --color-edge-strong: var(--nura-line-strong);
+
+  --color-ink: var(--nura-text);
+  --color-ink-2: var(--nura-text-2);
+  --color-ink-3: var(--nura-text-3);
+  --color-ink-4: var(--nura-text-4);
+
+  --color-live: var(--nura-live);
+  --color-live-ink: var(--nura-live-ink);
+  --color-live-wash: var(--nura-live-wash);
+  --color-live-edge: var(--nura-live-edge);
+
+  --color-pending: var(--nura-pending);
+  --color-pending-wash: var(--nura-pending-wash);
+  --color-pending-edge: var(--nura-pending-edge);
+
+  --color-fail: var(--nura-fail);
+  --color-fail-text: var(--nura-fail-text);
+  --color-fail-wash: var(--nura-fail-wash);
+  --color-fail-edge: var(--nura-fail-edge);
+
+  --color-off: var(--nura-off);
+
+  --color-heat-0: var(--nura-heat-0);
+  --color-heat-1: var(--nura-heat-1);
+  --color-heat-2: var(--nura-heat-2);
+  --color-heat-3: var(--nura-heat-3);
+  --color-heat-4: var(--nura-heat-4);
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --radius-panel: var(--nura-r-panel);
+  --radius-control: var(--nura-r-control);
+  --radius-chip: var(--nura-r-chip);
+  --radius-pill: var(--nura-r-pill);
+
+  --shadow-float: var(--nura-shadow);
+  --shadow-lift: var(--nura-shadow-lift);
+
+  --font-sans: var(--nura-font-ui);
+  --font-mono: var(--nura-font-mono);
+}
+
+@import "./scene.css";
+
+@layer base {
+  html
+  {
     color-scheme: dark;
+  }
 
-    /* surfaces */
-    --bg: oklch(13% 0.018 258);
-    --bg-deep: oklch(8% 0.015 258);
+  body
+  {
+    @apply bg-page font-sans text-ink;
 
-    /* text */
-    --ink: oklch(99% 0 0);
-    --ink-muted: oklch(68% 0.02 258);
-
-    /* accent */
-    --glow: oklch(55% 0.19 258);
-    --glow-bright: oklch(80% 0.13 245);
-
-    /* action surface */
-    --action: oklch(99% 0 0);
-    --action-ink: oklch(17% 0.015 258);
-
-    /* scene: consumed by the SVG layers through var() */
-    --facet-hi: oklch(88% 0.03 250);
-    --facet-lo: oklch(45% 0.06 255);
-    --facet-deep: oklch(16% 0.02 258);
-    --rock-hi: oklch(34% 0.02 258);
-    --rock-lo: oklch(15% 0.015 258);
-    --rock-deep: oklch(10% 0.012 258);
-    --rock-rim: oklch(62% 0.05 250);
-
-    --alarm: oklch(70% 0.17 25);
-
-    /* rhythm */
-    --gutter: clamp(1.5rem, 5.5vw, 7.5rem);
-    --radius: 10px;
-
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-}
-
-/* ----------------------------------------------------------------- reset */
-
-*
-{
-    box-sizing: border-box;
-}
-
-body
-{
-    margin: 0;
-    min-block-size: 100dvh;
-    background: var(--bg-deep);
-    color: var(--ink);
+    /* The scene is fixed behind the content, so the page must not scroll
+       sideways when the illustration overflows the viewport. */
     overflow-x: hidden;
-}
-
-/* ----------------------------------------------------------------- shell */
-
-.shell
-{
-    position: relative;
-    display: grid;
-    grid-template-rows: auto 1fr;
-    min-block-size: 100dvh;
-    isolation: isolate;
-}
-
-.shell__header
-{
-    z-index: 1;
-    padding: clamp(1.25rem, 3vw, 2.5rem) var(--gutter);
-}
-
-.shell__main
-{
-    z-index: 1;
-    display: flex;
-    align-items: flex-end;
-    padding: var(--gutter);
-    padding-block-end: clamp(3rem, 14vh, 8rem);
-}
-
-/* ----------------------------------------------------------------- brand */
-
-.brand
-{
-    display: inline-flex;
-    gap: 0.625rem;
-    align-items: center;
-    color: var(--ink);
-    text-decoration: none;
-}
-
-.brand__mark
-{
-    inline-size: 1.75rem;
-    block-size: 1.75rem;
-    flex: none;
-}
-
-.brand__word
-{
-    font-size: 1.0625rem;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-}
-
-.brand:focus-visible
-{
-    outline: 2px solid var(--glow-bright);
-    outline-offset: 4px;
-    border-radius: 4px;
-}
-
-/* ------------------------------------------------------------------ hero */
-
-.hero
-{
-    position: relative;
-    inline-size: min(100%, 30rem);
-    text-align: center;
-}
-
-.hero__title
-{
-    margin: 0;
-    font-size: clamp(1.75rem, 1.2rem + 1.55vw, 2.875rem);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.12;
-}
-
-.hero__subtitle
-{
-    margin: 0.625rem 0 0;
-    color: var(--ink-muted);
-    font-size: clamp(0.9375rem, 0.85rem + 0.3vw, 1.0625rem);
-}
-
-/* ---------------------------------------------------------------- button */
-
-.button
-{
-    display: inline-flex;
-    gap: 0.625rem;
-    align-items: center;
-    justify-content: center;
-    inline-size: 100%;
-    min-block-size: 3.25rem;
-    margin-block-start: clamp(1.5rem, 4vh, 2.25rem);
-    padding-inline: 1.5rem;
-    border: 0;
-    border-radius: var(--radius);
-    background: var(--action);
-    color: var(--action-ink);
-    font: inherit;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-    transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
-    box-shadow: 0 10px 30px -12px oklch(0% 0 0 / 0.7);
-}
-
-.button__icon
-{
-    display: inline-flex;
-    opacity: 0.75;
-}
-
-.button:hover:not(:disabled)
-{
-    transform: translateY(-1px);
-    box-shadow: 0 16px 36px -14px oklch(0% 0 0 / 0.85);
-}
-
-.button:active:not(:disabled)
-{
-    transform: translateY(0);
-}
-
-.button:focus-visible
-{
-    outline: 2px solid var(--glow-bright);
-    outline-offset: 3px;
-}
-
-.button:disabled
-{
-    opacity: 0.7;
-    cursor: progress;
-}
-
-/* ---------------------------------------------------------------- status */
-
-.status
-{
-    display: flex;
-    gap: 0.5rem;
-    align-items: flex-start;
-    justify-content: center;
-    min-block-size: 1.25rem;
-    margin-block-start: 0.875rem;
-    color: var(--ink-muted);
-    font-size: 0.875rem;
-    overflow-wrap: anywhere;
-}
-
-.status[data-state="error"]
-{
-    color: var(--alarm);
-}
-
-.spin
-{
-    animation: spin 900ms linear infinite;
-}
-
-@keyframes spin
-{
-    to
-    {
-        transform: rotate(360deg);
-    }
-}
-
-/* ----------------------------------------------------------------- scene */
-
-.scene
-{
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
-    background:
-        radial-gradient(120% 90% at 50% 8%, oklch(20% 0.03 258) 0%, transparent 60%),
-        linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
-}
-
-.scene__glow
-{
-    position: absolute;
-    inset-block-start: -10%;
-    inset-inline-start: 50%;
-    inline-size: min(120vw, 60rem);
-    aspect-ratio: 1;
-    translate: -50% 0;
-    border-radius: 50%;
-    background: radial-gradient(circle, oklch(45% 0.16 255 / 0.28) 0%, transparent 62%);
+  }
 }
 
 /*
- * Mobile composition: the crystal sits in the upper third and the sign-in copy
- * below it. On wider screens it moves right of centre (see the breakpoints at
- * the end of this file) so the left column stays empty for the text.
+ * The interface's own vocabulary.
+ *
+ * Every rule below is `@apply` over the token utilities above, so there is one
+ * source for colour, radius and border and nothing is hand-tuned twice. The
+ * names stay semantic (`.rows__item`, `.doc__editor`) because the markup is
+ * read far more often than it is written, and a row of twelve utility classes
+ * on every element tells a reader what it looks like but not what it is.
  */
-.scene__object
-{
-    position: absolute;
-    inset-block-start: 6%;
-    inset-inline-start: 50%;
-    inline-size: min(72vw, 20rem);
-    aspect-ratio: 1;
-    translate: -50% 0;
-    animation: drift 18s ease-in-out infinite;
+/* Every button shares this; the variants only pick a fill. 44px tall, the
+   mobile minimum, so a control is never too small to hit. A `@utility` rather
+   than a component class so `.ghost` below can `@apply` it. */
+@utility btn {
+  @apply inline-flex min-h-11 cursor-pointer items-center justify-center justify-self-start gap-2.5
+         rounded-control border px-4 text-sm font-medium no-underline
+         transition-colors
+         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-live
+         disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@layer components {
+
+  /* ----------------------------------------------------------- controls */
+
+  /* The primary action: the one solid button on a screen. */
+  .btn--solid
+  {
+    @apply border-edge-strong bg-raised text-ink hover:bg-panel-hover;
+  }
+
+  /* A secondary action: present, but never competing with the primary one. */
+  .ghost
+  {
+    @apply btn min-h-9 border-edge-strong bg-transparent px-3 font-normal text-ink-2
+           hover:bg-raised hover:text-ink;
+  }
+
+  .ghost--danger
+  {
+    @apply border-fail-edge text-fail hover:bg-fail-wash hover:text-fail;
+  }
+
+  .ghost[data-state="armed"]
+  {
+    @apply border-fail bg-fail-wash text-fail;
+  }
+
+  /* Who did a thing: an owner, an agent, a bot, the system. */
+  .badge
+  {
+    @apply inline-flex items-center rounded-chip bg-live-wash px-1.5 py-0.5
+           font-mono text-[0.6875rem] text-live;
+  }
+
+  .badge[data-mode="owner"],
+  .badge[data-mode="polling"]
+  {
+    @apply bg-raised text-ink-2;
+  }
+
+  /* -------------------------------------------------------------- list */
+
+  /* The panel and the section header are components now (`Panel.tsx`); the
+     rows below still carry their own card look until `DataRow` replaces them. */
+
+  .rows
+  {
+    @apply m-0 mt-5 grid list-none gap-2 p-0;
+  }
+
+  .rows__link
+  {
+    @apply grid gap-1 rounded-control border border-edge bg-raised px-4 py-3.5
+           text-ink no-underline transition-colors
+           hover:border-edge-strong focus-visible:border-edge-strong;
+  }
+
+  .rows__item--row
+  {
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-control
+           border border-edge bg-raised px-4 py-3;
+  }
+
+  .rows__text
+  {
+    @apply grid min-w-0 gap-1;
+  }
+
+  .rows__name
+  {
+    @apply font-semibold;
+  }
+
+  .rows__meta
+  {
+    @apply text-sm text-ink-2 [overflow-wrap:anywhere];
+  }
+
+  .rows__actions
+  {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .rows__url
+  {
+    @apply flex min-w-0 flex-1 flex-wrap items-center gap-2;
+  }
+
+  /* ----------------------------------------------------------- details */
+
+  .details
+  {
+    @apply mt-4 grid gap-2;
+  }
+
+  .details__row
+  {
+    @apply flex flex-wrap justify-between gap-3 border-b border-edge pb-2 text-sm;
+  }
+
+  .details__key
+  {
+    @apply text-ink-3;
+  }
+
+  .details__value
+  {
+    @apply [overflow-wrap:anywhere];
+  }
+
+  /* -------------------------------------------------------------- form */
+
+  .form
+  {
+    @apply mt-6 grid gap-3.5;
+  }
+
+  /* The primary action and the checks beside it. Wraps rather than shrinking,
+     so neither loses its label on a narrow screen. */
+  .form__actions
+  {
+    @apply flex flex-wrap items-center gap-2.5;
+  }
+
+  .field
+  {
+    @apply grid gap-2;
+  }
+
+  .field__label
+  {
+    @apply text-[0.8125rem] text-ink-3;
+  }
+
+  /* Recessed: an input is a well cut into the panel, not a block sitting on it.
+     `select` and `textarea` share the class in the markup, so the rule covers
+     all three shapes. */
+  .field__input
+  {
+    @apply min-h-11 w-full rounded-control border border-edge bg-well px-3 text-ink
+           placeholder:text-ink-4 focus:border-edge-strong focus:outline-none;
+  }
+
+  textarea.field__input
+  {
+    @apply h-auto py-3 leading-relaxed;
+  }
+
+  /* Sits under an input to explain a value whose consequence the label cannot
+     carry on its own. */
+  .field__hint
+  {
+    @apply text-xs leading-relaxed text-ink-3;
+  }
+
+  /* ------------------------------------------------------------ status */
+
+  .note
+  {
+    @apply mt-3.5 flex min-h-5 items-start justify-center gap-2 text-sm
+           text-ink-2 [overflow-wrap:anywhere];
+  }
+
+  .note[data-state="error"]
+  {
+    @apply text-fail;
+  }
+
+  /* The flat outcome of a check: reachable, refused, or still being asked.
+     Live teal for a pass, brass while it is in flight. */
+  .probe
+  {
+    @apply text-[0.8125rem] text-ink-2;
+  }
+
+  .probe[data-state="ok"]
+  {
+    @apply text-live;
+  }
+
+  .probe[data-state="pending"]
+  {
+    @apply text-pending;
+  }
+
+  .probe[data-state="error"]
+  {
+    @apply text-fail;
+  }
+
+  .probe--form
+  {
+    @apply block;
+  }
+
+  /* --------------------------------------------------------- agent doc */
+
+  .doc
+  {
+    @apply mt-3 rounded-panel border border-edge bg-panel p-4;
+  }
+
+  .doc__head
+  {
+    @apply mb-2.5 flex flex-wrap items-center gap-3;
+  }
+
+  .doc__name
+  {
+    @apply font-mono text-sm font-semibold;
+  }
+
+  /* Whether this file is a cost on every message or only when it is opened. */
+  .doc__cost
+  {
+    @apply me-auto whitespace-nowrap font-mono text-xs text-ink-3;
+  }
+
+  .doc__cost[data-deferred]
+  {
+    @apply opacity-60;
+  }
+
+  .doc__editor
+  {
+    @apply w-full rounded-control border border-edge-strong bg-well
+           p-3 font-mono text-[0.8125rem] leading-relaxed text-ink
+           focus:outline-none;
+  }
+
+  /* Read-only, so it is a block of text rather than a field someone can type
+     into and lose. */
+  .doc__editor--read
+  {
+    @apply m-0 max-h-80 overflow-auto whitespace-pre-wrap;
+  }
+
+  /* ------------------------------------------------------- conversation */
+
+  .thread
+  {
+    @apply w-full cursor-pointer rounded-control border-0 bg-transparent p-0
+           text-start text-ink;
+  }
+
+  .thread__body
+  {
+    @apply mt-3 grid gap-2 border-t border-edge pt-3;
+  }
+
+  .thread__body--plain
+  {
+    @apply border-0 pt-0;
+  }
+
+  .bubble__text
+  {
+    @apply block whitespace-pre-wrap [overflow-wrap:anywhere];
+  }
+
+  .bubble__time
+  {
+    @apply mt-1 block text-[0.6875rem] text-ink-4;
+  }
+
+  /* ----------------------------------------------------------- heatmap */
+
+  /*
+   * Twelve weeks by seven days, the shape the product stores. Colour means
+   * volume; a day carrying a failure is outlined rather than recoloured, so one
+   * channel is never asked to carry two variables.
+   */
+  .heatmap
+  {
+    @apply mt-4 flex gap-2 overflow-x-auto pb-1;
+  }
+
+  .heatmap__days
+  {
+    @apply grid shrink-0 gap-[3px] pt-0 font-mono text-[0.625rem] text-ink-3;
+    grid-template-rows: repeat(7, 0.75rem);
+  }
+
+  .heatmap__day
+  {
+    @apply leading-3;
+  }
+
+  .heatmap__grid
+  {
+    @apply flex gap-[3px];
+  }
+
+  .heatmap__week
+  {
+    @apply grid gap-[3px];
+    grid-template-rows: repeat(7, 0.75rem);
+  }
+
+  .heatmap__cell
+  {
+    @apply size-3 rounded-[2px] bg-heat-0;
+  }
+
+  .heatmap__cell[data-level="1"] { @apply bg-heat-1; }
+  .heatmap__cell[data-level="2"] { @apply bg-heat-2; }
+  .heatmap__cell[data-level="3"] { @apply bg-heat-3; }
+  .heatmap__cell[data-level="4"] { @apply bg-heat-4; }
+
+  /* The attribute the markup actually sets; the rule was written against a
+     name nothing emitted, so the outline had never rendered. */
+  .heatmap__cell[data-errors]
+  {
+    @apply shadow-[inset_0_0_0_1px_var(--nura-fail)];
+  }
+
+  .heatmap__cell--empty
+  {
+    @apply bg-transparent;
+  }
+
+  .heatmap__legend
+  {
+    @apply mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-3;
+  }
+
+  .heatmap__legend-note
+  {
+    @apply ms-2;
+  }
 }
-
-/*
- * The quiet region the authentication content sits in. The brief asks for no
- * bright geometry behind the heading or the button; rather than hand-placing
- * every element around the text, this darkens whatever ends up there.
- */
-.scene__quiet
-{
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(70% 46% at 50% 76%, oklch(8% 0.015 258 / 0.82) 0%, transparent 70%);
-}
-
-.lattice
-{
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline: 0;
-    inline-size: 100%;
-    block-size: 72%;
-}
-
-.particles
-{
-    position: absolute;
-    inset: 0;
-}
-
-.particles__dot
-{
-    position: absolute;
-    border-radius: 50%;
-    background: var(--glow-bright);
-    animation-name: float;
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
-}
-
-.terrain__packet
-{
-    opacity: 0.85;
-}
-
-@keyframes float
-{
-    0%, 100%
-    {
-        transform: translate3d(0, 0, 0);
-    }
-
-    50%
-    {
-        transform: translate3d(0.6rem, -1.6rem, 0);
-    }
-}
-
-.crystal,
-.debris
-{
-    position: absolute;
-    inset: 0;
-    inline-size: 100%;
-    block-size: 100%;
-}
-
-.terrain
-{
-    position: absolute;
-    inset-block-end: 0;
-    inset-inline: 0;
-    inline-size: 100%;
-    block-size: clamp(14rem, 38vh, 26rem);
-}
-
-.terrain__trail
-{
-    opacity: 0.55;
-}
-
-@keyframes drift
-{
-    0%, 100%
-    {
-        transform: translateY(0);
-    }
-
-    50%
-    {
-        transform: translateY(-1.25rem);
-    }
-}
-
-/* ----------------------------------------------------------- breakpoints */
-
-/* Below tablet the canvas is small: thin the dust and soften the lattice so the
-   copy keeps its breathing room. */
-@media (max-width: 39.99rem)
-{
-    .particles__dot:nth-child(n + 13)
-    {
-        display: none;
-    }
-
-    .lattice
-    {
-        opacity: 0.55;
-    }
-}
-
-/* tablet: more room, content still sits low */
-@media (min-width: 40rem)
-{
-    .shell__main
-    {
-        padding-block-end: clamp(4rem, 16vh, 9rem);
-    }
-
-    .scene__object
-    {
-        inset-block-start: 6%;
-        inline-size: min(60vw, 26rem);
-    }
-}
-
-/* desktop: content moves to a left column, the object to the right */
-@media (min-width: 64rem)
-{
-    .shell__main
-    {
-        align-items: center;
-        padding-block-end: clamp(4rem, 14vh, 9rem);
-    }
-
-    .hero
-    {
-        inline-size: min(100%, 32rem);
-        text-align: start;
-    }
-
-    .button
-    {
-        inline-size: min(100%, 26rem);
-    }
-
-    .status
-    {
-        justify-content: flex-start;
-    }
-
-    .scene__object
-    {
-        inset-block-start: 42%;
-        inset-inline-start: auto;
-        inset-inline-end: clamp(1.5rem, 5vw, 7rem);
-        inline-size: min(48vw, 36rem);
-        translate: 0 -50%;
-    }
-
-    .scene__glow
-    {
-        inset-block-start: -18%;
-        inset-inline-start: 70%;
-        inline-size: min(70vw, 52rem);
-    }
-
-    .terrain
-    {
-        block-size: clamp(18rem, 46vh, 34rem);
-    }
-
-    /* The copy is no longer centred, so the quiet region moves with it. */
-    .scene__quiet
-    {
-        background: radial-gradient(46% 60% at 30% 52%, oklch(8% 0.015 258 / 0.85) 0%, transparent 72%);
-    }
-}
-
-/* large desktop: hold the composition, let type breathe */
-@media (min-width: 96rem)
-{
-    .hero
-    {
-        inline-size: min(100%, 36rem);
-    }
-
-    .scene__object
-    {
-        inline-size: min(42vw, 40rem);
-    }
-
-    /* More of the environment is visible, so let the far layers read. */
-    .lattice
-    {
-        opacity: 1.15;
-    }
-
-    .terrain
-    {
-        block-size: clamp(22rem, 50vh, 40rem);
-    }
-}
-
-/* ------------------------------------------------------------ preferences */
-
-@media (prefers-reduced-motion: reduce)
-{
-    .scene__object,
-    .particles__dot
-    {
-        animation: none;
-    }
-
-    /* The crystal's rotation is stopped in `useRotation`; these are the parts
-       driven by CSS and SMIL instead. */
-    .terrain__packet
-    {
-        display: none;
-    }
-
-    .spin
-    {
-        animation-duration: 2.4s;
-    }
-
-    .button
-    {
-        transition: none;
-    }
-}
-
-/* ----------------------------------------------------------------- panel */
-
-/* `.shell__main` bottom-aligns its child for the hero; a panel grows with its
-   list, so it pins to the top instead. */
-.panel
-{
-    align-self: flex-start;
-    /* `.shell__main` is a row flex container, so an auto inline margin is what
-       centres the panel in the viewport. Block alignment stays at the start:
-       these pages grow taller than the screen, and centring those would push
-       the heading off the top. */
-    margin-inline: auto;
-    inline-size: min(100%, 44rem);
-    padding: clamp(1.25rem, 3vw, 2rem);
-    border: 1px solid oklch(100% 0 0 / 0.1);
-    border-radius: calc(var(--radius) * 1.6);
-    /* The scene sits directly behind this content rather than below it as on
-       the hero, so the panel needs its own surface to stay legible. */
-    background: oklch(13% 0.018 258 / 0.72);
-    backdrop-filter: blur(14px);
-}
-
-.panel__head
-{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.panel__title
-{
-    margin: 0;
-    font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2.25rem);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.12;
-}
-
-/* The shared button fills its container inside a form; in the header it is one
-   of two items on a row, so it shrinks to its label. */
-.panel__head .button
-{
-    inline-size: auto;
-    min-block-size: 2.75rem;
-    margin-block-start: 0;
-}
-
-.panel .status
-{
-    justify-content: flex-start;
-}
-
-/* ------------------------------------------------------------------ form */
-
-.form
-{
-    display: grid;
-    gap: 0.875rem;
-    margin-block-start: clamp(1.25rem, 3vh, 2rem);
-}
-
-.form .button
-{
-    justify-self: start;
-    inline-size: auto;
-    min-block-size: 2.75rem;
-    margin-block-start: 0.25rem;
-}
-
-.field
-{
-    display: grid;
-    gap: 0.375rem;
-}
-
-.field__label
-{
-    color: var(--ink-muted);
-    font-size: 0.8125rem;
-}
-
-.field__input
-{
-    inline-size: 100%;
-    min-block-size: 3rem;
-    padding-inline: 0.875rem;
-    border: 1px solid oklch(100% 0 0 / 0.14);
-    border-radius: var(--radius);
-    background: oklch(8% 0.015 258 / 0.55);
-    color: var(--ink);
-    font: inherit;
-    font-size: 0.9375rem;
-}
-
-.field__input::placeholder
-{
-    color: var(--ink-muted);
-}
-
-.field__input:focus-visible
-{
-    border-color: var(--glow-bright);
-    outline: 2px solid var(--glow-bright);
-    outline-offset: 2px;
-}
-
-/* ------------------------------------------------------------------ list */
-
-.list
-{
-    display: grid;
-    gap: 0.5rem;
-    margin: clamp(1.25rem, 3vh, 2rem) 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.list__link
-{
-    display: grid;
-    gap: 0.25rem;
-    padding: 0.875rem 1rem;
-    border: 1px solid oklch(100% 0 0 / 0.12);
-    border-radius: var(--radius);
-    color: var(--ink);
-    text-decoration: none;
-}
-
-.list__link:hover,
-.list__link:focus-visible
-{
-    border-color: var(--glow-bright);
-    background: oklch(100% 0 0 / 0.04);
-}
-
-.list__name
-{
-    font-weight: 600;
-}
-
-.list__meta
-{
-    color: var(--ink-muted);
-    font-size: 0.875rem;
-    overflow-wrap: anywhere;
-}
-
-/* --------------------------------------------------------------- details */
-
-.details
-{
-    display: grid;
-    gap: 0.5rem;
-    margin: clamp(1rem, 2.5vh, 1.5rem) 0 0;
-}
-
-.details__row
-{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: space-between;
-    padding-block-end: 0.5rem;
-    border-block-end: 1px solid oklch(100% 0 0 / 0.1);
-    font-size: 0.875rem;
-}
-
-.details__key
-{
-    color: var(--ink-muted);
-}
-
-.details__value
-{
-    margin: 0;
-}
-
-/* --------------------------------------------------------------- section */
-
-/* A titled block inside a panel. Each one is divided from the last by its own
-   top rule, so sections stack without needing a separator element. */
-.section
-{
-    margin-block-start: clamp(1.5rem, 4vh, 2.5rem);
-    padding-block-start: clamp(1.25rem, 3vh, 2rem);
-    border-block-start: 1px solid oklch(100% 0 0 / 0.1);
-}
-
-.section__title
-{
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-}
-
-/* A bot row is not a link, so unlike `.list__link` it lays its label and its
-   action out on one line. */
-.list__item--row
-{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.875rem 1rem;
-    border: 1px solid oklch(100% 0 0 / 0.12);
-    border-radius: var(--radius);
-}
-
-.list__text
-{
-    display: grid;
-    gap: 0.25rem;
-    min-inline-size: 0;
-}
-
-.ghost
-{
-    padding: 0.5rem 0.875rem;
-    border: 1px solid oklch(100% 0 0 / 0.16);
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--ink-muted);
-    font: inherit;
-    font-size: 0.8125rem;
-    cursor: pointer;
-}
-
-.ghost:hover,
-.ghost:focus-visible
-{
-    border-color: var(--ink-muted);
-    color: var(--ink);
-}
-
-/* A destructive action reads red before it is pressed, not only once armed. */
-.ghost--danger
-{
-    border-color: oklch(70% 0.17 25 / 0.4);
-    color: var(--alarm);
-}
-
-.ghost--danger:hover,
-.ghost--danger:focus-visible
-{
-    border-color: var(--alarm);
-    color: var(--alarm);
-}
-
-/* Armed for a second click, where the next press actually deletes. Since the
-   idle state is already red, this escalates to a filled surface rather than
-   another shade -- the label changes to "Confirm" too, so the state is never
-   carried by colour alone. */
-.ghost[data-state="armed"]
-{
-    border-color: var(--alarm);
-    background: var(--alarm);
-    color: var(--action-ink);
-    font-weight: 600;
-}
-
-.list__actions
-{
-    display: flex;
-    flex-shrink: 0;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.ghost:disabled
-{
-    cursor: default;
-    opacity: 0.6;
-}
-
-/* Result of the last connection check on a bot row. */
-.probe
-{
-    font-size: 0.8125rem;
-}
-
-.probe[data-state="pending"]
-{
-    color: var(--ink-muted);
-}
-
-.probe[data-state="ok"]
-{
-    color: var(--glow-bright);
-}
-
-.probe[data-state="error"]
-{
-    color: var(--alarm);
-}
-
-/* --------------------------------------------------------- conversations */
-
-/* A conversation row is a disclosure button, so it resets the button surface
-   back to the list-row look the links next to it already have. */
-.thread
-{
-    display: block;
-    inline-size: 100%;
-    padding: 0.875rem 1rem;
-    border: 1px solid oklch(100% 0 0 / 0.12);
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--ink);
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-}
-
-.thread:hover,
-.thread:focus-visible
-{
-    border-color: var(--glow-bright);
-    background: oklch(100% 0 0 / 0.04);
-}
-
-.thread[aria-expanded="true"]
-{
-    border-color: var(--glow-bright);
-    border-end-start-radius: 0;
-    border-end-end-radius: 0;
-}
-
-.thread__body
-{
-    display: grid;
-    gap: 0.5rem;
-    padding: 0.875rem 1rem;
-    border: 1px solid var(--glow-bright);
-    border-block-start: 0;
-    border-end-start-radius: var(--radius);
-    border-end-end-radius: var(--radius);
-}
-
-.bubble
-{
-    display: grid;
-    gap: 0.25rem;
-    justify-items: start;
-    margin: 0;
-    padding: 0.625rem 0.875rem;
-    border-radius: var(--radius);
-    background: oklch(100% 0 0 / 0.05);
-}
-
-.bubble__text
-{
-    font-size: 0.9375rem;
-    /* Inbound text is arbitrary: a long unbroken run must not widen the panel. */
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-}
-
-.bubble__time
-{
-    color: var(--ink-muted);
-    font-size: 0.75rem;
-}
-
-/* The bot row now stacks a url editor under its label and actions. */
-.list__url
-{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-    inline-size: 100%;
-}
-
-.list__url .field__input
-{
-    flex: 1 1 14rem;
-    min-block-size: 2.5rem;
-    font-size: 0.875rem;
-}
-
-/* Which way messages reach this bot. */
-.badge
-{
-    margin-inline-start: 0.5rem;
-    padding: 0.125rem 0.5rem;
-    border: 1px solid currentcolor;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-}
-
-.badge[data-mode="webhook"]
-{
-    color: var(--glow-bright);
-}
-
-.badge[data-mode="polling"]
-{
-    color: var(--ink-muted);
-}
-
-/* The profile page renders a thread outside a disclosure, so it needs the
-   bubble container without the open-row borders. */
-.thread__body--plain
-{
-    padding-inline: 0;
-    border: 0;
-}
-
-/* ------------------------------------------------------------------ tabs */
-
-/* The section switcher under a panel header. Scrolls rather than wraps on a
-   phone, so the header keeps its single-row shape at any width. */
-.tabs
-{
-    display: flex;
-    gap: 0.25rem;
-    margin-block-start: clamp(1rem, 2.5vh, 1.5rem);
-    padding-block-end: 0.5rem;
-    border-block-end: 1px solid oklch(100% 0 0 / 0.1);
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-.tabs::-webkit-scrollbar
-{
-    display: none;
-}
-
-.tabs__tab
-{
-    flex: 0 0 auto;
-    padding: 0.5rem 0.875rem;
-    border: 0;
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--ink-muted);
-    font: inherit;
-    font-size: 0.875rem;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.tabs__tab:hover
-{
-    color: var(--ink);
-}
-
-.tabs__tab[aria-selected="true"]
-{
-    background: oklch(100% 0 0 / 0.07);
-    color: var(--ink);
-    font-weight: 600;
-}
-
-/* A tab panel already sits under the switcher, so its section needs no rule of
-   its own to separate it. */
-[role="tabpanel"] > .section,
-.panel > [role="tabpanel"].section
-{
-    margin-block-start: clamp(1rem, 2.5vh, 1.5rem);
-    padding-block-start: 0;
-    border-block-start: 0;
-}
-
-/* A granted permission reads as a normal ghost button; a denied one borrows the
-   danger tone, so the state is visible without reading the label. */
-.ghost[aria-pressed="true"]
-{
-    border-color: var(--glow-bright);
-    color: var(--glow-bright);
-}
-
-/* --------------------------------------------------------------- agent doc */
-
-.doc
-{
-    margin-block-start: 0.75rem;
-    padding: 0.875rem 1rem;
-    border: 1px solid oklch(100% 0 0 / 0.12);
-    border-radius: var(--radius);
-}
-
-.doc__head
-{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: center;
-    justify-content: space-between;
-    margin-block-end: 0.625rem;
-}
-
-.doc__name
-{
-    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
-
-/* Markdown is written, not prose-read, so the editor is monospaced and the
-   text never wraps mid-token. */
-.doc__editor
-{
-    display: block;
-    inline-size: 100%;
-    padding: 0.75rem;
-    border: 1px solid oklch(100% 0 0 / 0.14);
-    border-radius: var(--radius);
-    background: oklch(8% 0.015 258 / 0.55);
-    color: var(--ink);
-    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
-    font-size: 0.8125rem;
-    line-height: 1.55;
-    resize: vertical;
-    tab-size: 2;
-}
-
-.doc__editor:focus-visible
-{
-    border-color: var(--glow-bright);
-    outline: 2px solid var(--glow-bright);
-    outline-offset: 2px;
-}
-
-/* The select borrows the text-input surface but needs its own arrow space. */
-select.field__input
-{
-    padding-inline-end: 2rem;
-    appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%), linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
-    background-position: calc(100% - 1.1rem) 50%, calc(100% - 0.75rem) 50%;
-    background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
-    background-repeat: no-repeat;
-}
-
-/* An agent's reply sits opposite the person's message, so a thread reads as a
-   dialogue rather than a list. */
-.bubble[data-direction="out"]
-{
-    justify-items: end;
-    margin-inline-start: 2rem;
-    background: oklch(45% 0.16 255 / 0.16);
-    text-align: end;
-}
-
-.badge[data-mode="agent"]
-{
-    color: var(--glow-bright);
-}
-
-/* --------------------------------------------------------------- heatmap */
-
-.heatmap
-{
-    display: flex;
-    gap: 0.5rem;
-    margin-block-start: clamp(1rem, 2.5vh, 1.5rem);
-    /* 12 weeks will not fit a phone; scroll rather than shrink the cells below
-       a usable tap target. */
-    overflow-x: auto;
-    scrollbar-width: thin;
-}
-
-.heatmap__days
-{
-    display: grid;
-    grid-template-rows: repeat(7, 1fr);
-    gap: 3px;
-    flex-shrink: 0;
-}
-
-.heatmap__day
-{
-    display: flex;
-    align-items: center;
-    block-size: 13px;
-    color: var(--ink-muted);
-    font-size: 0.625rem;
-    line-height: 1;
-}
-
-.heatmap__grid
-{
-    display: flex;
-    gap: 3px;
-}
-
-.heatmap__week
-{
-    display: grid;
-    grid-template-rows: repeat(7, 1fr);
-    gap: 3px;
-}
-
-.heatmap__cell
-{
-    inline-size: 13px;
-    block-size: 13px;
-    border-radius: 3px;
-    background: oklch(100% 0 0 / 0.06);
-}
-
-.heatmap__cell--empty
-{
-    background: transparent;
-}
-
-.heatmap__cell[data-level="1"] { background: oklch(45% 0.16 255 / 0.35); }
-.heatmap__cell[data-level="2"] { background: oklch(52% 0.18 255 / 0.55); }
-.heatmap__cell[data-level="3"] { background: oklch(62% 0.19 252 / 0.78); }
-.heatmap__cell[data-level="4"] { background: var(--glow-bright); }
-
-/* A day with failures is outlined rather than recoloured, so the colour keeps
-   meaning volume and is not overloaded with two variables at once. */
-.heatmap__cell[data-errors="yes"]
-{
-    outline: 1px solid var(--alarm);
-    outline-offset: -1px;
-}
-
-.heatmap__legend
-{
-    display: flex;
-    gap: 0.3rem;
-    align-items: center;
-    margin-block-start: 0.625rem;
-    color: var(--ink-muted);
-    font-size: 0.6875rem;
-}
-
-.heatmap__legend-note
-{
-    margin-inline-start: 0.5rem;
-}
-
-/* A file an agent wrote: shown, not edited. */
-.doc__editor--read
-{
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-
-/* Who performed an audited action. */
-.badge[data-mode="agent"] { color: var(--glow-bright); }
-.badge[data-mode="telegram"] { color: var(--ink-muted); }
-.badge[data-mode="owner"] { color: var(--ink); }
-.badge[data-mode="system"] { color: var(--ink-muted); }
-
-/* A recorded model exchange can be long; cap it and let it scroll. */
-.doc__editor--read
-{
-    max-block-size: 22rem;
-    overflow: auto;
-}
-

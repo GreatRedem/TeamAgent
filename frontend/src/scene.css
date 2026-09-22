@@ -1,0 +1,243 @@
+/*
+ * The sign-in scene: a hand-drawn crystal, its lattice, drifting particles and
+ * the terrain under it.
+ *
+ * Kept as plain CSS when the rest of the interface moved to daisyUI, because
+ * none of it is a component: it is one illustration with its own composition
+ * and its own motion, and expressing that in utility classes would make it
+ * harder to read, not more consistent.
+ */
+
+/* ----------------------------------------------------------------- scene */
+
+/*
+ * The illustration's palette, in its own words, each one a token from
+ * `tokens.css`. The SVGs in `components/scene/` paint with these names, so a
+ * recolour of the interface reaches the crystal without touching the drawing.
+ */
+.scene
+{
+    --bg: var(--nura-well);
+    --bg-deep: var(--nura-bg);
+    --ink: var(--nura-text);
+
+    --glow: var(--nura-heat-2);
+    --glow-bright: var(--nura-live);
+
+    --facet-hi: var(--nura-text-2);
+    --facet-lo: var(--nura-off);
+    --facet-deep: var(--nura-raised);
+
+    --rock-hi: var(--nura-line-strong);
+    --rock-deep: var(--nura-bg);
+    --rock-rim: var(--nura-text-3);
+
+    position: fixed;
+    inset: 0;
+    /* Behind everything in the shell: the shell is `isolate`, so -1 stays
+       inside it and cannot fall under the page background. At 0 a positioned
+       scene paints over the unpositioned <main>. */
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(120% 90% at 50% 8%, var(--nura-panel-hover) 0%, transparent 60%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+}
+
+.scene__glow
+{
+    position: absolute;
+    inset-block-start: -10%;
+    inset-inline-start: 50%;
+    inline-size: min(120vw, 60rem);
+    aspect-ratio: 1;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--glow-bright) 28%, transparent) 0%, transparent 62%);
+}
+
+/*
+ * Mobile composition: the crystal sits in the upper third and the sign-in copy
+ * below it. On wider screens it moves right of centre (see the breakpoints at
+ * the end of this file) so the left column stays empty for the text.
+ */
+.scene__object
+{
+    position: absolute;
+    inset-block-start: 6%;
+    inset-inline-start: 50%;
+    inline-size: min(72vw, 20rem);
+    aspect-ratio: 1;
+    translate: -50% 0;
+    animation: drift 18s ease-in-out infinite;
+}
+
+/*
+ * The quiet region the authentication content sits in. The brief asks for no
+ * bright geometry behind the heading or the button; rather than hand-placing
+ * every element around the text, this darkens whatever ends up there.
+ */
+.scene__quiet
+{
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(70% 46% at 50% 76%, color-mix(in srgb, var(--bg-deep) 82%, transparent) 0%, transparent 70%);
+}
+
+.lattice
+{
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    block-size: 72%;
+}
+
+.particles
+{
+    position: absolute;
+    inset: 0;
+}
+
+.particles__dot
+{
+    position: absolute;
+    border-radius: 50%;
+    background: var(--glow-bright);
+    animation-name: float;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+}
+
+.terrain__packet
+{
+    opacity: 0.85;
+}
+
+@keyframes float
+{
+    0%, 100%
+    {
+        transform: translate3d(0, 0, 0);
+    }
+
+    50%
+    {
+        transform: translate3d(0.6rem, -1.6rem, 0);
+    }
+}
+
+.crystal,
+.debris
+{
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+}
+
+.terrain
+{
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    block-size: clamp(14rem, 38vh, 26rem);
+}
+
+.terrain__trail
+{
+    opacity: 0.55;
+}
+
+@keyframes drift
+{
+    0%, 100%
+    {
+        transform: translateY(0);
+    }
+
+    50%
+    {
+        transform: translateY(-1.25rem);
+    }
+}
+
+/* ----------------------------------------------------------- breakpoints */
+
+/* Below tablet the canvas is small: thin the dust and soften the lattice so the
+   copy keeps its breathing room. */
+@media (max-width: 39.99rem)
+{
+    .particles__dot:nth-child(n + 13)
+    {
+        display: none;
+    }
+
+    .lattice
+    {
+        opacity: 0.55;
+    }
+}
+
+/* tablet: more room, content still sits low */
+@media (min-width: 40rem)
+{
+    {
+        padding-block-end: clamp(4rem, 16vh, 9rem);
+    }
+
+    .scene__object
+    {
+        inset-block-start: 6%;
+        inline-size: min(60vw, 26rem);
+    }
+}
+
+/* desktop: content moves to a left column, the object to the right */
+@media (min-width: 64rem)
+{
+    {
+        align-items: center;
+        padding-block-end: clamp(4rem, 14vh, 9rem);
+    }
+
+    {
+        inline-size: min(100%, 36rem);
+    }
+
+    .scene__object
+    {
+        inline-size: min(42vw, 40rem);
+    }
+
+    /* More of the environment is visible, so let the far layers read. */
+    .lattice
+    {
+        opacity: 1.15;
+    }
+
+    .terrain
+    {
+        block-size: clamp(22rem, 50vh, 40rem);
+    }
+}
+
+/* ------------------------------------------------------------ preferences */
+
+@media (prefers-reduced-motion: reduce)
+{
+    .scene__object,
+    .particles__dot
+    {
+        animation: none;
+    }
+
+    /* The crystal's rotation is stopped in `useRotation`; these are the parts
+       driven by CSS and SMIL instead. */
+    .terrain__packet
+    {
+        display: none;
+    }
+}
