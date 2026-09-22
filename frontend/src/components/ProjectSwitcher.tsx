@@ -2,56 +2,28 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, LayoutGrid, Settings2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 
-import { teamDetails, teamList, type Team } from '../lib/api';
-import { LED } from './LED';
-import { MonoLabel } from './MonoLabel';
-import { teamPath } from './RailNav';
+import { teamDetails, teamList, type Team } from '../api';
+import { CLASS_MENU_ITEM, TEAM_NAMES } from '../lib/constant';
+import { teamPath } from '../lib/navigation';
+import { LED } from './ui/LED';
+import { MonoLabel } from './ui/MonoLabel';
 
-/**
- * Names already fetched, so moving between a team's destinations does not
- * re-ask for the same name each time.
- *
- * Module-level rather than state: a cache that lived in the component would be
- * refilled on every remount, and the one thing being cached is a short string
- * that changes only when someone renames a team.
- */
-const names = new Map<number, string>();
-
-/** On sign-out, so the next account does not see the last one's names. */
-export function forgetTeamNames(): void
-{
-    names.clear();
-}
-
-const ITEM = 'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm text-ink-2 no-underline hover:bg-raised hover:text-ink';
-
-/**
- * The active project, always visible in the header: name, `TEAM` badge, caret.
- * Opens the list of teams, plus the way to this team's settings and back to
- * all projects.
- *
- * "Open" is stored as the path it was opened on, so navigating anywhere closes
- * it without an effect that sets state. Outside clicks and Escape close it too.
- */
 export function ProjectSwitcher({ teamId }: { teamId: number })
 {
     const { pathname } = useLocation();
 
     const [ openedAt, setOpenedAt ] = useState<string | null>(null);
     const [ teams, setTeams ] = useState<Team[] | null>(null);
-
-    // Carries the id it belongs to, so a name fetched for the team you just
-    // left cannot be shown against the one you just opened.
     const [ fetched, setFetched ] = useState({ id: 0, name: '' });
 
     const root = useRef<HTMLDivElement>(null);
 
     const open = openedAt === pathname;
-    const name = names.get(teamId) ?? (fetched.id === teamId ? fetched.name : '');
+    const name = TEAM_NAMES.get(teamId) ?? (fetched.id === teamId ? fetched.name : '');
 
     useEffect(() =>
     {
-        if (teamId === 0 || names.has(teamId))
+        if (teamId === 0 || TEAM_NAMES.has(teamId))
         {
             return;
         }
@@ -61,16 +33,14 @@ export function ProjectSwitcher({ teamId }: { teamId: number })
         teamDetails(teamId)
             .then((team) =>
             {
-                names.set(team.id, team.name);
+                TEAM_NAMES.set(team.id, team.name);
 
                 if (active)
                 {
                     setFetched({ id: team.id, name: team.name });
                 }
             })
-            // Silent: the page itself reports a team it cannot load, and a
-            // second copy of that error in the chrome helps nobody.
-            .catch(() => { /* the name simply stays blank */ });
+            .catch(() => { });
 
         return () =>
         {
@@ -85,8 +55,6 @@ export function ProjectSwitcher({ teamId }: { teamId: number })
             return;
         }
 
-        // The list is fetched the first time the menu opens, not on every
-        // page: it is only needed once someone reaches for another project.
         if (teams === null)
         {
             teamList()
@@ -94,7 +62,7 @@ export function ProjectSwitcher({ teamId }: { teamId: number })
                 {
                     for (const team of payload.teams)
                     {
-                        names.set(team.id, team.name);
+                        TEAM_NAMES.set(team.id, team.name);
                     }
 
                     setTeams(payload.teams);
@@ -137,8 +105,6 @@ export function ProjectSwitcher({ teamId }: { teamId: number })
                 aria-expanded={ open }
                 onClick={ () => setOpenedAt(open ? null : pathname) }
             >
-                {/* Until the name arrives the id is still true, and is better
-                    than a box that changes width under the eye. */}
                 <span className="truncate">{ teamId === 0 ? 'Projects' : name === '' ? `Team ${ teamId }` : name }</span>
 
                 { teamId !== 0 && (
@@ -159,7 +125,7 @@ export function ProjectSwitcher({ teamId }: { teamId: number })
                     { teams?.map((team) => (
                         <Link
                             key={ team.id }
-                            className={ team.id === teamId ? `${ ITEM } bg-raised text-ink` : ITEM }
+                            className={ team.id === teamId ? `${ CLASS_MENU_ITEM } bg-raised text-ink` : CLASS_MENU_ITEM }
                             role="menuitem"
                             aria-current={ team.id === teamId ? 'true' : undefined }
                             to={ teamPath(team.id) }
@@ -172,13 +138,13 @@ export function ProjectSwitcher({ teamId }: { teamId: number })
                     <span className="my-1 border-t border-edge-soft" aria-hidden="true" />
 
                     { teamId !== 0 && (
-                        <Link className={ ITEM } role="menuitem" to={ teamPath(teamId, 'settings') }>
+                        <Link className={ CLASS_MENU_ITEM } role="menuitem" to={ teamPath(teamId, 'settings') }>
                             <Settings2 size={ 14 } aria-hidden="true" />
                             Team settings
                         </Link>
                     ) }
 
-                    <Link className={ ITEM } role="menuitem" to="/dashboard">
+                    <Link className={ CLASS_MENU_ITEM } role="menuitem" to="/dashboard">
                         <LayoutGrid size={ 14 } aria-hidden="true" />
                         All projects
                     </Link>
