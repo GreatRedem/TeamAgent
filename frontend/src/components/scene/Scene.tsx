@@ -1,23 +1,15 @@
+import { CLASS_SCENE_PALETTE, CLASS_SCENE_ROOT } from '../../lib/constant';
 import { Crystal } from './Crystal';
 import { Debris } from './Debris';
 import { Lattice } from './Lattice';
 import { Particles } from './Particles';
 import { Terrain } from './Terrain';
 
-/**
- * Full-bleed background art, built as five depth layers: atmosphere, dust, the
- * far mathematical lattice, the terrain, and the hero crystal.
- *
- * Purely decorative, so the whole layer is hidden from assistive technology and
- * ignores pointer events. `scene__quiet` is the negative space the sign-in copy
- * sits in -- it darkens whatever passes behind the text so the geometry never
- * competes with the one action on the page.
- */
 export function Scene()
 {
     return (
-        <div className="scene" aria-hidden="true">
-            <div className="scene__glow" />
+        <div className={ `${ CLASS_SCENE_ROOT } ${ CLASS_SCENE_PALETTE }` } aria-hidden="true">
+            <div className="absolute -top-[10%] left-1/2 aspect-square w-[min(120vw,60rem)] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--glow-bright)_28%,transparent)_0%,transparent_62%)]" />
 
             <Particles />
 
@@ -25,12 +17,12 @@ export function Scene()
 
             <Terrain />
 
-            <div className="scene__object">
+            <div className="absolute top-[6%] left-1/2 aspect-square w-[min(72vw,20rem)] -translate-x-1/2 animate-drift motion-reduce:animate-none sm:w-[min(60vw,26rem)] lg:w-[min(42vw,40rem)]">
                 <Debris />
                 <Crystal />
             </div>
 
-            <div className="scene__quiet" />
+            <div className="absolute inset-0 bg-[radial-gradient(70%_46%_at_50%_76%,color-mix(in_srgb,var(--nura-bg)_82%,transparent)_0%,transparent_70%)]" />
         </div>
     );
 }

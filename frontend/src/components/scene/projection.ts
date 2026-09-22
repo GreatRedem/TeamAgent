@@ -1,21 +1,13 @@
-/**
- * A minimal 3D projector for the background art.
- *
- * The scene needs four things that are painful to fake by hand in flat SVG:
- * an asymmetric solid whose facets are shaded by their real orientation,
- * curves that genuinely pass in front of and behind that solid, correct
- * painter's-order depth, and a slow rotation that keeps all of it consistent.
- * Deriving them from actual coordinates is less code than hand-drawing each
- * state, and it is why the geometry reads as precise rather than decorative.
- *
- * Weak perspective is deliberate: the brief asks for a 35-50mm look, so the
- * focal length is long enough that there is depth without wide-angle flare.
- */
+import { SCENE_FOCAL } from '../../lib/constant';
 
 export type Vec3 = readonly [number, number, number];
 
-/** Distance from camera to origin, in model units. Larger is flatter. */
-const FOCAL = 4.2;
+export interface Projected
+{
+    x: number;
+    y: number;
+    z: number;
+}
 
 export function rotate(point: Vec3, yaw: number, pitch: number): Vec3
 {
@@ -33,21 +25,12 @@ export function rotate(point: Vec3, yaw: number, pitch: number): Vec3
     return [ x1, y * cx - z1 * sx, y * sx + z1 * cx ];
 }
 
-export interface Projected
-{
-    x: number;
-    y: number;
-    /** Camera-space depth: larger is nearer. Used for sorting and for glow. */
-    z: number;
-}
-
 export function project(point: Vec3, scale: number): Projected
 {
     const [ x, y, z ] = point;
 
-    const k = (FOCAL / (FOCAL - z)) * scale;
+    const k = (SCENE_FOCAL / (SCENE_FOCAL - z)) * scale;
 
-    // SVG y grows downward; the model is authored y-up.
     return { x: x * k, y: -y * k, z };
 }
 
@@ -85,14 +68,6 @@ export function faceNormal(a: Vec3, b: Vec3, c: Vec3): Vec3
     return normalize(cross(subtract(b, a), subtract(c, a)));
 }
 
-/**
- * Deterministic pseudo-random in [0, 1).
- *
- * The composition must be identical on every render and every reload -- the
- * brief calls for a distribution that "feels natural and asymmetrical", not one
- * that reshuffles when React re-renders. A seeded hash gives scattered
- * positions that are nonetheless fixed.
- */
 export function noise(seed: number): number
 {
     const x = Math.sin(seed * 127.1 + 311.7) * 43758.545;
@@ -105,12 +80,6 @@ export function toPoints(points: Projected[]): string
     return points.map((p) => `${ p.x.toFixed(2) },${ p.y.toFixed(2) }`).join(' ');
 }
 
-/**
- * Splits a projected polyline into runs that are nearer than `depth` and runs
- * that are further, so a curve can be drawn partly behind a solid and partly
- * over it. One point of overlap is kept between runs so the halves meet
- * without a visible gap.
- */
 export function splitByDepth(points: Projected[], depth: number): { front: Projected[][]; back: Projected[][] }
 {
     const front: Projected[][] = [ ];

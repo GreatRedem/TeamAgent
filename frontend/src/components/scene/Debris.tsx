@@ -1,34 +1,9 @@
-/**
- * Cubes and spheres drifting around the hero object. Positions are deliberate
- * rather than random so the composition stays stable between renders.
- */
-
-interface Shard
-{
-    x: number;
-    y: number;
-    size: number;
-    opacity: number;
-}
-
-const CUBES: Shard[] = [
-    { x: 86, y: 150, size: 30, opacity: 0.55 },
-    { x: 322, y: 118, size: 20, opacity: 0.4 },
-    { x: 46, y: 372, size: 24, opacity: 0.45 },
-    { x: 352, y: 330, size: 34, opacity: 0.5 },
-    { x: 214, y: 452, size: 18, opacity: 0.35 }
-];
-
-const SPHERES: Shard[] = [
-    { x: 30, y: 250, size: 13, opacity: 0.6 },
-    { x: 372, y: 214, size: 9, opacity: 0.45 },
-    { x: 300, y: 432, size: 16, opacity: 0.5 }
-];
+import { DEBRIS_CUBES, DEBRIS_SPHERES } from '../../lib/constant';
 
 export function Debris()
 {
     return (
-        <svg className="debris" viewBox="0 0 420 500" role="presentation" focusable="false">
+        <svg className="absolute inset-0 size-full" viewBox="0 0 420 500" role="presentation" focusable="false">
             <defs>
                 <linearGradient id="cubeTop" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--facet-hi)" stopOpacity="0.5" />
@@ -41,7 +16,7 @@ export function Debris()
                 </radialGradient>
             </defs>
 
-            { CUBES.map((cube) => (
+            { DEBRIS_CUBES.map((cube) => (
                 <g key={ `cube-${ cube.x }-${ cube.y }` } opacity={ cube.opacity } transform={ `translate(${ cube.x } ${ cube.y })` }>
                     <polygon points={ `0,${ -cube.size * 0.5 } ${ cube.size },0 0,${ cube.size * 0.5 } ${ -cube.size },0` } fill="url(#cubeTop)" />
                     <polygon points={ `${ -cube.size },0 0,${ cube.size * 0.5 } 0,${ cube.size * 1.4 } ${ -cube.size },${ cube.size * 0.9 }` } fill="var(--facet-deep)" opacity="0.85" />
@@ -49,7 +24,7 @@ export function Debris()
                 </g>
             )) }
 
-            { SPHERES.map((sphere) => (
+            { DEBRIS_SPHERES.map((sphere) => (
                 <circle
                     key={ `sphere-${ sphere.x }-${ sphere.y }` }
                     cx={ sphere.x }

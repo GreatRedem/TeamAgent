@@ -2,14 +2,37 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
-import { ButtonLink } from '../components/Button';
-import { PaginationFooter } from '../components/PaginationFooter';
-import { Panel, PageHead } from '../components/Panel';
+import { ButtonLink } from '../components/ui/Button';
+import { PaginationFooter } from '../components/ui/PaginationFooter';
+import { Panel, PageHead } from '../components/ui/Panel';
 import { ProfilePermissions } from '../components/ProfilePermissions';
-import { profileName } from '../components/profileName';
-import { ApiError, profileDetails, profileFiles, type Paged, type ProfileFile, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../lib/api';
+import { profileName } from '../lib/profileName';
+import { ApiError, profileDetails, profileFiles, type Paged, type ProfileFile, type TelegramMessage, type TelegramProfile, type TelegramProfileBot } from '../api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 import { tokenLabel } from '../lib/tokens';
+
+import {
+    CLASS_BUBBLE_IN,
+    CLASS_BUBBLE_OUT,
+    CLASS_BUBBLE_TEXT,
+    CLASS_BUBBLE_TIME,
+    CLASS_DETAILS,
+    CLASS_DETAILS_KEY,
+    CLASS_DETAILS_ROW,
+    CLASS_DETAILS_VALUE,
+    CLASS_DOC,
+    CLASS_DOC_COST,
+    CLASS_DOC_HEAD,
+    CLASS_DOC_NAME,
+    CLASS_DOC_READER,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR,
+    CLASS_ROW,
+    CLASS_ROWS,
+    CLASS_ROW_META,
+    CLASS_ROW_NAME,
+    CLASS_ROW_TEXT
+} from '../lib/constant';
 
 interface Details
 {
@@ -18,7 +41,6 @@ interface Details
     messages: TelegramMessage[];
 }
 
-/** A row in the identity table, skipped entirely when Telegram gave us nothing. */
 function Field({ label, value }: { label: string; value: string })
 {
     if (value === '')
@@ -27,17 +49,13 @@ function Field({ label, value }: { label: string; value: string })
     }
 
     return (
-        <div className="details__row">
-            <dt className="details__key">{ label }</dt>
-            <dd className="details__value">{ value }</dd>
+        <div className={ CLASS_DETAILS_ROW }>
+            <dt className={ CLASS_DETAILS_KEY }>{ label }</dt>
+            <dd className={ CLASS_DETAILS_VALUE }>{ value }</dd>
         </div>
     );
 }
 
-/**
- * Everything held about one person who has messaged the team's bots: the fields
- * Telegram supplies, which bots they have written to, and their full history.
- */
 export function Profile()
 {
     const navigate = useNavigate();
@@ -129,7 +147,6 @@ export function Profile()
 
     const shown = idsInvalid ? 'PROFILE_ID_INVALID' : error;
 
-    // Message rows carry a bot id; the header knows the names.
     const botNames = new Map((details?.bots ?? [ ]).map((bot) => [ bot.id, bot.name ]));
 
     return (
@@ -144,14 +161,14 @@ export function Profile()
                 ) }
             />
 
-            { details === null && shown === null && <p className="note">Loading profile...</p> }
+            { details === null && shown === null && <p className={ CLASS_NOTE }>Loading profile...</p> }
 
-            { shown !== null && <p className="note" data-state="error" role="alert">{ shown }</p> }
+            { shown !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ shown }</p> }
 
             { details !== null && (
                 <>
                     <Panel title="Identity" sub="What Telegram tells us about this person">
-                        <dl className="details mt-0">
+                        <dl className={ CLASS_DETAILS }>
                             <Field label="Telegram ID" value={ details.profile.telegram_id } />
                             <Field label="Username" value={ details.profile.username !== '' ? `@${ details.profile.username }` : '' } />
                             <Field label="First name" value={ details.profile.first_name } />
@@ -170,18 +187,18 @@ export function Profile()
                     />
 
                     <Panel title="Bots" sub="Which of the team’s bots they have written to">
-                        { details.bots.length === 0 && <p className="note">No stored messages to attribute.</p> }
+                        { details.bots.length === 0 && <p className={ CLASS_NOTE }>No stored messages to attribute.</p> }
 
                         { details.bots.length > 0 && (
-                            <ul className="rows mt-0">
+                            <ul className={ CLASS_ROWS }>
                                 { details.bots.map((bot) => (
-                                    <li className="rows__item rows__item--row" key={ bot.id }>
-                                        <span className="rows__text">
-                                            <span className="rows__name">{ bot.name }</span>
-                                            <span className="rows__meta">last { new Date(bot.last_seen_at).toLocaleString() }</span>
+                                    <li className={ CLASS_ROW } key={ bot.id }>
+                                        <span className={ CLASS_ROW_TEXT }>
+                                            <span className={ CLASS_ROW_NAME }>{ bot.name }</span>
+                                            <span className={ CLASS_ROW_META }>last { new Date(bot.last_seen_at).toLocaleString() }</span>
                                         </span>
 
-                                        <span className="rows__meta">{ bot.message_count } message{ bot.message_count === 1 ? '' : 's' }</span>
+                                        <span className={ CLASS_ROW_META }>{ bot.message_count } message{ bot.message_count === 1 ? '' : 's' }</span>
                                     </li>
                                 )) }
                             </ul>
@@ -195,42 +212,41 @@ export function Profile()
                             <PaginationFooter page={ filePage } shown={ files.length } busy={ paging } noun="files" onPage={ (offset) => void goToFiles(offset) } />
                         ) }
                     >
-                        <p className="note mt-0">
+                        <p className={ CLASS_NOTE }>
                             Written by agents through the internal tools. Read-only here — editing them by
                             hand would change what an agent believes without the agent seeing it happen.
                         </p>
 
-                        { files.length === 0 && <p className="note">No files yet.</p> }
+                        { files.length === 0 && <p className={ CLASS_NOTE }>No files yet.</p> }
 
                         { files.map((file) => (
-                            <article className="doc" key={ file.id }>
-                                <header className="doc__head">
-                                    <span className="doc__name">{ file.name }</span>
+                            <article className={ CLASS_DOC } key={ file.id }>
+                                <header className={ CLASS_DOC_HEAD }>
+                                    <span className={ CLASS_DOC_NAME }>{ file.name }</span>
 
-                                    { /* Read through a tool when an agent asks for it, so this is
-                                         a cost per lookup rather than one paid on every message. */ }
-                                    <span className="doc__cost" title="Estimated tokens, charged when an agent reads this file">
+
+                                    <span className={ CLASS_DOC_COST } title="Estimated tokens, charged when an agent reads this file">
                                         { tokenLabel(file.content) }
                                     </span>
 
-                                    <span className="rows__meta">{ new Date(file.updated_at).toLocaleString() }</span>
+                                    <span className={ CLASS_ROW_META }>{ new Date(file.updated_at).toLocaleString() }</span>
                                 </header>
 
-                                <pre className="doc__editor doc__editor--read">{ file.content }</pre>
+                                <pre className={ CLASS_DOC_READER }>{ file.content }</pre>
                             </article>
                         )) }
                     </Panel>
 
                     <Panel title="Conversations" sub="Everything they have written, oldest first">
-                        { details.messages.length === 0 && <p className="note">No messages stored yet.</p> }
+                        { details.messages.length === 0 && <p className={ CLASS_NOTE }>No messages stored yet.</p> }
 
                         { details.messages.length > 0 && (
-                            <div className="thread__body thread__body--plain mt-0">
+                            <div className="grid gap-2">
                                 { details.messages.map((message) => (
-                                    <p className="bubble" data-direction={ message.direction } key={ message.id }>
-                                        <span className="bubble__text">{ message.text }</span>
+                                    <p className={ message.direction === 'out' ? CLASS_BUBBLE_OUT : CLASS_BUBBLE_IN } key={ message.id }>
+                                        <span className={ CLASS_BUBBLE_TEXT }>{ message.text }</span>
 
-                                        <time className="bubble__time" dateTime={ message.sent_at }>
+                                        <time className={ CLASS_BUBBLE_TIME } dateTime={ message.sent_at }>
                                             { message.direction === 'out' ? 'agent · ' : '' }
                                             { botNames.get(message.bot_id) ?? 'Removed bot' } · { new Date(message.sent_at).toLocaleString() }
                                         </time>

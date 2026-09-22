@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, permissionCatalog, profilePermissionUpdate, type Permission, type TelegramProfile } from '../lib/api';
-import { Panel } from './Panel';
+import { ApiError, permissionCatalog, profilePermissionUpdate, type Permission, type TelegramProfile } from '../api';
+import { Panel } from './ui/Panel';
+
+import {
+    CLASS_GHOST,
+    CLASS_GHOST_DANGER,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR,
+    CLASS_ROW,
+    CLASS_ROWS,
+    CLASS_ROW_META,
+    CLASS_ROW_NAME,
+    CLASS_ROW_TEXT
+} from '../lib/constant';
 
 interface ProfilePermissionsProps
 {
@@ -10,17 +22,6 @@ interface ProfilePermissionsProps
     onChange: (profile: TelegramProfile) => void;
 }
 
-/**
- * What one person is allowed to do.
- *
- * The catalog comes from the backend rather than being listed here, so adding
- * a permission is a backend-only change and the two can never disagree about
- * which keys exist.
- *
- * Each toggle sends the whole resulting set, matching the endpoint: the UI
- * always knows the complete intended state, so there is no grant/revoke pair
- * to interleave.
- */
 export function ProfilePermissions({ teamId, profile, onChange }: ProfilePermissionsProps)
 {
     const [ catalog, setCatalog ] = useState<Permission[] | null>(null);
@@ -81,30 +82,27 @@ export function ProfilePermissions({ teamId, profile, onChange }: ProfilePermiss
 
     return (
         <Panel title="Permissions" sub="What this person may do. Anything not granted is denied">
-            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
 
-            { catalog === null && <p className="note">Loading permissions...</p> }
+            { catalog === null && <p className={ CLASS_NOTE }>Loading permissions...</p> }
 
             { catalog !== null && catalog.length > 0 && (
-                <ul className="rows mt-0">
+                <ul className={ CLASS_ROWS }>
                     { catalog.map((permission) =>
                     {
                         const granted = profile.permissions.includes(permission.key);
 
                         return (
-                            <li className="rows__item rows__item--row" key={ permission.key }>
-                                <span className="rows__text">
-                                    <span className="rows__name">{ permission.label }</span>
-                                    <span className="rows__meta">{ permission.description }</span>
+                            <li className={ CLASS_ROW } key={ permission.key }>
+                                <span className={ CLASS_ROW_TEXT }>
+                                    <span className={ CLASS_ROW_NAME }>{ permission.label }</span>
+                                    <span className={ CLASS_ROW_META }>{ permission.description }</span>
                                 </span>
 
                                 <button
-                                    className={ granted ? 'ghost' : 'ghost ghost--danger' }
+                                    className={ granted ? CLASS_GHOST : CLASS_GHOST_DANGER }
                                     type="button"
                                     disabled={ saving === permission.key }
-                                    // The button reports the current state and
-                                    // toggles it, so it needs the pressed state
-                                    // rather than a label that reads as a verb.
                                     aria-pressed={ granted }
                                     onClick={ () => void toggle(permission.key) }
                                 >

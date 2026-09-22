@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 
-import { ButtonLink } from '../components/Button';
+import { ButtonLink } from '../components/ui/Button';
 
 export function NotFound()
 {

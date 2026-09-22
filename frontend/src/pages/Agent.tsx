@@ -2,31 +2,46 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, FilePlus, Save } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 
-import { Button, ButtonLink } from '../components/Button';
-import { PaginationFooter } from '../components/PaginationFooter';
-import { Panel, PageHead } from '../components/Panel';
+import { Button, ButtonLink } from '../components/ui/Button';
+import { PaginationFooter } from '../components/ui/PaginationFooter';
+import { Panel, PageHead } from '../components/ui/Panel';
 import {
     ApiError, agentDetails, agentDocumentCreate, agentDocumentRemove, agentDocumentUpdate,
     agentExchanges, agentPermissionCatalog, agentPermissionUpdate, agentUpdate, modelList,
-    type AgentDocument, type AgentExchange, type Paged, type Permission, type TeamAgent, type TeamModel } from '../lib/api';
+    type AgentDocument, type AgentExchange, type Paged, type Permission, type TeamAgent, type TeamModel } from '../api';
 import { clearAccessToken, readAccessToken } from '../lib/session';
 import { tokenLabel } from '../lib/tokens';
 
-/**
- * Whether a document rides along in every system prompt or is fetched only
- * when the agent asks for it.
- *
- * Mirrors `ALWAYS_INLINE` and `DOCUMENT_INLINE_MAX` in
- * `backend/src/routes/agent/agent.reply.ts`; the backend decides, this only
- * labels what it will do. Kept in sync by hand -- the alternative is another
- * field on the documents response for something that is purely a label.
- */
+import {
+    CLASS_DOC,
+    CLASS_DOC_COST,
+    CLASS_DOC_EDITOR,
+    CLASS_DOC_HEAD,
+    CLASS_DOC_NAME,
+    CLASS_DOC_READER,
+    CLASS_FIELD,
+    CLASS_FIELD_INPUT,
+    CLASS_FIELD_LABEL,
+    CLASS_FORM,
+    CLASS_GHOST,
+    CLASS_GHOST_ARMED,
+    CLASS_GHOST_DANGER,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR,
+    CLASS_PROBE,
+    CLASS_ROW,
+    CLASS_ROWS,
+    CLASS_ROW_ACTIONS,
+    CLASS_ROW_META,
+    CLASS_ROW_NAME,
+    CLASS_ROW_TEXT
+} from '../lib/constant';
+
 function alwaysSent(name: string, content: string): boolean
 {
     return name === 'instructions.md' || name === 'guardrails.md' || content.trim().length <= 400;
 }
 
-/** One markdown file, edited in place. */
 function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
     teamId: number;
     agentId: number;
@@ -35,10 +50,6 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
     onRemoved: (id: number) => void;
 })
 {
-    // Seeded once: the caller keys this component by document id, so a
-    // different file remounts it rather than needing a reset effect. After a
-    // save the parent's copy already matches what is typed here, which is what
-    // clears `dirty`.
     const [ content, setContent ] = useState(document.content);
     const [ busy, setBusy ] = useState(false);
     const [ arming, setArming ] = useState(false);
@@ -89,15 +100,13 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
     }, [ teamId, agentId, document.id, arming, onRemoved ]);
 
     return (
-        <article className="doc">
-            <header className="doc__head">
-                <span className="doc__name">{ document.name }</span>
+        <article className={ CLASS_DOC }>
+            <header className={ CLASS_DOC_HEAD }>
+                <span className={ CLASS_DOC_NAME }>{ document.name }</span>
 
-                { /* Whether this file is a cost on every message or only when
-                     the agent opens it -- see `alwaysSent`. */ }
+
                 <span
-                    className="doc__cost"
-                    data-deferred={ alwaysSent(document.name, content) ? undefined : '' }
+                    className={ alwaysSent(document.name, content) ? CLASS_DOC_COST : `${ CLASS_DOC_COST } opacity-60` }
                     title={ alwaysSent(document.name, content)
                         ? 'Estimated tokens, sent on every message this agent answers'
                         : 'Estimated tokens, charged only when the agent opens this file' }
@@ -105,15 +114,14 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
                     { tokenLabel(content) } · { alwaysSent(document.name, content) ? 'every message' : 'on demand' }
                 </span>
 
-                <span className="rows__actions">
-                    <button className="ghost" type="button" disabled={ busy || !dirty } onClick={ () => void save() }>
+                <span className={ CLASS_ROW_ACTIONS }>
+                    <button className={ CLASS_GHOST } type="button" disabled={ busy || !dirty } onClick={ () => void save() }>
                         { busy ? 'Saving...' : dirty ? 'Save' : 'Saved' }
                     </button>
 
                     <button
-                        className="ghost ghost--danger"
+                        className={ arming ? CLASS_GHOST_ARMED : CLASS_GHOST_DANGER }
                         type="button"
-                        data-state={ arming ? 'armed' : undefined }
                         onClick={ () => void remove() }
                     >
                         { arming ? 'Confirm' : 'Remove' }
@@ -122,7 +130,7 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
             </header>
 
             <textarea
-                className="doc__editor"
+                className={ CLASS_DOC_EDITOR }
                 value={ content }
                 onChange={ (event) => setContent(event.target.value) }
                 spellCheck={ false }
@@ -130,12 +138,11 @@ function DocumentEditor({ teamId, agentId, document, onSaved, onRemoved }: {
                 aria-label={ `Contents of ${ document.name }` }
             />
 
-            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
         </article>
     );
 }
 
-/** An agent's own page: what it is, which model it uses, and its markdown files. */
 export function Agent()
 {
     const navigate = useNavigate();
@@ -340,25 +347,25 @@ export function Agent()
                 ) }
             />
 
-            { agent === null && shown === null && <p className="note">Loading agent...</p> }
+            { agent === null && shown === null && <p className={ CLASS_NOTE }>Loading agent...</p> }
 
-            { shown !== null && <p className="note" data-state="error" role="alert">{ shown }</p> }
+            { shown !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ shown }</p> }
 
             { agent !== null && (
                 <>
                     <Panel title="Settings" sub="What this agent is, and the model it is bound to">
                         { agent.model_name === '' && (
-                            <p className="note mt-0" data-state="error">
+                            <p className={ CLASS_NOTE_ERROR }>
                                 No model attached — the model this agent used was removed. Pick another below.
                             </p>
                         ) }
 
-                        <form className="form mt-0" onSubmit={ saveAgent }>
-                            <label className="field">
-                                <span className="field__label">Name</span>
+                        <form className={ CLASS_FORM } onSubmit={ saveAgent }>
+                            <label className={ CLASS_FIELD }>
+                                <span className={ CLASS_FIELD_LABEL }>Name</span>
 
                                 <input
-                                    className="field__input"
+                                    className={ CLASS_FIELD_INPUT }
                                     value={ name }
                                     onChange={ (event) => setName(event.target.value) }
                                     minLength={ 2 }
@@ -367,11 +374,11 @@ export function Agent()
                                 />
                             </label>
 
-                            <label className="field">
-                                <span className="field__label">Description</span>
+                            <label className={ CLASS_FIELD }>
+                                <span className={ CLASS_FIELD_LABEL }>Description</span>
 
                                 <input
-                                    className="field__input"
+                                    className={ CLASS_FIELD_INPUT }
                                     value={ description }
                                     onChange={ (event) => setDescription(event.target.value) }
                                     maxLength={ 280 }
@@ -379,11 +386,11 @@ export function Agent()
                                 />
                             </label>
 
-                            <label className="field">
-                                <span className="field__label">Model</span>
+                            <label className={ CLASS_FIELD }>
+                                <span className={ CLASS_FIELD_LABEL }>Model</span>
 
                                 <select
-                                    className="field__input"
+                                    className={ CLASS_FIELD_INPUT }
                                     value={ modelId }
                                     onChange={ (event) => setModelId(event.target.value) }
                                     required
@@ -401,24 +408,24 @@ export function Agent()
                             </Button>
                         </form>
 
-                        { saved && <output className="note">Saved.</output> }
+                        { saved && <output className={ CLASS_NOTE }>Saved.</output> }
                     </Panel>
 
                     <Panel title="Capabilities" sub="What this agent may do through the internal tools, for every person it talks to. Every capability is off until granted">
-                        <ul className="rows mt-0">
+                        <ul className={ CLASS_ROWS }>
                             { capabilities.map((capability) =>
                             {
                                 const granted = agent.permissions.includes(capability.key);
 
                                 return (
-                                    <li className="rows__item rows__item--row" key={ capability.key }>
-                                        <span className="rows__text">
-                                            <span className="rows__name">{ capability.label }</span>
-                                            <span className="rows__meta">{ capability.description }</span>
+                                    <li className={ CLASS_ROW } key={ capability.key }>
+                                        <span className={ CLASS_ROW_TEXT }>
+                                            <span className={ CLASS_ROW_NAME }>{ capability.label }</span>
+                                            <span className={ CLASS_ROW_META }>{ capability.description }</span>
                                         </span>
 
                                         <button
-                                            className={ granted ? 'ghost' : 'ghost ghost--danger' }
+                                            className={ granted ? CLASS_GHOST : CLASS_GHOST_DANGER }
                                             type="button"
                                             disabled={ savingCapability === capability.key }
                                             aria-pressed={ granted }
@@ -439,27 +446,27 @@ export function Agent()
                             <PaginationFooter page={ exchangePage } shown={ exchanges.length } busy={ paging } noun="exchanges" onPage={ (offset) => void goToExchanges(offset) } />
                         ) }
                     >
-                        { exchanges.length === 0 && <p className="note mt-0">Nothing recorded yet.</p> }
+                        { exchanges.length === 0 && <p className={ CLASS_NOTE }>Nothing recorded yet.</p> }
 
                         { exchanges.map((exchange) => (
-                            <article className="doc first:mt-0" key={ exchange.id }>
-                                <header className="doc__head">
-                                    <span className="doc__name">
+                            <article className={ CLASS_DOC } key={ exchange.id }>
+                                <header className={ CLASS_DOC_HEAD }>
+                                    <span className={ CLASS_DOC_NAME }>
                                         round { exchange.round }
-                                        <span className="rows__meta"> { new Date(exchange.created_at).toLocaleString() }</span>
+                                        <span className={ CLASS_ROW_META }> { new Date(exchange.created_at).toLocaleString() }</span>
                                     </span>
 
-                                    <span className="rows__actions">
-                                        <span className="rows__meta">
+                                    <span className={ CLASS_ROW_ACTIONS }>
+                                        <span className={ CLASS_ROW_META }>
                                             { exchange.duration_ms }ms, { exchange.tool_calls } tool calls
                                         </span>
 
-                                        <span className="probe" data-state={ exchange.outcome === 'ok' ? 'ok' : 'error' }>
+                                        <span className={ CLASS_PROBE[exchange.outcome === 'ok' ? 'ok' : 'error'] }>
                                             { exchange.outcome }{ exchange.reason !== '' && ` ${ exchange.reason }` }
                                         </span>
 
                                         <button
-                                            className="ghost"
+                                            className={ CLASS_GHOST }
                                             type="button"
                                             aria-expanded={ openExchange === exchange.id }
                                             onClick={ () => setOpenExchange(openExchange === exchange.id ? null : exchange.id) }
@@ -471,11 +478,11 @@ export function Agent()
 
                                 { openExchange === exchange.id && (
                                     <>
-                                        <span className="field__label">Request</span>
-                                        <pre className="doc__editor doc__editor--read">{ exchange.request }</pre>
+                                        <span className={ CLASS_FIELD_LABEL }>Request</span>
+                                        <pre className={ CLASS_DOC_READER }>{ exchange.request }</pre>
 
-                                        <span className="field__label">Response</span>
-                                        <pre className="doc__editor doc__editor--read">{ exchange.response }</pre>
+                                        <span className={ CLASS_FIELD_LABEL }>Response</span>
+                                        <pre className={ CLASS_DOC_READER }>{ exchange.response }</pre>
                                     </>
                                 ) }
                             </article>
@@ -483,12 +490,12 @@ export function Agent()
                     </Panel>
 
                     <Panel title="Files" sub="The markdown that defines how this agent behaves">
-                        <form className="form mt-0" onSubmit={ addDocument }>
-                            <label className="field">
-                                <span className="field__label">New file</span>
+                        <form className={ CLASS_FORM } onSubmit={ addDocument }>
+                            <label className={ CLASS_FIELD }>
+                                <span className={ CLASS_FIELD_LABEL }>New file</span>
 
                                 <input
-                                    className="field__input"
+                                    className={ CLASS_FIELD_INPUT }
                                     value={ newName }
                                     onChange={ (event) => setNewName(event.target.value) }
                                     pattern="[A-Za-z0-9][A-Za-z0-9._\-]*\.md"

@@ -1,109 +1,10 @@
 import { useMemo } from 'react';
 
-import { centroid, dot, faceNormal, noise, normalize, project, rotate, splitByDepth, toPoints, type Projected, type Vec3 } from './projection';
+import { CRYSTAL_CURVES, CRYSTAL_MODEL, CRYSTAL_SPARKS, SCENE_LIGHT, SCENE_PITCH, SCENE_SCALE } from '../../lib/constant';
+import { centroid, dot, faceNormal, project, rotate, splitByDepth, toPoints, type Projected, type Vec3 } from './projection';
 import { useRotation } from './useRotation';
 
-/**
- * The hero object: an irregular mathematical crystal wrapped in parametric
- * curves.
- *
- * The solid is authored as 3D coordinates and projected every frame rather
- * than drawn as flat paths, which is what lets the facets shade by their true
- * orientation, the edges catch light unevenly, and the orbital curves pass
- * genuinely in front of and behind the body instead of being stacked on top.
- *
- * It is deliberately not a regular octahedron: the belts differ in radius,
- * height and spacing, so no two faces repeat. Every colour resolves from a CSS
- * custom property so the scene stays inside the token system.
- */
-
-const SCALE = 168;
-
-/** Light arrives from the upper left and slightly in front, as the brief asks. */
-const LIGHT = normalize([ -0.52, 0.78, 0.58 ]);
-
-/** A fixed tilt, so the solid is seen from a three-quarter angle. */
-const PITCH = -0.42;
-
-interface Face
-{
-    vertices: number[];
-    /** Interior planes read as glass rather than surface. */
-    inner?: boolean;
-}
-
-/**
- * Two rings of five between two apexes. The radius and height of each ring
- * vertex is perturbed by a fixed hash, which is what makes the silhouette
- * asymmetric while every face stays exactly planar.
- */
-function buildModel(): { vertices: Vec3[]; faces: Face[] }
-{
-    const vertices: Vec3[] = [ [ 0.08, 1.22, 0.06 ] ];
-
-    const rings = [
-        { count: 5, y: 0.34, radius: 0.92, phase: 0.0 },
-        { count: 5, y: -0.3, radius: 0.72, phase: 0.62 }
-    ];
-
-    rings.forEach((ring, index) =>
-    {
-        for (let i = 0; i < ring.count; i += 1)
-        {
-            const angle = ring.phase + (i / ring.count) * Math.PI * 2;
-
-            const radius = ring.radius * (0.78 + noise(index * 13 + i) * 0.42);
-            const height = ring.y + (noise(index * 31 + i) - 0.5) * 0.26;
-
-            vertices.push([ Math.cos(angle) * radius, height, Math.sin(angle) * radius ]);
-        }
-    });
-
-    vertices.push([ -0.1, -1.16, -0.04 ]);
-
-    const top = 0;
-    const bottom = vertices.length - 1;
-    const upper = (i: number) => 1 + (i % 5);
-    const lower = (i: number) => 6 + (i % 5);
-
-    const faces: Face[] = [ ];
-
-    for (let i = 0; i < 5; i += 1)
-    {
-        faces.push({ vertices: [ top, upper(i), upper(i + 1) ] });
-        faces.push({ vertices: [ upper(i), lower(i), upper(i + 1) ] });
-        faces.push({ vertices: [ upper(i + 1), lower(i), lower(i + 1) ] });
-        faces.push({ vertices: [ lower(i), bottom, lower(i + 1) ] });
-    }
-
-    // Internal planes: a slice through the body and a smaller offset one, both
-    // nearly transparent, so the interior reads as layered instead of hollow.
-    faces.push({ vertices: [ upper(0), lower(2), upper(3) ], inner: true });
-    faces.push({ vertices: [ top, lower(1), lower(4) ], inner: true });
-
-    return { vertices, faces };
-}
-
-const MODEL = buildModel();
-
-/** Points of light suspended inside the body. */
-const SPARKS: Vec3[] = [ [ 0.12, 0.2, 0.08 ], [ -0.24, -0.34, -0.12 ], [ 0.02, 0.62, -0.18 ] ];
-
-/**
- * Parametric trajectories, not rings.
- *
- * Each is a closed 3D curve whose radius and elevation vary with the parameter,
- * so it reads as an equation plotted in space rather than an orbit band. The
- * brief rules out anything that looks like Saturn's rings, which is exactly
- * what a constant-radius flat ellipse gives.
- */
-const CURVES = [
-    { turns: 1, samples: 220, tilt: 0.55, radius: (t: number) => 1.62 + Math.sin(t * 3) * 0.16, height: (t: number) => Math.sin(t * 2) * 0.52, width: 1.5, opacity: 0.72 },
-    { turns: 1, samples: 220, tilt: -0.95, radius: (t: number) => 1.42 + Math.cos(t * 2) * 0.24, height: (t: number) => Math.cos(t * 3) * 0.42 - 0.1, width: 1.1, opacity: 0.5 },
-    { turns: 1, samples: 220, tilt: 0.18, radius: (t: number) => 1.92 + Math.sin(t * 5) * 0.1, height: (t: number) => Math.sin(t * 4) * 0.22 + 0.24, width: 0.9, opacity: 0.32 }
-];
-
-function curvePoints(curve: typeof CURVES[number], yaw: number): Projected[]
+function curvePoints(curve: typeof CRYSTAL_CURVES[number], yaw: number): Projected[]
 {
     const points: Projected[] = [ ];
 
@@ -115,7 +16,7 @@ function curvePoints(curve: typeof CURVES[number], yaw: number): Projected[]
 
         const raw: Vec3 = [ Math.cos(t) * r, curve.height(t), Math.sin(t) * r ];
 
-        points.push(project(rotate(raw, yaw, PITCH + curve.tilt * 0.35), SCALE));
+        points.push(project(rotate(raw, yaw, SCENE_PITCH + curve.tilt * 0.35), SCENE_SCALE));
     }
 
     return points;
@@ -132,20 +33,18 @@ export function Crystal()
 
     const scene = useMemo(() =>
     {
-        const points = MODEL.vertices.map((v) => rotate(v, yaw, PITCH));
-        const flat = points.map((v) => project(v, SCALE));
+        const points = CRYSTAL_MODEL.vertices.map((v) => rotate(v, yaw, SCENE_PITCH));
+        const flat = points.map((v) => project(v, SCENE_SCALE));
 
-        const faces = MODEL.faces
+        const faces = CRYSTAL_MODEL.faces
             .map((face) =>
             {
                 const corners = face.vertices.map((i) => points[i]);
                 const normal = faceNormal(corners[0], corners[1], corners[2]);
                 const middle = centroid(corners);
 
-                // Facing away from the camera: still drawn, but faint, because
-                // the material is glass.
                 const facing = normal[2] > 0;
-                const light = Math.max(0, dot(normal, LIGHT));
+                const light = Math.max(0, dot(normal, SCENE_LIGHT));
 
                 return {
                     key: face.vertices.join('-'),
@@ -158,11 +57,10 @@ export function Crystal()
             })
             .sort((a, b) => a.depth - b.depth);
 
-        // Unique edges, so shared ones are not stroked twice.
         const seen = new Set<string>();
         const edges: { key: string; d: string; depth: number }[] = [ ];
 
-        for (const face of MODEL.faces)
+        for (const face of CRYSTAL_MODEL.faces)
         {
             if (face.inner === true)
             {
@@ -190,22 +88,20 @@ export function Crystal()
             }
         }
 
-        const curves = CURVES.map((curve, index) =>
+        const curves = CRYSTAL_CURVES.map((curve, index) =>
         {
-            // Split against the body's own radius, not zero, so a curve only
-            // counts as "in front" once it clears the solid.
             const { front, back } = splitByDepth(curvePoints(curve, yaw), 0.55);
 
             return { key: `curve-${ index }`, curve, front, back };
         });
 
-        const sparks = SPARKS.map((spark) => project(rotate(spark, yaw, PITCH), SCALE));
+        const sparks = CRYSTAL_SPARKS.map((spark) => project(rotate(spark, yaw, SCENE_PITCH), SCENE_SCALE));
 
         return { faces, edges, curves, sparks };
     }, [ yaw ]);
 
     return (
-        <svg className="crystal" viewBox="-300 -330 600 660" role="presentation" focusable="false">
+        <svg className="absolute inset-0 size-full" viewBox="-300 -330 600 660" role="presentation" focusable="false">
             <defs>
                 <radialGradient id="crystalCore" cx="0.5" cy="0.45" r="0.55">
                     <stop offset="0%" stopColor="var(--glow-bright)" stopOpacity="0.32" />
@@ -229,10 +125,8 @@ export function Crystal()
                 </filter>
             </defs>
 
-            {/* the light the solid casts into the surrounding air */}
             <ellipse cx="0" cy="0" rx="250" ry="240" fill="url(#crystalCore)" />
 
-            {/* curve segments running behind the body */}
             <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
                 { scene.curves.map(({ key, curve, back }) => back.map((run, i) => (
                     <path
@@ -245,7 +139,6 @@ export function Crystal()
                 ))) }
             </g>
 
-            {/* faces, painted far to near */}
             <g>
                 { scene.faces.map((face) => (
                     <polygon
@@ -257,14 +150,12 @@ export function Crystal()
                 )) }
             </g>
 
-            {/* light trapped inside the body */}
             <g filter="url(#glowSoft)">
                 { scene.sparks.map((spark, i) => (
                     <circle key={ `spark-${ i }` } cx={ spark.x } cy={ spark.y } r={ 2.4 } fill="var(--glow-bright)" opacity={ 0.5 + spark.z * 0.25 } />
                 )) }
             </g>
 
-            {/* edges: the nearer an edge, the brighter it reads */}
             <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
                 { scene.edges.map((edge) => (
                     <path
@@ -277,7 +168,6 @@ export function Crystal()
                 )) }
             </g>
 
-            {/* curve segments crossing in front */}
             <g fill="none" strokeLinecap="round" filter="url(#glowTight)">
                 { scene.curves.map(({ key, curve, front }) => front.map((run, i) => (
                     <path

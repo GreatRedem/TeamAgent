@@ -1,20 +1,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MessagesSquare } from 'lucide-react';
 
-import { profileName } from './profileName';
-import { ApiError, conversationList, conversationMessages, type Paged, type TelegramMessage, type TelegramProfile } from '../lib/api';
-import { PaginationFooter } from './PaginationFooter';
-import { Panel } from './Panel';
+import { profileName } from '../lib/profileName';
+import { ApiError, conversationList, conversationMessages, type Paged, type TelegramMessage, type TelegramProfile } from '../api';
+import { PaginationFooter } from './ui/PaginationFooter';
+import { Panel } from './ui/Panel';
+
+import {
+    CLASS_BUBBLE_IN,
+    CLASS_BUBBLE_OUT,
+    CLASS_BUBBLE_TEXT,
+    CLASS_BUBBLE_TIME,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR,
+    CLASS_ROWS,
+    CLASS_ROW_META,
+    CLASS_ROW_NAME,
+    CLASS_ROW_TEXT,
+    CLASS_THREAD,
+    CLASS_THREAD_BODY
+} from '../lib/constant';
 
 interface TeamConversationsProps
 {
     teamId: number;
 }
 
-/**
- * Everyone who has sent the team's bots a private message, and the thread for
- * whichever of them is selected.
- */
 export function TeamConversations({ teamId }: TeamConversationsProps)
 {
     const [ conversations, setConversations ] = useState<TelegramProfile[] | null>(null);
@@ -52,7 +63,6 @@ export function TeamConversations({ teamId }: TeamConversationsProps)
         };
     }, [ teamId ]);
 
-    // The newest page of whichever thread is open.
     useEffect(() =>
     {
         if (selected === null)
@@ -105,10 +115,6 @@ export function TeamConversations({ teamId }: TeamConversationsProps)
         }
     }, [ teamId ]);
 
-    /**
-     * Another page of the open thread. Offset 0 is the newest page and a higher
-     * offset walks into the past, so "next" here means older.
-     */
     const goToMessages = useCallback(async(profileId: number, offset: number) =>
     {
         setPaging(true);
@@ -129,9 +135,6 @@ export function TeamConversations({ teamId }: TeamConversationsProps)
         }
     }, [ teamId ]);
 
-    // Derived rather than cleared from the effect: a thread left over from the
-    // previously opened profile simply stops matching, so the new one reads as
-    // loading without an extra render pass to blank it.
     const openThread = thread !== null && thread.profile.id === selected ? thread : null;
 
     const toggle = useCallback((profileId: number) =>
@@ -148,32 +151,32 @@ export function TeamConversations({ teamId }: TeamConversationsProps)
                 <PaginationFooter page={ page } shown={ conversations.length } busy={ paging } noun="conversations" onPage={ (offset) => void goTo(offset) } />
             ) }
         >
-            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
 
-            { conversations === null && <p className="note">Loading conversations...</p> }
+            { conversations === null && <p className={ CLASS_NOTE }>Loading conversations...</p> }
 
             { conversations !== null && conversations.length === 0 && (
-                <p className="note">
+                <p className={ CLASS_NOTE }>
                     <MessagesSquare size={ 18 } aria-hidden="true" />
                     Nobody has messaged your bots yet. A profile appears here the first time someone sends one a private message.
                 </p>
             ) }
 
             { conversations !== null && conversations.length > 0 && (
-                <ul className="rows mt-0">
+                <ul className={ CLASS_ROWS }>
                     { conversations.map((profile) => (
-                        <li className="rows__item" key={ profile.id }>
+                        <li key={ profile.id }>
                             <button
-                                className="thread"
+                                className={ CLASS_THREAD }
                                 type="button"
                                 aria-expanded={ selected === profile.id }
                                 aria-label={ `Conversation with ${ profileName(profile) }` }
                                 onClick={ () => toggle(profile.id) }
                             >
-                                <span className="rows__text">
-                                    <span className="rows__name">{ profileName(profile) }</span>
+                                <span className={ CLASS_ROW_TEXT }>
+                                    <span className={ CLASS_ROW_NAME }>{ profileName(profile) }</span>
 
-                                    <span className="rows__meta">
+                                    <span className={ CLASS_ROW_META }>
                                         { profile.username !== '' && `@${ profile.username } · ` }
                                         { profile.message_count } message{ profile.message_count === 1 ? '' : 's' } · last { new Date(profile.last_seen_at).toLocaleString() }
                                     </span>
@@ -181,15 +184,15 @@ export function TeamConversations({ teamId }: TeamConversationsProps)
                             </button>
 
                             { selected === profile.id && (
-                                <div className="thread__body">
-                                    { openThread === null && <p className="note">Loading messages...</p> }
+                                <div className={ CLASS_THREAD_BODY }>
+                                    { openThread === null && <p className={ CLASS_NOTE }>Loading messages...</p> }
 
-                                    { openThread !== null && openThread.messages.length === 0 && <p className="note">No messages stored yet.</p> }
+                                    { openThread !== null && openThread.messages.length === 0 && <p className={ CLASS_NOTE }>No messages stored yet.</p> }
 
                                     { openThread !== null && openThread.messages.map((message) => (
-                                        <p className="bubble" data-direction={ message.direction } key={ message.id }>
-                                            <span className="bubble__text">{ message.text }</span>
-                                            <time className="bubble__time" dateTime={ message.sent_at }>{ new Date(message.sent_at).toLocaleString() }</time>
+                                        <p className={ message.direction === 'out' ? CLASS_BUBBLE_OUT : CLASS_BUBBLE_IN } key={ message.id }>
+                                            <span className={ CLASS_BUBBLE_TEXT }>{ message.text }</span>
+                                            <time className={ CLASS_BUBBLE_TIME } dateTime={ message.sent_at }>{ new Date(message.sent_at).toLocaleString() }</time>
                                         </p>
                                     )) }
 

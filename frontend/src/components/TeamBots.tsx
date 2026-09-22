@@ -1,11 +1,33 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bot, Plus } from 'lucide-react';
 
-import { Button } from './Button';
-import { LED, type LedState } from './LED';
-import { PaginationFooter } from './PaginationFooter';
-import { Panel } from './Panel';
-import { ApiError, agentList, teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamBotWebhookRegister, type Paged, type TeamAgent, type TeamBot, type TeamBotProbe } from '../lib/api';
+import { Button } from './ui/Button';
+import { LED, type LedState } from './ui/LED';
+import { PaginationFooter } from './ui/PaginationFooter';
+import { Panel } from './ui/Panel';
+import { ApiError, agentList, teamBotCreate, teamBotList, teamBotRemove, teamBotTest, teamBotUpdate, teamBotWebhookRegister, type Paged, type TeamAgent, type TeamBot, type TeamBotProbe } from '../api';
+
+import {
+    CLASS_BADGE,
+    CLASS_BADGE_MUTED,
+    CLASS_FIELD,
+    CLASS_FIELD_INPUT,
+    CLASS_FIELD_LABEL,
+    CLASS_FORM,
+    CLASS_GHOST,
+    CLASS_GHOST_ARMED,
+    CLASS_GHOST_DANGER,
+    CLASS_NOTE,
+    CLASS_NOTE_ERROR,
+    CLASS_PROBE,
+    CLASS_ROW,
+    CLASS_ROWS,
+    CLASS_ROW_ACTIONS,
+    CLASS_ROW_FORM,
+    CLASS_ROW_META,
+    CLASS_ROW_NAME,
+    CLASS_ROW_TEXT
+} from '../lib/constant';
 
 function probeState(probe: TeamBotProbe | 'testing'): string
 {
@@ -29,15 +51,9 @@ function probeLabel(probe: TeamBotProbe | 'testing'): string
         return probe.reason ?? 'REQUEST_FAILED';
     }
 
-    // Telegram may answer without a username for some bots.
     return probe.username !== undefined && probe.username !== '' ? `Connected as @${ probe.username }` : 'Connected';
 }
 
-/**
- * Lit once a check has passed; brass while one is running. A bot nobody has
- * checked yet is unknown, and a failed check is words next to a grey dot, not
- * a red one -- the LED says whether it is running, the probe says why not.
- */
 function ledState(probe: TeamBotProbe | 'testing' | undefined): LedState
 {
     if (probe === 'testing')
@@ -53,7 +69,6 @@ interface TeamBotsProps
     teamId: number;
 }
 
-/** The Telegram bots registered against one team. */
 export function TeamBots({ teamId }: TeamBotsProps)
 {
     const [ bots, setBots ] = useState<TeamBot[] | null>(null);
@@ -63,23 +78,15 @@ export function TeamBots({ teamId }: TeamBotsProps)
     const [ token, setToken ] = useState('');
     const [ publicUrl, setPublicUrl ] = useState('');
 
-    // Per-bot draft of the public url, so editing one row does not disturb
-    // another. Absent from the map means "not being edited".
     const [ drafts, setDrafts ] = useState<Record<number, string>>({ });
     const [ saving, setSaving ] = useState<number | null>(null);
 
-    // The agents available to answer for a bot.
     const [ agents, setAgents ] = useState<TeamAgent[]>([ ]);
     const [ busy, setBusy ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
 
-    // The id of the bot whose Remove button has been armed. Removing one cannot
-    // be undone -- the token is never sent back, so it cannot be re-entered
-    // from anything on screen -- so it takes a second, deliberate click.
     const [ arming, setArming ] = useState<number | null>(null);
 
-    // Per-bot connection check: 'testing' while in flight, then the outcome.
-    // Keyed by bot id so several rows can be checked without clobbering.
     const [ probes, setProbes ] = useState<Record<number, TeamBotProbe | 'testing'>>({ });
 
     useEffect(() =>
@@ -138,10 +145,6 @@ export function TeamBots({ teamId }: TeamBotsProps)
         }
     }, [ teamId, name, token, publicUrl ]);
 
-    /**
-     * Saves the row's url, then points Telegram at it. A blank url is a
-     * deliberate switch to polling, so there is nothing to register.
-     */
     const saveUrl = useCallback(async(bot: TeamBot) =>
     {
         const next = (drafts[bot.id] ?? bot.public_url).trim();
@@ -191,7 +194,6 @@ export function TeamBots({ teamId }: TeamBotsProps)
         }
     }, [ teamId ]);
 
-    /** Binding an agent is its own save, so it takes effect on selection. */
     const setAgent = useCallback(async(bot: TeamBot, agentId: number) =>
     {
         setError(null);
@@ -268,12 +270,12 @@ export function TeamBots({ teamId }: TeamBotsProps)
                 <PaginationFooter page={ page } shown={ bots.length } busy={ paging } noun="bots" onPage={ (offset) => void goTo(offset) } />
             ) }
         >
-            <form className="form mt-0" onSubmit={ add }>
-                <label className="field">
-                    <span className="field__label">Bot name</span>
+            <form className={ CLASS_FORM } onSubmit={ add }>
+                <label className={ CLASS_FIELD }>
+                    <span className={ CLASS_FIELD_LABEL }>Bot name</span>
 
                     <input
-                        className="field__input"
+                        className={ CLASS_FIELD_INPUT }
                         value={ name }
                         onChange={ (event) => setName(event.target.value) }
                         minLength={ 2 }
@@ -283,13 +285,11 @@ export function TeamBots({ teamId }: TeamBotsProps)
                     />
                 </label>
 
-                <label className="field">
-                    <span className="field__label">BotFather token</span>
+                <label className={ CLASS_FIELD }>
+                    <span className={ CLASS_FIELD_LABEL }>BotFather token</span>
 
                     <input
-                        className="field__input"
-                        // Masked and kept out of autofill: this is a credential,
-                        // and it is write-only once stored.
+                        className={ CLASS_FIELD_INPUT }
                         type="password"
                         autoComplete="off"
                         spellCheck={ false }
@@ -301,11 +301,11 @@ export function TeamBots({ teamId }: TeamBotsProps)
                     />
                 </label>
 
-                <label className="field">
-                    <span className="field__label">Public URL (blank = polling)</span>
+                <label className={ CLASS_FIELD }>
+                    <span className={ CLASS_FIELD_LABEL }>Public URL (blank = polling)</span>
 
                     <input
-                        className="field__input"
+                        className={ CLASS_FIELD_INPUT }
                         type="url"
                         value={ publicUrl }
                         onChange={ (event) => setPublicUrl(event.target.value) }
@@ -319,43 +319,43 @@ export function TeamBots({ teamId }: TeamBotsProps)
                 </Button>
             </form>
 
-            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+            { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
 
-            { bots === null && <p className="note">Loading bots...</p> }
+            { bots === null && <p className={ CLASS_NOTE }>Loading bots...</p> }
 
             { bots !== null && bots.length === 0 && (
-                <p className="note">
+                <p className={ CLASS_NOTE }>
                     <Bot size={ 18 } aria-hidden="true" /> No bots yet. Add one above.
                 </p>
             ) }
 
             { bots !== null && bots.length > 0 && (
-                <ul className="rows">
+                <ul className={ CLASS_ROWS }>
                     { bots.map((bot) => (
-                        <li className="rows__item rows__item--row" key={ bot.id }>
-                            <span className="rows__text">
-                                <span className="rows__name flex items-center gap-2.5">
+                        <li className={ CLASS_ROW } key={ bot.id }>
+                            <span className={ CLASS_ROW_TEXT }>
+                                <span className={ `${ CLASS_ROW_NAME } flex items-center gap-2.5` }>
                                     <LED state={ ledState(probes[bot.id]) } />
                                     { bot.name }
                                 </span>
 
-                                <span className="rows__meta">
+                                <span className={ CLASS_ROW_META }>
                                     { bot.token_hint }
                                     { ' ' }
-                                    <span className="badge" data-mode={ bot.mode }>{ bot.mode }</span>
-                                    { bot.agent_name !== '' && <> { ' ' }<span className="badge" data-mode="agent">{ bot.agent_name }</span></> }
+                                    <span className={ bot.mode === 'polling' ? CLASS_BADGE_MUTED : CLASS_BADGE }>{ bot.mode }</span>
+                                    { bot.agent_name !== '' && <> { ' ' }<span className={ CLASS_BADGE }>{ bot.agent_name }</span></> }
                                 </span>
 
                                 { probes[bot.id] !== undefined && (
-                                    <span className="probe" data-state={ probeState(probes[bot.id]) }>
+                                    <span className={ CLASS_PROBE[probeState(probes[bot.id])] }>
                                         { probeLabel(probes[bot.id]) }
                                     </span>
                                 ) }
                             </span>
 
-                            <span className="rows__actions">
+                            <span className={ CLASS_ROW_ACTIONS }>
                                 <button
-                                    className="ghost"
+                                    className={ CLASS_GHOST }
                                     type="button"
                                     disabled={ probes[bot.id] === 'testing' }
                                     onClick={ () => void test(bot.id) }
@@ -364,18 +364,17 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 </button>
 
                                 <button
-                                    className="ghost ghost--danger"
+                                    className={ arming === bot.id ? CLASS_GHOST_ARMED : CLASS_GHOST_DANGER }
                                     type="button"
-                                    data-state={ arming === bot.id ? 'armed' : undefined }
                                     onClick={ () => void remove(bot.id) }
                                 >
                                     { arming === bot.id ? 'Confirm' : 'Remove' }
                                 </button>
                             </span>
 
-                            <span className="rows__url">
+                            <span className={ CLASS_ROW_FORM }>
                                 <select
-                                    className="field__input"
+                                    className={ CLASS_FIELD_INPUT }
                                     aria-label={ `Agent answering for ${ bot.name }` }
                                     value={ bot.agent_id }
                                     disabled={ saving === bot.id }
@@ -389,9 +388,9 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 </select>
                             </span>
 
-                            <span className="rows__url">
+                            <span className={ CLASS_ROW_FORM }>
                                 <input
-                                    className="field__input"
+                                    className={ CLASS_FIELD_INPUT }
                                     type="url"
                                     aria-label={ `Public URL for ${ bot.name }` }
                                     value={ drafts[bot.id] ?? bot.public_url }
@@ -401,7 +400,7 @@ export function TeamBots({ teamId }: TeamBotsProps)
                                 />
 
                                 <button
-                                    className="ghost"
+                                    className={ CLASS_GHOST }
                                     type="button"
                                     disabled={ saving === bot.id }
                                     onClick={ () => void saveUrl(bot) }
