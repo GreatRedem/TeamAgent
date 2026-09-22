@@ -29,6 +29,41 @@ export class Team
 }
 
 /**
+ * A file the team owns, addressed by name -- `team.json` holds the roster.
+ *
+ * Text whatever the extension claims, so the same table takes anything added
+ * later without a schema change. What a `.json` file must contain is enforced
+ * where it is written (`team.roster.ts`), not by the column type: an agent
+ * writes this, and a column cannot tell a damaged file from an empty one.
+ *
+ * Unique per team so a name is an address -- an agent asking for `team.json`
+ * cannot get one of two rows depending on insertion order.
+ */
+@Entity({ name: 'team_document' })
+@Unique([ 'team_id', 'name' ])
+export class TeamDocument
+{
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Index()
+    @Column({ type: 'int' })
+    team_id: number;
+
+    @Column({ type: 'varchar', length: 64 })
+    name: string;
+
+    @Column({ type: 'text', default: '' })
+    content: string;
+
+    @CreateDateColumn()
+    created_at: Date;
+
+    @UpdateDateColumn()
+    updated_at: Date;
+}
+
+/**
  * A Telegram bot registered against a team.
  *
  * `token` is a BotFather credential: whoever holds it controls the bot, so it
@@ -134,6 +169,18 @@ export class TeamModel
     /** Blank for an endpoint that needs no key, which is usual for local models. */
     @Column({ type: 'varchar', length: 256, default: '' })
     api_key: string;
+
+    /**
+     * How many tokens this model can hold, or 0 when it was never recorded.
+     *
+     * Filled from the catalog when the model is picked from one and typed in by
+     * hand for an endpoint that is not listed. The reply path trims history to
+     * fit it, which is why 0 falls back to a deliberately small default rather
+     * than an optimistic one: trimming history is recoverable, a request the
+     * provider refuses for overrunning the window is not.
+     */
+    @Column({ type: 'int', default: 0 })
+    context_tokens: number;
 
     @CreateDateColumn()
     created_at: Date;

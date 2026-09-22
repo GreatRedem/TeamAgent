@@ -45,6 +45,16 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
         description: 'Lets this agent add notes about any member of the team. It can only append, so nothing already recorded is lost.'
     },
     {
+        key: 'roster.read',
+        label: 'May read the team file',
+        description: 'Lets this agent read team.json: who is on the team, what they do, their rank and their public handles.'
+    },
+    {
+        key: 'roster.write',
+        label: 'May edit the team file',
+        description: 'Lets this agent record and remove people in team.json. It edits one member at a time and cannot replace the whole file, so a single bad turn cannot empty it.'
+    },
+    {
         key: 'web.fetch',
         label: 'May fetch web pages',
         description: 'Lets this agent read public web pages. Private, loopback and cloud-metadata addresses are always refused, whoever asks.'

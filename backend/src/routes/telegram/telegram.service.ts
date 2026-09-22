@@ -6,9 +6,10 @@ import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
-import { HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, earlierTurns, readAssistantTurn, readCompletion, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
+import { ERROR_TEXT_MAX, HISTORY_LIMIT, MAX_TOOL_ROUNDS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, completionCap, earlierTurns, fitToContext, isToolRefusal, readAssistantTurn, readCompletion, readError, readToolCalls, type ChatMessage } from '../agent/agent.reply.js';
+import { sendCompletion } from '../agent/agent.transport.js';
 import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
-import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
+import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, parsePermissions, serializePermissions } from './telegram.permission.js';
 import { schemaConversationList, schemaConversationMessages, schemaPermissionCatalog, schemaProfileDetails, schemaProfilePermissionUpdate, schemaTelegramWebhook, schemaTelegramWebhookRegister } from './telegram.schema.js';
@@ -37,6 +38,9 @@ const EXCHANGE_MAX = 65536;
 const TEXT_MAX = 8192;
 
 const MESSAGE_PAGE = 200;
+
+/** Profiles per page. Smaller than a message page: each row is a person. */
+const CONVERSATION_PAGE = 50;
 
 export function createWebhookSecret(): string
 {
@@ -307,6 +311,222 @@ async function recordExchange(fastify: FastifyInstance, log: FastifyBaseLogger, 
 }
 
 /**
+ * Telegram's own limit on editing one message. About one a second is tolerated;
+ * past that the edits come back 429 and the text lags further behind than if
+ * they had been sent less often.
+ */
+const STREAM_EDIT_INTERVAL = 1200;
+
+/** Below this there is nothing worth reading, and an empty message is refused. */
+const STREAM_FIRST_CHARS = 24;
+
+/**
+ * One call to Telegram's bot API, as a plain outcome.
+ *
+ * Every url here carries the bot token, so nothing from a failure escapes to a
+ * caller that might log it -- only whether it worked, and the status.
+ */
+async function telegramCall(token: string, method: string, payload: unknown): Promise<{ ok: boolean; status: number; result?: unknown }>
+{
+    try
+    {
+        const response = await fetch(`${ TELEGRAM_API }/bot${ token }/${ method }`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) });
+
+        const body = await response.json().catch(() => undefined) as { result?: unknown } | undefined;
+
+        return { ok: response.ok, status: response.status, result: body?.result };
+    }
+    catch
+    {
+        return { ok: false, status: 0 };
+    }
+}
+
+/**
+ * Shows an answer as it is written, by editing one message in place.
+ *
+ * Telegram has no streaming, so this is the nearest thing: send once there is
+ * enough to be worth reading, then edit as more arrives. Edits are throttled
+ * because the limit is per message, and exceeding it makes the text arrive
+ * *later* rather than sooner.
+ *
+ * Everything here is best-effort. A dropped edit costs one frame of an
+ * animation nobody was promised, and interrupting a reply that is otherwise
+ * working would trade something that matters for something that does not --
+ * the same reason a failed typing ping is ignored.
+ */
+function createStreamer(token: string, chatId: string, log: FastifyBaseLogger)
+{
+    let messageId: number | undefined;
+    let sentText = '';
+    let pending = '';
+    let last = 0;
+    let busy = false;
+
+    const flush = async(force: boolean) =>
+    {
+        const text = pending.slice(0, TELEGRAM_TEXT_MAX);
+
+        if (busy || text === sentText || text.trim() === '')
+        {
+            return;
+        }
+
+        if (!force && Date.now() - last < STREAM_EDIT_INTERVAL)
+        {
+            return;
+        }
+
+        if (messageId === undefined && !force && text.length < STREAM_FIRST_CHARS)
+        {
+            return;
+        }
+
+        busy = true;
+        last = Date.now();
+
+        try
+        {
+            if (messageId === undefined)
+            {
+                const sent = await telegramCall(token, 'sendMessage', { chat_id: chatId, text });
+                const id = (sent.result as { message_id?: unknown } | undefined)?.message_id;
+
+                if (sent.ok && typeof id === 'number')
+                {
+                    messageId = id;
+                    sentText = text;
+                }
+            }
+            else if ((await telegramCall(token, 'editMessageText', { chat_id: chatId, message_id: messageId, text })).ok)
+            {
+                sentText = text;
+            }
+        }
+        finally
+        {
+            busy = false;
+        }
+    };
+
+    return {
+        /** The whole answer so far. Called far more often than it sends. */
+        push(text: string)
+        {
+            pending = text;
+
+            void flush(false).catch(() => { /* cosmetic, and never interrupts the reply */ });
+        },
+
+        /** Whether anything has actually reached the person yet. */
+        started: () => messageId !== undefined,
+
+        /**
+         * Settles on the final text, reporting whether the message left behind
+         * is that text. False means the caller still has to send it.
+         */
+        async finish(text: string): Promise<boolean>
+        {
+            pending = text;
+
+            // A flush may still be in flight. Waiting for it stops a late edit
+            // landing after the final one and reinstating a half-written answer.
+            for (let attempt = 0; busy && attempt < 20; attempt += 1)
+            {
+                await new Promise((resolve) => setTimeout(resolve, 50).unref());
+            }
+
+            await flush(true).catch(() => { /* falls back to a plain send by the caller */ });
+
+            return messageId !== undefined && sentText === text.slice(0, TELEGRAM_TEXT_MAX);
+        },
+
+        /**
+         * Removes a part-written answer.
+         *
+         * For when a reply is abandoned after text is already on screen: half an
+         * answer left in the chat is worse than never having started, because it
+         * reads as the whole of one.
+         */
+        async discard()
+        {
+            if (messageId === undefined)
+            {
+                return;
+            }
+
+            const removed = await telegramCall(token, 'deleteMessage', { chat_id: chatId, message_id: messageId });
+
+            if (!removed.ok)
+            {
+                log.warn({ module: 'agent', status: removed.status }, 'could not remove a part-written reply');
+            }
+
+            messageId = undefined;
+            sentText = '';
+        }
+    };
+}
+
+/**
+ * What the person is told when a reply fails.
+ *
+ * Deliberately a category rather than the provider's own words: an error body
+ * can name a url carrying the model key, and it is written for whoever runs the
+ * team, not for whoever is chatting. The specifics stay in the audit trail,
+ * where an owner can find them.
+ *
+ * Silence was the previous behaviour and is the worse one -- someone who gets
+ * nothing back cannot tell a broken agent from one that ignored them, so they
+ * ask again, and the same failure costs twice.
+ */
+function failureNotice(status: number): string
+{
+    if (status === 0)
+    {
+        return 'I could not reach the model just now. Please try again in a moment.';
+    }
+
+    if (status === 401 || status === 403)
+    {
+        return 'This bot is not set up correctly yet: its model rejected the request. Someone on the team needs to look at it.';
+    }
+
+    if (status === 402)
+    {
+        return 'This bot has run out of model credit. Someone on the team needs to top it up.';
+    }
+
+    if (status === 429)
+    {
+        return 'The model is busy right now. Please try again in a minute.';
+    }
+
+    return 'Something went wrong while answering. Please try again in a moment.';
+}
+
+/**
+ * Sends that notice.
+ *
+ * Best-effort and deliberately silent about its own failure: this runs on a
+ * path that has already failed once, and a second failure here must not turn a
+ * quiet problem into an unhandled rejection on a detached promise.
+ */
+async function notifyFailure(bot: TeamBot, chatId: string, status: number, log: FastifyBaseLogger): Promise<void>
+{
+    const sent = await telegramCall(bot.token, 'sendMessage', { chat_id: chatId, text: failureNotice(status) });
+
+    if (!sent.ok)
+    {
+        log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'could not tell the person the reply failed');
+    }
+}
+
+/**
  * Shows "typing…" in the chat until the returned stop function is called.
  *
  * Telegram expires a chat action after roughly five seconds, so this refreshes
@@ -443,12 +663,17 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
     const earlier = earlierTurns(history, messageId);
 
-    const messages: ChatMessage[] = buildMessages(buildSystemPrompt(documents), earlier, incoming);
-
     // Only the tools this person has actually granted are advertised. The
     // executor re-checks anyway, but offering a tool that would be refused just
     // invites the model to waste a round on it.
     const tools = allowedTools(agent.permissions);
+
+    // Files are only listed instead of sent when the agent can actually open
+    // them. An agent without the tool keeps the whole prompt, so switching the
+    // permission off costs tokens rather than silently removing what it knows.
+    const lazyDocuments = tools.some((tool) => tool.name === 'document_read');
+
+    const messages: ChatMessage[] = buildMessages(buildSystemPrompt(documents, lazyDocuments), earlier, incoming);
 
     // Checked before spending anything: if the person has already written
     // again, that message is being answered with this one in its history.
@@ -465,10 +690,36 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
     // attempt gives up.
     const stopTyping = startTyping(bot.token, chatId, log);
 
+    // Shows the answer as it is written. Only the round that is actually
+    // answering feeds it -- a round that comes back asking for tools produces
+    // no prose worth showing, and streaming it would flash text that is then
+    // replaced by something else entirely.
+    const streamer = createStreamer(bot.token, chatId, log);
+
     const startedAt = Date.now();
 
     let text: string | undefined;
     let toolRuns = 0;
+
+    // Cleared the first time the provider refuses the request *because* it
+    // carries tools. A model with no tool-capable endpoint rejects the whole
+    // call before reading it, and the person gets silence instead of the
+    // plain answer they would have accepted. Per reply rather than stored on
+    // the model: a cached flag goes stale in the wrong direction the day the
+    // model gains an endpoint that does support them.
+    let toolsUsable = true;
+
+    // Why the last round produced nothing usable. A provider refusal is an
+    // ordinary 200-shaped JSON body with an `error` in it or a plain HTTP
+    // status, and without carrying one of those out of the loop every cause --
+    // a retired model slug, a spent quota, a key without access -- reads as the
+    // same silent agent.
+    let failure = '';
+
+    // The status the notice to the person is built from. Kept separately
+    // because `failure` is prose for the trail, not something to map on.
+    let lastStatus = 0;
+
 
     try
     {
@@ -479,23 +730,62 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
         {
             const roundStartedAt = Date.now();
 
-            const response = await fetch(`${ model.base_url }/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                    ...model.api_key === '' ? { } : { authorization: `Bearer ${ model.api_key }` }
-                },
-                body: JSON.stringify({
-                    model: model.model,
-                    messages,
-                    // Omitted entirely when nothing is granted: some compatible
-                    // servers reject an empty tools array. Dropped on the last
-                    // round so the model has to answer instead of calling again.
-                    ...tools.length > 0 && round < MAX_TOOL_ROUNDS && { tools: toOpenAITools(tools) }
-                }),
-                signal: AbortSignal.timeout(AGENT_TIMEOUT) });
+            // Trimmed every round, not only the first: tool results are
+            // appended as the loop runs, so a conversation that fitted when it
+            // started can overrun once the model has read a couple of files.
+            const sending = fitToContext(messages, model.context_tokens);
 
-            const payload = await response.json().catch(() => undefined);
+            // One seam, either transport: OpenRouter through its own SDK,
+            // everything else through plain fetch. Both answer in the same
+            // shape, so nothing below this line knows which one replied.
+            const ask = (withTools: boolean) => sendCompletion({
+                baseUrl: model.base_url,
+                apiKey: model.api_key,
+                model: model.model,
+                messages: sending,
+                maxTokens: completionCap(model.context_tokens),
+                // Dropped on the last round so the model has to answer
+                // instead of calling again.
+                ...withTools && { tools: toOpenAITools(tools) },
+                timeoutMs: AGENT_TIMEOUT,
+                // Streamed only when no tools are on offer, so what is shown is
+                // the answer rather than a turn that may be discarded.
+                ...!withTools && { onText: (partial: string) => streamer.push(partial) } });
+
+            const offering = toolsUsable && tools.length > 0 && round < MAX_TOOL_ROUNDS;
+
+            let { ok, status: code, payload } = await ask(offering);
+
+            // Asked again without them rather than giving up: an agent that
+            // answers without its tools is worth more than one that says
+            // nothing, and the refusal is about the request, not the question.
+            if (!ok && offering && isToolRefusal(payload))
+            {
+                log.warn({ module: 'agent', botId: bot.id, agentId: agent.id, modelId: model.id, reason: readError(payload).slice(0, ERROR_TEXT_MAX) }, 'model refused tools: retrying without them');
+
+                await recordExchange(fastify, log, {
+                    team_id: bot.team_id,
+                    agent_id: agent.id,
+                    model_id: model.id,
+                    user_id: user.id,
+                    round,
+                    request: JSON.stringify(sending),
+                    response: JSON.stringify(payload ?? null),
+                    tool_calls: 0,
+                    duration_ms: Date.now() - roundStartedAt,
+                    outcome: 'error',
+                    reason: `tools refused - http ${ code }` });
+
+                toolsUsable = false;
+
+                ({ ok, status: code, payload } = await ask(false));
+            }
+
+            // 0 means the request never got an answer, which reads better than
+            // 'http 0' in a stored reason.
+            const status = ok ? '' : code === 0 ? 'no response' : `http ${ code }`;
+
+            lastStatus = ok ? 0 : code;
 
             const calls = readToolCalls(payload);
 
@@ -507,17 +797,19 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
                 model_id: model.id,
                 user_id: user.id,
                 round,
-                request: JSON.stringify(messages),
+                request: JSON.stringify(sending),
                 response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
                 tool_calls: calls.length,
                 duration_ms: Date.now() - roundStartedAt,
-                outcome: response.ok ? 'ok' : 'error',
-                reason: response.ok ? '' : `http ${ response.status }`
+                outcome: ok ? 'ok' : 'error',
+                reason: status
             });
 
             if (calls.length === 0 || round === MAX_TOOL_ROUNDS)
             {
                 text = readCompletion(payload);
+
+                failure = [ status, readError(payload) ].filter((part) => part !== '').join(' - ');
 
                 break;
             }
@@ -560,6 +852,12 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
             durationMs: Date.now() - startedAt,
             detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } (${ model.model }) unreachable` });
 
+        // Anything already on screen belongs to an answer that will never
+        // finish, so it is removed before the person is told why.
+        await streamer.discard();
+
+        await notifyFailure(bot, chatId, 0, log);
+
         return;
     }
     finally
@@ -571,7 +869,9 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
 
     if (text === undefined)
     {
-        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id }, 'agent reply failed: no usable completion');
+        const reason = failure === '' ? 'the model returned no text' : failure;
+
+        log.warn({ module: 'agent', botId: bot.id, agentId: agent.id, modelId: model.id, reason }, 'agent reply failed: no usable completion');
 
         await audit(fastify, log, {
             teamId: bot.team_id,
@@ -580,7 +880,12 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
             target: `agent:${ agent.id }`,
             outcome: 'error',
             durationMs: Date.now() - startedAt,
-            detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } returned no usable completion after ${ toolRuns } tool call(s)` });
+            detail: `agent ${ agent.id } (${ agent.name }) - model ${ model.id } returned no usable completion after ${ toolRuns } tool call(s) - ${ reason }` });
+
+        // Half an answer is worse than none: it reads as the whole of one.
+        await streamer.discard();
+
+        await notifyFailure(bot, chatId, lastStatus, log);
 
         return;
     }
@@ -603,33 +908,30 @@ async function deliverAgentReply(fastify: FastifyInstance, bot: TeamBot, user: T
             durationMs: Date.now() - startedAt,
             detail: `message ${ messageId } superseded while composing - ${ text.length } chars discarded` });
 
+        // Whatever was streamed belongs to a question that has been overtaken.
+        await streamer.discard();
+
         return;
     }
 
-    try
+    // When the answer was streamed, the message already in the chat is the
+    // answer -- settling it in place is the last edit rather than a second
+    // message saying the same thing.
+    if (!await streamer.finish(text))
     {
-        const sent = await fetch(`${ TELEGRAM_API }/bot${ bot.token }/sendMessage`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: text.slice(0, TELEGRAM_TEXT_MAX) }),
-            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT) });
+        const sent = await telegramCall(bot.token, 'sendMessage', { chat_id: chatId, text: text.slice(0, TELEGRAM_TEXT_MAX) });
 
         if (!sent.ok)
         {
-            log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'agent reply failed: telegram refused');
+            log.warn({ module: 'agent', botId: bot.id, status: sent.status }, 'agent reply failed: telegram would not take it');
 
             await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram refused with ${ sent.status } - ${ text.length } chars` });
 
+            // A part-written message left behind would be a truncated answer.
+            await streamer.discard();
+
             return;
         }
-    }
-    catch
-    {
-        log.warn({ module: 'agent', botId: bot.id }, 'agent reply failed: telegram unreachable');
-
-        await audit(fastify, log, { teamId: bot.team_id, actor: 'agent', action: 'agent.reply', target: `bot:${ bot.id }`, outcome: 'error', detail: `telegram unreachable - ${ text.length } chars undelivered` });
-
-        return;
     }
 
     // Recorded as part of the conversation, so the thread reads as a dialogue.
@@ -703,9 +1005,19 @@ export function conversationList(fastify: FastifyInstance)
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const users = await fastify.db.getRepository(TelegramUser).find({ where: { team_id: teamId }, order: { last_seen_at: 'DESC' } });
+        const { limit, offset } = readPage(request, CONVERSATION_PAGE);
 
-        reply.send({ conversations: users.map(toProfile) });
+        // This list had no ceiling at all: it is every person who has ever
+        // written to one of the team's bots, and it only grows.
+        const [ rows, total ] = await fastify.db.getRepository(TelegramUser).findAndCount({
+            where: { team_id: teamId },
+            order: { last_seen_at: 'DESC' },
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
+
+        reply.send({ limit, offset, has_more, total, conversations: items.map(toProfile) });
     };
 
     return { schema: schemaConversationList, config: { ...authGuard() }, handler };
@@ -729,16 +1041,28 @@ export function conversationMessages(fastify: FastifyInstance)
             throw new BadRequestResponse('PROFILE_NOT_FOUND');
         }
 
-        const messages = await fastify.db.getRepository(TelegramMessage).find({
+        const { limit, offset } = readPage(request, MESSAGE_PAGE);
+
+        const [ rows, total ] = await fastify.db.getRepository(TelegramMessage).findAndCount({
             where: { team_id: teamId, user_id: user.id },
             order: { id: 'DESC' },
-            take: MESSAGE_PAGE });
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
 
         reply.send({
             profile: toProfile(user),
+            limit,
+            offset,
+            total,
+            // Paging walks *backwards* through the thread: offset 0 is the
+            // newest page, so `has_more` means older messages exist, which is
+            // the direction a reader scrolls a conversation.
+            has_more,
             // Newest first from the database so the limit keeps the most recent,
             // reversed here so the client renders oldest to newest.
-            messages: messages.reverse().map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, direction: message.direction, sent_at: message.sent_at })) });
+            messages: items.reverse().map((message) => ({ id: message.id, bot_id: message.bot_id, text: message.text, direction: message.direction, sent_at: message.sent_at })) });
     };
 
     return { schema: schemaConversationMessages, config: { ...authGuard() }, handler };

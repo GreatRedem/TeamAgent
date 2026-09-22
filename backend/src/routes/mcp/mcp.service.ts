@@ -2,12 +2,15 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { authGuard } from '../../plugins/authentication.js';
 
-import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
+import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { TOOLS } from './mcp.tools.js';
 import { schemaMcpTools, schemaProfileFiles } from './mcp.schema.js';
 
 import { BadRequestResponse } from '../../utils/response.js';
+
+/** Files per page. Small: every row carries a whole document, not a label. */
+const FILE_PAGE = 20;
 
 /**
  * The tool catalog, so the owner can see exactly what an agent is able to do
@@ -48,9 +51,24 @@ export function profileFiles(fastify: FastifyInstance)
             throw new BadRequestResponse('PROFILE_NOT_FOUND');
         }
 
-        const files = await fastify.db.getRepository(TelegramUserDocument).find({ where: { user_id: user.id }, order: { name: 'ASC' } });
+        const { limit, offset } = readPage(request, FILE_PAGE);
 
-        reply.send({ files: files.map((file) => ({ id: file.id, name: file.name, content: file.content, updated_at: file.updated_at })) });
+        // Each row carries a whole document, so a page here is a page of text,
+        // not of names -- smaller than the lists that only carry labels.
+        const [ rows, total ] = await fastify.db.getRepository(TelegramUserDocument).findAndCount({
+            where: { user_id: user.id },
+            order: { name: 'ASC' },
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
+
+        reply.send({
+            limit,
+            offset,
+            has_more,
+            total,
+            files: items.map((file) => ({ id: file.id, name: file.name, content: file.content, updated_at: file.updated_at })) });
     };
 
     return { schema: schemaProfileFiles, config: { ...authGuard() }, handler };

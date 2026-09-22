@@ -2,13 +2,14 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { authGuard } from '../../plugins/authentication.js';
 
-import { findOwnedTeam, readTeamId } from '../team/team.access.js';
+import { findOwnedTeam, readPage, readTeamId, takePage } from '../team/team.access.js';
 import { AuditLog } from './audit.entity.js';
 import { schemaAuditHeatmap, schemaAuditList } from './audit.schema.js';
 
 /** How much history the heatmap covers. 12 weeks fits a readable grid. */
 const HEATMAP_DAYS = 84;
 
+/** One screen of trail. The caller may ask for more, up to PAGE_LIMIT_MAX. */
 const LIST_LIMIT = 60;
 
 /** `YYYY-MM-DD` in UTC, matching how the rows are bucketed. */
@@ -25,13 +26,22 @@ export function auditList(fastify: FastifyInstance)
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const entries = await fastify.db.getRepository(AuditLog).find({
+        const { limit, offset } = readPage(request, LIST_LIMIT);
+
+        const [ rows, total ] = await fastify.db.getRepository(AuditLog).findAndCount({
             where: { team_id: teamId },
             order: { id: 'DESC' },
-            take: LIST_LIMIT });
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
 
         reply.send({
-            entries: entries.map((entry) => ({
+            limit,
+            offset,
+            has_more,
+            total,
+            entries: items.map((entry) => ({
                 id: entry.id,
                 action: entry.action,
                 target: entry.target,

@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authGuard } from '../../plugins/authentication.js';
 
 import { TeamBot, TeamModel } from '../team/team.entity.js';
-import { findOwnedTeam, readParamId, readTeamId } from '../team/team.access.js';
+import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from './agent.entity.js';
 import { AGENT_PERMISSIONS, DEFAULT_AGENT_PERMISSIONS, isKnownAgentPermission, parseAgentPermissions, serializeAgentPermissions } from './agent.permission.js';
 import { DEFAULT_DOCUMENTS, DOCUMENT_CONTENT_MAX, DOCUMENT_NAME_MAX, DOCUMENT_NAME_PATTERN } from './agent.template.js';
@@ -19,6 +19,16 @@ import { BadRequestResponse } from '../../utils/response.js';
 const NAME_MIN = 2;
 const NAME_MAX = 64;
 const DESCRIPTION_MAX = 280;
+
+/**
+ * Exchanges per page. Small because each row carries the whole message array
+ * sent and the turn returned, up to 64KB apiece -- a page of 200 would be a
+ * multi-megabyte response.
+ */
+const EXCHANGE_PAGE = 40;
+
+/** A page of agents. Bounded by what a team builds, paged all the same. */
+const LIST_PAGE = 50;
 
 const readAgentId = (request: FastifyRequest) => readParamId(request, 'agentId', 'AGENT_ID_INVALID');
 const readDocumentId = (request: FastifyRequest) => readParamId(request, 'documentId', 'DOCUMENT_ID_INVALID');
@@ -163,7 +173,15 @@ export function agentList(fastify: FastifyInstance)
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const agents = await fastify.db.getRepository(TeamAgent).find({ where: { team_id: teamId }, order: { id: 'DESC' } });
+        const { limit, offset } = readPage(request, LIST_PAGE);
+
+        const [ rows, total ] = await fastify.db.getRepository(TeamAgent).findAndCount({
+            where: { team_id: teamId },
+            order: { id: 'DESC' },
+            skip: offset,
+            take: limit + 1 });
+
+        const { items: agents, has_more } = takePage(rows, limit);
 
         const names = await modelNames(fastify, teamId);
 
@@ -172,21 +190,23 @@ export function agentList(fastify: FastifyInstance)
 
         if (agents.length > 0)
         {
-            const rows = await fastify.db.getRepository(TeamAgentDocument)
+            const countRows = await fastify.db.getRepository(TeamAgentDocument)
                 .createQueryBuilder('document')
                 .select('document.agent_id', 'agent_id')
                 .addSelect('COUNT(*)', 'count')
+                // Only the agents on this page: counting every agent's
+                // documents to label fifty of them would defeat the paging.
                 .where('document.agent_id IN (:...ids)', { ids: agents.map((agent) => agent.id) })
                 .groupBy('document.agent_id')
                 .getRawMany<{ agent_id: number; count: string }>();
 
-            for (const row of rows)
+            for (const row of countRows)
             {
                 counts.set(Number(row.agent_id), Number(row.count));
             }
         }
 
-        reply.send({ agents: agents.map((agent) => toAgentView(agent, names.get(agent.model_id) ?? '', counts.get(agent.id) ?? 0)) });
+        reply.send({ limit, offset, has_more, total, agents: agents.map((agent) => toAgentView(agent, names.get(agent.model_id) ?? '', counts.get(agent.id) ?? 0)) });
     };
 
     return { schema: schemaAgentList, config: { ...authGuard() }, handler };
@@ -430,13 +450,24 @@ export function agentExchanges(fastify: FastifyInstance)
         const teamId = readTeamId(request);
         const agent = await findOwnedAgent(fastify, teamId, readAgentId(request), request.account_id);
 
-        const exchanges = await fastify.db.getRepository(TeamAgentExchange).find({
+        const { limit, offset } = readPage(request, EXCHANGE_PAGE);
+
+        // One of the tables that grows a row per model round and is never
+        // pruned, so the page is the only thing bounding this response.
+        const [ rows, total ] = await fastify.db.getRepository(TeamAgentExchange).findAndCount({
             where: { team_id: teamId, agent_id: agent.id },
             order: { id: 'DESC' },
-            take: 40 });
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
 
         reply.send({
-            exchanges: exchanges.map((exchange) => ({
+            limit,
+            offset,
+            has_more,
+            total,
+            exchanges: items.map((exchange) => ({
                 id: exchange.id,
                 user_id: exchange.user_id,
                 round: exchange.round,

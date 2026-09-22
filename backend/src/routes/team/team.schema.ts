@@ -37,8 +37,12 @@ export const schemaTeamList = {
     response: {
         200: {
             type: 'object',
-            required: [ 'teams' ],
+            required: [ 'teams', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 teams: { type: 'array', items: team }
             }
         }
@@ -120,8 +124,12 @@ export const schemaTeamBotList = {
     response: {
         200: {
             type: 'object',
-            required: [ 'bots' ],
+            required: [ 'bots', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 bots: { type: 'array', items: bot }
             }
         }
@@ -154,6 +162,32 @@ export const schemaTeamBotTest = {
                 ok: { type: 'boolean' },
                 username: { type: 'string' },
                 reason: { type: 'string' }
+            }
+        }
+    }
+} as const;
+
+/**
+ * The roster is the team's own JSON, so `members` is declared loosely on
+ * purpose: a response schema strips what it does not declare, and pinning the
+ * member shape here would silently delete every field a team added that this
+ * code does not know about.
+ */
+export const schemaTeamRoster = {
+    response: {
+        200: {
+            type: 'object',
+            required: [ 'members', 'count', 'limit', 'offset', 'has_more', 'total' ],
+            properties: {
+                members: { type: 'array', items: { type: 'object', additionalProperties: true } },
+                // The whole team, not the page -- "how big is the team" is a
+                // different question from "how many are on screen".
+                count: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
+                updated_at: { type: 'string' }
             }
         }
     }

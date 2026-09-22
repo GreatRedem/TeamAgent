@@ -97,6 +97,43 @@ const tests: Array<[ string, () => void ]> = [
         assert.deepEqual(names, [ 'team_member_note' ]);
     } ],
 
+    [ 'the team file is a separate capability from the profile notes', () =>
+    {
+        // `team.read`/`team.write` govern what has been recorded about Telegram
+        // profiles; `roster.*` governs the team's own team.json. Sharing a key
+        // between them would have granted every agent that already had one the
+        // other, without an owner choosing it.
+        const notes = allowedTools(serializeAgentPermissions([ 'team.read', 'team.write' ])).map((t) => t.name);
+        const roster = allowedTools(serializeAgentPermissions([ 'roster.read', 'roster.write' ])).map((t) => t.name);
+
+        assert.equal(notes.some((name) => name.startsWith('roster_')), false, 'team.* reached the roster file');
+        assert.equal(roster.some((name) => name.startsWith('team_member')), false, 'roster.* reached the profile notes');
+    } ],
+
+    [ 'reading the team file does not imply editing it', () =>
+    {
+        const names = allowedTools(serializeAgentPermissions([ 'roster.read' ])).map((t) => t.name).sort();
+
+        assert.deepEqual(names, [ 'roster_read' ]);
+    } ],
+
+    [ 'editing the team file cannot replace the whole of it', () =>
+    {
+        // Every roster write is one member at a time, so a single confused turn
+        // cannot empty the file. Whole-file replacement is an owner action over
+        // HTTP, taken by someone who can see what was there.
+        const names = allowedTools(serializeAgentPermissions([ 'roster.write' ])).map((t) => t.name).sort();
+
+        assert.deepEqual(names, [ 'roster_member_remove', 'roster_member_set' ]);
+    } ],
+
+    [ 'the team file is off for a new agent', () =>
+    {
+        const names = allowedTools(serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS)).map((t) => t.name);
+
+        assert.equal(names.some((name) => name.startsWith('roster_')), false);
+    } ],
+
     [ 'nothing can overwrite what the team remembers about someone', () =>
     {
         // Only appending. A replace tool would let one bad turn erase

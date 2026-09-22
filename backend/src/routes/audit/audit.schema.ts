@@ -7,8 +7,14 @@ export const schemaAuditList = {
     response: {
         200: {
             type: 'object',
-            required: [ 'entries' ],
+            required: [ 'entries', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                // Whether another page follows, worked out from one extra row
+                // rather than a count over a table that only grows.
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 entries: {
                     type: 'array',
                     items: {

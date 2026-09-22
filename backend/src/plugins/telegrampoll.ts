@@ -129,7 +129,10 @@ export default fastifyPlugin(async function(fastify: FastifyInstance)
 
             for (const update of updates)
             {
-                await ingestUpdate(fastify, bot, update, log);
+                // Not this module's `log`: everything downstream stamps its own
+                // `module`, and a child logger that already carries one writes
+                // the key twice into the same line.
+                await ingestUpdate(fastify, bot, update, fastify.log);
 
                 const updateId = Number((update as { update_id?: unknown }).update_id);
 

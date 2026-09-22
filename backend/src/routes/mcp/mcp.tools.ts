@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 
-import { TeamAgent } from '../agent/agent.entity.js';
+import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
+import { TeamDocument } from '../team/team.entity.js';
+import { ROSTER_FILE, RosterError, findMember, parseRoster, removeMember, serializeRoster, upsertMember, type Roster } from '../team/team.roster.js';
 import { TelegramMessage, TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { FETCH_BYTES_MAX, fetchPublicUrl } from './mcp.web.js';
 import { audit } from '../audit/audit.log.js';
@@ -105,7 +107,10 @@ export const TOOLS: ToolDefinition[] = [
         permission: 'conversation.read',
         inputSchema: {
             type: 'object',
-            properties: { query: { type: 'string', description: 'Text to look for, case-insensitive' } },
+            properties: {
+                query: { type: 'string', description: 'Text to look for, case-insensitive' },
+                offset: { type: 'integer', description: 'Skip this many matches, to read past the first page' }
+            },
             required: [ 'query' ]
         }
     },
@@ -115,7 +120,10 @@ export const TOOLS: ToolDefinition[] = [
         permission: 'team.read',
         inputSchema: {
             type: 'object',
-            properties: { query: { type: 'string', description: 'Optional name or username to filter by, case-insensitive' } },
+            properties: {
+                query: { type: 'string', description: 'Optional name or username to filter by, case-insensitive' },
+                offset: { type: 'integer', description: 'Skip this many people; use next_offset from a previous call to read the rest' }
+            },
             required: [ ]
         }
     },
@@ -161,8 +169,66 @@ export const TOOLS: ToolDefinition[] = [
         description: 'The current date and time in UTC. Use this rather than guessing what day it is.',
         permission: 'basics',
         inputSchema: { type: 'object', properties: { }, required: [ ] }
+    },
+    {
+        name: 'roster_read',
+        description: 'Read team.json: the people on this team with their rank, description and public handles. Use it before answering questions about who someone is or what they do.',
+        permission: 'roster.read',
+        inputSchema: {
+            type: 'object',
+            properties: { name: { type: 'string', description: 'Optional: return only this member instead of everyone' } },
+            required: [ ]
+        }
+    },
+    {
+        name: 'roster_member_set',
+        description: 'Record a person in team.json, creating them or updating what is already there. Only the fields you pass are changed, so you can add a rank without touching a description. Use roster_read first when you need to know what is already recorded.',
+        permission: 'roster.write',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string', description: 'The person\'s name; this is how they are addressed' },
+                rank: { type: 'string', description: 'Their role or rank on the team, e.g. founder, engineer' },
+                description: { type: 'string', description: 'What they do and anything worth remembering about them' },
+                social: { type: 'object', description: 'Handles per network, e.g. {"x":"@alex","github":"alexk"}. Merged with any already recorded.' }
+            },
+            required: [ 'name' ]
+        }
+    },
+    {
+        name: 'roster_member_remove',
+        description: 'Remove a person from team.json. Use this only when asked to; it is the one roster action that loses information.',
+        permission: 'roster.write',
+        inputSchema: {
+            type: 'object',
+            properties: { name: { type: 'string', description: 'The name of the member to remove' } },
+            required: [ 'name' ]
+        }
+    },
+    {
+        name: 'document_read',
+        description: 'Read one of your own reference files by name, for example knowledge.md. The files you can open are listed at the end of your instructions.',
+        permission: 'basics',
+        inputSchema: {
+            type: 'object',
+            properties: { name: { type: 'string', description: 'File name, e.g. knowledge.md' } },
+            required: [ 'name' ]
+        }
     }
 ];
+
+/**
+ * Both agent-facing lists report a `total` and return a window of it, so a
+ * model can already tell it is seeing part of the answer. This is how it
+ * reaches the rest -- without it the 51st member is unreachable however the
+ * question is phrased.
+ */
+function readOffset(args: Record<string, unknown>): number
+{
+    const offset = Number(args['offset'] ?? 0);
+
+    return Number.isInteger(offset) && offset > 0 ? offset : 0;
+}
 
 /** How many past messages a search may return. */
 const SEARCH_LIMIT = 20;
@@ -195,6 +261,28 @@ export interface ToolResult
 function refuse(reason: string): ToolResult
 {
     return { ok: false, content: JSON.stringify({ error: reason }) };
+}
+
+/**
+ * The team's roster file as stored, or empty text when it has never been
+ * written. Absent reads as empty so an agent's first write creates it rather
+ * than failing on a file nobody made yet.
+ */
+async function readRosterContent(fastify: FastifyInstance, teamId: number): Promise<string>
+{
+    const row = await fastify.db.getRepository(TeamDocument).findOneBy({ team_id: teamId, name: ROSTER_FILE });
+
+    return row?.content ?? '';
+}
+
+async function writeRosterContent(fastify: FastifyInstance, teamId: number, content: string): Promise<void>
+{
+    const repository = fastify.db.getRepository(TeamDocument);
+    const row = await repository.findOneBy({ team_id: teamId, name: ROSTER_FILE });
+
+    await (row
+        ? repository.update({ id: row.id }, { content })
+        : repository.save({ team_id: teamId, name: ROSTER_FILE, content }));
 }
 
 /**
@@ -245,6 +333,122 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
         return { ok: true, content: JSON.stringify({ utc: now.toISOString(), unix: Math.floor(now.getTime() / 1000) }) };
     }
 
+    if (tool.name === 'roster_read')
+    {
+        let roster: Roster;
+
+        try
+        {
+            roster = parseRoster(await readRosterContent(fastify, agent.team_id));
+        }
+        catch (cause)
+        {
+            // The stored file is damaged. Said plainly rather than answered with
+            // an empty roster, which the model would report as "nobody on the
+            // team" -- and which a later write would then make true.
+            return refuse(cause instanceof RosterError ? cause.message : 'team.json could not be read');
+        }
+
+        const one = typeof args['name'] === 'string' ? args['name'].trim() : '';
+
+        if (one !== '')
+        {
+            const member = findMember(roster, one);
+
+            return member
+                ? { ok: true, content: JSON.stringify(member) }
+                : refuse(`no member named ${ one }`);
+        }
+
+        return { ok: true, content: JSON.stringify({ members: roster.members, count: roster.members.length }) };
+    }
+
+    if (tool.name === 'roster_member_set' || tool.name === 'roster_member_remove')
+    {
+        const name = typeof args['name'] === 'string' ? args['name'].trim() : '';
+
+        if (name === '')
+        {
+            return refuse('name is required');
+        }
+
+        let next: Roster;
+        let outcome: string;
+
+        try
+        {
+            const roster = parseRoster(await readRosterContent(fastify, agent.team_id));
+
+            if (tool.name === 'roster_member_remove')
+            {
+                const removed = removeMember(roster, name);
+
+                if (!removed.removed)
+                {
+                    return refuse(`no member named ${ name }`);
+                }
+
+                next = removed.roster;
+                outcome = 'removed';
+            }
+            else
+            {
+                const existed = findMember(roster, name) !== undefined;
+
+                next = upsertMember(roster, {
+                    name,
+                    ...typeof args['rank'] === 'string' && { rank: args['rank'] },
+                    ...typeof args['description'] === 'string' && { description: args['description'] },
+                    ...typeof args['social'] === 'object' && args['social'] !== null && { social: args['social'] as Record<string, string> }
+                });
+
+                outcome = existed ? 'updated' : 'added';
+            }
+
+            await writeRosterContent(fastify, agent.team_id, serializeRoster(next));
+        }
+        catch (cause)
+        {
+            // A damaged file is reported, never overwritten: repairing it is an
+            // owner action over HTTP, where someone can see what was there.
+            return refuse(cause instanceof RosterError ? cause.message : 'team.json could not be written');
+        }
+
+        // The only tools here that change what the whole team knows about a
+        // person, so they leave a trail an owner can find. The exchange table
+        // shows the call only to whoever opens that agent's history.
+        await audit(fastify, fastify.log, {
+            teamId: agent.team_id,
+            actor: 'agent',
+            action: 'agent.roster',
+            target: `team:${ agent.team_id }`,
+            detail: `${ outcome } ${ name } · agent ${ agent.id } (${ agent.name }) · ${ next.members.length } members` });
+
+        return { ok: true, content: JSON.stringify({ result: outcome, name, members: next.members.length }) };
+    }
+
+    if (tool.name === 'document_read')
+    {
+        const name = typeof args['name'] === 'string' ? args['name'].trim() : '';
+
+        if (!DOCUMENT_NAME_PATTERN.test(name))
+        {
+            return refuse('name must be a plain markdown filename, e.g. knowledge.md');
+        }
+
+        // Matched on the agent's own id as well as the name: a filename is not
+        // a secret, and without this an agent could read another agent's
+        // instructions by asking for them.
+        const document = await fastify.db.getRepository(TeamAgentDocument).findOneBy({ agent_id: agent.id, name });
+
+        if (!document)
+        {
+            return refuse(`no such file: ${ name }`);
+        }
+
+        return { ok: true, content: JSON.stringify({ name: document.name, content: document.content }) };
+    }
+
     if (tool.name === 'web_fetch')
     {
         const url = typeof args['url'] === 'string' ? args['url'].trim() : '';
@@ -290,6 +494,7 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
             .where('message.user_id = :userId', { userId: user.id })
             .andWhere('message.text ILIKE :query', { query: `%${ query }%` })
             .orderBy('message.id', 'DESC')
+            .skip(readOffset(args))
             .take(SEARCH_LIMIT)
             .getMany();
 
@@ -322,13 +527,18 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
         }
 
         const total = await builder.getCount();
-        const members = await builder.orderBy('member.last_seen_at', 'DESC').take(ROSTER_LIMIT).getMany();
+        const offset = readOffset(args);
+        const members = await builder.orderBy('member.last_seen_at', 'DESC').skip(offset).take(ROSTER_LIMIT).getMany();
 
         return {
             ok: true,
             content: JSON.stringify({
                 total,
                 shown: members.length,
+                offset,
+                // Named so the model asks for the next page rather than
+                // concluding the team has fifty people in it.
+                ...offset + members.length < total && { next_offset: offset + members.length },
                 // No permission keys here on purpose: what a person is allowed
                 // to do is the owner's business, and an agent that could read
                 // the access list is one step from reasoning about changing it.

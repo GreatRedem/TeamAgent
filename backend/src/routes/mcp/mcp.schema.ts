@@ -30,8 +30,12 @@ export const schemaProfileFiles = {
     response: {
         200: {
             type: 'object',
-            required: [ 'files' ],
+            required: [ 'files', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 files: {
                     type: 'array',
                     items: {

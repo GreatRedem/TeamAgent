@@ -4,14 +4,25 @@ import { authGuard } from '../../plugins/authentication.js';
 
 import { createWebhookSecret } from '../telegram/telegram.service.js';
 
-import { Team, TeamBot } from './team.entity.js';
+import { Team, TeamBot, TeamDocument } from './team.entity.js';
 import { TeamAgent } from '../agent/agent.entity.js';
-import { findOwnedTeam, readParamId, readTeamId } from './team.access.js';
-import { schemaTeamBotCreate, schemaTeamBotList, schemaTeamBotRemove, schemaTeamBotTest, schemaTeamBotUpdate, schemaTeamCreate, schemaTeamDetails, schemaTeamList, schemaTeamUpdate } from './team.schema.js';
+import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from './team.access.js';
+import { schemaTeamBotCreate, schemaTeamBotList, schemaTeamBotRemove, schemaTeamBotTest, schemaTeamBotUpdate, schemaTeamCreate, schemaTeamDetails, schemaTeamList, schemaTeamRoster, schemaTeamUpdate } from './team.schema.js';
+import { ROSTER_FILE, parseRoster, serializeRoster, type Roster } from './team.roster.js';
 
 import { audit } from '../audit/audit.log.js';
 
 import { BadRequestResponse } from '../../utils/response.js';
+
+/**
+ * A page of a list that is bounded by what a person configures -- teams,
+ * bots, agents, models. Large enough that it is one page for anyone real,
+ * but the paging is there so a big account is not a slow response.
+ */
+const LIST_PAGE = 50;
+
+/** Members per page of team.json. */
+const ROSTER_PAGE = 50;
 
 const NAME_MIN = 2;
 const NAME_MAX = 64;
@@ -203,9 +214,17 @@ export function teamList(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
     {
-        const teams = await fastify.db.getRepository(Team).find({ where: { account_id: request.account_id }, order: { id: 'DESC' } });
+        const { limit, offset } = readPage(request, LIST_PAGE);
 
-        reply.send({ teams });
+        const [ rows, total ] = await fastify.db.getRepository(Team).findAndCount({
+            where: { account_id: request.account_id },
+            order: { id: 'DESC' },
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
+
+        reply.send({ limit, offset, has_more, total, teams: items });
     };
 
     return { schema: schemaTeamList, config: { ...authGuard() }, handler };
@@ -303,11 +322,19 @@ export function teamBotList(fastify: FastifyInstance)
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const bots = await fastify.db.getRepository(TeamBot).find({ where: { team_id: teamId }, order: { id: 'DESC' } });
+        const { limit, offset } = readPage(request, LIST_PAGE);
+
+        const [ rows, total ] = await fastify.db.getRepository(TeamBot).findAndCount({
+            where: { team_id: teamId },
+            order: { id: 'DESC' },
+            skip: offset,
+            take: limit + 1 });
+
+        const { items, has_more } = takePage(rows, limit);
 
         const names = await agentNames(fastify, teamId);
 
-        reply.send({ bots: bots.map((bot) => toBotView(bot, names.get(bot.agent_id) ?? '')) });
+        reply.send({ limit, offset, has_more, total, bots: items.map((bot) => toBotView(bot, names.get(bot.agent_id) ?? '')) });
     };
 
     return { schema: schemaTeamBotList, config: { ...authGuard() }, handler };
@@ -416,4 +443,105 @@ export function teamBotUpdate(fastify: FastifyInstance)
     };
 
     return { schema: schemaTeamBotUpdate, config: { ...authGuard() }, handler };
+}
+
+/**
+ * The team roster, as the owner sees it.
+ *
+ * A damaged file is an error rather than an empty list: the owner is the one
+ * who can repair it, and reporting "no members" to the person holding the fix
+ * is how a damaged file becomes a lost one.
+ */
+export function teamRosterRead(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const row = await fastify.db.getRepository(TeamDocument).findOneBy({ team_id: teamId, name: ROSTER_FILE });
+
+        let roster: Roster;
+
+        try
+        {
+            roster = parseRoster(row?.content ?? '');
+        }
+        catch
+        {
+            throw new BadRequestResponse('ROSTER_MALFORMED');
+        }
+
+        // Paged in memory, not in the database: the roster is one JSON file, so
+        // the whole of it is already parsed by the time there is anything to
+        // page. `count` stays the roster total rather than the page length --
+        // it answers "how big is the team", which a page of it does not.
+        const { limit, offset } = readPage(request, ROSTER_PAGE);
+
+        reply.send({
+            members: roster.members.slice(offset, offset + limit),
+            count: roster.members.length,
+            total: roster.members.length,
+            limit,
+            offset,
+            has_more: offset + limit < roster.members.length,
+            ...row && { updated_at: row.updated_at.toISOString() } });
+    };
+
+    return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
+}
+
+/**
+ * Replaces the whole roster.
+ *
+ * Whole-file replacement is an owner action and deliberately not an agent one:
+ * this is the call that can empty the file, and it is made by someone who can
+ * see what was there first. The body is parsed and re-serialised rather than
+ * stored verbatim, so what lands in the column is always canonical and always
+ * readable by the agent tools.
+ */
+export function teamRosterWrite(fastify: FastifyInstance)
+{
+    const handler = async(request: FastifyRequest, reply: FastifyReply) =>
+    {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const body = request.body as { members?: unknown } | undefined;
+
+        let content: string;
+        let roster: Roster;
+
+        try
+        {
+            roster = parseRoster(JSON.stringify(body ?? { members: [ ] }));
+            content = serializeRoster(roster);
+        }
+        catch
+        {
+            throw new BadRequestResponse('ROSTER_INVALID');
+        }
+
+        const repository = fastify.db.getRepository(TeamDocument);
+        const row = await repository.findOneBy({ team_id: teamId, name: ROSTER_FILE });
+
+        await (row
+            ? repository.update({ id: row.id }, { content })
+            : repository.save({ team_id: teamId, name: ROSTER_FILE, content }));
+
+        request.log.info({ module: 'team', teamId, accountId: request.account_id, members: roster.members.length }, 'team roster written');
+
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'roster.write',
+            target: `team:${ teamId }`,
+            detail: `${ roster.members.length } members` });
+
+        reply.send({ members: roster.members, count: roster.members.length });
+    };
+
+    return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
 }

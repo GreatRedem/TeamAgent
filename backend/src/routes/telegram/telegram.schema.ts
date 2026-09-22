@@ -37,8 +37,13 @@ export const schemaConversationList = {
     response: {
         200: {
             type: 'object',
-            required: [ 'conversations' ],
+            required: [ 'conversations', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                /** Whether another page follows; from one extra row, not a count. */
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 conversations: { type: 'array', items: profile }
             }
         }
@@ -49,9 +54,14 @@ export const schemaConversationMessages = {
     response: {
         200: {
             type: 'object',
-            required: [ 'profile', 'messages' ],
+            required: [ 'profile', 'messages', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
                 profile,
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                /** Whether another page follows; from one extra row, not a count. */
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 messages: {
                     type: 'array',
                     items: {

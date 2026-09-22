@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 
-import { HISTORY_LIMIT, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, earlierTurns, readCompletion } from './agent.reply.js';
+import { ALWAYS_INLINE, DEFAULT_CONTEXT_TOKENS, DOCUMENT_INLINE_MAX, ERROR_TEXT_MAX, HISTORY_LIMIT, MAX_COMPLETION_TOKENS, TELEGRAM_TEXT_MAX, buildMessages, buildSystemPrompt, completionCap, contextBudget, earlierTurns, fitToContext, isToolRefusal, readCompletion, readError } from './agent.reply.js';
 
 const docs = [
     { name: 'knowledge.md', content: '# Knowledge\nFacts.' },
@@ -91,6 +91,153 @@ const tests: Array<[ string, () => void ]> = [
         assert.equal(buildSystemPrompt(docs), buildSystemPrompt([ ...docs ].reverse()));
     } ],
 
+    [ 'a deferred document is listed by name instead of being sent', () =>
+    {
+        const big = 'x'.repeat(DOCUMENT_INLINE_MAX + 1);
+        const prompt = buildSystemPrompt([ ...docs, { name: 'manual.md', content: big } ], true);
+
+        assert.ok(!prompt.includes(big), 'the body was sent anyway');
+        assert.ok(prompt.includes('manual.md'), 'the name was not listed');
+        assert.ok(prompt.includes('document_read'), 'nothing told the model how to open it');
+        assert.ok(prompt.includes(String(big.length)), 'the size was not given');
+    } ],
+
+    [ 'instructions and guardrails are sent however large they are', () =>
+    {
+        // Deferring these changes how the agent behaves: a guardrail the model
+        // only reads when it thinks to is not a guardrail.
+        const bulky = ALWAYS_INLINE.map((name) => ({ name, content: `# ${ name }\n${ 'y'.repeat(DOCUMENT_INLINE_MAX * 2) }` }));
+        const prompt = buildSystemPrompt(bulky, true);
+
+        for (const document of bulky)
+        {
+            assert.ok(prompt.includes(document.content), `${ document.name } was deferred`);
+        }
+
+        assert.ok(!prompt.includes('# Your reference files'), 'nothing was deferred, so there is no list');
+    } ],
+
+    [ 'a short document is sent rather than deferred', () =>
+    {
+        // Fetching it would cost a tool definition, a call, a result and a
+        // second completion -- more than the file itself.
+        const prompt = buildSystemPrompt([ { name: 'note.md', content: 'Short.' } ], true);
+
+        assert.equal(prompt, 'Short.');
+    } ],
+
+    [ 'lazy is off by default, so every document is still sent', () =>
+    {
+        const big = [ { name: 'manual.md', content: 'z'.repeat(DOCUMENT_INLINE_MAX + 1) } ];
+
+        assert.ok(buildSystemPrompt(big).includes('z'.repeat(DOCUMENT_INLINE_MAX + 1)));
+        assert.ok(!buildSystemPrompt(big).includes('document_read'));
+    } ],
+
+    [ 'a conversation that fits is left alone', () =>
+    {
+        const messages = [
+            { role: 'system' as const, content: 'You are terse.' },
+            { role: 'user' as const, content: 'hello' },
+            { role: 'assistant' as const, content: 'hi' },
+            { role: 'user' as const, content: 'again' }
+        ];
+
+        assert.deepEqual(fitToContext(messages, 128_000), messages);
+    } ],
+
+    [ 'history is dropped oldest-first to fit the window', () =>
+    {
+        // 2000 tokens apiece against a 5632-token budget, so some must go.
+        const filler = (at: number) => ({ role: 'user' as const, content: `${ at }:${ 'x'.repeat(8000) }` });
+
+        const messages = [
+            { role: 'system' as const, content: 'SYSTEM' },
+            filler(1), filler(2), filler(3), filler(4),
+            { role: 'user' as const, content: 'the question' }
+        ];
+
+        const fitted = fitToContext(messages, 8192);
+
+        assert.ok(fitted.length < messages.length, 'nothing was trimmed');
+        assert.equal(fitted[0].content, 'SYSTEM', 'the system prompt was dropped');
+        assert.equal(fitted[fitted.length - 1].content, 'the question', 'the turn being answered was dropped');
+
+        // What survives must be the newest history, not the oldest.
+        const kept = fitted.slice(1, -1).map((message) => message.content.split(':')[0]);
+
+        assert.deepEqual(kept, kept.slice().sort(), 'order was not preserved');
+        assert.ok(!kept.includes('1'), 'the oldest turn survived while newer ones were dropped');
+    } ],
+
+    [ 'the trimmed result actually fits the budget', () =>
+    {
+        const filler = () => ({ role: 'user' as const, content: 'x'.repeat(4000) });
+
+        for (const window of [ 2048, 4096, 8192, 32_000 ])
+        {
+            const messages = [
+                { role: 'system' as const, content: 'S'.repeat(2000) },
+                filler(), filler(), filler(), filler(), filler(),
+                { role: 'user' as const, content: 'the question' }
+            ];
+
+            const total = fitToContext(messages, window)
+                .reduce((sum, message) => sum + Math.ceil(message.content.length / 4) + 4, 0);
+
+            assert.ok(total <= contextBudget(window), `window ${ window }: ${ total } > ${ contextBudget(window) }`);
+            assert.ok(contextBudget(window) + completionCap(window) <= window, `window ${ window }: budget plus reply overruns`);
+        }
+    } ],
+
+    [ 'a tool result is never left without the call it answers', () =>
+    {
+        // An orphaned `tool` message makes an OpenAI-compatible endpoint reject
+        // the whole request, so trimming must not stop halfway through a round.
+        const messages = [
+            { role: 'system' as const, content: 'S' },
+            { role: 'assistant' as const, content: '', tool_calls: [ { id: 'a' } ] },
+            { role: 'tool' as const, tool_call_id: 'a', content: 'y'.repeat(20_000) },
+            { role: 'tool' as const, tool_call_id: 'b', content: 'z'.repeat(20_000) },
+            { role: 'user' as const, content: 'and now?' }
+        ];
+
+        const fitted = fitToContext(messages, 4096);
+
+        assert.equal(fitted.some((message) => message.role === 'tool'), false, 'an orphan tool result survived');
+    } ],
+
+    [ 'a prompt too large for the window on its own is cut, not sent', () =>
+    {
+        const messages = [
+            { role: 'system' as const, content: 'S'.repeat(200_000) },
+            { role: 'user' as const, content: 'the question' }
+        ];
+
+        const fitted = fitToContext(messages, 8192);
+        const total = fitted.reduce((sum, message) => sum + Math.ceil(message.content.length / 4) + 4, 0);
+
+        assert.ok(total <= contextBudget(8192), `${ total } > ${ contextBudget(8192) }`);
+        assert.equal(fitted[fitted.length - 1].content, 'the question', 'the question was cut instead of the prompt');
+    } ],
+
+    [ 'an unrecorded window falls back to the conservative default', () =>
+    {
+        assert.equal(contextBudget(0), contextBudget(DEFAULT_CONTEXT_TOKENS));
+        assert.equal(completionCap(0), completionCap(DEFAULT_CONTEXT_TOKENS));
+    } ],
+
+    [ 'a small model never asks for a reply it cannot afford', () =>
+    {
+        // max_tokens plus the input has to fit, or the request is refused
+        // before a single token is generated.
+        for (const window of [ 512, 1024, 2048, 4096, 8192, 200_000 ])
+        {
+            assert.ok(completionCap(window) <= Math.max(256, window / 2), `window ${ window }`);
+            assert.ok(completionCap(window) <= MAX_COMPLETION_TOKENS, `window ${ window } exceeded the ceiling`);
+        }
+    } ],
+
     [ 'empty documents are dropped, not joined as blanks', () =>
     {
         const prompt = buildSystemPrompt([ { name: 'a.md', content: '   ' }, { name: 'instructions.md', content: 'Hi.' } ]);
@@ -146,6 +293,67 @@ const tests: Array<[ string, () => void ]> = [
         const text = readCompletion({ choices: [ { message: { content: 'x'.repeat(9000) } } ] });
 
         assert.equal(text?.length, TELEGRAM_TEXT_MAX);
+    } ],
+
+    [ 'a refusal about tools is told apart from every other refusal', () =>
+    {
+        // Verbatim from OpenRouter when the chosen model has no tool-capable
+        // endpoint: the whole request is rejected before the conversation in it
+        // is read, so without this the person gets silence.
+        const refusals = [
+            { error: { message: 'No endpoints found that support tool use. Try disabling "preferences_list".', code: 404 } },
+            { error: { message: 'This model does not support tool calling' } },
+            { error: { message: 'tool_use is not supported by this deployment' } },
+            { error: { message: 'Tools are not available for the selected model' } }
+        ];
+
+        for (const payload of refusals)
+        {
+            assert.equal(isToolRefusal(payload), true, JSON.stringify(payload));
+        }
+    } ],
+
+    [ 'an ordinary failure never costs an agent its tools', () =>
+    {
+        // The expensive false positive: matching too broadly would strip an
+        // agent's capabilities every time a model name was misspelt or a card
+        // expired, and the agent would quietly get worse rather than fail.
+        const others = [
+            { error: { message: 'No endpoints found for openai/gpt-4o-mini', code: 404 } },
+            { error: { message: 'This request requires more credits', code: 402 } },
+            { error: { message: 'Invalid API key provided' } },
+            { error: { message: 'context length exceeded' } },
+            { error: 'upstream timeout' },
+            { choices: [ { message: { content: 'here is a tool you could use' } } ] },
+            { },
+            undefined,
+            null,
+            'not an object'
+        ];
+
+        for (const payload of others)
+        {
+            assert.equal(isToolRefusal(payload), false, JSON.stringify(payload));
+        }
+    } ],
+
+    [ 'a provider error message is the reason a completion was unusable', () =>
+    {
+        // The shape that actually reached us: OpenRouter answering 404 because
+        // the free variant of a model slug had been retired.
+        assert.equal(readError({ error: { message: 'This model is unavailable for free', code: 404 } }), 'This model is unavailable for free');
+
+        assert.equal(readError({ error: 'flat string' }), 'flat string');
+        assert.equal(readError({ error: { message: 'x'.repeat(500) } }).length, ERROR_TEXT_MAX);
+    } ],
+
+    [ 'anything that is not an error envelope contributes no reason', () =>
+    {
+        for (const payload of [ undefined, null, 'text', 42, { }, { error: null }, { error: 42 },
+            { error: { } }, { error: { message: 42 } }, { choices: [ { message: { content: 'hi' } } ] } ])
+        {
+            assert.equal(readError(payload), '', `read a reason out of ${ JSON.stringify(payload) }`);
+        }
     } ]
 ];
 

@@ -48,8 +48,12 @@ export const schemaAgentList = {
     response: {
         200: {
             type: 'object',
-            required: [ 'agents' ],
+            required: [ 'agents', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 agents: { type: 'array', items: agent }
             }
         }
@@ -158,8 +162,13 @@ export const schemaAgentExchanges = {
     response: {
         200: {
             type: 'object',
-            required: [ 'exchanges' ],
+            required: [ 'exchanges', 'limit', 'offset', 'has_more', 'total' ],
             properties: {
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+                /** Whether another page follows; from one extra row, not a count. */
+                has_more: { type: 'boolean' },
+                total: { type: 'integer' },
                 exchanges: {
                     type: 'array',
                     items: {
