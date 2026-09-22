@@ -31,7 +31,9 @@ import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { CodeBlock } from '@/ui/code-block';
 import { Input } from '@/ui/input';
+import { Pressable } from '@/ui/pressable';
 import { Select, SelectItem } from '@/ui/select';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
@@ -284,7 +286,7 @@ export function Agent() {
                     direction="Vertical"
                     className="xl:items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid">
                     <Stack direction="Vertical" className="gap-6">
-                        <section className="grid gap-4">
+                        <Stack direction="Vertical" as="section" className="gap-4">
                             <Stack
                                 direction="Horizontal"
                                 className="flex-wrap items-end justify-between gap-3">
@@ -355,7 +357,7 @@ export function Agent() {
                                     }
                                 />
                             ))}
-                        </section>
+                        </Stack>
 
                         <Card gap={0} flush>
                             <CardHeader className="border-b py-5">
@@ -374,12 +376,15 @@ export function Agent() {
                                     />
                                 )}
 
-                                <ul className="m-0 grid list-none p-0">
+                                <Stack direction="Vertical" as="ul" className="m-0 list-none p-0">
                                     {exchanges.map((exchange) => (
-                                        <li className="border-b last:border-b-0" key={exchange.id}>
-                                            <button
-                                                type="button"
-                                                className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                                        <Stack
+                                            direction="Vertical"
+                                            as="li"
+                                            className="border-b last:border-b-0"
+                                            key={exchange.id}>
+                                            <Pressable
+                                                className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                                                 aria-expanded={openExchange === exchange.id}
                                                 onClick={() =>
                                                     setOpenExchange((current) =>
@@ -428,7 +433,7 @@ export function Agent() {
                                                     )}
                                                     message={`${exchange.outcome === 'ok' ? 'OK' : 'Failed'}${exchange.reason === '' ? '' : ` · ${exchange.reason}`}`}
                                                 />
-                                            </button>
+                                            </Pressable>
 
                                             {openExchange === exchange.id && (
                                                 <Stack
@@ -436,9 +441,10 @@ export function Agent() {
                                                     className="gap-3 bg-muted/30 px-5 py-4">
                                                     <Stack direction="Vertical" className="gap-1.5">
                                                         <Text type="BodyMuted" message="Sent" />
-                                                        <pre className="m-0 max-h-64 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs whitespace-pre-wrap">
-                                                            {exchange.request}
-                                                        </pre>
+                                                        <CodeBlock
+                                                            className="max-h-64"
+                                                            message={exchange.request}
+                                                        />
                                                     </Stack>
 
                                                     <Stack direction="Vertical" className="gap-1.5">
@@ -446,15 +452,16 @@ export function Agent() {
                                                             type="BodyMuted"
                                                             message="Came back"
                                                         />
-                                                        <pre className="m-0 max-h-64 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs whitespace-pre-wrap">
-                                                            {exchange.response}
-                                                        </pre>
+                                                        <CodeBlock
+                                                            className="max-h-64"
+                                                            message={exchange.response}
+                                                        />
                                                     </Stack>
                                                 </Stack>
                                             )}
-                                        </li>
+                                        </Stack>
                                     ))}
-                                </ul>
+                                </Stack>
                             </CardContent>
 
                             {exchangePage !== null && exchanges.length > 0 && (
@@ -481,7 +488,11 @@ export function Agent() {
                             </CardHeader>
 
                             <CardContent>
-                                <form className="grid gap-5" onSubmit={saveAgent}>
+                                <Stack
+                                    direction="Vertical"
+                                    as="form"
+                                    className="gap-5"
+                                    onSubmit={saveAgent}>
                                     <Field label="Name">
                                         {(fieldId) => (
                                             <Input
@@ -550,7 +561,7 @@ export function Agent() {
                                             />
                                         )}
                                     </Stack>
-                                </form>
+                                </Stack>
                             </CardContent>
                         </Card>
 

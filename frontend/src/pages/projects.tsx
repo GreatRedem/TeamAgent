@@ -150,7 +150,7 @@ export function Projects() {
 
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent>
-                    <form className="grid gap-5" onSubmit={create}>
+                    <Stack direction="Vertical" as="form" className="gap-5" onSubmit={create}>
                         <DialogHeader>
                             <DialogTitle>New project</DialogTitle>
                             <DialogDescription>
@@ -203,7 +203,7 @@ export function Projects() {
                                 message={busy ? 'Creating…' : 'Create project'}
                             />
                         </DialogFooter>
-                    </form>
+                    </Stack>
                 </DialogContent>
             </Dialog>
 
@@ -231,9 +231,12 @@ export function Projects() {
             )}
 
             {teams !== null && teams.length > 0 && (
-                <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
+                <Stack
+                    direction="Vertical"
+                    as="ul"
+                    className="m-0 list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                     {teams.map((team) => (
-                        <li key={team.id}>
+                        <Stack direction="Vertical" as="li" key={team.id}>
                             <Card gap={3} className="h-full transition-colors hover:border-input">
                                 <CardHeader>
                                     <CardTitle className="truncate">{team.name}</CardTitle>
@@ -267,9 +270,9 @@ export function Projects() {
                                     />
                                 </CardFooter>
                             </Card>
-                        </li>
+                        </Stack>
                     ))}
-                </ul>
+                </Stack>
             )}
 
             {page !== null && teams !== null && teams.length > 0 && (

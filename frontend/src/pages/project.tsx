@@ -181,7 +181,7 @@ export function Project() {
                     </CardHeader>
 
                     <CardContent>
-                        <form className="grid gap-5" onSubmit={save}>
+                        <Stack direction="Vertical" as="form" className="gap-5" onSubmit={save}>
                             <Field label="Name">
                                 {(fieldId) => (
                                     <Input
@@ -229,7 +229,7 @@ export function Project() {
                                     />
                                 )}
                             </Stack>
-                        </form>
+                        </Stack>
                     </CardContent>
                 </Card>
             )}

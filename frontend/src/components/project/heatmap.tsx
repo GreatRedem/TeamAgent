@@ -71,13 +71,17 @@ export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number
                             key={w}>
                             {week.map((day, d) =>
                                 day === null ? (
-                                    <span
+                                    <Stack
+                                        direction="Horizontal"
+                                        as="span"
                                         className="size-3"
                                         // biome-ignore lint/suspicious/noArrayIndexKey: a weekday slot in a fixed calendar grid; the list is static and never reorders, so the index is its identity
                                         key={d}
                                     />
                                 ) : (
-                                    <span
+                                    <Stack
+                                        direction="Horizontal"
+                                        as="span"
                                         className={cn(
                                             'size-3 rounded-sm',
                                             HEAT_SCALE[level(day, busiest)],
@@ -97,11 +101,20 @@ export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number
             <Stack direction="Horizontal" className="flex-wrap items-center gap-2">
                 <Text type="Caption" as="span" message="Quieter" />
                 {HEAT_SCALE.map((fill) => (
-                    <span className={cn('size-3 rounded-sm', fill)} key={fill} />
+                    <Stack
+                        direction="Horizontal"
+                        as="span"
+                        className={cn('size-3 rounded-sm', fill)}
+                        key={fill}
+                    />
                 ))}
                 <Text type="Caption" as="span" message="Busier" />
                 <Stack direction="Horizontal" as="span" className="ml-3 items-center gap-1.5">
-                    <span className="size-3 rounded-sm bg-scale-0 ring-1 ring-destructive" />
+                    <Stack
+                        direction="Horizontal"
+                        as="span"
+                        className="size-3 rounded-sm bg-scale-0 ring-1 ring-destructive"
+                    />
                     <Text type="Caption" as="span" message="Had a failure" />
                 </Stack>
             </Stack>

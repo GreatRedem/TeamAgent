@@ -26,6 +26,8 @@ import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { CodeBlock } from '@/ui/code-block';
+import { DataList } from '@/ui/data-value';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
@@ -284,9 +286,7 @@ export function ProfilePage() {
                                             />
                                         </Stack>
 
-                                        <pre className="m-0 max-h-60 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs whitespace-pre-wrap">
-                                            {file.content}
-                                        </pre>
+                                        <CodeBlock className="max-h-60" message={file.content} />
                                     </Stack>
                                 ))}
                             </CardContent>
@@ -315,7 +315,7 @@ export function ProfilePage() {
                             </CardHeader>
 
                             <CardContent>
-                                <dl className="m-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-2 text-sm">
+                                <DataList>
                                     <Detail
                                         label="Telegram id"
                                         value={details.profile.telegram_id}
@@ -344,10 +344,13 @@ export function ProfilePage() {
                                             details.profile.last_seen_at,
                                         ).toLocaleString()}
                                     />
-                                </dl>
+                                </DataList>
 
                                 {details.bots.length > 0 && (
-                                    <ul className="m-0 mt-5 grid list-none gap-2 border-t p-0 pt-4">
+                                    <Stack
+                                        direction="Vertical"
+                                        as="ul"
+                                        className="m-0 mt-5 list-none gap-2 border-t p-0 pt-4">
                                         {details.bots.map((bot) => (
                                             <Stack
                                                 direction="Horizontal"
@@ -368,7 +371,7 @@ export function ProfilePage() {
                                                 />
                                             </Stack>
                                         ))}
-                                    </ul>
+                                    </Stack>
                                 )}
                             </CardContent>
                         </Card>

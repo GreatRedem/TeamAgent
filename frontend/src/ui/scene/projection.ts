@@ -68,6 +68,28 @@ export function noise(seed: number): number {
     return x - Math.floor(x);
 }
 
+interface Wave {
+    amplitude: number;
+    frequency: number;
+    phase: number;
+}
+
+// Where a drifting point sits `seconds` in: its home, pushed by the sum of its waves per axis.
+export function drift(
+    home: { x: number; y: number; waves: { x: readonly Wave[]; y: readonly Wave[] } },
+    seconds: number,
+): { x: number; y: number } {
+    const sway = (waves: readonly Wave[]) =>
+        waves.reduce((sum, w) => sum + w.amplitude * Math.sin(w.frequency * seconds + w.phase), 0);
+
+    return { x: home.x + sway(home.waves.x), y: home.y + sway(home.waves.y) };
+}
+
+// How close two points are within `range`: 1 on top of each other, 0 at `range` and beyond.
+export function closeness(a: { x: number; y: number }, b: { x: number; y: number }, range: number) {
+    return Math.max(0, 1 - Math.hypot(b.x - a.x, b.y - a.y) / range);
+}
+
 export function toPoints(points: Projected[]): string {
     return points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
 }

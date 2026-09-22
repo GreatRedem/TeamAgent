@@ -19,12 +19,12 @@ import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
-import { type Status, StatusDot } from '@/components/status-dot';
 import { PROBE_TONE } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { DataList } from '@/ui/data-value';
 import {
     Dialog,
     DialogContent,
@@ -37,6 +37,7 @@ import { Input } from '@/ui/input';
 import { Select, SelectItem } from '@/ui/select';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
+import { type Status, StatusDot } from '@/ui/status-dot';
 import { Text } from '@/ui/text';
 
 function probeState(probe: TeamBotProbe | 'testing'): string {
@@ -299,7 +300,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
     );
 
     return (
-        <section className="grid gap-4">
+        <Stack direction="Vertical" as="section" className="gap-4">
             <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
                 <Text
                     type="BodyMuted"
@@ -315,7 +316,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
 
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent>
-                    <form className="grid gap-5" onSubmit={add}>
+                    <Stack direction="Vertical" as="form" className="gap-5" onSubmit={add}>
                         <DialogHeader>
                             <DialogTitle>Connect a bot</DialogTitle>
                             <DialogDescription>
@@ -393,7 +394,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                 message={busy ? 'Connecting…' : 'Connect bot'}
                             />
                         </DialogFooter>
-                    </form>
+                    </Stack>
                 </DialogContent>
             </Dialog>
 
@@ -421,14 +422,17 @@ export function BotsPanel({ teamId }: { teamId: number }) {
             )}
 
             {bots !== null && bots.length > 0 && (
-                <ul className="m-0 grid list-none gap-3 p-0 lg:grid-cols-2">
+                <Stack
+                    direction="Vertical"
+                    as="ul"
+                    className="m-0 list-none gap-3 p-0 lg:grid-cols-2 lg:grid">
                     {bots.map((bot) => {
                         const probe = probes[bot.id];
                         const url = drafts[bot.id] ?? bot.public_url;
                         const dirty = url.trim() !== bot.public_url;
 
                         return (
-                            <li key={bot.id}>
+                            <Stack direction="Vertical" as="li" key={bot.id}>
                                 <Card gap={3} className="h-full">
                                     <CardHeader>
                                         <CardTitle className="flex min-w-0 items-center gap-2">
@@ -457,7 +461,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                     </CardHeader>
 
                                     <CardContent className="grid gap-4">
-                                        <dl className="m-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm">
+                                        <DataList dense>
                                             <Text type="ForegroundMuted" as="dt" message="Token" />
                                             <Text
                                                 type="Data"
@@ -465,7 +469,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 className="truncate"
                                                 message={bot.token_hint}
                                             />
-                                        </dl>
+                                        </DataList>
 
                                         <Stack direction="Vertical" className="gap-2">
                                             <Text
@@ -547,7 +551,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                             }
                                         />
 
-                                        <span className="grow" />
+                                        <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
                                             label="Remove"
@@ -558,10 +562,10 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                         />
                                     </CardFooter>
                                 </Card>
-                            </li>
+                            </Stack>
                         );
                     })}
-                </ul>
+                </Stack>
             )}
 
             {page !== null && bots !== null && bots.length > 0 && (
@@ -573,6 +577,6 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                     onPage={(offset) => void goTo(offset)}
                 />
             )}
-        </section>
+        </Stack>
     );
 }

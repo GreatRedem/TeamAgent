@@ -1,11 +1,11 @@
-import { Brand } from '@/components/brand';
 import { WalletSignIn } from '@/components/wallet-sign-in';
+import { Brand } from '@/ui/brand';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
 export function SignIn() {
     return (
-        <section className="mx-auto w-full max-w-sm">
+        <Stack direction="Vertical" as="section" className="mx-auto w-full max-w-sm">
             <Stack
                 direction="Vertical"
                 className="rounded-xl border bg-card/90 p-8 shadow-lift backdrop-blur-xl">
@@ -21,6 +21,6 @@ export function SignIn() {
 
                 <WalletSignIn />
             </Stack>
-        </section>
+        </Stack>
     );
 }

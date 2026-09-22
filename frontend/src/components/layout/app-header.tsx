@@ -1,8 +1,6 @@
 import { LogOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
-
-import { Brand } from '@/components/brand';
 import { cn } from '@/libs/cn';
 import {
     DESTINATIONS,
@@ -14,6 +12,7 @@ import {
 } from '@/libs/constant';
 import { activeTeamId, teamPath } from '@/libs/navigation';
 import { clearAccessToken } from '@/libs/session';
+import { Brand } from '@/ui/brand';
 import { Button } from '@/ui/button';
 import { Separator } from '@/ui/separator';
 import { Stack } from '@/ui/stack';
@@ -105,7 +104,10 @@ export function AppHeader() {
     };
 
     return (
-        <header className="pointer-events-none fixed inset-x-0 top-0 z-30 px-4 pt-3 sm:px-6">
+        <Stack
+            direction="Vertical"
+            as="header"
+            className="pointer-events-none fixed inset-x-0 top-0 z-30 px-4 pt-3 sm:px-6">
             <Stack
                 direction="Vertical"
                 className={cn(
@@ -134,7 +136,7 @@ export function AppHeader() {
 
                     <ProjectSwitcher teamId={teamId} />
 
-                    <span className="grow" />
+                    <Stack direction="Horizontal" as="span" className="grow" />
 
                     <Button
                         variant="ghost"
@@ -182,6 +184,6 @@ export function AppHeader() {
                     </Stack>
                 )}
             </Stack>
-        </header>
+        </Stack>
     );
 }

@@ -9,7 +9,6 @@ import {
     type HeatmapDay,
     type Paged,
 } from '@/apis';
-import { DataList, DataRow } from '@/components/data-value';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { cn } from '@/libs/cn';
@@ -17,6 +16,8 @@ import { AUDIT_RESULT } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { DataList, DataRow } from '@/ui/data-value';
+import { Pressable } from '@/ui/pressable';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
@@ -241,14 +242,17 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                                 className="cursor-pointer"
                                                 onClick={() => setSelectedId(entry.id)}>
                                                 <TableCell className="ps-5">
-                                                    <button
-                                                        type="button"
+                                                    <Pressable
                                                         aria-pressed={open}
                                                         aria-label={`Show the entry from ${clock(entry.created_at)}`}
-                                                        className="cursor-pointer border-0 bg-transparent p-0 font-mono text-2xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                                        className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                                                         onClick={() => setSelectedId(entry.id)}>
-                                                        {clock(entry.created_at)}
-                                                    </button>
+                                                        <Text
+                                                            type="DataMuted"
+                                                            as="span"
+                                                            message={clock(entry.created_at)}
+                                                        />
+                                                    </Pressable>
                                                 </TableCell>
                                                 <TableCell className="max-w-[10rem] truncate">
                                                     {row !== null && row.agent !== ''

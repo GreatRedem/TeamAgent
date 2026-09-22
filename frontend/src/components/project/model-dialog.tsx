@@ -22,6 +22,7 @@ import {
 import { Input } from '@/ui/input';
 import { Select, SelectItem } from '@/ui/select';
 import { Stack } from '@/ui/stack';
+import { Suggestions } from '@/ui/suggestions';
 import { Text } from '@/ui/text';
 
 export interface ModelDraft {
@@ -167,8 +168,10 @@ export function ModelDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[85dvh] overflow-y-auto">
-                <form
-                    className="grid gap-5"
+                <Stack
+                    direction="Vertical"
+                    as="form"
+                    className="gap-5"
                     onSubmit={(event) => {
                         event.preventDefault();
                         onSubmit(url);
@@ -184,22 +187,22 @@ export function ModelDialog({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <datalist id="catalog-models">
-                        {catalog.map((entry) => (
-                            <option key={entry.id} value={entry.id}>
-                                {entry.name}
-                                {entry.prompt === 0 && entry.completion === 0
+                    <Suggestions
+                        id="catalog-models"
+                        options={catalog.map((entry) => ({
+                            value: entry.id,
+                            label: `${entry.name}${
+                                entry.prompt === 0 && entry.completion === 0
                                     ? ' · free'
-                                    : ` · $${entry.prompt}/$${entry.completion} per 1M`}
-                            </option>
-                        ))}
-                    </datalist>
+                                    : ` · ${entry.prompt}/${entry.completion} per 1M`
+                            }`,
+                        }))}
+                    />
 
-                    <datalist id="endpoint-models">
-                        {suggestions.map((id) => (
-                            <option key={id} value={id} aria-label={id} />
-                        ))}
-                    </datalist>
+                    <Suggestions
+                        id="endpoint-models"
+                        options={suggestions.map((id) => ({ value: id }))}
+                    />
 
                     {mode === 'create' && (
                         <Field
@@ -359,7 +362,7 @@ export function ModelDialog({
                             />
                         </Stack>
                     </DialogFooter>
-                </form>
+                </Stack>
             </DialogContent>
         </Dialog>
     );

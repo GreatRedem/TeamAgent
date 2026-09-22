@@ -23,6 +23,7 @@ import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { DataList } from '@/ui/data-value';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
@@ -282,7 +283,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
     const createButton = <Button onClick={openCreate} icon={<Plus />} message="Add model" />;
 
     return (
-        <section className="grid gap-4">
+        <Stack direction="Vertical" as="section" className="gap-4">
             <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
                 <Text
                     type="BodyMuted"
@@ -354,12 +355,15 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
             )}
 
             {models !== null && models.length > 0 && (
-                <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2">
+                <Stack
+                    direction="Vertical"
+                    as="ul"
+                    className="m-0 list-none gap-3 p-0 sm:grid-cols-2 sm:grid">
                     {models.map((item) => {
                         const probe = probes[item.id];
 
                         return (
-                            <li key={item.id}>
+                            <Stack direction="Vertical" as="li" key={item.id}>
                                 <Card gap={3} className="h-full">
                                     <CardHeader>
                                         <CardTitle className="flex min-w-0 items-center gap-2">
@@ -378,7 +382,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                     </CardHeader>
 
                                     <CardContent className="grid gap-3">
-                                        <dl className="m-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm">
+                                        <DataList dense>
                                             <Text type="ForegroundMuted" as="dt" message="Model" />
                                             <Text
                                                 type="Data"
@@ -406,7 +410,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                 className="truncate"
                                                 message={item.key_hint}
                                             />
-                                        </dl>
+                                        </DataList>
 
                                         <Stack
                                             direction="Horizontal"
@@ -458,7 +462,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                             message="Edit"
                                         />
 
-                                        <span className="grow" />
+                                        <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
                                             label="Remove"
@@ -469,10 +473,10 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                         />
                                     </CardFooter>
                                 </Card>
-                            </li>
+                            </Stack>
                         );
                     })}
-                </ul>
+                </Stack>
             )}
 
             {page !== null && models !== null && models.length > 0 && (
@@ -484,6 +488,6 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                     onPage={(offset) => void goTo(offset)}
                 />
             )}
-        </section>
+        </Stack>
     );
 }

@@ -9,6 +9,9 @@ import { type DiscoveredWallet, discoverWallets, matchWallet } from '@/libs/wall
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog';
+import { Image } from '@/ui/image';
+import { Pressable } from '@/ui/pressable';
+import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
 type Status =
@@ -133,7 +136,7 @@ export function WalletSignIn() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ul className="m-0 grid list-none gap-2 p-0">
+                    <Stack direction="Vertical" as="ul" className="m-0 list-none gap-2 p-0">
                         {WALLETS.map((wallet) => {
                             const installed =
                                 found === null
@@ -149,17 +152,19 @@ export function WalletSignIn() {
                             const running = busy && status.wallet === wallet.name;
 
                             return (
-                                <li key={wallet.id}>
-                                    <button
-                                        type="button"
+                                <Stack direction="Vertical" as="li" key={wallet.id}>
+                                    <Pressable
                                         disabled={busy || found === null || provider === undefined}
-                                        className="flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-card px-4 py-3 text-start transition-colors hover:border-input hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-start transition-colors hover:border-input hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60"
                                         onClick={() => {
                                             if (provider !== undefined) {
                                                 void signIn(wallet.name, provider);
                                             }
                                         }}>
-                                        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+                                        <Stack
+                                            direction="Vertical"
+                                            as="span"
+                                            className="size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
                                             {installed?.icon === undefined ? (
                                                 <Wallet
                                                     size={16}
@@ -167,15 +172,18 @@ export function WalletSignIn() {
                                                     aria-hidden="true"
                                                 />
                                             ) : (
-                                                <img
+                                                <Image
                                                     src={installed.icon}
                                                     alt=""
                                                     className="size-9"
                                                 />
                                             )}
-                                        </span>
+                                        </Stack>
 
-                                        <span className="grid min-w-0 gap-0.5">
+                                        <Stack
+                                            direction="Vertical"
+                                            as="span"
+                                            className="min-w-0 gap-0.5">
                                             <Text
                                                 type="Strong"
                                                 as="span"
@@ -196,9 +204,12 @@ export function WalletSignIn() {
                                                             : wallet.blurb
                                                 }
                                             />
-                                        </span>
+                                        </Stack>
 
-                                        <span className="ml-auto shrink-0">
+                                        <Stack
+                                            direction="Horizontal"
+                                            as="span"
+                                            className="ml-auto shrink-0">
                                             {running ? (
                                                 <LoaderCircle
                                                     size={16}
@@ -212,12 +223,12 @@ export function WalletSignIn() {
                                                     aria-hidden="true"
                                                 />
                                             )}
-                                        </span>
-                                    </button>
-                                </li>
+                                        </Stack>
+                                    </Pressable>
+                                </Stack>
                             );
                         })}
-                    </ul>
+                    </Stack>
 
                     {found?.length === 0 && (
                         <Text

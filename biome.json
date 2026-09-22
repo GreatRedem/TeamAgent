@@ -5,6 +5,12 @@
         "clientKind": "git",
         "useIgnoreFile": true
     },
+    "plugins": [
+        {
+            "path": "./lint/no-raw-html.grit",
+            "includes": ["**/frontend/src/**", "!**/frontend/src/ui/**"]
+        }
+    ],
     "files": {
         "includes": ["**", "!!**/dist", "!!**/dist-*", "!!**/.dist-*", "!.claude/skills"]
     },

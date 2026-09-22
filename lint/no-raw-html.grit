@@ -1,0 +1,28 @@
+engine biome(1.0)
+language js(typescript, jsx)
+
+// Raw HTML and SVG belong in frontend/src/ui. Everywhere else composes components from
+// @/ui, and nothing may reach around them to create elements by hand.
+or {
+    or {
+        JsxOpeningElement(name=$name),
+        JsxSelfClosingElement(name=$name)
+    } where {
+        $name <: JsxName(),
+        register_diagnostic(span=$name, message="Raw HTML belongs in src/ui. Use a component from @/ui, or add the primitive there.")
+    },
+    or {
+        JsxOpeningElement(name=$member),
+        JsxSelfClosingElement(name=$member)
+    } where {
+        $member <: JsxMemberName(),
+        register_diagnostic(span=$member, message="Tags like motion.div render raw HTML. Wrap them in a primitive in src/ui.")
+    },
+    `$object.createElement($args)` as $call where {
+        register_diagnostic(span=$call, message="Do not create elements by hand outside src/ui. Use a component from @/ui.")
+    },
+    JsxAttribute(name=$attrName) as $attr where {
+        $attrName <: r"dangerouslySetInnerHTML",
+        register_diagnostic(span=$attr, message="Do not inject HTML outside src/ui. Use a component from @/ui.")
+    }
+}

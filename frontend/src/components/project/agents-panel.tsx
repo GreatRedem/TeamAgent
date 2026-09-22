@@ -141,7 +141,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
             </DialogTrigger>
 
             <DialogContent>
-                <form className="grid gap-5" onSubmit={add}>
+                <Stack direction="Vertical" as="form" className="gap-5" onSubmit={add}>
                     <DialogHeader>
                         <DialogTitle>New agent</DialogTitle>
                         <DialogDescription>
@@ -211,13 +211,13 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                             message={busy ? 'Creating…' : 'Create agent'}
                         />
                     </DialogFooter>
-                </form>
+                </Stack>
             </DialogContent>
         </Dialog>
     );
 
     return (
-        <section className="grid gap-4">
+        <Stack direction="Vertical" as="section" className="gap-4">
             <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
                 <Text
                     type="BodyMuted"
@@ -263,9 +263,12 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
             )}
 
             {agents !== null && agents.length > 0 && (
-                <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
+                <Stack
+                    direction="Vertical"
+                    as="ul"
+                    className="m-0 list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                     {agents.map((agent) => (
-                        <li key={agent.id}>
+                        <Stack direction="Vertical" as="li" key={agent.id}>
                             <Card gap={3} className="h-full transition-colors hover:border-input">
                                 <CardHeader>
                                     <CardTitle className="flex min-w-0 items-center gap-2">
@@ -324,9 +327,9 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                     />
                                 </CardFooter>
                             </Card>
-                        </li>
+                        </Stack>
                     ))}
-                </ul>
+                </Stack>
             )}
 
             {page !== null && agents !== null && agents.length > 0 && (
@@ -338,6 +341,6 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                     onPage={(offset) => void goTo(offset)}
                 />
             )}
-        </section>
+        </Stack>
     );
 }

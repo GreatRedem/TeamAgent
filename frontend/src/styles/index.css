@@ -150,19 +150,17 @@
     --font-sans: var(--font-ui);
     --font-mono: var(--font-data);
 
+    /* Sizes only: none carries a line height, so every element keeps the 1.5 set on * below. */
+    --text-*: initial;
     --text-2xs: 0.6875rem;
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
     --text-page: 1.625rem;
     --text-stat: 2.125rem;
-
-    --text-2xs--line-height: 1.5;
-    --text-xs--line-height: 1.5;
-    --text-sm--line-height: 1.5;
-    --text-base--line-height: 1.5;
-    --text-lg--line-height: 1.5;
-    --text-xl--line-height: 1.5;
-    --text-2xl--line-height: 1.5;
-    --text-page--line-height: 1.5;
-    --text-stat--line-height: 1.5;
 
     --shadow-raised: var(--elevation-raised);
     --shadow-float: var(--elevation-float);
@@ -199,12 +197,19 @@
 @layer base {
     * {
         @apply border-border outline-ring/50;
+
+        line-height: 1.5;
+    }
+
+    /* Tailwind 4 gives buttons the default cursor; anything you can press shows a pointer. */
+    button:not(:disabled),
+    [role="button"]:not(:disabled) {
+        cursor: pointer;
     }
 
     body {
         @apply bg-background font-sans text-sm text-foreground;
 
-        line-height: 1.5;
         overflow-x: hidden;
         font-variant-numeric: tabular-nums;
         text-rendering: optimizeLegibility;

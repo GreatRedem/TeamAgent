@@ -78,9 +78,11 @@ npx tsx backend/src/routes/<area>/<name>.test.ts
   shadcn-style primitives on native HTML, `cn` (`@/libs/cn`), `motion` and
   lucide are already here. Radix, `class-variance-authority` and `tw-animate-css`
   were removed on purpose; do not bring them back.
-- **Text, Stack and Button carry the UI.** Copy goes through `<Text />`, flex
-  layout through `<Stack />`, actions through `<Button />`, none of them with
-  children. `AGENTS.md` has the rules.
+- **No raw HTML outside `src/ui`.** Pages and features compose components from
+  `@/ui` (`Text`, `Stack`, `Button`, `Pressable`, …). A missing primitive is
+  added to `src/ui`. `lint/no-raw-html.grit` makes `npm run lint` fail on raw
+  HTML, SVG, `createElement` or `dangerouslySetInnerHTML` anywhere else.
+  `AGENTS.md` section 2 has the rule.
 - **`cn` joins, it does not merge.** A `className` that fights a primitive's own
   class (`gap-0` on a Card) loses to it. Add a prop or variant to the primitive
   instead.

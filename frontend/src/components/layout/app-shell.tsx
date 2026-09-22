@@ -1,9 +1,8 @@
 import { Outlet, useLocation } from 'react-router';
-
-import { Scene } from '@/components/scene/scene';
 import { PAGE_WIDTH } from '@/libs/constant';
 import { activeTeamId } from '@/libs/navigation';
 import { readAccessToken } from '@/libs/session';
+import { Scene } from '@/ui/scene/scene';
 import { Stack } from '@/ui/stack';
 import { AppHeader } from './app-header';
 
@@ -15,9 +14,12 @@ export function AppShell() {
             <Stack direction="Vertical" className="relative isolate min-h-dvh">
                 <Scene />
 
-                <main className="grid min-h-dvh content-center px-4 py-10">
+                <Stack
+                    direction="Vertical"
+                    as="main"
+                    className="min-h-dvh justify-center px-4 py-10">
                     <Outlet />
-                </main>
+                </Stack>
             </Stack>
         );
     }
@@ -26,10 +28,12 @@ export function AppShell() {
         <Stack direction="Vertical" className="relative isolate min-h-dvh">
             <AppHeader />
 
-            <main
-                className={`${PAGE_WIDTH} grid min-w-0 content-start gap-6 px-4 pb-16 sm:px-6 ${activeTeamId(pathname) === 0 ? 'pt-24' : 'pt-32'}`}>
+            <Stack
+                direction="Vertical"
+                as="main"
+                className={`${PAGE_WIDTH} min-w-0 gap-6 px-4 pb-16 sm:px-6 ${activeTeamId(pathname) === 0 ? 'pt-24' : 'pt-32'}`}>
                 <Outlet />
-            </main>
+            </Stack>
         </Stack>
     );
 }

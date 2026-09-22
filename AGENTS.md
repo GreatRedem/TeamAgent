@@ -55,10 +55,42 @@ Never start by rewriting the entire page.
 
 ---
 
-## 2. Text goes through `<Text />`
+## 2. No raw HTML outside `src/ui`
 
-Outside `src/ui`, raw HTML text elements are forbidden: no `<p>`, `<span>`,
-`<h1>`–`<h6>`, `<label>`, `<dt>`, `<dd>`, `<time>` or `<output>` carrying copy. Use
+This is an architectural rule, not a style preference:
+
+```text
+Feature / Page / Layout  →  components from @/ui  →  native HTML
+```
+
+- Native HTML and SVG (`div`, `span`, `p`, `button`, `form`, `ul`, `img`, `svg`,
+  `path`, …) are written only inside `frontend/src/ui`.
+- Everywhere else composes components from `@/ui`. If the primitive you need does
+  not exist, add it to `src/ui` and reuse it; never reach for raw markup because
+  an existing component is inconvenient.
+- No workarounds: no `createElement`, no `dangerouslySetInnerHTML`, no member tags
+  such as `motion.div` that render a raw element.
+- Custom SVG, such as the background scene, lives in `src/ui` too
+  (`src/ui/scene`).
+- Lint enforces it. `lint/no-raw-html.grit` is a Biome plugin that fails
+  `npm run lint` on any of the above outside `src/ui`.
+
+The primitives that carry the app:
+
+| Need                         | Use                                                    |
+| ---------------------------- | ------------------------------------------------------ |
+| Any copy                     | `Text`                                                 |
+| Any box, list, form, landmark | `Stack` (`as="ul"`, `as="li"`, `as="form"`, …)     |
+| An action with a label       | `Button`                                               |
+| A clickable row with content | `Pressable`                                            |
+| Label and value pairs        | `DataList` with `DataRow`                              |
+| Preformatted machine text    | `CodeBlock`                                            |
+| An image                     | `Image` (`alt` required, `""` when decorative)         |
+| Input suggestions            | `Suggestions`, pointed at by the Input's `list`        |
+
+### Text
+
+Copy goes through `<Text />`. Use
 `<Text type="…" message="…" />` from `@/ui/text`, and `as` when the
 element matters (`as="dt"`, `as="time"`). `Text` never takes children: `message`
 is a string or number. Copy that mixes styles, such as a mono number inside a
@@ -69,21 +101,27 @@ to `Text`; `className` is for layout (truncate, margins, grid) and for a status
 colour read from a constant map such as `PROBE_TONE`.
 A new combination is a new `type` in `text.tsx`, not a class on the instance.
 
+### Stack
+
 Every box is `<Stack direction="Horizontal" />` or `<Stack direction="Vertical" />`
-from `@/ui/stack`. There is no raw `<div>` outside `src/ui`. `as` keeps the
+from `@/ui/stack`. `as` keeps the
 element (`as="header"`, `as="form"`, `as="li"`); `className` carries gap and
 alignment. A wrapper with no layout of its own is `Vertical`, which lays its
 children out the way block flow would. A responsive grid is a `Vertical` stack
 that turns into a grid at its breakpoint: `className="gap-3 sm:grid sm:grid-cols-2"`.
-Inside a stack, align a child with `self-*`, not the grid-only `justify-self-*`.
+Inside a stack, align a child with `self-*`, not the grid-only `justify-self-*`,
+and centre it vertically with `justify-center`, not the grid-only `content-center`.
+A spacer or swatch inside inline content is `as="span"`.
+
+### Button
 
 Actions are `<Button message="…" icon={<Icon />} />`, never children. `link="/path"`
 makes it navigation, `iconPosition="end"` puts the icon after the label, and the
 icon is hidden from screen readers for you. An icon-only button needs
 `aria-label`.
 
-Spacers, swatches and other decorative `span`s, lists (`ul`, `li`) and
-interactive or form elements stay as they are.
+A row that is pressed as a whole and holds more than a label, such as a person or
+a wallet in a list, is a `Pressable` with its content inside.
 
 ---
 
@@ -249,8 +287,9 @@ Maintain a clear hierarchy:
 
 Do not use font size alone to create hierarchy. Use spacing, weight and semantic structure.
 
-Line height is 1.5 across the whole project. Do not write a `leading-*` class.
-The type scale already sets it.
+Line height is 1.5 across the whole project, set once on `*` in
+`styles/index.css`. The type scale carries font sizes only, so no size utility
+changes it. Do not write a `leading-*` class.
 
 ---
 

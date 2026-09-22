@@ -102,8 +102,10 @@ The scale is Tailwind's, plus three named steps. Nothing outside it.
 | Caption                     | `text-xs`                    | 12px |
 | Meta, chips, machine values | `text-2xs`                   | 11px |
 
-**Line height is 1.5 everywhere.** Every step of the scale declares it, the body
-sets it, and no component overrides it. There are no `leading-*` utilities in
+**Line height is 1.5 everywhere.** It is set once, on `*` in
+`styles/index.css`. The scale steps are font sizes only (`--text-*: initial`
+clears Tailwind's own, each with its line height), so no size utility changes it,
+and no component overrides it. There are no `leading-*` utilities in
 this codebase; if one appears, it is a bug.
 
 Hierarchy comes from weight, spacing and position. Never from size alone, and
@@ -159,7 +161,10 @@ instance.
 shadcn primitives in `src/ui`: `button`, `input`, `label`, `textarea`,
 `select`, `card`, `dialog`, `dropdown-menu`, `badge`, `separator`, `skeleton`,
 `table`, `switch`, `alert`, plus this project's `text` and `stack`, which carry
-all copy and every layout box. They sit on native elements: `dialog` is a
+all copy and every layout box, and `pressable`, `code-block`, `image`,
+`suggestions`, `data-value`, `brand`, `status-dot` and the `scene` background.
+Nothing outside `src/ui` writes raw HTML or SVG; `AGENTS.md` section 2 has the
+rule and lint enforces it. They sit on native elements: `dialog` is a
 `<dialog>`, `dropdown-menu` a popover placed by CSS anchor positioning, `select` a
 native `<select>`. `card` is customised to a 20px rhythm for
 console density, and its spacing and surface are props (`gap`, `flush`, `variant`).

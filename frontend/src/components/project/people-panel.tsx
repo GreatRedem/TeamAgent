@@ -16,6 +16,7 @@ import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Pressable } from '@/ui/pressable';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
@@ -169,18 +170,24 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                 )}
 
                 {people !== null && people.length > 0 && (
-                    <ul className="m-0 grid list-none p-0">
+                    <Stack direction="Vertical" as="ul" className="m-0 list-none p-0">
                         {people.map((profile) => {
                             const open = selected === profile.id;
 
                             return (
-                                <li className="border-b last:border-b-0" key={profile.id}>
-                                    <button
-                                        type="button"
-                                        className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                                <Stack
+                                    direction="Vertical"
+                                    as="li"
+                                    className="border-b last:border-b-0"
+                                    key={profile.id}>
+                                    <Pressable
+                                        className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                                         aria-expanded={open}
                                         onClick={() => setSelected(open ? null : profile.id)}>
-                                        <span className="grid min-w-0 gap-0.5">
+                                        <Stack
+                                            direction="Vertical"
+                                            as="span"
+                                            className="min-w-0 gap-0.5">
                                             <Text
                                                 type="Strong"
                                                 as="span"
@@ -207,9 +214,9 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                     message={`${profile.message_count} message${profile.message_count === 1 ? '' : 's'}`}
                                                 />
                                             </Stack>
-                                        </span>
+                                        </Stack>
 
-                                        <span className="grow" />
+                                        <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <Text
                                             type="DataMuted"
@@ -229,7 +236,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                             )}
                                             aria-hidden="true"
                                         />
-                                    </button>
+                                    </Pressable>
 
                                     {open && (
                                         <Stack
@@ -296,10 +303,10 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                             />
                                         </Stack>
                                     )}
-                                </li>
+                                </Stack>
                             );
                         })}
-                    </ul>
+                    </Stack>
                 )}
             </CardContent>
 

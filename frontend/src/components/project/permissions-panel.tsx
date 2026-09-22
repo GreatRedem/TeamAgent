@@ -61,7 +61,7 @@ export function PermissionsPanel({
 
                             return (
                                 <Item flush asChild key={permission.key} size="sm">
-                                    <li>
+                                    <Stack direction="Horizontal" as="li">
                                         <ItemContent>
                                             <ItemTitle>
                                                 <Text
@@ -85,7 +85,7 @@ export function PermissionsPanel({
                                                 onCheckedChange={() => onToggle(permission.key)}
                                             />
                                         </ItemActions>
-                                    </li>
+                                    </Stack>
                                 </Item>
                             );
                         })}

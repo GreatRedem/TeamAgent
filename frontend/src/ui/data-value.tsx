@@ -2,11 +2,17 @@ import type { ComponentProps } from 'react';
 import { cn } from '@/libs/cn';
 import { Text } from '@/ui/text';
 
-export function DataList({ className, ...props }: ComponentProps<'dl'>) {
+// Label and value pairs in two columns. `dense` tightens the rows for a list inside a card.
+export function DataList({
+    className,
+    dense = false,
+    ...props
+}: ComponentProps<'dl'> & { dense?: boolean }) {
     return (
         <dl
             className={cn(
-                'grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-2 text-sm',
+                'm-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 text-sm',
+                dense ? 'gap-y-1.5' : 'gap-y-2',
                 className,
             )}
             {...props}

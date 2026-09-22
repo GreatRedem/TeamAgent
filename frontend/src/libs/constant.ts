@@ -3,7 +3,7 @@ import { Bot, Cpu, LayoutGrid, MessageSquare } from 'lucide-react';
 
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
-import { noise, type Vec3 } from '@/components/scene/projection';
+import { noise, type Vec3 } from '@/ui/scene/projection';
 
 export const API_BASE_URL = '/api';
 
@@ -189,27 +189,33 @@ function buildCrystal(): { vertices: Vec3[]; faces: CrystalFace[] } {
 
 export const CRYSTAL_MODEL = buildCrystal();
 
+// Two nodes closer than this, in lattice units, are linked. The link fades as they part.
+export const LATTICE_LINK_DISTANCE = 260;
+
+// One slow sine wave of a node's drift: how far, how fast (radians a second), where it starts.
+const latticeWave = (seed: number) => ({
+    amplitude: 40 + noise(seed) * 80,
+    frequency: 0.06 + noise(seed + 1) * 0.14,
+    phase: noise(seed + 2) * Math.PI * 2,
+});
+
+// Each node drifts on two waves per axis at unrelated frequencies, so no node retraces its
+// path and the links between them keep forming and breaking in a pattern that never repeats.
 export const LATTICE_NODES = Array.from({ length: 22 }, (_, i) => ({
+    key: `n-${i}`,
     x: 60 + noise(i * 7 + 1) * 1320,
     y: 40 + noise(i * 11 + 3) * 560,
     r: 1.1 + noise(i * 17 + 5) * 1.9,
     opacity: 0.16 + noise(i * 23) * 0.24,
+    waves: {
+        x: [latticeWave(i * 41 + 1), latticeWave(i * 43 + 5)],
+        y: [latticeWave(i * 47 + 3), latticeWave(i * 53 + 7)],
+    },
 }));
 
-export const LATTICE_LINKS = LATTICE_NODES.flatMap((node, i) =>
-    LATTICE_NODES.map((other, j) => ({
-        other,
-        j,
-        d: Math.hypot(other.x - node.x, other.y - node.y),
-    }))
-        .filter(({ j, d }) => j > i && d < 260)
-        .map(({ other, j }) => ({
-            key: `${i}-${j}`,
-            x1: node.x,
-            y1: node.y,
-            x2: other.x,
-            y2: other.y,
-        })),
+// Every pair of nodes, each drawn as one line whose opacity follows their distance.
+export const LATTICE_PAIRS = LATTICE_NODES.flatMap((_, i) =>
+    LATTICE_NODES.slice(i + 1).map((__, k) => ({ i, j: i + 1 + k, key: `${i}-${i + 1 + k}` })),
 );
 
 export const LATTICE_VERTICALS = Array.from({ length: 15 }, (_, i) => ({
