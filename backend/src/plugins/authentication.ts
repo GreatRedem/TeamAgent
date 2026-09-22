@@ -6,6 +6,8 @@ import fastifyPlugin from 'fastify-plugin';
 
 import config from '../utils/config.js';
 
+import { touchAccount } from '../utils/presence.js';
+
 import { STATUS_FORBIDDEN, STATUS_UNAUTHORIZED } from '../utils/status.js';
 
 export const SESSION_ACCESS_TIME = 15 * 60 * 1000;
@@ -112,6 +114,8 @@ export default fastifyPlugin(async function(fastify)
                     request.account_id = payload.id;
                     request.session_id = payload.sid;
                     request.account_role = payload.role;
+
+                    touchAccount(payload.id);
 
                     return;
                 }
