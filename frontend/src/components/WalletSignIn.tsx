@@ -3,9 +3,10 @@ import { useCallback, useState } from 'react';
 import { CircleAlert, LoaderCircle, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router';
 
-import { ApiError, walletNonce, walletSignIn } from '../lib/api';
+import { ApiError, walletNonce, walletSignIn } from '../api';
+import { CLASS_NOTE_ERROR } from '../lib/constant';
 import { writeAccessToken } from '../lib/session';
-import { Button } from './Button';
+import { Button } from './ui/Button';
 
 type Status =
     | { kind: 'idle' }
@@ -81,6 +82,7 @@ export function WalletSignIn()
     return (
         <>
             <Button
+                className="w-full justify-center"
                 type="button"
                 onClick={ () => void signIn() }
                 disabled={ busy }
@@ -91,7 +93,7 @@ export function WalletSignIn()
                 { busy ? status.step : 'Sign in with Wallet' }
             </Button>
 
-            <output className="note" data-state={ status.kind }>
+            <output className={ `mt-3.5 justify-center ${ CLASS_NOTE_ERROR }` }>
                 { status.kind === 'error' && <><CircleAlert size={ 16 } aria-hidden="true" />{ status.message }</> }
             </output>
         </>
