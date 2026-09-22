@@ -12,10 +12,9 @@ on every screen and the chrome around it stays quiet.
 ## Where it lives
 
 ```
-frontend/src/styles/tokens.css    every colour, radius, font and elevation
-frontend/src/styles/index.css     the Tailwind theme that names them
-frontend/src/components/ui/       shadcn primitives plus this project's own
-frontend/src/lib/constant.ts      every constant the app reads
+frontend/src/styles/index.css     every colour, radius, font and elevation, and the Tailwind theme that names them
+frontend/src/ui/                  shadcn primitives plus this project's own
+frontend/src/libs/constant.ts     every constant the app reads
 ```
 
 There is no CSS component layer and no second naming system. Styling is either a
@@ -44,9 +43,9 @@ shadcn component, a Tailwind utility resolved from a token, or a constant.
 
 ## 2. Colour
 
-One semantic set, shadcn's vocabulary, defined once in `tokens.css`. The
+One semantic set, shadcn's vocabulary, defined once in `styles/index.css`. The
 Tailwind colour namespace is reset, so only these exist and a hex value outside
-`tokens.css` cannot be written by accident.
+`styles/index.css` cannot be written by accident.
 
 | Token              | Value     | Use                              |
 | ------------------ | --------- | -------------------------------- |
@@ -157,10 +156,13 @@ instance.
 
 ## 6. Components
 
-shadcn primitives in `components/ui`: `button`, `input`, `label`, `textarea`,
+shadcn primitives in `src/ui`: `button`, `input`, `label`, `textarea`,
 `select`, `card`, `dialog`, `dropdown-menu`, `badge`, `separator`, `skeleton`,
-`table`, `switch`, `tooltip`, `alert`. `card` is customised to a 20px rhythm for
-console density; the rest are stock.
+`table`, `switch`, `alert`, plus this project's `text` and `stack`, which carry
+all copy and every layout box. They sit on native elements: `dialog` is a
+`<dialog>`, `dropdown-menu` a popover placed by CSS anchor positioning, `select` a
+native `<select>`. `card` is customised to a 20px rhythm for
+console density, and its spacing and surface are props (`gap`, `flush`, `variant`).
 
 This project's own primitives sit beside them and compose those:
 
@@ -236,16 +238,9 @@ permissions on the right.
 
 ## 9. Linting
 
-`@shadcn/lint` is registered in `.oxlintrc.json` under `jsPlugins`. Two of its
-rules are on:
+Biome runs its recommended rule set over both workspaces (`biome.json`). One
+rule is off: `useLiteralKeys`, because the tsconfigs set
+`noPropertyAccessFromIndexSignature` and require the bracket form it rewrites.
 
-- `no-unknown-classes` catches a class that generates no CSS. It already found
-  one real bug: shadcn's dialog and menu animations were dead because
-  `tw-animate-css` was missing.
-- `no-raw-colors` keeps colour in `tokens.css`.
-
-Four more are available and currently off: `no-restyle`, `no-arbitrary-values`,
-`no-inline-styles` and `require-static-classes`. Together they report about 250
-findings, mostly instances passing typography or spacing classes to a shadcn
-component instead of adding a variant to it. Turning them on is the next
-tightening pass, not a blocker.
+Nothing checks Tailwind classes any more: an unknown class or a raw colour
+outside `styles/index.css` is caught in review, not by lint.

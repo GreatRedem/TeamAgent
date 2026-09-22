@@ -16,7 +16,7 @@ export default class LRUCache<K, V> {
             return undefined;
         }
 
-        const value = this.cache.get(key)!;
+        const value = this.cache.get(key) as V;
 
         this.cache.delete(key);
         this.cache.set(key, value);

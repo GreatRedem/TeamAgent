@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { ApiError, systemMetrics, type SystemMetrics } from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Stat } from '@/components/ui/stat';
-import { METRICS_REFRESH } from '@/lib/constant';
-import { byteLabel, uptimeLabel } from '@/lib/format';
+import { ApiError, type SystemMetrics, systemMetrics } from '@/apis';
+import { Stat } from '@/components/stat';
+import { METRICS_REFRESH } from '@/libs/constant';
+import { byteLabel, uptimeLabel } from '@/libs/format';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
 
 function share(used: number, total: number): number {
     return total <= 0 ? 0 : Math.round((used / total) * 100);
@@ -78,15 +79,19 @@ export function MachinePanel() {
                 )}
 
                 {metrics === null && error === null && (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <Stack
+                        direction="Vertical"
+                        className="gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                         {[0, 1, 2, 3, 4, 5].map((i) => (
-                            <Skeleton className="h-[7.5rem] rounded-lg" key={i} />
+                            <Skeleton radius="lg" className="h-[7.5rem]" key={i} />
                         ))}
-                    </div>
+                    </Stack>
                 )}
 
                 {metrics !== null && (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <Stack
+                        direction="Vertical"
+                        className="gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                         <Stat
                             label="Processor"
                             value={metrics.cpu_percent}
@@ -135,7 +140,7 @@ export function MachinePanel() {
                             value={uptimeLabel(metrics.uptime_seconds)}
                             note="Since the host last booted"
                         />
-                    </div>
+                    </Stack>
                 )}
             </CardContent>
         </Card>

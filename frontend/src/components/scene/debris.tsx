@@ -1,4 +1,4 @@
-import { DEBRIS_CUBES, DEBRIS_SPHERES } from '@/lib/constant';
+import { DEBRIS_CUBES, DEBRIS_SPHERES } from '@/libs/constant';
 
 export function Debris() {
     return (
@@ -6,8 +6,7 @@ export function Debris() {
             className="absolute inset-0 size-full"
             viewBox="0 0 420 500"
             role="presentation"
-            focusable="false"
-        >
+            focusable="false">
             <defs>
                 <linearGradient id="cubeTop" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--facet-hi)" stopOpacity="0.5" />
@@ -24,8 +23,7 @@ export function Debris() {
                 <g
                     key={`cube-${cube.x}-${cube.y}`}
                     opacity={cube.opacity}
-                    transform={`translate(${cube.x} ${cube.y})`}
-                >
+                    transform={`translate(${cube.x} ${cube.y})`}>
                     <polygon
                         points={`0,${-cube.size * 0.5} ${cube.size},0 0,${cube.size * 0.5} ${-cube.size},0`}
                         fill="url(#cubeTop)"

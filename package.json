@@ -14,10 +14,10 @@
         "build:api": "npm --workspace backend run build",
         "build:web": "npm --workspace frontend run build",
         "typecheck": "npm --workspace frontend run typecheck",
-        "lint": "oxlint .",
-        "lint:fix": "oxlint . --fix",
-        "format": "oxfmt .",
-        "format:check": "oxfmt . --check",
+        "lint": "biome lint .",
+        "lint:fix": "biome check --write .",
+        "format": "biome check --write --linter-enabled=false .",
+        "format:check": "biome check --linter-enabled=false .",
         "service:stop": "bash scripts/service-stop.sh",
         "service:start": "bash scripts/service-start.sh",
         "service:status": "bash scripts/service-status.sh",
@@ -27,9 +27,7 @@
         "service:deploy": "npm run build:api && npm run service:restart"
     },
     "devDependencies": {
-        "@shadcn/lint": "^0.2.0",
-        "concurrently": "^10.0.5",
-        "oxfmt": "^0.68.0",
-        "oxlint": "^1.83.0"
+        "@biomejs/biome": "^2.5.14",
+        "concurrently": "^10.0.5"
     }
 }

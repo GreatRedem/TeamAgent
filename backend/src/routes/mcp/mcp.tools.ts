@@ -1,18 +1,18 @@
 import type { FastifyInstance } from 'fastify';
 
-import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
+import { type TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
 import { audit } from '../audit/audit.log.js';
 import { TeamDocument } from '../team/team.entity.js';
 import {
-    ROSTER_FILE,
-    RosterError,
     findMember,
     parseRoster,
+    ROSTER_FILE,
+    type Roster,
+    RosterError,
     removeMember,
     serializeRoster,
     upsertMember,
-    type Roster,
 } from '../team/team.roster.js';
 import {
     TelegramMessage,

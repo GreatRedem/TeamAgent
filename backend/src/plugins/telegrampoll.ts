@@ -62,7 +62,7 @@ async function call(
     }
 }
 
-export default fastifyPlugin(async function (fastify: FastifyInstance) {
+export default fastifyPlugin(async (fastify: FastifyInstance) => {
     const running = new Map<number, AbortController>();
 
     const supervisor = new AbortController();
@@ -78,7 +78,7 @@ export default fastifyPlugin(async function (fastify: FastifyInstance) {
         while (!signal.aborted) {
             const bot = await fastify.db.getRepository(TeamBot).findOneBy({ id: botId });
 
-            if (!bot || bot.public_url !== '') {
+            if (bot?.public_url !== '') {
                 return;
             }
 

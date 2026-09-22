@@ -1,4 +1,4 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
 import LRUCache from '../utils/lru.js';
@@ -10,7 +10,7 @@ export function rateLimit(name: string, count: number, time: number) {
     return { rateLimit: { name, count, time } };
 }
 
-export default fastifyPlugin(async function (fastify) {
+export default fastifyPlugin(async (fastify) => {
     fastify.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
         if (request.account_id !== 0) {
             return;

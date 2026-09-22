@@ -9,10 +9,7 @@ import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('database');
 
-export default fastifyPlugin(async function (
-    fastify,
-    options: { dir: string; matchFilter: string },
-) {
+export default fastifyPlugin(async (fastify, options: { dir: string; matchFilter: string }) => {
     const isDevelopment = config.NODE_ENV === 'development';
 
     const url = config.NODE_DB_CA

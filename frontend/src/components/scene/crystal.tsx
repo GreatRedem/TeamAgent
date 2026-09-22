@@ -7,17 +7,17 @@ import {
     SCENE_LIGHT,
     SCENE_PITCH,
     SCENE_SCALE,
-} from '@/lib/constant';
+} from '@/libs/constant';
 
 import {
     centroid,
     dot,
     faceNormal,
+    type Projected,
     project,
     rotate,
     splitByDepth,
     toPoints,
-    type Projected,
     type Vec3,
 } from './projection';
 import { useRotation } from './use-rotation';
@@ -116,8 +116,7 @@ export function Crystal() {
             className="absolute inset-0 size-full"
             viewBox="-300 -330 600 660"
             role="presentation"
-            focusable="false"
-        >
+            focusable="false">
             <defs>
                 <radialGradient id="crystalCore" cx="0.5" cy="0.45" r="0.55">
                     <stop offset="0%" stopColor="var(--glow-bright)" stopOpacity="0.32" />
@@ -147,6 +146,7 @@ export function Crystal() {
                 {scene.curves.map(({ key, curve, back }) =>
                     back.map((run, i) => (
                         <path
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a stroke of a fixed decorative curve; the list is static and never reorders, so the index is its identity
                             key={`${key}-back-${i}`}
                             d={path(run)}
                             stroke="var(--glow-bright)"
@@ -179,6 +179,7 @@ export function Crystal() {
             <g filter="url(#glowSoft)">
                 {scene.sparks.map((spark, i) => (
                     <circle
+                        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed decorative spark; the list is static and never reorders, so the index is its identity
                         key={`spark-${i}`}
                         cx={spark.x}
                         cy={spark.y}
@@ -205,6 +206,7 @@ export function Crystal() {
                 {scene.curves.map(({ key, curve, front }) =>
                     front.map((run, i) => (
                         <path
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a stroke of a fixed decorative curve; the list is static and never reorders, so the index is its identity
                             key={`${key}-front-${i}`}
                             d={path(run)}
                             stroke="var(--glow-bright)"

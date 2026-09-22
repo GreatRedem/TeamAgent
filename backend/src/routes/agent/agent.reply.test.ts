@@ -1,24 +1,22 @@
-/* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
-
 import assert from 'node:assert/strict';
 
 import {
     ALWAYS_INLINE,
-    DEFAULT_CONTEXT_TOKENS,
-    DOCUMENT_INLINE_MAX,
-    ERROR_TEXT_MAX,
-    HISTORY_LIMIT,
-    MAX_COMPLETION_TOKENS,
-    TELEGRAM_TEXT_MAX,
     buildMessages,
     buildSystemPrompt,
     completionCap,
     contextBudget,
+    DEFAULT_CONTEXT_TOKENS,
+    DOCUMENT_INLINE_MAX,
+    ERROR_TEXT_MAX,
     earlierTurns,
     fitToContext,
+    HISTORY_LIMIT,
     isToolRefusal,
+    MAX_COMPLETION_TOKENS,
     readCompletion,
     readError,
+    TELEGRAM_TEXT_MAX,
 } from './agent.reply.js';
 
 const docs = [

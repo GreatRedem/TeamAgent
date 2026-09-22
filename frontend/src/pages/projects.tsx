@@ -1,11 +1,16 @@
 import { FolderPlus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 
-import { ApiError, teamCreate, teamList, type Paged, type Team } from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { ApiError, type Paged, type Team, teamCreate, teamList } from '@/apis';
+import { EmptyState } from '@/components/empty-state';
+import { Field } from '@/components/field';
+import { PageHeader } from '@/components/page-header';
+import { Pager } from '@/components/pager';
+import { clearAccessToken, readAccessToken } from '@/libs/session';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -13,14 +18,11 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import { Skeleton } from '@/components/ui/skeleton';
-import { clearAccessToken, readAccessToken } from '@/lib/session';
+} from '@/ui/dialog';
+import { Input } from '@/ui/input';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 export function Projects() {
     const navigate = useNavigate();
@@ -133,10 +135,9 @@ export function Projects() {
                 setFormError(null);
                 setCreating(true);
             }}
-        >
-            <Plus aria-hidden="true" />
-            New project
-        </Button>
+            icon={<Plus />}
+            message="New project"
+        />
     );
 
     return (
@@ -194,12 +195,13 @@ export function Projects() {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setCreating(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={busy}>
-                                {busy ? 'Creating…' : 'Create project'}
-                            </Button>
+                                message="Cancel"
+                            />
+                            <Button
+                                type="submit"
+                                disabled={busy}
+                                message={busy ? 'Creating…' : 'Create project'}
+                            />
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -212,11 +214,11 @@ export function Projects() {
             )}
 
             {teams === null && (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Stack direction="Vertical" className="gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                     {[0, 1, 2].map((i) => (
-                        <Skeleton className="h-40 rounded-xl" key={i} />
+                        <Skeleton radius="xl" className="h-40" key={i} />
                     ))}
-                </div>
+                </Stack>
             )}
 
             {teams !== null && teams.length === 0 && (
@@ -232,30 +234,37 @@ export function Projects() {
                 <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
                     {teams.map((team) => (
                         <li key={team.id}>
-                            <Card className="h-full gap-3 transition-colors hover:border-input">
+                            <Card gap={3} className="h-full transition-colors hover:border-input">
                                 <CardHeader>
                                     <CardTitle className="truncate">{team.name}</CardTitle>
                                 </CardHeader>
 
                                 <CardContent>
-                                    <p className="m-0 line-clamp-2 min-h-10 text-sm text-muted-foreground">
-                                        {team.description === ''
-                                            ? 'No description yet.'
-                                            : team.description}
-                                    </p>
+                                    <Text
+                                        type="BodyMuted"
+                                        className="line-clamp-2 min-h-10"
+                                        message={
+                                            team.description === ''
+                                                ? 'No description yet.'
+                                                : team.description
+                                        }
+                                    />
                                 </CardContent>
 
                                 <CardFooter className="justify-between gap-3">
-                                    <time
-                                        className="font-mono text-2xs text-muted-foreground"
+                                    <Text
+                                        type="DataMuted"
+                                        as="time"
                                         dateTime={team.created_at}
-                                    >
-                                        {new Date(team.created_at).toLocaleDateString()}
-                                    </time>
+                                        message={new Date(team.created_at).toLocaleDateString()}
+                                    />
 
-                                    <Button asChild variant="outline" size="sm">
-                                        <Link to={`/dashboard/team/${team.id}`}>Open</Link>
-                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        link={`/dashboard/team/${team.id}`}
+                                        message="Open"
+                                    />
                                 </CardFooter>
                             </Card>
                         </li>
@@ -264,7 +273,7 @@ export function Projects() {
             )}
 
             {page !== null && teams !== null && teams.length > 0 && (
-                <PaginationFooter
+                <Pager
                     page={page}
                     shown={teams.length}
                     busy={paging}

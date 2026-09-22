@@ -1,11 +1,11 @@
 import {
+    Column,
+    CreateDateColumn,
     Entity,
     Index,
     PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    UpdateDateColumn,
     Unique,
+    UpdateDateColumn,
 } from 'typeorm';
 
 @Entity({ name: 'telegram_user' })

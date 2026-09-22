@@ -1,5 +1,3 @@
-/* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
-
 import assert from 'node:assert/strict';
 
 import {
@@ -9,7 +7,7 @@ import {
 } from '../agent/agent.permission.js';
 import { readToolCalls } from '../agent/agent.reply.js';
 import { PERMISSIONS as PROFILE_PERMISSIONS } from '../telegram/telegram.permission.js';
-import { DOCUMENT_NAME_PATTERN, TOOLS, allowedTools, toOpenAITools } from './mcp.tools.js';
+import { allowedTools, DOCUMENT_NAME_PATTERN, TOOLS, toOpenAITools } from './mcp.tools.js';
 
 const call = (id: string, name: string, args: unknown) => ({
     choices: [

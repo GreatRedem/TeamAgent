@@ -1,14 +1,12 @@
-/* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
-
 import assert from 'node:assert/strict';
 
 import {
-    MEMBERS_MAX,
-    ROSTER_CONTENT_MAX,
-    RosterError,
     emptyRoster,
     findMember,
+    MEMBERS_MAX,
     parseRoster,
+    ROSTER_CONTENT_MAX,
+    RosterError,
     removeMember,
     serializeRoster,
     upsertMember,

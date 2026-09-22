@@ -7,7 +7,7 @@ import { audit } from '../audit/audit.log.js';
 import { createWebhookSecret } from '../telegram/telegram.service.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from './team.access.js';
 import { Team, TeamBot, TeamDocument } from './team.entity.js';
-import { ROSTER_FILE, parseRoster, serializeRoster, type Roster } from './team.roster.js';
+import { parseRoster, ROSTER_FILE, type Roster, serializeRoster } from './team.roster.js';
 import {
     schemaTeamBotCreate,
     schemaTeamBotList,

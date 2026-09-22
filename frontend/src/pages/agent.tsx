@@ -1,9 +1,10 @@
-import { cn } from 'cn';
 import { ArrowLeft, FilePlus, FileText } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import {
+    type AgentDocument,
+    type AgentExchange,
     ApiError,
     agentDetails,
     agentDocumentCreate,
@@ -12,41 +13,29 @@ import {
     agentPermissionUpdate,
     agentUpdate,
     modelList,
-    type AgentDocument,
-    type AgentExchange,
     type Paged,
     type Permission,
     type TeamAgent,
     type TeamModel,
-} from '@/api';
+} from '@/apis';
 import { DocumentEditor } from '@/components/agent/document-editor';
+import { EmptyState } from '@/components/empty-state';
+import { Field } from '@/components/field';
+import { PageHeader } from '@/components/page-header';
+import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PROBE_TONE } from '@/lib/constant';
-import { teamPath } from '@/lib/navigation';
-import { clearAccessToken, readAccessToken } from '@/lib/session';
+import { cn } from '@/libs/cn';
+import { PROBE_TONE } from '@/libs/constant';
+import { teamPath } from '@/libs/navigation';
+import { clearAccessToken, readAccessToken } from '@/libs/session';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Input } from '@/ui/input';
+import { Select, SelectItem } from '@/ui/select';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 export function Agent() {
     const navigate = useNavigate();
@@ -268,12 +257,12 @@ export function Agent() {
                           : agent.description
                 }
                 actions={
-                    <Button asChild variant="outline">
-                        <Link to={teamPath(teamId, 'agents')}>
-                            <ArrowLeft aria-hidden="true" />
-                            All agents
-                        </Link>
-                    </Button>
+                    <Button
+                        variant="outline"
+                        link={teamPath(teamId, 'agents')}
+                        icon={<ArrowLeft />}
+                        message="All agents"
+                    />
                 }
             />
 
@@ -284,30 +273,40 @@ export function Agent() {
             )}
 
             {agent === null && error === null && (
-                <div className="grid gap-3">
-                    <Skeleton className="h-40 rounded-xl" />
-                    <Skeleton className="h-64 rounded-xl" />
-                </div>
+                <Stack direction="Vertical" className="gap-3">
+                    <Skeleton radius="xl" className="h-40" />
+                    <Skeleton radius="xl" className="h-64" />
+                </Stack>
             )}
 
             {agent !== null && (
-                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                    <div className="grid gap-6">
+                <Stack
+                    direction="Vertical"
+                    className="xl:items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid">
+                    <Stack direction="Vertical" className="gap-6">
                         <section className="grid gap-4">
-                            <div className="flex flex-wrap items-end justify-between gap-3">
-                                <div className="grid gap-1">
-                                    <h2 className="m-0 text-base font-semibold">Instructions</h2>
-                                    <p className="m-0 text-sm text-muted-foreground">
-                                        Markdown files that tell this agent how to behave.
-                                    </p>
-                                </div>
+                            <Stack
+                                direction="Horizontal"
+                                className="flex-wrap items-end justify-between gap-3">
+                                <Stack direction="Vertical" className="gap-1">
+                                    <Text type="Heading" message="Instructions" />
+                                    <Text
+                                        type="BodyMuted"
+                                        message="Markdown files that tell this agent how to behave."
+                                    />
+                                </Stack>
 
-                                <form className="flex items-end gap-2" onSubmit={addDocument}>
+                                <Stack
+                                    direction="Horizontal"
+                                    as="form"
+                                    className="items-end gap-2"
+                                    onSubmit={addDocument}>
                                     <Field label="New file">
                                         {(fieldId) => (
                                             <Input
+                                                compact
                                                 id={fieldId}
-                                                className="w-48 font-mono"
+                                                className="font-mono"
                                                 value={newName}
                                                 onChange={(event) => setNewName(event.target.value)}
                                                 pattern="[a-z0-9._-]+\.md"
@@ -318,12 +317,15 @@ export function Agent() {
                                         )}
                                     </Field>
 
-                                    <Button type="submit" variant="outline" disabled={addingFile}>
-                                        <FilePlus aria-hidden="true" />
-                                        Add
-                                    </Button>
-                                </form>
-                            </div>
+                                    <Button
+                                        type="submit"
+                                        variant="outline"
+                                        disabled={addingFile}
+                                        icon={<FilePlus />}
+                                        message="Add"
+                                    />
+                                </Stack>
+                            </Stack>
 
                             {documents.length === 0 && (
                                 <EmptyState
@@ -355,7 +357,7 @@ export function Agent() {
                             ))}
                         </section>
 
-                        <Card className="gap-0 py-0">
+                        <Card gap={0} flush>
                             <CardHeader className="border-b py-5">
                                 <CardTitle>Recent round-trips</CardTitle>
                                 <CardDescription>
@@ -363,11 +365,13 @@ export function Agent() {
                                 </CardDescription>
                             </CardHeader>
 
-                            <CardContent className="px-0 py-0">
+                            <CardContent padding="none">
                                 {exchanges.length === 0 && (
-                                    <p className="m-0 px-5 py-5 text-sm text-muted-foreground">
-                                        This agent has not answered anything yet.
-                                    </p>
+                                    <Text
+                                        type="BodyMuted"
+                                        className="px-5 py-5"
+                                        message="This agent has not answered anything yet."
+                                    />
                                 )}
 
                                 <ul className="m-0 grid list-none p-0">
@@ -383,65 +387,70 @@ export function Agent() {
                                                             ? null
                                                             : exchange.id,
                                                     )
-                                                }
-                                            >
-                                                <time
-                                                    className="shrink-0 font-mono text-2xs text-muted-foreground"
+                                                }>
+                                                <Text
+                                                    type="DataMuted"
+                                                    as="time"
+                                                    className="shrink-0"
                                                     dateTime={exchange.created_at}
-                                                >
-                                                    {new Date(
+                                                    message={new Date(
                                                         exchange.created_at,
                                                     ).toLocaleTimeString(undefined, {
                                                         hour: '2-digit',
                                                         minute: '2-digit',
                                                     })}
-                                                </time>
+                                                />
 
-                                                <span className="min-w-0 grow truncate text-sm">
-                                                    Round {exchange.round}, {exchange.tool_calls}{' '}
-                                                    tool call{exchange.tool_calls === 1 ? '' : 's'}
-                                                </span>
+                                                <Text
+                                                    type="Body"
+                                                    as="span"
+                                                    className="min-w-0 grow truncate"
+                                                    message={`Round ${exchange.round}, ${exchange.tool_calls} tool call${exchange.tool_calls === 1 ? '' : 's'}`}
+                                                />
 
-                                                <span className="shrink-0 font-mono text-2xs text-muted-foreground">
-                                                    {exchange.duration_ms.toLocaleString()} ms
-                                                </span>
+                                                <Text
+                                                    type="DataMuted"
+                                                    as="span"
+                                                    className="shrink-0"
+                                                    message={`${exchange.duration_ms.toLocaleString()} ms`}
+                                                />
 
-                                                <span
+                                                <Text
+                                                    type="BodyStrong"
+                                                    as="span"
                                                     className={cn(
-                                                        'shrink-0 text-sm font-medium',
+                                                        'shrink-0',
                                                         PROBE_TONE[
                                                             exchange.outcome === 'ok'
                                                                 ? 'ok'
                                                                 : 'error'
                                                         ],
                                                     )}
-                                                >
-                                                    {exchange.outcome === 'ok' ? 'OK' : 'Failed'}
-                                                    {exchange.reason !== '' &&
-                                                        ` · ${exchange.reason}`}
-                                                </span>
+                                                    message={`${exchange.outcome === 'ok' ? 'OK' : 'Failed'}${exchange.reason === '' ? '' : ` · ${exchange.reason}`}`}
+                                                />
                                             </button>
 
                                             {openExchange === exchange.id && (
-                                                <div className="grid gap-3 bg-muted/30 px-5 py-4">
-                                                    <div className="grid gap-1.5">
-                                                        <p className="m-0 text-sm text-muted-foreground">
-                                                            Sent
-                                                        </p>
+                                                <Stack
+                                                    direction="Vertical"
+                                                    className="gap-3 bg-muted/30 px-5 py-4">
+                                                    <Stack direction="Vertical" className="gap-1.5">
+                                                        <Text type="BodyMuted" message="Sent" />
                                                         <pre className="m-0 max-h-64 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs whitespace-pre-wrap">
                                                             {exchange.request}
                                                         </pre>
-                                                    </div>
+                                                    </Stack>
 
-                                                    <div className="grid gap-1.5">
-                                                        <p className="m-0 text-sm text-muted-foreground">
-                                                            Came back
-                                                        </p>
+                                                    <Stack direction="Vertical" className="gap-1.5">
+                                                        <Text
+                                                            type="BodyMuted"
+                                                            message="Came back"
+                                                        />
                                                         <pre className="m-0 max-h-64 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs whitespace-pre-wrap">
                                                             {exchange.response}
                                                         </pre>
-                                                    </div>
-                                                </div>
+                                                    </Stack>
+                                                </Stack>
                                             )}
                                         </li>
                                     ))}
@@ -450,7 +459,7 @@ export function Agent() {
 
                             {exchangePage !== null && exchanges.length > 0 && (
                                 <CardFooter className="border-t py-4">
-                                    <PaginationFooter
+                                    <Pager
                                         page={exchangePage}
                                         shown={exchanges.length}
                                         busy={paging}
@@ -460,9 +469,9 @@ export function Agent() {
                                 </CardFooter>
                             )}
                         </Card>
-                    </div>
+                    </Stack>
 
-                    <div className="grid gap-6 xl:sticky xl:top-32">
+                    <Stack direction="Vertical" className="gap-6 xl:sticky xl:top-32">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Identity</CardTitle>
@@ -511,35 +520,36 @@ export function Agent() {
                                                     setModelId(value);
                                                     setSaved(false);
                                                 }}
-                                            >
-                                                <SelectTrigger id={fieldId} className="w-full">
-                                                    <SelectValue placeholder="Pick a model" />
-                                                </SelectTrigger>
-
-                                                <SelectContent>
-                                                    <SelectItem value="0">No model</SelectItem>
-                                                    {models.map((model) => (
-                                                        <SelectItem
-                                                            key={model.id}
-                                                            value={String(model.id)}
-                                                        >
-                                                            {model.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
+                                                id={fieldId}
+                                                placeholder="Pick a model">
+                                                <SelectItem value="0">No model</SelectItem>
+                                                {models.map((model) => (
+                                                    <SelectItem
+                                                        key={model.id}
+                                                        value={String(model.id)}>
+                                                        {model.name}
+                                                    </SelectItem>
+                                                ))}
                                             </Select>
                                         )}
                                     </Field>
 
-                                    <div className="flex items-center gap-3">
-                                        <Button type="submit" disabled={savingAgent}>
-                                            {savingAgent ? 'Saving…' : 'Save changes'}
-                                        </Button>
+                                    <Stack direction="Horizontal" className="items-center gap-3">
+                                        <Button
+                                            type="submit"
+                                            disabled={savingAgent}
+                                            message={savingAgent ? 'Saving…' : 'Save changes'}
+                                        />
 
                                         {saved && (
-                                            <output className="text-sm text-primary">Saved.</output>
+                                            <Text
+                                                type="Body"
+                                                as="output"
+                                                className="text-primary"
+                                                message="Saved."
+                                            />
                                         )}
-                                    </div>
+                                    </Stack>
                                 </form>
                             </CardContent>
                         </Card>
@@ -553,8 +563,8 @@ export function Agent() {
                             error={null}
                             onToggle={(key) => void toggleCapability(key)}
                         />
-                    </div>
-                </div>
+                    </Stack>
+                </Stack>
             )}
         </>
     );

@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
-import { ApiError, teamDetails, teamUpdate, type Team } from '@/api';
+import { ApiError, type Team, teamDetails, teamUpdate } from '@/apis';
+import { Field } from '@/components/field';
+import { PageHeader } from '@/components/page-header';
 import { ActivityPanel } from '@/components/project/activity-panel';
 import { AgentsPanel } from '@/components/project/agents-panel';
 import { BotsPanel } from '@/components/project/bots-panel';
 import { MachinePanel } from '@/components/project/machine-panel';
 import { ModelsPanel } from '@/components/project/models-panel';
 import { PeoplePanel } from '@/components/project/people-panel';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
-import { Skeleton } from '@/components/ui/skeleton';
-import { TEAM_TITLES } from '@/lib/constant';
-import { teamPath } from '@/lib/navigation';
-import { clearAccessToken, readAccessToken } from '@/lib/session';
+import { TEAM_TITLES } from '@/libs/constant';
+import { teamPath } from '@/libs/navigation';
+import { clearAccessToken, readAccessToken } from '@/libs/session';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
+import { Input } from '@/ui/input';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 export function Project() {
     const navigate = useNavigate();
@@ -144,10 +146,10 @@ export function Project() {
             )}
 
             {team === null && error === null && (
-                <div className="grid gap-3">
-                    <Skeleton className="h-40 rounded-xl" />
-                    <Skeleton className="h-40 rounded-xl" />
-                </div>
+                <Stack direction="Vertical" className="gap-3">
+                    <Skeleton radius="xl" className="h-40" />
+                    <Skeleton radius="xl" className="h-40" />
+                </Stack>
             )}
 
             {team !== null && (tab === '' || tab === 'overview') && (
@@ -211,13 +213,22 @@ export function Project() {
                                 )}
                             </Field>
 
-                            <div className="flex items-center gap-3">
-                                <Button type="submit" disabled={busy}>
-                                    {busy ? 'Saving…' : 'Save changes'}
-                                </Button>
+                            <Stack direction="Horizontal" className="items-center gap-3">
+                                <Button
+                                    type="submit"
+                                    disabled={busy}
+                                    message={busy ? 'Saving…' : 'Save changes'}
+                                />
 
-                                {saved && <output className="text-sm text-primary">Saved.</output>}
-                            </div>
+                                {saved && (
+                                    <Text
+                                        type="Body"
+                                        as="output"
+                                        className="text-primary"
+                                        message="Saved."
+                                    />
+                                )}
+                            </Stack>
                         </form>
                     </CardContent>
                 </Card>

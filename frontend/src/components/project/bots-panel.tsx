@@ -1,26 +1,30 @@
-import { cn } from 'cn';
 import { MessageSquare, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
     ApiError,
     agentList,
+    type Paged,
+    type TeamAgent,
+    type TeamBot,
+    type TeamBotProbe,
     teamBotCreate,
     teamBotList,
     teamBotRemove,
     teamBotTest,
     teamBotUpdate,
     teamBotWebhookRegister,
-    type Paged,
-    type TeamAgent,
-    type TeamBot,
-    type TeamBotProbe,
-} from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ConfirmButton } from '@/components/ui/confirm-button';
+} from '@/apis';
+import { ConfirmButton } from '@/components/confirm-button';
+import { EmptyState } from '@/components/empty-state';
+import { Field } from '@/components/field';
+import { Pager } from '@/components/pager';
+import { type Status, StatusDot } from '@/components/status-dot';
+import { PROBE_TONE } from '@/libs/constant';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -28,21 +32,12 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StatusDot, type Status } from '@/components/ui/status-dot';
-import { PROBE_TONE } from '@/lib/constant';
+} from '@/ui/dialog';
+import { Input } from '@/ui/input';
+import { Select, SelectItem } from '@/ui/select';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 function probeState(probe: TeamBotProbe | 'testing'): string {
     if (probe === 'testing') {
@@ -298,23 +293,25 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                 setFormError(null);
                 setCreating(true);
             }}
-        >
-            <Plus aria-hidden="true" />
-            Connect a bot
-        </Button>
+            icon={<Plus />}
+            message="Connect a bot"
+        />
     );
 
     return (
         <section className="grid gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="m-0 text-sm text-muted-foreground">
-                    {bots === null
-                        ? 'Loading bots.'
-                        : `${page?.total.toLocaleString() ?? bots.length} bot${(page?.total ?? bots.length) === 1 ? '' : 's'} connected to Telegram.`}
-                </p>
+            <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
+                <Text
+                    type="BodyMuted"
+                    message={
+                        bots === null
+                            ? 'Loading bots.'
+                            : `${page?.total.toLocaleString() ?? bots.length} bot${(page?.total ?? bots.length) === 1 ? '' : 's'} connected to Telegram.`
+                    }
+                />
 
                 {createButton}
-            </div>
+            </Stack>
 
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent>
@@ -329,8 +326,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
 
                         <Field
                             label="Name"
-                            hint="Only you see this. It labels the bot inside Nura."
-                        >
+                            hint="Only you see this. It labels the bot inside Nura.">
                             {(id) => (
                                 <Input
                                     id={id}
@@ -346,8 +342,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
 
                         <Field
                             label="BotFather token"
-                            hint="Stored write-only. Nura shows you the last four characters and nothing more."
-                        >
+                            hint="Stored write-only. Nura shows you the last four characters and nothing more.">
                             {(id) => (
                                 <Input
                                     id={id}
@@ -365,8 +360,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
 
                         <Field
                             label="Public address"
-                            hint="Leave blank and Nura will poll Telegram instead of receiving webhooks."
-                        >
+                            hint="Leave blank and Nura will poll Telegram instead of receiving webhooks.">
                             {(id) => (
                                 <Input
                                     id={id}
@@ -391,12 +385,13 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                 type="button"
                                 variant="ghost"
                                 onClick={() => setCreating(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={busy}>
-                                {busy ? 'Connecting…' : 'Connect bot'}
-                            </Button>
+                                message="Cancel"
+                            />
+                            <Button
+                                type="submit"
+                                disabled={busy}
+                                message={busy ? 'Connecting…' : 'Connect bot'}
+                            />
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -409,11 +404,11 @@ export function BotsPanel({ teamId }: { teamId: number }) {
             )}
 
             {bots === null && (
-                <div className="grid gap-3 lg:grid-cols-2">
+                <Stack direction="Vertical" className="gap-3 lg:grid-cols-2 lg:grid">
                     {[0, 1].map((i) => (
-                        <Skeleton className="h-64 rounded-xl" key={i} />
+                        <Skeleton radius="xl" className="h-64" key={i} />
                     ))}
-                </div>
+                </Stack>
             )}
 
             {bots !== null && bots.length === 0 && (
@@ -434,42 +429,51 @@ export function BotsPanel({ teamId }: { teamId: number }) {
 
                         return (
                             <li key={bot.id}>
-                                <Card className="h-full gap-3">
+                                <Card gap={3} className="h-full">
                                     <CardHeader>
                                         <CardTitle className="flex min-w-0 items-center gap-2">
                                             <StatusDot
                                                 status={dotState(probe)}
                                                 label={`Bot ${bot.name}`}
                                             />
-                                            <span className="truncate">{bot.name}</span>
+                                            <Text
+                                                type="Foreground"
+                                                as="span"
+                                                className="truncate"
+                                                message={bot.name}
+                                            />
                                         </CardTitle>
 
-                                        <div className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+                                        <Stack
+                                            direction="Vertical"
+                                            className="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
                                             <Badge
                                                 variant={
                                                     bot.mode === 'webhook' ? 'secondary' : 'outline'
-                                                }
-                                            >
+                                                }>
                                                 {bot.mode === 'webhook' ? 'Webhook' : 'Polling'}
                                             </Badge>
-                                        </div>
+                                        </Stack>
                                     </CardHeader>
 
                                     <CardContent className="grid gap-4">
                                         <dl className="m-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm">
-                                            <dt className="text-muted-foreground">Token</dt>
-                                            <dd className="m-0 truncate font-mono text-2xs">
-                                                {bot.token_hint}
-                                            </dd>
+                                            <Text type="ForegroundMuted" as="dt" message="Token" />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                className="truncate"
+                                                message={bot.token_hint}
+                                            />
                                         </dl>
 
-                                        <div className="grid gap-2">
-                                            <label
-                                                className="text-sm text-muted-foreground"
+                                        <Stack direction="Vertical" className="gap-2">
+                                            <Text
+                                                type="BodyMuted"
+                                                as="label"
                                                 htmlFor={`bot-agent-${bot.id}`}
-                                            >
-                                                Answered by
-                                            </label>
+                                                message="Answered by"
+                                            />
 
                                             <Select
                                                 value={String(bot.agent_id)}
@@ -477,37 +481,28 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 onValueChange={(value) =>
                                                     void setAgent(bot, Number(value))
                                                 }
-                                            >
-                                                <SelectTrigger
-                                                    id={`bot-agent-${bot.id}`}
-                                                    className="w-full"
-                                                >
-                                                    <SelectValue placeholder="Nobody yet" />
-                                                </SelectTrigger>
-
-                                                <SelectContent>
-                                                    <SelectItem value="0">Nobody</SelectItem>
-                                                    {agents.map((agent) => (
-                                                        <SelectItem
-                                                            key={agent.id}
-                                                            value={String(agent.id)}
-                                                        >
-                                                            {agent.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
+                                                id={`bot-agent-${bot.id}`}
+                                                placeholder="Nobody yet">
+                                                <SelectItem value="0">Nobody</SelectItem>
+                                                {agents.map((agent) => (
+                                                    <SelectItem
+                                                        key={agent.id}
+                                                        value={String(agent.id)}>
+                                                        {agent.name}
+                                                    </SelectItem>
+                                                ))}
                                             </Select>
-                                        </div>
+                                        </Stack>
 
-                                        <div className="grid gap-2">
-                                            <label
-                                                className="text-sm text-muted-foreground"
+                                        <Stack direction="Vertical" className="gap-2">
+                                            <Text
+                                                type="BodyMuted"
+                                                as="label"
                                                 htmlFor={`bot-url-${bot.id}`}
-                                            >
-                                                Public address
-                                            </label>
+                                                message="Public address"
+                                            />
 
-                                            <div className="flex gap-2">
+                                            <Stack direction="Horizontal" className="gap-2">
                                                 <Input
                                                     id={`bot-url-${bot.id}`}
                                                     type="url"
@@ -526,21 +521,18 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                     variant="outline"
                                                     disabled={!dirty || saving === bot.id}
                                                     onClick={() => void saveUrl(bot)}
-                                                >
-                                                    {saving === bot.id ? 'Saving…' : 'Save'}
-                                                </Button>
-                                            </div>
-                                        </div>
+                                                    message={saving === bot.id ? 'Saving…' : 'Save'}
+                                                />
+                                            </Stack>
+                                        </Stack>
 
                                         {probe !== undefined && (
-                                            <output
-                                                className={cn(
-                                                    'm-0 text-sm',
-                                                    PROBE_TONE[probeState(probe)],
-                                                )}
-                                            >
-                                                {probeLabel(probe)}
-                                            </output>
+                                            <Text
+                                                type="Body"
+                                                as="output"
+                                                className={PROBE_TONE[probeState(probe)]}
+                                                message={probeLabel(probe)}
+                                            />
                                         )}
                                     </CardContent>
 
@@ -550,15 +542,18 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             disabled={probe === 'testing'}
                                             onClick={() => void test(bot.id)}
-                                        >
-                                            {probe === 'testing' ? 'Testing…' : 'Test token'}
-                                        </Button>
+                                            message={
+                                                probe === 'testing' ? 'Testing…' : 'Test token'
+                                            }
+                                        />
 
                                         <span className="grow" />
 
                                         <ConfirmButton
                                             label="Remove"
-                                            confirmLabel="Remove for good"
+                                            title={`Remove ${bot.name}?`}
+                                            description="Nura forgets the token and stops answering for this bot. Telegram keeps the bot itself."
+                                            confirmLabel="Remove bot"
                                             onConfirm={() => void remove(bot.id)}
                                         />
                                     </CardFooter>
@@ -570,7 +565,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
             )}
 
             {page !== null && bots !== null && bots.length > 0 && (
-                <PaginationFooter
+                <Pager
                     page={page}
                     shown={bots.length}
                     busy={paging}

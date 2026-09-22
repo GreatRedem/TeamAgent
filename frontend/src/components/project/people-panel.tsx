@@ -1,7 +1,5 @@
-import { cn } from 'cn';
 import { ChevronDown, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
 
 import {
     ApiError,
@@ -10,21 +8,17 @@ import {
     type Paged,
     type TelegramMessage,
     type TelegramProfile,
-} from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import { Skeleton } from '@/components/ui/skeleton';
-import { profileName } from '@/lib/profileName';
+} from '@/apis';
+import { EmptyState } from '@/components/empty-state';
+import { Pager } from '@/components/pager';
+import { cn } from '@/libs/cn';
+import { profileName } from '@/libs/profileName';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 export function PeoplePanel({ teamId }: { teamId: number }) {
     const [people, setPeople] = useState<TelegramProfile[] | null>(null);
@@ -139,7 +133,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
     const openThread = thread !== null && thread.profile.id === selected ? thread : null;
 
     return (
-        <Card className="gap-0 py-0">
+        <Card gap={0} flush>
             <CardHeader className="border-b py-5">
                 <CardTitle>People</CardTitle>
                 <CardDescription>
@@ -147,31 +141,31 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                 </CardDescription>
             </CardHeader>
 
-            <CardContent className="px-0 py-5">
+            <CardContent padding="none" className="py-5">
                 {error !== null && (
-                    <div className="px-5">
+                    <Stack direction="Vertical" className="px-5">
                         <Alert variant="destructive">
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
-                    </div>
+                    </Stack>
                 )}
 
                 {people === null && (
-                    <div className="grid gap-2 px-5">
+                    <Stack direction="Vertical" className="gap-2 px-5">
                         {[0, 1, 2].map((i) => (
                             <Skeleton className="h-12" key={i} />
                         ))}
-                    </div>
+                    </Stack>
                 )}
 
                 {people !== null && people.length === 0 && (
-                    <div className="px-5">
+                    <Stack direction="Vertical" className="px-5">
                         <EmptyState
                             icon={UserRound}
                             title="Nobody has written yet"
                             description="Someone appears here the first time they send one of your bots a private message."
                         />
-                    </div>
+                    </Stack>
                 )}
 
                 {people !== null && people.length > 0 && (
@@ -185,33 +179,47 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                         type="button"
                                         className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                                         aria-expanded={open}
-                                        onClick={() => setSelected(open ? null : profile.id)}
-                                    >
+                                        onClick={() => setSelected(open ? null : profile.id)}>
                                         <span className="grid min-w-0 gap-0.5">
-                                            <span className="truncate font-medium">
-                                                {profileName(profile)}
-                                            </span>
+                                            <Text
+                                                type="Strong"
+                                                as="span"
+                                                className="truncate"
+                                                message={profileName(profile)}
+                                            />
 
-                                            <span className="truncate text-sm text-muted-foreground">
+                                            <Stack
+                                                direction="Horizontal"
+                                                as="span"
+                                                className="min-w-0 items-baseline gap-1">
                                                 {profile.username !== '' && (
-                                                    <span className="font-mono text-2xs">
-                                                        @{profile.username}
-                                                    </span>
+                                                    <Text
+                                                        type="Data"
+                                                        as="span"
+                                                        className="truncate"
+                                                        message={`@${profile.username},`}
+                                                    />
                                                 )}
-                                                {profile.username !== '' && ', '}
-                                                {profile.message_count} message
-                                                {profile.message_count === 1 ? '' : 's'}
-                                            </span>
+                                                <Text
+                                                    type="BodyMuted"
+                                                    as="span"
+                                                    className="shrink-0"
+                                                    message={`${profile.message_count} message${profile.message_count === 1 ? '' : 's'}`}
+                                                />
+                                            </Stack>
                                         </span>
 
                                         <span className="grow" />
 
-                                        <time
-                                            className="hidden shrink-0 font-mono text-2xs text-muted-foreground sm:block"
+                                        <Text
+                                            type="DataMuted"
+                                            as="time"
+                                            className="hidden shrink-0 sm:block"
                                             dateTime={profile.last_seen_at}
-                                        >
-                                            {new Date(profile.last_seen_at).toLocaleDateString()}
-                                        </time>
+                                            message={new Date(
+                                                profile.last_seen_at,
+                                            ).toLocaleDateString()}
+                                        />
 
                                         <ChevronDown
                                             size={16}
@@ -224,41 +232,50 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                     </button>
 
                                     {open && (
-                                        <div className="grid gap-3 bg-muted/30 px-5 py-4">
+                                        <Stack
+                                            direction="Vertical"
+                                            className="gap-3 bg-muted/30 px-5 py-4">
                                             {openThread === null && <Skeleton className="h-16" />}
 
                                             {openThread !== null &&
                                                 openThread.messages.length === 0 && (
-                                                    <p className="m-0 text-sm text-muted-foreground">
-                                                        No messages stored for this person yet.
-                                                    </p>
+                                                    <Text
+                                                        type="BodyMuted"
+                                                        message="No messages stored for this person yet."
+                                                    />
                                                 )}
 
                                             {openThread?.messages.map((message) => (
-                                                <div
+                                                <Stack
+                                                    direction="Vertical"
                                                     key={message.id}
                                                     className={cn(
-                                                        'grid max-w-[46ch] gap-1 rounded-lg border px-3 py-2',
+                                                        'max-w-[46ch] gap-1 rounded-lg border px-3 py-2',
                                                         message.direction === 'out'
-                                                            ? 'justify-self-end border-primary/30 bg-primary/10'
-                                                            : 'justify-self-start bg-card',
-                                                    )}
-                                                >
-                                                    <p className="m-0 text-sm break-anywhere whitespace-pre-wrap">
-                                                        {message.text}
-                                                    </p>
-                                                    <time
-                                                        className="font-mono text-2xs text-muted-foreground"
+                                                            ? 'self-end border-primary/30 bg-primary/10'
+                                                            : 'self-start bg-card',
+                                                    )}>
+                                                    <Text
+                                                        type="Body"
+                                                        className="break-anywhere whitespace-pre-wrap"
+                                                        message={message.text}
+                                                    />
+                                                    <Text
+                                                        type="DataMuted"
+                                                        as="time"
                                                         dateTime={message.sent_at}
-                                                    >
-                                                        {new Date(message.sent_at).toLocaleString()}
-                                                    </time>
-                                                </div>
+                                                        message={new Date(
+                                                            message.sent_at,
+                                                        ).toLocaleString()}
+                                                    />
+                                                </Stack>
                                             ))}
 
-                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <Stack
+                                                direction="Horizontal"
+                                                className="flex-wrap items-center justify-between gap-3">
                                                 {openThread !== null && (
-                                                    <PaginationFooter
+                                                    <Pager
                                                         page={openThread.page}
                                                         shown={openThread.messages.length}
                                                         busy={paging}
@@ -268,21 +285,16 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                         }
                                                     />
                                                 )}
-                                            </div>
+                                            </Stack>
 
                                             <Button
-                                                asChild
                                                 variant="outline"
                                                 size="sm"
-                                                className="justify-self-start"
-                                            >
-                                                <Link
-                                                    to={`/dashboard/team/${teamId}/profile/${profile.id}`}
-                                                >
-                                                    Open full profile
-                                                </Link>
-                                            </Button>
-                                        </div>
+                                                className="self-start"
+                                                link={`/dashboard/team/${teamId}/profile/${profile.id}`}
+                                                message="Open full profile"
+                                            />
+                                        </Stack>
                                     )}
                                 </li>
                             );
@@ -293,7 +305,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
 
             {page !== null && people !== null && people.length > 0 && (
                 <CardFooter className="border-t py-4">
-                    <PaginationFooter
+                    <Pager
                         page={page}
                         shown={people.length}
                         busy={paging}

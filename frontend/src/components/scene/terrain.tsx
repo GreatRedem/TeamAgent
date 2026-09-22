@@ -1,4 +1,4 @@
-import { TERRAIN_FAR, TERRAIN_NEAR, TERRAIN_TRAIL, type Slab } from '@/lib/constant';
+import { type Slab, TERRAIN_FAR, TERRAIN_NEAR, TERRAIN_TRAIL } from '@/libs/constant';
 
 function toPath(points: [number, number][]) {
     return points.map(([x, y]) => `${x},${y}`).join(' ');
@@ -43,8 +43,7 @@ export function Terrain() {
             viewBox="0 0 1440 420"
             preserveAspectRatio="xMidYMax slice"
             role="presentation"
-            focusable="false"
-        >
+            focusable="false">
             <defs>
                 <linearGradient id="rockFar" x1="0" y1="0" x2="0.3" y2="1">
                     <stop offset="0%" stopColor="var(--rock-hi)" stopOpacity="0.2" />
@@ -83,8 +82,7 @@ export function Terrain() {
                 className="opacity-85 motion-reduce:hidden"
                 r="4.5"
                 fill="var(--ink)"
-                filter="url(#trailGlow)"
-            >
+                filter="url(#trailGlow)">
                 <animateMotion dur="9s" repeatCount="indefinite" rotate="auto">
                     <mpath href="#dataPath" />
                 </animateMotion>

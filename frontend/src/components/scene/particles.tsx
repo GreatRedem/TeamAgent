@@ -1,10 +1,12 @@
-import { SCENE_PARTICLES } from '@/lib/constant';
+import { SCENE_PARTICLES } from '@/libs/constant';
+import { Stack } from '@/ui/stack';
 
 export function Particles() {
     return (
-        <div className="absolute inset-0">
+        <Stack direction="Vertical" className="absolute inset-0">
             {SCENE_PARTICLES.map((particle, i) => (
                 <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: a fixed decorative particle; the list is static and never reorders, so the index is its identity
                     key={`p-${i}`}
                     className="absolute animate-float rounded-full bg-[var(--glow-bright)] motion-reduce:animate-none [&:nth-child(n+13)]:hidden sm:[&:nth-child(n+13)]:block"
                     style={{
@@ -18,6 +20,6 @@ export function Particles() {
                     }}
                 />
             ))}
-        </div>
+        </Stack>
     );
 }

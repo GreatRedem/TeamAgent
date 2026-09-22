@@ -1,15 +1,16 @@
-import { cn } from 'cn';
 import { useCallback, useState } from 'react';
 
 import {
     ApiError,
-    modelProbe,
     type CatalogModel,
+    modelProbe,
     type ProviderPreset,
     type TeamModelProbe,
-} from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+} from '@/apis';
+import { Field } from '@/components/field';
+import { PROBE_TONE } from '@/libs/constant';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -17,17 +18,11 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { PROBE_TONE } from '@/lib/constant';
+} from '@/ui/dialog';
+import { Input } from '@/ui/input';
+import { Select, SelectItem } from '@/ui/select';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 export interface ModelDraft {
     name: string;
@@ -177,8 +172,7 @@ export function ModelDialog({
                     onSubmit={(event) => {
                         event.preventDefault();
                         onSubmit(url);
-                    }}
-                >
+                    }}>
                     <DialogHeader>
                         <DialogTitle>
                             {mode === 'create' ? 'Add a model' : 'Edit model'}
@@ -210,24 +204,18 @@ export function ModelDialog({
                     {mode === 'create' && (
                         <Field
                             label="Provider"
-                            hint={preset?.hint !== '' ? preset?.hint : undefined}
-                        >
+                            hint={preset?.hint !== '' ? preset?.hint : undefined}>
                             {(id) => (
                                 <Select
                                     value={preset?.key ?? ''}
                                     onValueChange={(key) => void chooseProvider(key)}
-                                >
-                                    <SelectTrigger id={id} className="w-full">
-                                        <SelectValue placeholder="Pick a provider" />
-                                    </SelectTrigger>
-
-                                    <SelectContent>
-                                        {providers.map((entry) => (
-                                            <SelectItem key={entry.key} value={entry.key}>
-                                                {entry.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
+                                    id={id}
+                                    placeholder="Pick a provider">
+                                    {providers.map((entry) => (
+                                        <SelectItem key={entry.key} value={entry.key}>
+                                            {entry.label}
+                                        </SelectItem>
+                                    ))}
                                 </Select>
                             )}
                         </Field>
@@ -285,8 +273,7 @@ export function ModelDialog({
 
                     <Field
                         label="Context window"
-                        hint="Read from the provider when you test or save. Fill it in only for an endpoint that does not publish its own."
-                    >
+                        hint="Read from the provider when you test or save. Fill it in only for an endpoint that does not publish its own.">
                         {(id) => (
                             <Input
                                 id={id}
@@ -310,8 +297,7 @@ export function ModelDialog({
                                 : preset?.key_required === true
                                   ? undefined
                                   : 'A local router usually needs none.'
-                        }
-                    >
+                        }>
                         {(id) => (
                             <Input
                                 id={id}
@@ -330,9 +316,12 @@ export function ModelDialog({
                     </Field>
 
                     {probe !== null && (
-                        <output className={cn('m-0 text-sm', PROBE_TONE[probeState(probe)])}>
-                            {probeLabel(probe)}
-                        </output>
+                        <Text
+                            type="Body"
+                            as="output"
+                            className={PROBE_TONE[probeState(probe)]}
+                            message={probeLabel(probe)}
+                        />
                     )}
 
                     {error !== null && (
@@ -341,32 +330,34 @@ export function ModelDialog({
                         </Alert>
                     )}
 
-                    <DialogFooter className="sm:justify-between">
+                    <DialogFooter align="between">
                         <Button
                             type="button"
                             variant="outline"
                             disabled={probe === 'testing' || url === ''}
                             onClick={() => void test()}
-                        >
-                            {probe === 'testing' ? 'Testing…' : 'Test connection'}
-                        </Button>
+                            message={probe === 'testing' ? 'Testing…' : 'Test connection'}
+                        />
 
-                        <div className="flex gap-2">
+                        <Stack direction="Horizontal" className="gap-2">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 onClick={() => onOpenChange(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={busy}>
-                                {busy
-                                    ? 'Saving…'
-                                    : mode === 'create'
-                                      ? 'Add model'
-                                      : 'Save changes'}
-                            </Button>
-                        </div>
+                                message="Cancel"
+                            />
+                            <Button
+                                type="submit"
+                                disabled={busy}
+                                message={
+                                    busy
+                                        ? 'Saving…'
+                                        : mode === 'create'
+                                          ? 'Add model'
+                                          : 'Save changes'
+                                }
+                            />
+                        </Stack>
                     </DialogFooter>
                 </form>
             </DialogContent>

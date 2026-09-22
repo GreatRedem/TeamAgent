@@ -1,4 +1,4 @@
-import { SCENE_FOCAL } from '@/lib/constant';
+import { SCENE_FOCAL } from '@/libs/constant';
 
 export type Vec3 = readonly [number, number, number];
 

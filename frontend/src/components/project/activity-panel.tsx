@@ -1,38 +1,26 @@
-import { cn } from 'cn';
 import { Activity } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
     ApiError,
+    type AuditEntry,
     auditHeatmap,
     auditList,
-    type AuditEntry,
     type HeatmapDay,
     type Paged,
-} from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { DataList, DataRow } from '@/components/ui/data-value';
-import { EmptyState } from '@/components/ui/empty-state';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { AUDIT_RESULT } from '@/lib/constant';
+} from '@/apis';
+import { DataList, DataRow } from '@/components/data-value';
+import { EmptyState } from '@/components/empty-state';
+import { Pager } from '@/components/pager';
+import { cn } from '@/libs/cn';
+import { AUDIT_RESULT } from '@/libs/constant';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
+import { Text } from '@/ui/text';
 
 import { Heatmap } from './heatmap';
 
@@ -134,7 +122,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
     const trip = selected === null ? null : roundTrip(selected);
 
     return (
-        <div className="grid gap-6">
+        <Stack direction="Vertical" className="gap-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Twelve weeks of activity</CardTitle>
@@ -147,14 +135,16 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
 
                 <CardContent>
                     {heatmap === null ? (
-                        <Skeleton className="h-28 rounded-lg" />
+                        <Skeleton radius="lg" className="h-28" />
                     ) : (
                         <Heatmap days={heatmap.days} busiest={heatmap.busiest} />
                     )}
                 </CardContent>
             </Card>
 
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_21rem]">
+            <Stack
+                direction="Vertical"
+                className="xl:items-start gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:grid">
                 <Card className="overflow-hidden">
                     <CardHeader>
                         <CardTitle>Trail</CardTitle>
@@ -162,79 +152,79 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             What was sent, what came back, and how long it took.
                         </CardDescription>
 
-                        <div className="col-start-2 row-span-2 row-start-1 flex gap-1 self-start justify-self-end rounded-md bg-muted p-1">
+                        <Stack
+                            direction="Horizontal"
+                            className="col-start-2 row-span-2 row-start-1 gap-1 self-start justify-self-end rounded-md bg-muted p-1">
                             <Button
                                 type="button"
                                 size="sm"
                                 variant={failuresOnly ? 'ghost' : 'secondary'}
                                 aria-pressed={!failuresOnly}
                                 onClick={() => setFailuresOnly(false)}
-                            >
-                                All
-                            </Button>
+                                message="All"
+                            />
 
                             <Button
                                 type="button"
                                 size="sm"
-                                variant={failuresOnly ? 'secondary' : 'ghost'}
+                                variant={failuresOnly ? 'secondary-destructive' : 'ghost'}
                                 aria-pressed={failuresOnly}
-                                className={
-                                    failuresOnly ? 'text-destructive' : 'text-muted-foreground'
-                                }
+                                className={failuresOnly ? undefined : 'text-muted-foreground'}
                                 onClick={() => setFailuresOnly(true)}
-                            >
-                                Failures
-                            </Button>
-                        </div>
+                                message="Failures"
+                            />
+                        </Stack>
                     </CardHeader>
 
-                    <CardContent className="px-0">
+                    <CardContent padding="none">
                         {error !== null && (
-                            <div className="px-5">
+                            <Stack direction="Vertical" className="px-5">
                                 <Alert variant="destructive">
                                     <AlertDescription>{error}</AlertDescription>
                                 </Alert>
-                            </div>
+                            </Stack>
                         )}
 
                         {entries === null && error === null && (
-                            <div className="grid gap-2 px-5">
+                            <Stack direction="Vertical" className="gap-2 px-5">
                                 {[0, 1, 2, 3, 4].map((i) => (
                                     <Skeleton className="h-10" key={i} />
                                 ))}
-                            </div>
+                            </Stack>
                         )}
 
                         {entries !== null && entries.length === 0 && (
-                            <div className="px-5">
+                            <Stack direction="Vertical" className="px-5">
                                 <EmptyState
                                     icon={Activity}
                                     title="Nothing has happened yet"
                                     description="Every model run and every change to this project will show up here."
                                 />
-                            </div>
+                            </Stack>
                         )}
 
                         {entries !== null && rows.length === 0 && entries.length > 0 && (
-                            <div className="px-5">
+                            <Stack direction="Vertical" className="px-5">
                                 <EmptyState
                                     icon={Activity}
                                     title="No failures on this page"
                                     description="Every run on this page finished cleanly."
                                 />
-                            </div>
+                            </Stack>
                         )}
 
                         {rows.length > 0 && (
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="hover:bg-transparent">
+                                    <TableRow hoverable={false}>
                                         <TableHead className="ps-5">Time</TableHead>
                                         <TableHead>Who</TableHead>
                                         <TableHead className="hidden md:table-cell">What</TableHead>
                                         <TableHead className="hidden lg:table-cell">Size</TableHead>
-                                        <TableHead className="text-right">ms</TableHead>
-                                        <TableHead className="pe-5 text-right">Result</TableHead>
+                                        <TableHead numeric>ms</TableHead>
+                                        <TableHead numeric className="pe-5">
+                                            Result
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
 
@@ -249,16 +239,14 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                                 key={entry.id}
                                                 data-state={open ? 'selected' : undefined}
                                                 className="cursor-pointer"
-                                                onClick={() => setSelectedId(entry.id)}
-                                            >
+                                                onClick={() => setSelectedId(entry.id)}>
                                                 <TableCell className="ps-5">
                                                     <button
                                                         type="button"
                                                         aria-pressed={open}
                                                         aria-label={`Show the entry from ${clock(entry.created_at)}`}
                                                         className="cursor-pointer border-0 bg-transparent p-0 font-mono text-2xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                                                        onClick={() => setSelectedId(entry.id)}
-                                                    >
+                                                        onClick={() => setSelectedId(entry.id)}>
                                                         {clock(entry.created_at)}
                                                     </button>
                                                 </TableCell>
@@ -278,23 +266,23 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                                         : entry.target}
                                                 </TableCell>
                                                 <TableCell
+                                                    numeric
                                                     className={cn(
-                                                        'text-right font-mono text-2xs',
+                                                        'font-mono text-2xs',
                                                         entry.outcome === 'error'
                                                             ? 'text-destructive'
                                                             : 'text-muted-foreground',
-                                                    )}
-                                                >
+                                                    )}>
                                                     {entry.duration_ms > 0
                                                         ? entry.duration_ms.toLocaleString()
                                                         : '—'}
                                                 </TableCell>
                                                 <TableCell
+                                                    numeric
                                                     className={cn(
-                                                        'pe-5 text-right font-medium',
+                                                        'pe-5 font-medium',
                                                         result.className,
-                                                    )}
-                                                >
+                                                    )}>
                                                     {result.label}
                                                 </TableCell>
                                             </TableRow>
@@ -307,7 +295,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
 
                     {page !== null && entries !== null && entries.length > 0 && (
                         <CardFooter className="border-t">
-                            <PaginationFooter
+                            <Pager
                                 page={page}
                                 shown={entries.length}
                                 busy={paging}
@@ -339,55 +327,64 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             <>
                                 <DataList>
                                     {trip !== null && trip.agent !== '' && (
-                                        <DataRow label="Agent">{trip.agent}</DataRow>
+                                        <DataRow label="Agent" value={trip.agent} />
                                     )}
                                     {trip !== null && trip.model !== '' && (
-                                        <DataRow label="Model">{trip.model}</DataRow>
+                                        <DataRow label="Model" value={trip.model} />
                                     )}
                                     {trip !== null && trip.messages !== '' && (
-                                        <DataRow label="Messages in">
-                                            {Number(trip.messages).toLocaleString()}
-                                        </DataRow>
+                                        <DataRow
+                                            label="Messages in"
+                                            value={Number(trip.messages).toLocaleString()}
+                                        />
                                     )}
                                     {trip === null && (
-                                        <DataRow label="Action">{selected.action}</DataRow>
+                                        <DataRow label="Action" value={selected.action} />
                                     )}
                                     {trip === null && selected.target !== '' && (
-                                        <DataRow label="Target">{selected.target}</DataRow>
+                                        <DataRow label="Target" value={selected.target} />
                                     )}
-                                    <DataRow label="Actor">{selected.actor}</DataRow>
+                                    <DataRow label="Actor" value={selected.actor} />
                                     {selected.duration_ms > 0 && (
-                                        <DataRow label="Took">{`${selected.duration_ms.toLocaleString()} ms`}</DataRow>
+                                        <DataRow
+                                            label="Took"
+                                            value={`${selected.duration_ms.toLocaleString()} ms`}
+                                        />
                                     )}
                                 </DataList>
 
-                                <div className="grid gap-2">
-                                    <p className="m-0 text-sm text-muted-foreground">
-                                        {trip === null ? 'Detail' : 'Came back'}
-                                    </p>
+                                <Stack direction="Vertical" className="gap-2">
+                                    <Text
+                                        type="BodyMuted"
+                                        message={trip === null ? 'Detail' : 'Came back'}
+                                    />
 
-                                    <p
-                                        className={cn(
-                                            'm-0 rounded-md border bg-well p-3 font-mono text-2xs break-anywhere',
+                                    <Text
+                                        type={
                                             selected.outcome === 'error'
-                                                ? 'border-destructive/40 text-destructive'
-                                                : 'text-muted-foreground',
+                                                ? 'DataDestructive'
+                                                : 'DataMuted'
+                                        }
+                                        className={cn(
+                                            'rounded-md border bg-well p-3 break-anywhere',
+                                            selected.outcome === 'error' && 'border-destructive/40',
                                         )}
-                                    >
-                                        {trip !== null &&
-                                        selected.outcome === 'ok' &&
-                                        trip.chars !== ''
-                                            ? `${Number(trip.chars).toLocaleString()} characters of text${trip.tools !== '' && trip.tools !== '0' ? ` after ${trip.tools} tool call${trip.tools === '1' ? '' : 's'}` : ''}`
-                                            : selected.detail !== ''
-                                              ? selected.detail
-                                              : 'Nothing was recorded.'}
-                                    </p>
-                                </div>
+                                        message={
+                                            trip !== null &&
+                                            selected.outcome === 'ok' &&
+                                            trip.chars !== ''
+                                                ? `${Number(trip.chars).toLocaleString()} characters of text${trip.tools !== '' && trip.tools !== '0' ? ` after ${trip.tools} tool call${trip.tools === '1' ? '' : 's'}` : ''}`
+                                                : selected.detail !== ''
+                                                  ? selected.detail
+                                                  : 'Nothing was recorded.'
+                                        }
+                                    />
+                                </Stack>
                             </>
                         )}
                     </CardContent>
                 </Card>
-            </div>
-        </div>
+            </Stack>
+        </Stack>
     );
 }

@@ -1,5 +1,3 @@
-/* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
-
 import assert from 'node:assert/strict';
 
 import { readInboundMessage } from './telegram.service.js';

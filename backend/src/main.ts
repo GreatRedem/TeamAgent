@@ -15,7 +15,7 @@ import telegramPollPlugin from './plugins/telegrampoll.js';
 import typeormPlugin from './plugins/typeorm.js';
 import validatorPlugin from './plugins/validator.js';
 import config from './utils/config.js';
-import { logger, createLogger } from './utils/logger.js';
+import { createLogger, logger } from './utils/logger.js';
 import {
     STATUS_BAD_REQUEST,
     STATUS_FORBIDDEN,

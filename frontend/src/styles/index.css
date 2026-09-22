@@ -1,13 +1,73 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import './tokens.css';
+@import "tailwindcss";
+
+:root {
+    color-scheme: dark;
+
+    --background: #0b0d0f;
+    --foreground: #e8ecee;
+
+    --card: #121518;
+    --card-foreground: #e8ecee;
+
+    --popover: #161b1f;
+    --popover-foreground: #e8ecee;
+
+    --primary: #3fcbb0;
+    --primary-foreground: #04211b;
+
+    --secondary: #1b2126;
+    --secondary-foreground: #e8ecee;
+
+    --muted: #161b1f;
+    --muted-foreground: #8b959b;
+
+    --accent: #1e252a;
+    --accent-foreground: #e8ecee;
+
+    --destructive: #e4705c;
+    --destructive-foreground: #2a1512;
+
+    --warning: #d9a441;
+    --warning-foreground: #211705;
+
+    --success: #3fcbb0;
+    --success-foreground: #04211b;
+
+    --border: #242b31;
+    --input: #2f373e;
+    --ring: #3fcbb0;
+
+    --well: #0e1114;
+    --neutral: #4a5257;
+
+    --chart-1: #3fcbb0;
+    --chart-2: #d9a441;
+    --chart-3: #e4705c;
+    --chart-4: #6aa9d8;
+    --chart-5: #8b959b;
+
+    --scale-0: #151a1d;
+    --scale-1: #1b3a34;
+    --scale-2: #22675a;
+    --scale-3: #2f9c83;
+    --scale-4: #3fcbb0;
+
+    --radius: 0.5rem;
+
+    --font-ui: Vazirmatn, "Segoe UI", system-ui, sans-serif;
+    --font-data: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+
+    --elevation-raised: 0 1px 0 rgb(255 255 255 / 4%) inset;
+    --elevation-float: 0 12px 30px rgb(0 0 0 / 45%), 0 1px 0 rgb(255 255 255 / 4%) inset;
+    --elevation-lift: 0 24px 60px rgb(0 0 0 / 55%), 0 1px 0 rgb(255 255 255 / 4%) inset;
+}
 
 @font-face {
     font-family: Vazirmatn;
     font-style: normal;
     font-display: swap;
     font-weight: 100 900;
-    src: url('/fonts/vazirmatn-latin-wght-normal.woff2') format('woff2-variations');
+    src: url("/fonts/vazirmatn-latin-wght-normal.woff2") format("woff2-variations");
     unicode-range:
         U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
         U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
@@ -18,7 +78,7 @@
     font-style: normal;
     font-display: swap;
     font-weight: 100 900;
-    src: url('/fonts/vazirmatn-latin-ext-wght-normal.woff2') format('woff2-variations');
+    src: url("/fonts/vazirmatn-latin-ext-wght-normal.woff2") format("woff2-variations");
     unicode-range:
         U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
         U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
@@ -30,7 +90,7 @@
     font-style: normal;
     font-display: swap;
     font-weight: 100 900;
-    src: url('/fonts/vazirmatn-arabic-wght-normal.woff2') format('woff2-variations');
+    src: url("/fonts/vazirmatn-arabic-wght-normal.woff2") format("woff2-variations");
     unicode-range:
         U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E,
         U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;

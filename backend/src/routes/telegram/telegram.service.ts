@@ -6,21 +6,21 @@ import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import {
-    ERROR_TEXT_MAX,
-    HISTORY_LIMIT,
-    MAX_TOOL_ROUNDS,
-    TELEGRAM_TEXT_MAX,
     buildMessages,
     buildSystemPrompt,
+    type ChatMessage,
     completionCap,
+    ERROR_TEXT_MAX,
     earlierTurns,
     fitToContext,
+    HISTORY_LIMIT,
     isToolRefusal,
+    MAX_TOOL_ROUNDS,
     readAssistantTurn,
     readCompletion,
     readError,
     readToolCalls,
-    type ChatMessage,
+    TELEGRAM_TEXT_MAX,
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
@@ -30,9 +30,9 @@ import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import {
     DEFAULT_PERMISSIONS,
-    PERMISSIONS,
     hasPermission,
     isKnownPermission,
+    PERMISSIONS,
     parsePermissions,
     serializePermissions,
 } from './telegram.permission.js';

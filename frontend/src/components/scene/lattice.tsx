@@ -1,4 +1,4 @@
-import { LATTICE_LINKS, LATTICE_NODES, LATTICE_VERTICALS } from '@/lib/constant';
+import { LATTICE_LINKS, LATTICE_NODES, LATTICE_VERTICALS } from '@/libs/constant';
 
 export function Lattice() {
     return (
@@ -7,8 +7,7 @@ export function Lattice() {
             viewBox="0 0 1440 640"
             preserveAspectRatio="xMidYMid slice"
             role="presentation"
-            focusable="false"
-        >
+            focusable="false">
             <g stroke="var(--glow)" strokeWidth="0.6" opacity="0.1">
                 {LATTICE_VERTICALS.map(({ key, x1, x2 }) => (
                     <line key={key} x1={x1} y1="640" x2={x2} y2="150" />
@@ -16,6 +15,7 @@ export function Lattice() {
 
                 {Array.from({ length: 6 }, (_, i) => (
                     <line
+                        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed decorative grid line; the list is static and never reorders, so the index is its identity
                         key={`h-${i}`}
                         x1="0"
                         y1={640 - i * i * 18 - 60}
@@ -34,6 +34,7 @@ export function Lattice() {
             <g fill="var(--glow-bright)">
                 {LATTICE_NODES.map((node, i) => (
                     <circle
+                        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed decorative node; the list is static and never reorders, so the index is its identity
                         key={`n-${i}`}
                         cx={node.x}
                         cy={node.y}

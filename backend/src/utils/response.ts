@@ -1,13 +1,19 @@
 import { STATUS_BAD_REQUEST, STATUS_UNAUTHORIZED } from './status.js';
 
 export class BadRequestResponse {
+    readonly statusCode = STATUS_BAD_REQUEST;
+    readonly result: string;
+
     constructor(result: string) {
-        return { statusCode: STATUS_BAD_REQUEST, result };
+        this.result = result;
     }
 }
 
 export class UnauthorizedResponse {
+    readonly statusCode = STATUS_UNAUTHORIZED;
+    readonly result: string;
+
     constructor(result: string) {
-        return { statusCode: STATUS_UNAUTHORIZED, result };
+        this.result = result;
     }
 }

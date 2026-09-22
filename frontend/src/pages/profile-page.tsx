@@ -1,39 +1,34 @@
-import { cn } from 'cn';
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import {
     ApiError,
+    type Paged,
+    type Permission,
+    type ProfileFile,
     permissionCatalog,
     profileDetails,
     profileFiles,
     profilePermissionUpdate,
-    type Paged,
-    type Permission,
-    type ProfileFile,
     type TelegramMessage,
     type TelegramProfile,
     type TelegramProfileBot,
-} from '@/api';
+} from '@/apis';
+import { PageHeader } from '@/components/page-header';
+import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import { PageHeader } from '@/components/ui/page-header';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import { Skeleton } from '@/components/ui/skeleton';
-import { tokenLabel } from '@/lib/format';
-import { teamPath } from '@/lib/navigation';
-import { profileName } from '@/lib/profileName';
-import { clearAccessToken, readAccessToken } from '@/lib/session';
+import { cn } from '@/libs/cn';
+import { tokenLabel } from '@/libs/format';
+import { teamPath } from '@/libs/navigation';
+import { profileName } from '@/libs/profileName';
+import { clearAccessToken, readAccessToken } from '@/libs/session';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 interface Details {
     profile: TelegramProfile;
@@ -48,8 +43,8 @@ function Detail({ label, value }: { label: string; value: string }) {
 
     return (
         <>
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd className="m-0 font-mono text-2xs break-anywhere">{value}</dd>
+            <Text type="ForegroundMuted" as="dt" message={label} />
+            <Text type="Data" as="dd" className="break-anywhere" message={value} />
         </>
     );
 }
@@ -192,12 +187,12 @@ export function ProfilePage() {
                         : `${details.profile.message_count.toLocaleString()} message${details.profile.message_count === 1 ? '' : 's'} across ${details.bots.length} bot${details.bots.length === 1 ? '' : 's'}.`
                 }
                 actions={
-                    <Button asChild variant="outline">
-                        <Link to={teamPath(teamId, 'bots')}>
-                            <ArrowLeft aria-hidden="true" />
-                            All people
-                        </Link>
-                    </Button>
+                    <Button
+                        variant="outline"
+                        link={teamPath(teamId, 'bots')}
+                        icon={<ArrowLeft />}
+                        message="All people"
+                    />
                 }
             />
 
@@ -208,15 +203,17 @@ export function ProfilePage() {
             )}
 
             {details === null && error === null && (
-                <div className="grid gap-3">
-                    <Skeleton className="h-40 rounded-xl" />
-                    <Skeleton className="h-64 rounded-xl" />
-                </div>
+                <Stack direction="Vertical" className="gap-3">
+                    <Skeleton radius="xl" className="h-40" />
+                    <Skeleton radius="xl" className="h-64" />
+                </Stack>
             )}
 
             {details !== null && (
-                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                    <div className="grid gap-6">
+                <Stack
+                    direction="Vertical"
+                    className="xl:items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid">
+                    <Stack direction="Vertical" className="gap-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Recent messages</CardTitle>
@@ -227,31 +224,31 @@ export function ProfilePage() {
 
                             <CardContent className="grid gap-3">
                                 {details.messages.length === 0 && (
-                                    <p className="m-0 text-sm text-muted-foreground">
-                                        No messages stored yet.
-                                    </p>
+                                    <Text type="BodyMuted" message="No messages stored yet." />
                                 )}
 
                                 {details.messages.map((message) => (
-                                    <div
+                                    <Stack
+                                        direction="Vertical"
                                         key={message.id}
                                         className={cn(
-                                            'grid max-w-[46ch] gap-1 rounded-lg border px-3 py-2',
+                                            'max-w-[46ch] gap-1 rounded-lg border px-3 py-2',
                                             message.direction === 'out'
-                                                ? 'justify-self-end border-primary/30 bg-primary/10'
-                                                : 'justify-self-start bg-muted/40',
-                                        )}
-                                    >
-                                        <p className="m-0 text-sm break-anywhere whitespace-pre-wrap">
-                                            {message.text}
-                                        </p>
-                                        <time
-                                            className="font-mono text-2xs text-muted-foreground"
+                                                ? 'self-end border-primary/30 bg-primary/10'
+                                                : 'self-start bg-muted/40',
+                                        )}>
+                                        <Text
+                                            type="Body"
+                                            className="break-anywhere whitespace-pre-wrap"
+                                            message={message.text}
+                                        />
+                                        <Text
+                                            type="DataMuted"
+                                            as="time"
                                             dateTime={message.sent_at}
-                                        >
-                                            {new Date(message.sent_at).toLocaleString()}
-                                        </time>
-                                    </div>
+                                            message={new Date(message.sent_at).toLocaleString()}
+                                        />
+                                    </Stack>
                                 ))}
                             </CardContent>
                         </Card>
@@ -266,32 +263,37 @@ export function ProfilePage() {
 
                             <CardContent className="grid gap-3">
                                 {files.length === 0 && (
-                                    <p className="m-0 text-sm text-muted-foreground">
-                                        No agent has written anything about this person yet.
-                                    </p>
+                                    <Text
+                                        type="BodyMuted"
+                                        message="No agent has written anything about this person yet."
+                                    />
                                 )}
 
                                 {files.map((file) => (
-                                    <div className="grid gap-2 rounded-lg border p-4" key={file.id}>
-                                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                            <p className="m-0 font-mono text-sm font-semibold">
-                                                {file.name}
-                                            </p>
-                                            <p className="m-0 font-mono text-2xs text-muted-foreground">
-                                                {tokenLabel(file.content)}
-                                            </p>
-                                        </div>
+                                    <Stack
+                                        direction="Vertical"
+                                        className="gap-2 rounded-lg border p-4"
+                                        key={file.id}>
+                                        <Stack
+                                            direction="Horizontal"
+                                            className="flex-wrap items-baseline justify-between gap-2">
+                                            <Text type="DataStrong" message={file.name} />
+                                            <Text
+                                                type="DataMuted"
+                                                message={tokenLabel(file.content)}
+                                            />
+                                        </Stack>
 
                                         <pre className="m-0 max-h-60 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs whitespace-pre-wrap">
                                             {file.content}
                                         </pre>
-                                    </div>
+                                    </Stack>
                                 ))}
                             </CardContent>
 
                             {filePage !== null && files.length > 0 && (
                                 <CardFooter className="border-t">
-                                    <PaginationFooter
+                                    <Pager
                                         page={filePage}
                                         shown={files.length}
                                         busy={paging}
@@ -301,9 +303,9 @@ export function ProfilePage() {
                                 </CardFooter>
                             )}
                         </Card>
-                    </div>
+                    </Stack>
 
-                    <div className="grid gap-6 xl:sticky xl:top-32">
+                    <Stack direction="Vertical" className="gap-6 xl:sticky xl:top-32">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Identity</CardTitle>
@@ -347,15 +349,24 @@ export function ProfilePage() {
                                 {details.bots.length > 0 && (
                                     <ul className="m-0 mt-5 grid list-none gap-2 border-t p-0 pt-4">
                                         {details.bots.map((bot) => (
-                                            <li
-                                                className="flex items-baseline justify-between gap-3 text-sm"
-                                                key={bot.id}
-                                            >
-                                                <span className="truncate">{bot.name}</span>
-                                                <span className="shrink-0 font-mono text-2xs text-muted-foreground">
-                                                    {bot.message_count.toLocaleString()}
-                                                </span>
-                                            </li>
+                                            <Stack
+                                                direction="Horizontal"
+                                                as="li"
+                                                className="items-baseline justify-between gap-3"
+                                                key={bot.id}>
+                                                <Text
+                                                    type="Body"
+                                                    as="span"
+                                                    className="truncate"
+                                                    message={bot.name}
+                                                />
+                                                <Text
+                                                    type="DataMuted"
+                                                    as="span"
+                                                    className="shrink-0"
+                                                    message={bot.message_count.toLocaleString()}
+                                                />
+                                            </Stack>
                                         ))}
                                     </ul>
                                 )}
@@ -371,8 +382,8 @@ export function ProfilePage() {
                             error={null}
                             onToggle={(key) => void toggle(key)}
                         />
-                    </div>
-                </div>
+                    </Stack>
+                </Stack>
             )}
         </>
     );

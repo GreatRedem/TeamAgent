@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
 import config from '../utils/config.js';
@@ -96,7 +96,7 @@ export function authRole(role: number) {
     return { role };
 }
 
-export default fastifyPlugin(async function (fastify) {
+export default fastifyPlugin(async (fastify) => {
     fastify.decorateRequest('account_id', 0);
     fastify.decorateRequest('session_id', 0);
     fastify.decorateRequest('account_role', 0);

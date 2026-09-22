@@ -70,7 +70,7 @@ const validator = (request: FastifyRequest, field: string) => {
     return builder;
 };
 
-export default fastifyPlugin(async function (fastify) {
+export default fastifyPlugin(async (fastify) => {
     fastify.decorateRequest('getBody', function (this: FastifyRequest, field: string) {
         return validator(this, field);
     });

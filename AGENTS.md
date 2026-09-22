@@ -17,7 +17,7 @@
 - Avoid duplicated logic.
 - Do not use `any` unless absolutely necessary.
 - Do not disable lint rules to hide problems.
-- Never use `eslint-disable`, `oxlint-disable`, or formatter ignores unless there is a documented reason.
+- Never use `biome-ignore` or other lint or formatter suppressions unless there is a documented reason, written into the comment.
 
 ---
 
@@ -29,7 +29,8 @@ The UI must be built using:
 
 - shadcn/ui
 - Tailwind CSS
-- Radix primitives where used by shadcn/ui
+- Native HTML behind the primitives: `<dialog>`, the popover API, `<select>`. No Radix.
+- `motion` for animation that CSS cannot do
 - Existing project components and tokens
 - Existing design patterns before introducing anything new
 
@@ -54,11 +55,43 @@ Never start by rewriting the entire page.
 
 ---
 
-## 2. shadcn/ui First
+## 2. Text goes through `<Text />`
+
+Outside `src/ui`, raw HTML text elements are forbidden: no `<p>`, `<span>`,
+`<h1>`–`<h6>`, `<label>`, `<dt>`, `<dd>`, `<time>` or `<output>` carrying copy. Use
+`<Text type="…" message="…" />` from `@/ui/text`, and `as` when the
+element matters (`as="dt"`, `as="time"`). `Text` never takes children: `message`
+is a string or number. Copy that mixes styles, such as a mono number inside a
+sentence, is a horizontal `Stack` of sibling `Text`s.
+
+`type` carries the typography, so do not pass text size, weight or font classes
+to `Text`; `className` is for layout (truncate, margins, grid) and for a status
+colour read from a constant map such as `PROBE_TONE`.
+A new combination is a new `type` in `text.tsx`, not a class on the instance.
+
+Every box is `<Stack direction="Horizontal" />` or `<Stack direction="Vertical" />`
+from `@/ui/stack`. There is no raw `<div>` outside `src/ui`. `as` keeps the
+element (`as="header"`, `as="form"`, `as="li"`); `className` carries gap and
+alignment. A wrapper with no layout of its own is `Vertical`, which lays its
+children out the way block flow would. A responsive grid is a `Vertical` stack
+that turns into a grid at its breakpoint: `className="gap-3 sm:grid sm:grid-cols-2"`.
+Inside a stack, align a child with `self-*`, not the grid-only `justify-self-*`.
+
+Actions are `<Button message="…" icon={<Icon />} />`, never children. `link="/path"`
+makes it navigation, `iconPosition="end"` puts the icon after the label, and the
+icon is hidden from screen readers for you. An icon-only button needs
+`aria-label`.
+
+Spacers, swatches and other decorative `span`s, lists (`ul`, `li`) and
+interactive or form elements stay as they are.
+
+---
+
+## 3. shadcn/ui First
 
 Use shadcn/ui components whenever an appropriate component exists.
 
-Installed and ready to import from `@/components/ui`:
+Installed and ready to import from `@/ui`:
 
 - Alert
 - Badge
@@ -73,8 +106,8 @@ Installed and ready to import from `@/components/ui`:
 - Skeleton
 - Switch
 - Table
+- Text
 - Textarea
-- Tooltip
 
 Anything else in the registry (Sheet, Drawer, Tabs, Popover, Command, Avatar,
 Form) is not installed yet. Add it with `npx shadcn@latest add <name>` rather
@@ -93,13 +126,17 @@ When adding a component:
 
 1. Check whether shadcn/ui already provides it.
 2. Reuse existing components.
-3. Keep variants using `class-variance-authority` where appropriate.
+3. Keep variants as plain object maps keyed by variant name, joined with `cn` from `@/libs/cn`.
+   `cn` does not merge Tailwind classes, so never pass a `className` that fights a
+   primitive's own class. Give the primitive a prop or variant instead, as `Card`
+   (`gap`, `flush`, `variant`), `CardContent` (`padding`) and `Skeleton`
+   (`radius`) do.
 4. Keep shared components in the existing components directory.
 5. Do not duplicate components with slightly different names.
 
 ---
 
-## 3. Spacing Rules
+## 4. Spacing Rules
 
 Follow the spacing scale defined in `DESIGN.md`.
 
@@ -129,7 +166,7 @@ Do not use negative margins to fix a layout that should be solved with proper st
 
 ---
 
-## 4. Layout
+## 5. Layout
 
 Prefer:
 
@@ -150,7 +187,7 @@ All major page content must align to the same container.
 
 ---
 
-## 5. Responsive Design
+## 6. Responsive Design
 
 Mobile-first is mandatory.
 
@@ -169,7 +206,7 @@ Do not design desktop first and attempt to repair mobile afterward.
 
 ---
 
-## 6. Component Sizing
+## 7. Component Sizing
 
 Use the standard component sizes defined in `DESIGN.md`.
 
@@ -187,7 +224,7 @@ If an existing shadcn component already provides the correct size variant, use t
 
 ---
 
-## 7. Typography
+## 8. Typography
 
 Use the project's typography tokens.
 
@@ -217,7 +254,7 @@ The type scale already sets it.
 
 ---
 
-## 8. Colors
+## 9. Colors
 
 Use existing theme tokens.
 
@@ -249,7 +286,7 @@ Do not introduce gradients unless the project explicitly requires them.
 
 ---
 
-## 9. Borders and Radius
+## 10. Borders and Radius
 
 Use the existing shadcn/theme radius system.
 
@@ -269,7 +306,7 @@ Use the radius appropriate to the component defined in `DESIGN.md`.
 
 ---
 
-## 10. Icons
+## 11. Icons
 
 Use the project's existing icon library, which is Lucide.
 
@@ -283,7 +320,7 @@ Do not mix unrelated icon libraries without a reason.
 
 ---
 
-## 11. Forms
+## 12. Forms
 
 Use shadcn/ui form patterns.
 
@@ -301,7 +338,7 @@ Prefer semantic form structure and existing form components.
 
 ---
 
-## 12. Accessibility
+## 13. Accessibility
 
 UI must remain accessible.
 
@@ -321,7 +358,7 @@ Never remove focus indicators merely because they are visually inconvenient.
 
 ---
 
-## 13. States
+## 14. States
 
 Interactive components should account for:
 
@@ -338,7 +375,7 @@ Do not implement only the happy path.
 
 ---
 
-## 14. UI Consistency
+## 15. UI Consistency
 
 If two components serve the same purpose, they must look and behave consistently.
 
@@ -354,7 +391,7 @@ If inconsistency already exists, prefer the established design system rather tha
 
 ---
 
-## 15. No UI Overengineering
+## 16. No UI Overengineering
 
 Do not add UI merely because there is empty space.
 
@@ -372,7 +409,7 @@ Every visual element must have a purpose.
 
 ---
 
-## 16. Preserve Existing Functionality
+## 17. Preserve Existing Functionality
 
 UI work must not break:
 
@@ -389,7 +426,7 @@ Do not rewrite working logic when only the UI needs modification.
 
 ---
 
-## 17. Validation
+## 18. Validation
 
 After UI implementation:
 
@@ -401,15 +438,10 @@ After UI implementation:
 6. Check the console for errors.
 7. Fix everything before considering the task complete.
 
-Run `npm run format` before you finish. oxfmt is the house style, and it also
-sorts imports and Tailwind classes, so let it move them rather than ordering
-them by hand.
+Run `npm run format` before you finish. Biome is the house style, and it also
+sorts imports, so let it move them rather than ordering them by hand.
 
-`@shadcn/lint` runs inside `npm run lint`. `no-unknown-classes` catches a class
-that generates no CSS, and `no-raw-colors` keeps colour in `tokens.css`. Both
-must stay clean.
-
-Use the project's configured shadcn/ui lint conventions and existing lint configuration.
+`npm run lint` runs Biome's recommended rules and must stay clean.
 
 Never bypass lint rules just to make the implementation pass.
 
@@ -417,7 +449,7 @@ Do not disable a lint rule unless there is a documented reason.
 
 ---
 
-## 18. Definition of Done
+## 19. Definition of Done
 
 A UI task is complete only when:
 
@@ -430,7 +462,7 @@ A UI task is complete only when:
 - Accessibility is preserved.
 - No unnecessary arbitrary Tailwind values were introduced.
 - No unrelated components were changed.
-- Lint passes, `@shadcn/lint` included.
+- Lint passes.
 - TypeScript passes.
 - Build passes.
 - The resulting UI is visually consistent with the rest of the application.

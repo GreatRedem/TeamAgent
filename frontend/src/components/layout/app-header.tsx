@@ -1,11 +1,9 @@
-import { cn } from 'cn';
 import { LogOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 
-import { Brand } from '@/components/ui/brand';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { Brand } from '@/components/brand';
+import { cn } from '@/libs/cn';
 import {
     DESTINATIONS,
     HEADER_IDLE_DELAY,
@@ -13,9 +11,12 @@ import {
     HEADER_OPEN_ZONE,
     PAGE_WIDTH,
     TEAM_NAMES,
-} from '@/lib/constant';
-import { activeTeamId, teamPath } from '@/lib/navigation';
-import { clearAccessToken } from '@/lib/session';
+} from '@/libs/constant';
+import { activeTeamId, teamPath } from '@/libs/navigation';
+import { clearAccessToken } from '@/libs/session';
+import { Button } from '@/ui/button';
+import { Separator } from '@/ui/separator';
+import { Stack } from '@/ui/stack';
 
 import { ProjectSwitcher } from './project-switcher';
 
@@ -27,7 +28,7 @@ export function AppHeader() {
 
     const [open, setOpen] = useState(true);
 
-    const host = useRef<HTMLDivElement>(null);
+    const host = useRef<HTMLElement>(null);
     const idle = useRef(0);
 
     useEffect(() => {
@@ -77,6 +78,25 @@ export function AppHeader() {
         };
     }, []);
 
+    // Pointing at the bar or tabbing into it brings it back.
+    useEffect(() => {
+        const panel = host.current;
+
+        if (panel === null) {
+            return;
+        }
+
+        const show = () => setOpen(true);
+
+        panel.addEventListener('pointerenter', show);
+        panel.addEventListener('focusin', show);
+
+        return () => {
+            panel.removeEventListener('pointerenter', show);
+            panel.removeEventListener('focusin', show);
+        };
+    }, []);
+
     const signOut = () => {
         clearAccessToken();
         TEAM_NAMES.clear();
@@ -86,7 +106,8 @@ export function AppHeader() {
 
     return (
         <header className="pointer-events-none fixed inset-x-0 top-0 z-30 px-4 pt-3 sm:px-6">
-            <div
+            <Stack
+                direction="Vertical"
                 className={cn(
                     'absolute top-1.5 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-input',
                     'transition-opacity duration-300 ease-out motion-reduce:transition-none',
@@ -95,7 +116,8 @@ export function AppHeader() {
                 aria-hidden="true"
             />
 
-            <div
+            <Stack
+                direction="Vertical"
                 ref={host}
                 className={cn(
                     PAGE_WIDTH,
@@ -104,11 +126,8 @@ export function AppHeader() {
                     open
                         ? 'translate-y-0 opacity-100'
                         : '-translate-y-[calc(100%+1.5rem)] opacity-0',
-                )}
-                onPointerEnter={() => setOpen(true)}
-                onFocus={() => setOpen(true)}
-            >
-                <div className="flex h-14 items-center gap-2 px-3">
+                )}>
+                <Stack direction="Horizontal" className="h-14 items-center gap-2 px-3">
                     <Brand to="/dashboard" />
 
                     <Separator orientation="vertical" className="mx-1 !h-5" />
@@ -120,19 +139,20 @@ export function AppHeader() {
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="text-muted-foreground"
+                        className="text-muted-foreground [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
+                        aria-label="Sign out"
                         onClick={signOut}
-                    >
-                        <LogOut aria-hidden="true" />
-                        <span className="hidden sm:inline">Sign out</span>
-                    </Button>
-                </div>
+                        icon={<LogOut />}
+                        message="Sign out"
+                    />
+                </Stack>
 
                 {teamId !== 0 && (
-                    <nav
-                        className="flex [scrollbar-width:none] gap-1 overflow-x-auto border-t px-2 py-1.5 [&::-webkit-scrollbar]:hidden"
-                        aria-label="Project sections"
-                    >
+                    <Stack
+                        direction="Horizontal"
+                        as="nav"
+                        className="[scrollbar-width:none] gap-1 overflow-x-auto border-t px-2 py-1.5 [&::-webkit-scrollbar]:hidden"
+                        aria-label="Project sections">
                         {DESTINATIONS.map(({ id, label, icon: Icon }) => (
                             <NavLink
                                 key={id}
@@ -146,8 +166,7 @@ export function AppHeader() {
                                             ? 'bg-accent font-medium text-accent-foreground'
                                             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                                     )
-                                }
-                            >
+                                }>
                                 {({ isActive }) => (
                                     <>
                                         <Icon
@@ -160,9 +179,9 @@ export function AppHeader() {
                                 )}
                             </NavLink>
                         ))}
-                    </nav>
+                    </Stack>
                 )}
-            </div>
+            </Stack>
         </header>
     );
 }

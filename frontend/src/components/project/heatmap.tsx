@@ -1,7 +1,8 @@
-import { cn } from 'cn';
-
-import type { HeatmapDay } from '@/api';
-import { HEAT_SCALE, WEEKDAYS } from '@/lib/constant';
+import type { HeatmapDay } from '@/apis';
+import { cn } from '@/libs/cn';
+import { HEAT_SCALE, WEEKDAYS } from '@/libs/constant';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 function toWeeks(days: HeatmapDay[]): (HeatmapDay | null)[][] {
     if (days.length === 0) {
@@ -47,25 +48,34 @@ export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number
     const weeks = toWeeks(days);
 
     return (
-        <div className="grid gap-3">
-            <div className="flex items-start gap-2 overflow-x-auto pb-1">
-                <div
-                    className="flex shrink-0 flex-col gap-1 text-2xs text-muted-foreground"
-                    aria-hidden="true"
-                >
+        <Stack direction="Vertical" className="gap-3">
+            <Stack direction="Horizontal" className="items-start gap-2 overflow-x-auto pb-1">
+                <Stack direction="Vertical" className="shrink-0 gap-1" aria-hidden="true">
                     {WEEKDAYS.map((label, i) => (
-                        <span className="flex h-3 items-center" key={label}>
-                            {i % 2 === 1 ? label : ''}
-                        </span>
+                        <Text
+                            type="Caption"
+                            as="span"
+                            className="flex h-3 items-center"
+                            key={label}
+                            message={i % 2 === 1 ? label : ''}
+                        />
                     ))}
-                </div>
+                </Stack>
 
-                <div className="flex gap-1">
+                <Stack direction="Horizontal" className="gap-1">
                     {weeks.map((week, w) => (
-                        <div className="flex flex-col gap-1" key={w}>
+                        <Stack
+                            direction="Vertical"
+                            className="gap-1"
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a week column in a fixed calendar grid; the list is static and never reorders, so the index is its identity
+                            key={w}>
                             {week.map((day, d) =>
                                 day === null ? (
-                                    <span className="size-3" key={d} />
+                                    <span
+                                        className="size-3"
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: a weekday slot in a fixed calendar grid; the list is static and never reorders, so the index is its identity
+                                        key={d}
+                                    />
                                 ) : (
                                     <span
                                         className={cn(
@@ -73,27 +83,28 @@ export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number
                                             HEAT_SCALE[level(day, busiest)],
                                             day.errors > 0 && 'ring-1 ring-destructive',
                                         )}
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: a weekday slot in a fixed calendar grid; the list is static and never reorders, so the index is its identity
                                         key={d}
                                         title={`${day.date}: ${day.total} action${day.total === 1 ? '' : 's'}${day.errors > 0 ? `, ${day.errors} failed` : ''}`}
                                     />
                                 ),
                             )}
-                        </div>
+                        </Stack>
                     ))}
-                </div>
-            </div>
+                </Stack>
+            </Stack>
 
-            <p className="m-0 flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
-                <span>Quieter</span>
+            <Stack direction="Horizontal" className="flex-wrap items-center gap-2">
+                <Text type="Caption" as="span" message="Quieter" />
                 {HEAT_SCALE.map((fill) => (
                     <span className={cn('size-3 rounded-sm', fill)} key={fill} />
                 ))}
-                <span>Busier</span>
-                <span className="ml-3 flex items-center gap-1.5">
+                <Text type="Caption" as="span" message="Busier" />
+                <Stack direction="Horizontal" as="span" className="ml-3 items-center gap-1.5">
                     <span className="size-3 rounded-sm bg-scale-0 ring-1 ring-destructive" />
-                    Had a failure
-                </span>
-            </p>
-        </div>
+                    <Text type="Caption" as="span" message="Had a failure" />
+                </Stack>
+            </Stack>
+        </Stack>
     );
 }

@@ -2,19 +2,14 @@ import { Check, LoaderCircle, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { ApiError, walletNonce, walletSignIn } from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { WALLETS } from '@/lib/constant';
-import { writeAccessToken } from '@/lib/session';
-import { discoverWallets, matchWallet, type DiscoveredWallet } from '@/lib/wallet';
+import { ApiError, walletNonce, walletSignIn } from '@/apis';
+import { WALLETS } from '@/libs/constant';
+import { writeAccessToken } from '@/libs/session';
+import { type DiscoveredWallet, discoverWallets, matchWallet } from '@/libs/wallet';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Button } from '@/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog';
+import { Text } from '@/ui/text';
 
 type Status =
     | { kind: 'idle' }
@@ -118,10 +113,9 @@ export function WalletSignIn() {
                     setStatus({ kind: 'idle' });
                     setOpen(true);
                 }}
-            >
-                <Wallet aria-hidden="true" />
-                Sign in with your wallet
-            </Button>
+                icon={<Wallet />}
+                message="Sign in with your wallet"
+            />
 
             <Dialog
                 open={open}
@@ -129,9 +123,8 @@ export function WalletSignIn() {
                     if (!busy) {
                         setOpen(next);
                     }
-                }}
-            >
-                <DialogContent className="sm:max-w-sm">
+                }}>
+                <DialogContent size="sm">
                     <DialogHeader>
                         <DialogTitle>Choose a wallet</DialogTitle>
                         <DialogDescription>
@@ -165,8 +158,7 @@ export function WalletSignIn() {
                                             if (provider !== undefined) {
                                                 void signIn(wallet.name, provider);
                                             }
-                                        }}
-                                    >
+                                        }}>
                                         <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
                                             {installed?.icon === undefined ? (
                                                 <Wallet
@@ -184,18 +176,26 @@ export function WalletSignIn() {
                                         </span>
 
                                         <span className="grid min-w-0 gap-0.5">
-                                            <span className="truncate font-medium">
-                                                {wallet.name}
-                                            </span>
-                                            <span className="truncate text-2xs text-muted-foreground">
-                                                {running
-                                                    ? status.step
-                                                    : found === null
-                                                      ? 'Looking for it'
-                                                      : provider === undefined
-                                                        ? 'Not installed in this browser'
-                                                        : wallet.blurb}
-                                            </span>
+                                            <Text
+                                                type="Strong"
+                                                as="span"
+                                                className="truncate"
+                                                message={wallet.name}
+                                            />
+                                            <Text
+                                                type="Caption"
+                                                as="span"
+                                                className="truncate"
+                                                message={
+                                                    running
+                                                        ? status.step
+                                                        : found === null
+                                                          ? 'Looking for it'
+                                                          : provider === undefined
+                                                            ? 'Not installed in this browser'
+                                                            : wallet.blurb
+                                                }
+                                            />
                                         </span>
 
                                         <span className="ml-auto shrink-0">
@@ -220,9 +220,10 @@ export function WalletSignIn() {
                     </ul>
 
                     {found?.length === 0 && (
-                        <p className="m-0 text-2xs text-muted-foreground">
-                            No wallet announced itself. Install one, then reopen this dialog.
-                        </p>
+                        <Text
+                            type="Caption"
+                            message="No wallet announced itself. Install one, then reopen this dialog."
+                        />
                     )}
 
                     {status.kind === 'error' && (

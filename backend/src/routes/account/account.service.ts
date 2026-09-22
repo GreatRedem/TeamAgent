@@ -5,8 +5,8 @@ import { IsNull } from 'typeorm';
 import { getAddress, isAddress, recoverMessageAddress } from 'viem';
 
 import {
-    createRefreshToken,
     createAccessToken,
+    createRefreshToken,
     SESSION_REFRESH_TIME,
 } from '../../plugins/authentication.js';
 import { rateLimit } from '../../plugins/ratelimit.js';
@@ -40,7 +40,7 @@ async function startSession(
     const refreshToken = createRefreshToken(account.id, account.role);
 
     const refresh = await fastify.db.getRepository(AccountSession).save({
-        device: (request.headers['user-agent'] || '') + ' ' + request.ip,
+        device: `${request.headers['user-agent'] || ''} ${request.ip}`,
         expires_at: new Date(Date.now() + SESSION_REFRESH_TIME),
         account_id: account.id,
         token: refreshToken,

@@ -2,8 +2,10 @@ import { Check, ChevronsUpDown, LayoutGrid, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 
-import { teamDetails, teamList, type Team } from '@/api';
-import { Button } from '@/components/ui/button';
+import { type Team, teamDetails, teamList } from '@/apis';
+import { TEAM_NAMES } from '@/libs/constant';
+import { teamPath } from '@/libs/navigation';
+import { Button } from '@/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -11,9 +13,8 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { TEAM_NAMES } from '@/lib/constant';
-import { teamPath } from '@/lib/navigation';
+} from '@/ui/dropdown-menu';
+import { Text } from '@/ui/text';
 
 export function ProjectSwitcher({ teamId }: { teamId: number }) {
     const [open, setOpen] = useState(false);
@@ -65,23 +66,25 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
     return (
         <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="min-w-0 gap-2 px-2 font-medium">
-                    <span className="truncate">{label}</span>
-                    <ChevronsUpDown className="text-muted-foreground" aria-hidden="true" />
-                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="min-w-0"
+                    icon={<ChevronsUpDown className="text-muted-foreground" />}
+                    iconPosition="end"
+                    message={label}
+                />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="start" className="w-60">
                 <DropdownMenuLabel>Projects</DropdownMenuLabel>
 
                 {teams === null && (
-                    <p className="m-0 px-2 py-1.5 text-sm text-muted-foreground">Loading…</p>
+                    <Text type="BodyMuted" className="px-2 py-1.5" message="Loading…" />
                 )}
 
                 {teams !== null && teams.length === 0 && (
-                    <p className="m-0 px-2 py-1.5 text-sm text-muted-foreground">
-                        No projects yet.
-                    </p>
+                    <Text type="BodyMuted" className="px-2 py-1.5" message="No projects yet." />
                 )}
 
                 {teams?.map((team) => (
@@ -91,7 +94,12 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
                                 className={team.id === teamId ? 'opacity-100' : 'opacity-0'}
                                 aria-hidden="true"
                             />
-                            <span className="truncate">{team.name}</span>
+                            <Text
+                                type="Foreground"
+                                as="span"
+                                className="truncate"
+                                message={team.name}
+                            />
                         </Link>
                     </DropdownMenuItem>
                 ))}

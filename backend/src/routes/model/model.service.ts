@@ -6,7 +6,7 @@ import { TeamAgent } from '../agent/agent.entity.js';
 import { audit } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamModel } from '../team/team.entity.js';
-import { OPENROUTER_URL, PROVIDERS, fetchCatalog, readContextLength } from './model.provider.js';
+import { fetchCatalog, OPENROUTER_URL, PROVIDERS, readContextLength } from './model.provider.js';
 import {
     schemaModelCatalog,
     schemaModelCreate,

@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({ name: 'audit_log' })
 @Index(['team_id', 'created_at'])

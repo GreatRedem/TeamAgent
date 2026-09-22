@@ -1,25 +1,21 @@
 import { ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/ui/button';
+import { Text } from '@/ui/text';
 
 export function NotFound() {
     return (
         <section className="mx-auto grid w-full max-w-sm justify-items-center gap-4 text-center">
-            <p className="m-0 font-mono text-2xs text-muted-foreground">404</p>
+            <Text type="DataMuted" message="404" />
 
-            <h1 className="m-0 text-page font-semibold tracking-tight">This page does not exist</h1>
+            <Text type="Title" message="This page does not exist" />
 
-            <p className="m-0 text-muted-foreground">
-                Check the address, or head back to where you started.
-            </p>
+            <Text
+                type="ForegroundMuted"
+                message="Check the address, or head back to where you started."
+            />
 
-            <Button asChild variant="outline">
-                <Link to="/">
-                    <ArrowLeft aria-hidden="true" />
-                    Back to sign in
-                </Link>
-            </Button>
+            <Button variant="outline" link="/" icon={<ArrowLeft />} message="Back to sign in" />
         </section>
     );
 }

@@ -1,30 +1,31 @@
-import { cn } from 'cn';
 import { Cpu, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
     ApiError,
+    type CatalogModel,
     modelCatalog,
     modelCreate,
     modelList,
     modelRemove,
     modelTest,
     modelUpdate,
-    type CatalogModel,
     type Paged,
     type ProviderPreset,
     type TeamModel,
     type TeamModelProbe,
-} from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ConfirmButton } from '@/components/ui/confirm-button';
-import { EmptyState } from '@/components/ui/empty-state';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import { Skeleton } from '@/components/ui/skeleton';
-import { BLANK_MODEL, PROBE_TONE, PROVIDER_FALLBACK } from '@/lib/constant';
+} from '@/apis';
+import { ConfirmButton } from '@/components/confirm-button';
+import { EmptyState } from '@/components/empty-state';
+import { Pager } from '@/components/pager';
+import { BLANK_MODEL, PROBE_TONE, PROVIDER_FALLBACK } from '@/libs/constant';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 import { ModelDialog, type ModelDraft } from './model-dialog';
 
@@ -97,9 +98,12 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
         modelCatalog()
             .then((payload) => {
                 if (active) {
-                    setCatalog(payload.models);
-                    setCatalogUrl(payload.base_url);
-                    setProviders(payload.providers);
+                    setCatalog(payload.models ?? []);
+                    setCatalogUrl(payload.base_url ?? '');
+
+                    if (payload.providers?.length > 0) {
+                        setProviders(payload.providers);
+                    }
                 }
             })
             .catch(() => {});
@@ -275,24 +279,22 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
         setEditing(item.id);
     };
 
-    const createButton = (
-        <Button onClick={openCreate}>
-            <Plus aria-hidden="true" />
-            Add model
-        </Button>
-    );
+    const createButton = <Button onClick={openCreate} icon={<Plus />} message="Add model" />;
 
     return (
         <section className="grid gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="m-0 text-sm text-muted-foreground">
-                    {models === null
-                        ? 'Loading models.'
-                        : `${page?.total.toLocaleString() ?? models.length} endpoint${(page?.total ?? models.length) === 1 ? '' : 's'} this project can call.`}
-                </p>
+            <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
+                <Text
+                    type="BodyMuted"
+                    message={
+                        models === null
+                            ? 'Loading models.'
+                            : `${page?.total.toLocaleString() ?? models.length} endpoint${(page?.total ?? models.length) === 1 ? '' : 's'} this project can call.`
+                    }
+                />
 
                 {createButton}
-            </div>
+            </Stack>
 
             <ModelDialog
                 open={creating}
@@ -335,11 +337,11 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
             )}
 
             {models === null && (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <Stack direction="Vertical" className="gap-3 sm:grid-cols-2 sm:grid">
                     {[0, 1].map((i) => (
-                        <Skeleton className="h-52 rounded-xl" key={i} />
+                        <Skeleton radius="xl" className="h-52" key={i} />
                     ))}
-                </div>
+                </Stack>
             )}
 
             {models !== null && models.length === 0 && (
@@ -358,7 +360,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
 
                         return (
                             <li key={item.id}>
-                                <Card className="h-full gap-3">
+                                <Card gap={3} className="h-full">
                                     <CardHeader>
                                         <CardTitle className="flex min-w-0 items-center gap-2">
                                             <Cpu
@@ -366,58 +368,77 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                 className="shrink-0 text-primary"
                                                 aria-hidden="true"
                                             />
-                                            <span className="truncate">{item.name}</span>
+                                            <Text
+                                                type="Foreground"
+                                                as="span"
+                                                className="truncate"
+                                                message={item.name}
+                                            />
                                         </CardTitle>
                                     </CardHeader>
 
                                     <CardContent className="grid gap-3">
                                         <dl className="m-0 grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm">
-                                            <dt className="text-muted-foreground">Model</dt>
-                                            <dd className="m-0 truncate font-mono text-2xs">
-                                                {item.model}
-                                            </dd>
+                                            <Text type="ForegroundMuted" as="dt" message="Model" />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                className="truncate"
+                                                message={item.model}
+                                            />
 
-                                            <dt className="text-muted-foreground">Endpoint</dt>
-                                            <dd className="m-0 truncate font-mono text-2xs">
-                                                {item.base_url}
-                                            </dd>
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message="Endpoint"
+                                            />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                className="truncate"
+                                                message={item.base_url}
+                                            />
 
-                                            <dt className="text-muted-foreground">Key</dt>
-                                            <dd className="m-0 truncate font-mono text-2xs">
-                                                {item.key_hint}
-                                            </dd>
+                                            <Text type="ForegroundMuted" as="dt" message="Key" />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                className="truncate"
+                                                message={item.key_hint}
+                                            />
                                         </dl>
 
-                                        <div className="flex flex-wrap items-center gap-1.5">
+                                        <Stack
+                                            direction="Horizontal"
+                                            className="flex-wrap items-center gap-1.5">
                                             <Badge
                                                 variant={
                                                     item.context_tokens === 0
                                                         ? 'outline'
                                                         : 'secondary'
-                                                }
-                                            >
+                                                }>
                                                 {item.context_tokens === 0 ? (
                                                     'Window not read yet'
                                                 ) : (
                                                     <>
-                                                        <span className="font-mono">
-                                                            {item.context_tokens.toLocaleString()}
-                                                        </span>{' '}
+                                                        <Text
+                                                            type="Mono"
+                                                            as="span"
+                                                            message={item.context_tokens.toLocaleString()}
+                                                        />{' '}
                                                         tokens
                                                     </>
                                                 )}
                                             </Badge>
-                                        </div>
+                                        </Stack>
 
                                         {probe !== undefined && (
-                                            <output
-                                                className={cn(
-                                                    'm-0 text-sm',
-                                                    PROBE_TONE[probeState(probe)],
-                                                )}
-                                            >
-                                                {probeLabel(probe)}
-                                            </output>
+                                            <Text
+                                                type="Body"
+                                                as="output"
+                                                className={PROBE_TONE[probeState(probe)]}
+                                                message={probeLabel(probe)}
+                                            />
                                         )}
                                     </CardContent>
 
@@ -427,23 +448,23 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             disabled={probe === 'testing'}
                                             onClick={() => void test(item.id)}
-                                        >
-                                            {probe === 'testing' ? 'Testing…' : 'Test'}
-                                        </Button>
+                                            message={probe === 'testing' ? 'Testing…' : 'Test'}
+                                        />
 
                                         <Button
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => openEdit(item)}
-                                        >
-                                            Edit
-                                        </Button>
+                                            message="Edit"
+                                        />
 
                                         <span className="grow" />
 
                                         <ConfirmButton
                                             label="Remove"
-                                            confirmLabel="Remove for good"
+                                            title={`Remove ${item.name}?`}
+                                            description="The stored key goes with it and cannot be recovered. Agents using this model stop answering."
+                                            confirmLabel="Remove model"
                                             onConfirm={() => void remove(item.id)}
                                         />
                                     </CardFooter>
@@ -455,7 +476,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
             )}
 
             {page !== null && models !== null && models.length > 0 && (
-                <PaginationFooter
+                <Pager
                     page={page}
                     shown={models.length}
                     busy={paging}

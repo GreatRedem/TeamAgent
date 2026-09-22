@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
 
     return {
         // Tailwind 4 has no config file: the theme is declared in
-        // `src/index.css` over `src/tokens.css`, and this plugin compiles it.
+        // `src/styles/index.css`, and this plugin compiles it.
         plugins: [react(), tailwindcss()],
         resolve: {
             alias: { '@': path.resolve(import.meta.dirname, './src') },

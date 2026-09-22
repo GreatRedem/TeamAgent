@@ -1,6 +1,5 @@
 import { Bot, FileText, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
 
 import {
     ApiError,
@@ -10,11 +9,14 @@ import {
     type Paged,
     type TeamAgent,
     type TeamModel,
-} from '@/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+} from '@/apis';
+import { EmptyState } from '@/components/empty-state';
+import { Field } from '@/components/field';
+import { Pager } from '@/components/pager';
+import { Alert, AlertDescription } from '@/ui/alert';
+import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -23,19 +25,12 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '@/components/ui/dialog';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { PaginationFooter } from '@/components/ui/pagination-footer';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
+} from '@/ui/dialog';
+import { Input } from '@/ui/input';
+import { Select, SelectItem } from '@/ui/select';
+import { Skeleton } from '@/ui/skeleton';
+import { Stack } from '@/ui/stack';
+import { Text } from '@/ui/text';
 
 export function AgentsPanel({ teamId }: { teamId: number }) {
     const [agents, setAgents] = useState<TeamAgent[] | null>(null);
@@ -142,10 +137,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
     const createDialog = (
         <Dialog open={creating} onOpenChange={setCreating}>
             <DialogTrigger asChild>
-                <Button disabled={!hasModels}>
-                    <Plus aria-hidden="true" />
-                    New agent
-                </Button>
+                <Button disabled={!hasModels} icon={<Plus />} message="New agent" />
             </DialogTrigger>
 
             <DialogContent>
@@ -186,21 +178,16 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
 
                     <Field label="Model">
                         {(id) => (
-                            <Select value={modelId} onValueChange={setModelId}>
-                                <SelectTrigger id={id} className="w-full">
-                                    <SelectValue placeholder="Pick a model" />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                    {models?.map((model) => (
-                                        <SelectItem key={model.id} value={String(model.id)}>
-                                            {model.name}
-                                            <span className="text-muted-foreground">
-                                                {model.model}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
+                            <Select
+                                value={modelId}
+                                onValueChange={setModelId}
+                                id={id}
+                                placeholder="Pick a model">
+                                {models?.map((model) => (
+                                    <SelectItem key={model.id} value={String(model.id)}>
+                                        {`${model.name} · ${model.model}`}
+                                    </SelectItem>
+                                ))}
                             </Select>
                         )}
                     </Field>
@@ -212,12 +199,17 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                     )}
 
                     <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setCreating(false)}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={busy}>
-                            {busy ? 'Creating…' : 'Create agent'}
-                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setCreating(false)}
+                            message="Cancel"
+                        />
+                        <Button
+                            type="submit"
+                            disabled={busy}
+                            message={busy ? 'Creating…' : 'Create agent'}
+                        />
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -226,15 +218,18 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
 
     return (
         <section className="grid gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="m-0 text-sm text-muted-foreground">
-                    {agents === null
-                        ? 'Loading agents.'
-                        : `${page?.total.toLocaleString() ?? agents.length} agent${(page?.total ?? agents.length) === 1 ? '' : 's'} in this project.`}
-                </p>
+            <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
+                <Text
+                    type="BodyMuted"
+                    message={
+                        agents === null
+                            ? 'Loading agents.'
+                            : `${page?.total.toLocaleString() ?? agents.length} agent${(page?.total ?? agents.length) === 1 ? '' : 's'} in this project.`
+                    }
+                />
 
                 {createDialog}
-            </div>
+            </Stack>
 
             {error !== null && (
                 <Alert variant="destructive">
@@ -251,11 +246,11 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
             )}
 
             {agents === null && (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Stack direction="Vertical" className="gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                     {[0, 1, 2].map((i) => (
-                        <Skeleton className="h-36 rounded-xl" key={i} />
+                        <Skeleton radius="xl" className="h-36" key={i} />
                     ))}
-                </div>
+                </Stack>
             )}
 
             {agents !== null && agents.length === 0 && hasModels && (
@@ -271,7 +266,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                 <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
                     {agents.map((agent) => (
                         <li key={agent.id}>
-                            <Card className="h-full gap-3 transition-colors hover:border-input">
+                            <Card gap={3} className="h-full transition-colors hover:border-input">
                                 <CardHeader>
                                     <CardTitle className="flex min-w-0 items-center gap-2">
                                         <Bot
@@ -279,24 +274,34 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                             className="shrink-0 text-primary"
                                             aria-hidden="true"
                                         />
-                                        <span className="truncate">{agent.name}</span>
+                                        <Text
+                                            type="Foreground"
+                                            as="span"
+                                            className="truncate"
+                                            message={agent.name}
+                                        />
                                     </CardTitle>
                                 </CardHeader>
 
                                 <CardContent className="grid gap-3">
-                                    <p className="m-0 line-clamp-2 min-h-10 text-sm text-muted-foreground">
-                                        {agent.description === ''
-                                            ? 'No description yet.'
-                                            : agent.description}
-                                    </p>
+                                    <Text
+                                        type="BodyMuted"
+                                        className="line-clamp-2 min-h-10"
+                                        message={
+                                            agent.description === ''
+                                                ? 'No description yet.'
+                                                : agent.description
+                                        }
+                                    />
 
-                                    <div className="flex flex-wrap items-center gap-1.5">
+                                    <Stack
+                                        direction="Horizontal"
+                                        className="flex-wrap items-center gap-1.5">
                                         <Badge
                                             variant={
                                                 agent.model_name === '' ? 'outline' : 'secondary'
                                             }
-                                            className="font-mono"
-                                        >
+                                            className="font-mono">
                                             {agent.model_name === ''
                                                 ? 'No model'
                                                 : agent.model_name}
@@ -306,15 +311,17 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                             <FileText size={11} aria-hidden="true" />
                                             {agent.document_count}
                                         </Badge>
-                                    </div>
+                                    </Stack>
                                 </CardContent>
 
                                 <CardFooter>
-                                    <Button asChild variant="outline" size="sm" className="w-full">
-                                        <Link to={`/dashboard/team/${teamId}/agent/${agent.id}`}>
-                                            Open agent
-                                        </Link>
-                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        link={`/dashboard/team/${teamId}/agent/${agent.id}`}
+                                        message="Open agent"
+                                    />
                                 </CardFooter>
                             </Card>
                         </li>
@@ -323,7 +330,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
             )}
 
             {page !== null && agents !== null && agents.length > 0 && (
-                <PaginationFooter
+                <Pager
                     page={page}
                     shown={agents.length}
                     busy={paging}

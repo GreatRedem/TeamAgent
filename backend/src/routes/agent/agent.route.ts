@@ -5,11 +5,11 @@ import {
     agentDetails,
     agentDocumentCreate,
     agentDocumentRemove,
+    agentDocumentUpdate,
     agentExchanges,
+    agentList,
     agentPermissionCatalog,
     agentPermissionUpdate,
-    agentDocumentUpdate,
-    agentList,
     agentRemove,
     agentUpdate,
 } from './agent.service.js';
