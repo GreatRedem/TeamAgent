@@ -1,6 +1,7 @@
 {
     "$schema": "./node_modules/oxlint/configuration_schema.json",
     "plugins": ["typescript", "jsx-a11y", "unicorn", "import", "react", "oxc"],
+    "jsPlugins": ["@shadcn/lint"],
     "categories": {
         "correctness": "warn",
         "suspicious": "warn"
@@ -13,7 +14,9 @@
     "rules": {
         "no-console": "warn",
         "typescript/no-explicit-any": "error",
-        "react/react-in-jsx-scope": "off"
+        "react/react-in-jsx-scope": "off",
+        "shadcn/no-unknown-classes": "error",
+        "shadcn/no-raw-colors": "error"
     },
     "overrides": [
         {
