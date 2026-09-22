@@ -1,24 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
 
-import { ApiError, auditHeatmap, type HeatmapDay } from '../lib/api';
-import { Panel } from './Panel';
-import { teamPath } from './RailNav';
+import { ApiError, auditHeatmap, type HeatmapDay } from '../api';
+import { CLASS_NOTE, CLASS_NOTE_ERROR, HEAT_LEVELS, WEEKDAYS } from '../lib/constant';
+import { SystemMetrics } from './SystemMetrics';
+import { TeamActivity } from './TeamActivity';
+import { Panel } from './ui/Panel';
 
-interface TeamOverviewProps
-{
-    teamId: number;
-}
-
-const WEEKDAYS = [ 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ];
-
-/**
- * Buckets the flat day list into calendar columns.
- *
- * The first column is padded with nulls so every row is one weekday, which is
- * what makes the grid readable at a glance; without it the rows shift by the
- * start date and the weekday labels lie.
- */
 function toWeeks(days: HeatmapDay[]): (HeatmapDay | null)[][]
 {
     if (days.length === 0)
@@ -28,7 +15,6 @@ function toWeeks(days: HeatmapDay[]): (HeatmapDay | null)[][]
 
     const weeks: (HeatmapDay | null)[][] = [ ];
 
-    // getUTCDay, because the server buckets by UTC date.
     let current: (HeatmapDay | null)[] = Array.from({ length: new Date(`${ days[0].date }T00:00:00Z`).getUTCDay() }, () => null);
 
     for (const day of days)
@@ -55,10 +41,6 @@ function toWeeks(days: HeatmapDay[]): (HeatmapDay | null)[][]
     return weeks;
 }
 
-/**
- * Intensity from 0 to 4, scaled against the busiest day rather than a fixed
- * ceiling, so a quiet team's chart still shows shape.
- */
 function level(day: HeatmapDay, busiest: number): number
 {
     if (day.total === 0)
@@ -69,8 +51,7 @@ function level(day: HeatmapDay, busiest: number): number
     return Math.min(4, Math.ceil((day.total / Math.max(1, busiest)) * 4));
 }
 
-/** The project home: twelve weeks of activity. The trail itself is under Activity. */
-export function TeamOverview({ teamId }: TeamOverviewProps)
+export function TeamOverview({ teamId }: { teamId: number })
 {
     const [ heatmap, setHeatmap ] = useState<{ days: HeatmapDay[]; total: number; busiest: number } | null>(null);
     const [ error, setError ] = useState<string | null>(null);
@@ -104,57 +85,56 @@ export function TeamOverview({ teamId }: TeamOverviewProps)
     const weeks = heatmap === null ? [ ] : toWeeks(heatmap.days);
 
     return (
-        <Panel
-            eyebrow="Activity · 12 weeks"
-            title="Every change, every run"
-            actions={ <Link className="text-[13px] text-live no-underline hover:underline" to={ teamPath(teamId, 'activity') }>Open audit trail →</Link> }
-        >
-            { error !== null && <p className="note" data-state="error" role="alert">{ error }</p> }
+        <>
+            <SystemMetrics />
 
-            { heatmap === null && error === null && <p className="note">Loading activity...</p> }
+            <Panel eyebrow="Activity · 12 weeks" title="Every change, every run">
+                { error !== null && <p className={ CLASS_NOTE_ERROR } role="alert">{ error }</p> }
 
-            { heatmap !== null && (
-                <>
-                    <p className="note mt-0 justify-start">
-                        { heatmap.total } action{ heatmap.total === 1 ? '' : 's' } in the last 12 weeks
-                        { heatmap.busiest > 0 && ` · busiest day ${ heatmap.busiest }` }
-                    </p>
+                { heatmap === null && error === null && <p className={ CLASS_NOTE }>Loading activity...</p> }
 
-                    <div className="heatmap">
-                        <div className="heatmap__days" aria-hidden="true">
-                            { WEEKDAYS.map((label, i) => (
-                                // Every other label, or they collide at this cell size.
-                                <span className="heatmap__day" key={ label }>{ i % 2 === 1 ? label : '' }</span>
-                            )) }
+                { heatmap !== null && (
+                    <>
+                        <p className={ CLASS_NOTE }>
+                            { heatmap.total } action{ heatmap.total === 1 ? '' : 's' } in the last 12 weeks
+                            { heatmap.busiest > 0 && ` · busiest day ${ heatmap.busiest }` }
+                        </p>
+
+                        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                            <div className="grid shrink-0 grid-rows-[repeat(7,0.75rem)] gap-[3px] font-mono text-[10px] text-ink-3" aria-hidden="true">
+                                { WEEKDAYS.map((label, i) => (
+                                    <span className="leading-3" key={ label }>{ i % 2 === 1 ? label : '' }</span>
+                                )) }
+                            </div>
+
+                            <div className="flex gap-[3px]">
+                                { weeks.map((week, w) => (
+                                    <div className="grid grid-rows-[repeat(7,0.75rem)] gap-[3px]" key={ w }>
+                                        { week.map((day, d) => day === null
+                                            ? <span className="size-3 rounded-[2px] bg-transparent" key={ d } />
+                                            : (
+                                                <span
+                                                    className={ `size-3 rounded-[2px] ${ HEAT_LEVELS[level(day, heatmap.busiest)] } ${ day.errors > 0 ? 'shadow-[inset_0_0_0_1px_var(--nura-fail)]' : '' }` }
+                                                    key={ d }
+                                                    title={ `${ day.date }: ${ day.total } action${ day.total === 1 ? '' : 's' }${ day.errors > 0 ? `, ${ day.errors } failed` : '' }` }
+                                                />
+                                            )) }
+                                    </div>
+                                )) }
+                            </div>
                         </div>
 
-                        <div className="heatmap__grid">
-                            { weeks.map((week, w) => (
-                                <div className="heatmap__week" key={ w }>
-                                    { week.map((day, d) => day === null
-                                        ? <span className="heatmap__cell heatmap__cell--empty" key={ d } />
-                                        : (
-                                            <span
-                                                className="heatmap__cell"
-                                                key={ d }
-                                                data-level={ level(day, heatmap.busiest) }
-                                                data-errors={ day.errors > 0 ? 'yes' : undefined }
-                                                title={ `${ day.date }: ${ day.total } action${ day.total === 1 ? '' : 's' }${ day.errors > 0 ? `, ${ day.errors } failed` : '' }` }
-                                            />
-                                        )) }
-                                </div>
-                            )) }
-                        </div>
-                    </div>
+                        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-3">
+                            <span>Less</span>
+                            { HEAT_LEVELS.map((fill) => <span className={ `size-3 rounded-[2px] ${ fill }` } key={ fill } />) }
+                            <span>More</span>
+                            <span className="ms-2">outlined days had failures</span>
+                        </p>
+                    </>
+                ) }
+            </Panel>
 
-                    <p className="heatmap__legend">
-                        <span>Less</span>
-                        { [ 0, 1, 2, 3, 4 ].map((l) => <span className="heatmap__cell" key={ l } data-level={ l } />) }
-                        <span>More</span>
-                        <span className="heatmap__legend-note">outlined days had failures</span>
-                    </p>
-                </>
-            ) }
-        </Panel>
+            <TeamActivity teamId={ teamId } />
+        </>
     );
 }
