@@ -1,34 +1,24 @@
 {
     "$schema": "./node_modules/oxlint/configuration_schema.json",
-    "plugins": [
-        "typescript",
-        "unicorn",
-        "oxc"
-    ],
+    "plugins": ["typescript", "jsx-a11y", "unicorn", "import", "react", "oxc"],
     "categories": {
-        "correctness": "warn"
+        "correctness": "warn",
+        "suspicious": "warn"
     },
     "env": {
         "node": true,
         "es2024": true
     },
-    "ignorePatterns": [
-        "**/dist/**",
-        "**/node_modules/**"
-    ],
+    "ignorePatterns": ["**/dist-*/**", "**/node_modules/**"],
     "rules": {
         "no-console": "warn",
-        "typescript/no-explicit-any": "error"
+        "typescript/no-explicit-any": "error",
+        "react/react-in-jsx-scope": "off"
     },
     "overrides": [
         {
-            "files": [
-                "frontend/**/*.{ts,tsx}"
-            ],
-            "plugins": [
-                "react",
-                "jsx-a11y"
-            ],
+            "files": ["frontend/**/*.{ts,tsx}"],
+            "plugins": ["react", "jsx-a11y"],
             "env": {
                 "browser": true,
                 "es2024": true
@@ -37,6 +27,7 @@
                 "react/rules-of-hooks": "error",
                 "react/exhaustive-deps": "warn",
                 "react/jsx-key": "error",
+                "react/react-in-jsx-scope": "off",
                 "no-console": "warn"
             }
         }

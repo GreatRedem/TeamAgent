@@ -3,11 +3,21 @@
     "tabWidth": 4,
     "semi": true,
     "singleQuote": true,
-    "trailingComma": "none",
     "arrowParens": "always",
     "bracketSpacing": true,
-    "ignorePatterns": [
-        "**/dist/**",
-        "**/node_modules/**"
-    ]
+
+    "printWidth": 100,
+    "useTabs": false,
+
+    "trailingComma": "all",
+
+    "endOfLine": "lf",
+    "insertFinalNewline": true,
+
+    "sortImports": true,
+    "sortTailwindcss": {
+        "stylesheet": "frontend/src/styles/index.css"
+    },
+
+    "ignorePatterns": ["**/dist/**", "**/dist-*/**", "**/node_modules/**"]
 }
