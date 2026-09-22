@@ -1,13 +1,3 @@
-/**
- * The markdown documents every new agent starts with.
- *
- * These are a starting point, not a fixed schema: they are copied into the
- * database on creation and are the team's to edit, rename or delete from that
- * point on. Adding a file here changes what *new* agents get and deliberately
- * leaves existing ones alone -- rewriting an agent's instructions because the
- * template moved would silently change how it behaves.
- */
-
 export interface AgentDocumentTemplate
 {
     name: string;
@@ -17,7 +7,6 @@ export interface AgentDocumentTemplate
 export const DOCUMENT_NAME_MAX = 64;
 export const DOCUMENT_CONTENT_MAX = 65536;
 
-/** Filenames are used as identifiers, so keep them plain and markdown-suffixed. */
 export const DOCUMENT_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,59}\.md$/;
 
 export const DEFAULT_DOCUMENTS: AgentDocumentTemplate[] = [

@@ -14,14 +14,8 @@ import { audit } from '../audit/audit.log.js';
 
 import { BadRequestResponse } from '../../utils/response.js';
 
-/**
- * A page of a list that is bounded by what a person configures -- teams,
- * bots, agents, models. Large enough that it is one page for anyone real,
- * but the paging is there so a big account is not a slow response.
- */
 const LIST_PAGE = 50;
 
-/** Members per page of team.json. */
 const ROSTER_PAGE = 50;
 
 const NAME_MIN = 2;
@@ -33,12 +27,10 @@ const PUBLIC_URL_MAX = 256;
 const BOT_TOKEN_MIN = 20;
 const BOT_TOKEN_MAX = 128;
 
-/** BotFather issues `<bot id>:<secret>`; the id half is public, the rest is not. */
 const BOT_TOKEN_PATTERN = /^(\d{5,16}):([A-Za-z0-9_-]{20,})$/;
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
-/** Telegram is a third party: a hung request must not hold a handler open. */
 const TELEGRAM_TIMEOUT = 5000;
 
 interface BotProbe
@@ -48,16 +40,6 @@ interface BotProbe
     reason?: string;
 }
 
-/**
- * Asks Telegram whether a token still works, via `getMe`.
- *
- * Nothing from the failure path is logged or returned verbatim: the request url
- * embeds the token, so an error object or response body from this call can
- * carry the credential into a log line. Only the flat reasons below escape.
- *
- * Exported so the probe can be exercised on its own, against a stubbed fetch,
- * without standing up a route and a database.
- */
 export async function probeTelegram(token: string): Promise<BotProbe>
 {
     let response: Response;
@@ -68,7 +50,6 @@ export async function probeTelegram(token: string): Promise<BotProbe>
     }
     catch
     {
-        // Covers both the timeout and a DNS/connection failure.
         return { ok: false, reason: 'BOT_UNREACHABLE' };
     }
 
@@ -76,8 +57,6 @@ export async function probeTelegram(token: string): Promise<BotProbe>
 
     if (!response.ok || payload?.ok !== true)
     {
-        // Telegram answers 401 for a revoked token and 404 for one that never
-        // existed; neither distinction is useful to the caller.
         return { ok: false, reason: 'BOT_TOKEN_REJECTED' };
     }
 
@@ -86,10 +65,6 @@ export async function probeTelegram(token: string): Promise<BotProbe>
 
 const readBotId = (request: FastifyRequest) => readParamId(request, 'botId', 'BOT_ID_INVALID');
 
-/**
- * What the client is allowed to see of a stored token: the bot id, which is
- * public, and the last four characters so one bot can be told from another.
- */
 function toBotView(bot: TeamBot, agentName = '')
 {
     return {
@@ -97,17 +72,13 @@ function toBotView(bot: TeamBot, agentName = '')
         name: bot.name,
         token_hint: `${ bot.token.split(':')[0] }:...${ bot.token.slice(-4) }`,
         public_url: bot.public_url,
-        // A bot with an address of its own is pushed to; one without is pulled
-        // from. This is the only thing that decides which.
         mode: bot.public_url === '' ? 'polling' : 'webhook',
         agent_id: bot.agent_id,
-        // Empty when no agent answers, or when the one that did was deleted.
         agent_name: agentName,
         created_at: bot.created_at
     };
 }
 
-/** Names of the team's agents, for labelling bots without a query each. */
 async function agentNames(fastify: FastifyInstance, teamId: number): Promise<Map<number, string>>
 {
     const agents = await fastify.db.getRepository(TeamAgent).findBy({ team_id: teamId });
@@ -115,12 +86,6 @@ async function agentNames(fastify: FastifyInstance, teamId: number): Promise<Map
     return new Map(agents.map((agent) => [ agent.id, agent.name ]));
 }
 
-/**
- * The agent must belong to the same team; 0 means nobody answers.
- *
- * Without the ownership check a bot could be pointed at another account's
- * agent, and every reply would run on that account's model and key.
- */
 async function readAgentId(fastify: FastifyInstance, request: FastifyRequest, teamId: number): Promise<number>
 {
     const raw = (request.body as { agent_id?: unknown } | undefined)?.agent_id;
@@ -145,10 +110,6 @@ async function readAgentId(fastify: FastifyInstance, request: FastifyRequest, te
     return agentId;
 }
 
-/**
- * Telegram only calls public https urls. An origin is accepted here, not a
- * full path -- the webhook path is derived from the bot id when registering.
- */
 function readPublicUrl(request: FastifyRequest): string
 {
     const value = request.getBody('public_url').max(PUBLIC_URL_MAX).asString().trim();
@@ -177,8 +138,6 @@ function readPublicUrl(request: FastifyRequest): string
     return parsed.origin;
 }
 
-// `description` is required rather than optional because the validator builder
-// has no notion of an absent field -- the client sends '' for "none".
 function readTeamBody(request: FastifyRequest)
 {
     return {
@@ -255,8 +214,6 @@ export function teamUpdate(fastify: FastifyInstance)
             throw new BadRequestResponse('ERROR_MIN_LENGTH');
         }
 
-        // Establishes ownership before the write; the update itself repeats the
-        // account filter so the row cannot change hands between the two.
         await findOwnedTeam(fastify, id, request.account_id);
 
         await fastify.db.getRepository(Team).update({ id, account_id: request.account_id }, { name, description });
@@ -303,7 +260,6 @@ export function teamBotCreate(fastify: FastifyInstance)
 
         const bot = await repository.save({ team_id: teamId, name, token, public_url: readPublicUrl(request), webhook_secret: createWebhookSecret() });
 
-        // The token itself is never logged -- the row id is enough to trace it.
         request.log.info({ module: 'team', teamId, botId: bot.id, accountId: request.account_id }, 'team bot added');
 
         await audit(fastify, request.log, { teamId, accountId: request.account_id, action: 'bot.create', target: `bot:${ bot.id }`, detail: name });
@@ -340,7 +296,6 @@ export function teamBotList(fastify: FastifyInstance)
     return { schema: schemaTeamBotList, config: { ...authGuard() }, handler };
 }
 
-/** The bot must belong to a team the caller owns; both ids are checked. */
 async function findOwnedBot(fastify: FastifyInstance, teamId: number, botId: number, accountId: number): Promise<TeamBot>
 {
     await findOwnedTeam(fastify, teamId, accountId);
@@ -383,8 +338,6 @@ export function teamBotRemove(fastify: FastifyInstance)
         const teamId = readTeamId(request);
         const botId = readBotId(request);
 
-        // Ownership of the team is what authorises the delete; the bot is then
-        // matched on both ids so a bot id from another team cannot be removed.
         await findOwnedTeam(fastify, teamId, request.account_id);
 
         const removed = await fastify.db.getRepository(TeamBot).delete({ id: botId, team_id: teamId });
@@ -425,9 +378,6 @@ export function teamBotUpdate(fastify: FastifyInstance)
 
         await fastify.db.getRepository(TeamBot).update({ id: bot.id, team_id: teamId }, { name, public_url: publicUrl, agent_id: agentId });
 
-        // Clearing the url hands the bot to the poller, which cannot start while
-        // Telegram still has a webhook registered; dropping it is the poller's
-        // first act, so nothing to do here beyond the write.
         request.log.info({ module: 'team', teamId, botId: bot.id, mode: publicUrl === '' ? 'polling' : 'webhook' }, 'team bot updated');
 
         await audit(fastify, request.log, {
@@ -445,13 +395,6 @@ export function teamBotUpdate(fastify: FastifyInstance)
     return { schema: schemaTeamBotUpdate, config: { ...authGuard() }, handler };
 }
 
-/**
- * The team roster, as the owner sees it.
- *
- * A damaged file is an error rather than an empty list: the owner is the one
- * who can repair it, and reporting "no members" to the person holding the fix
- * is how a damaged file becomes a lost one.
- */
 export function teamRosterRead(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
@@ -473,10 +416,6 @@ export function teamRosterRead(fastify: FastifyInstance)
             throw new BadRequestResponse('ROSTER_MALFORMED');
         }
 
-        // Paged in memory, not in the database: the roster is one JSON file, so
-        // the whole of it is already parsed by the time there is anything to
-        // page. `count` stays the roster total rather than the page length --
-        // it answers "how big is the team", which a page of it does not.
         const { limit, offset } = readPage(request, ROSTER_PAGE);
 
         reply.send({
@@ -492,15 +431,6 @@ export function teamRosterRead(fastify: FastifyInstance)
     return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
 }
 
-/**
- * Replaces the whole roster.
- *
- * Whole-file replacement is an owner action and deliberately not an agent one:
- * this is the call that can empty the file, and it is made by someone who can
- * see what was there first. The body is parsed and re-serialised rather than
- * stored verbatim, so what lands in the column is always canonical and always
- * readable by the agent tools.
- */
 export function teamRosterWrite(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>

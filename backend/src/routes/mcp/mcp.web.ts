@@ -1,38 +1,12 @@
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
 
-/**
- * Fetching a url an agent chose.
- *
- * This is the most dangerous capability in the tool set, because the agent does
- * not choose the url in isolation -- the person chatting with it can ask it to
- * fetch anything, and the result is handed straight back to them. Without a
- * guard that is a read primitive against everything this server can reach:
- * cloud metadata, the database host, internal admin panels.
- *
- * So the hostname is resolved first and refused if **any** address it resolves
- * to is private, loopback, link-local or otherwise not on the public internet,
- * and every redirect hop is re-checked the same way rather than trusted.
- *
- * Residual risk: a name that passes the check and then resolves differently
- * when the connection is made (DNS rebinding). Closing that needs pinning the
- * connection to the checked address, which `fetch` does not expose; it is
- * recorded here rather than silently ignored.
- */
-
 export const FETCH_TIMEOUT = 10000;
 export const FETCH_BYTES_MAX = 100000;
 export const FETCH_REDIRECTS_MAX = 3;
 
-/** Content this is willing to hand to a model. */
 const ALLOWED_TYPES = [ 'text/plain', 'text/html', 'text/markdown', 'application/json', 'application/xml', 'text/xml', 'text/csv' ];
 
-/**
- * True for anything that is not a routable public address.
- *
- * Unknown formats return true: refusing something harmless is a nuisance,
- * letting an internal address through is a breach.
- */
 export function isPrivateAddress(ip: string): boolean
 {
     if (net.isIPv4(ip))
@@ -41,23 +15,22 @@ export function isPrivateAddress(ip: string): boolean
 
         const [ a, b ] = parts;
 
-        return a === 0                               // this network
-            || a === 10                              // private
-            || a === 127                             // loopback
-            || (a === 100 && b >= 64 && b <= 127)    // carrier NAT
-            || (a === 169 && b === 254)              // link-local, incl. cloud metadata
-            || (a === 172 && b >= 16 && b <= 31)     // private
-            || (a === 192 && b === 168)              // private
-            || (a === 192 && b === 0)                // protocol assignments
-            || (a === 198 && b >= 18 && b <= 19)     // benchmarking
-            || a >= 224;                             // multicast and reserved
+        return a === 0
+            || a === 10
+            || a === 127
+            || (a === 100 && b >= 64 && b <= 127)
+            || (a === 169 && b === 254)
+            || (a === 172 && b >= 16 && b <= 31)
+            || (a === 192 && b === 168)
+            || (a === 192 && b === 0)
+            || (a === 198 && b >= 18 && b <= 19)
+            || a >= 224;
     }
 
     if (net.isIPv6(ip))
     {
         const low = ip.toLowerCase();
 
-        // An IPv4 address wearing an IPv6 coat still reaches the IPv4 host.
         if (low.startsWith('::ffff:'))
         {
             const embedded = low.slice(7);
@@ -67,10 +40,10 @@ export function isPrivateAddress(ip: string): boolean
 
         return low === '::1'
             || low === '::'
-            || low.startsWith('fc')       // unique local
-            || low.startsWith('fd')       // unique local
-            || low.startsWith('fe80')     // link-local
-            || low.startsWith('ff');      // multicast
+            || low.startsWith('fc')
+            || low.startsWith('fd')
+            || low.startsWith('fe80')
+            || low.startsWith('ff');
     }
 
     return true;
@@ -83,7 +56,6 @@ export interface UrlCheck
     url?: URL;
 }
 
-/** Parses and resolves a url, refusing anything that is not publicly routable. */
 export async function checkPublicUrl(raw: string): Promise<UrlCheck>
 {
     let url: URL;
@@ -102,10 +74,6 @@ export async function checkPublicUrl(raw: string): Promise<UrlCheck>
         return { ok: false, reason: 'only http and https are allowed' };
     }
 
-    // A literal address skips DNS but still has to pass the same test. URL keeps
-    // the brackets on an IPv6 literal, and `[::1]` is not a parseable address --
-    // without stripping them the check falls through to a DNS lookup it should
-    // never have needed.
     const literal = url.hostname.startsWith('[') && url.hostname.endsWith(']')
         ? url.hostname.slice(1, -1)
         : url.hostname;
@@ -133,8 +101,6 @@ export async function checkPublicUrl(raw: string): Promise<UrlCheck>
         return { ok: false, reason: 'host does not resolve' };
     }
 
-    // Every address, not just the first: a name that resolves to one public and
-    // one private address would otherwise slip through half the time.
     for (const entry of addresses)
     {
         if (isPrivateAddress(entry.address))
@@ -157,13 +123,6 @@ export interface FetchResult
     finalUrl?: string;
 }
 
-/**
- * Fetches a checked url, re-checking every redirect hop.
- *
- * Redirects are followed manually because `fetch`'s own following would jump to
- * a private address without the guard ever seeing it -- a public url that
- * 302s to 169.254.169.254 is the classic way past a naive allow-list.
- */
 export async function fetchPublicUrl(raw: string): Promise<FetchResult>
 {
     let target = raw;
@@ -218,8 +177,6 @@ export async function fetchPublicUrl(raw: string): Promise<FetchResult>
             ok: response.ok,
             status: response.status,
             contentType,
-            // Cut rather than refused: a long page is still useful, and the
-            // model cannot do anything with an unbounded one anyway.
             text: body.slice(0, FETCH_BYTES_MAX),
             truncated: body.length > FETCH_BYTES_MAX,
             finalUrl: check.url.toString(),

@@ -1,32 +1,21 @@
-/**
- * Self-check for the web_fetch guard.
- *
- *     cd backend && npx tsx src/routes/mcp/mcp.web.test.ts
- *
- * The address classifier is pure and is checked exhaustively. The url checker
- * does resolve real hostnames, so the handful of cases that need DNS use names
- * that resolve to fixed, well-known addresses.
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
 
 import { checkPublicUrl, isPrivateAddress } from './mcp.web.js';
 
-/** Addresses an agent must never be able to reach. */
 const BLOCKED = [
     '127.0.0.1', '127.1.2.3', '0.0.0.0',
     '10.0.0.1', '10.255.255.255',
     '172.16.0.1', '172.20.10.5', '172.31.255.255',
     '192.168.0.1', '192.168.1.1',
-    '169.254.169.254',                       // cloud metadata, the classic target
-    '100.64.0.1',                            // carrier NAT
+    '169.254.169.254',
+    '100.64.0.1',
     '224.0.0.1', '239.255.255.250', '255.255.255.255',
     '::1', '::',
-    'fc00::1', 'fd12:3456::1',               // unique local
-    'fe80::1',                               // link-local
-    'ff02::1',                               // multicast
+    'fc00::1', 'fd12:3456::1',
+    'fe80::1',
+    'ff02::1',
     '::ffff:127.0.0.1', '::ffff:169.254.169.254', '::ffff:10.0.0.1'
 ];
 
@@ -43,7 +32,6 @@ const tests: Array<[ string, () => void | Promise<void> ]> = [
 
     [ 'cloud metadata is refused in both v4 and v6-mapped form', () =>
     {
-        // The single most valuable SSRF target; worth its own assertion.
         assert.equal(isPrivateAddress('169.254.169.254'), true);
         assert.equal(isPrivateAddress('::ffff:169.254.169.254'), true);
     } ],
@@ -58,7 +46,6 @@ const tests: Array<[ string, () => void | Promise<void> ]> = [
 
     [ 'boundaries of the private ranges are respected', () =>
     {
-        // 172.16-31 is private, 172.15 and 172.32 are not.
         assert.equal(isPrivateAddress('172.15.255.255'), false);
         assert.equal(isPrivateAddress('172.16.0.0'), true);
         assert.equal(isPrivateAddress('172.31.255.255'), true);
@@ -107,7 +94,6 @@ const tests: Array<[ string, () => void | Promise<void> ]> = [
 
     [ 'a hostname resolving to loopback is refused', async() =>
     {
-        // localhost is the obvious name-based bypass attempt.
         const result = await checkPublicUrl('http://localhost:1000/');
 
         assert.equal(result.ok, false);
@@ -117,9 +103,6 @@ const tests: Array<[ string, () => void | Promise<void> ]> = [
     {
         const result = await checkPublicUrl('https://one.one.one.one/');
 
-        // Skipped rather than failed when the sandbox has no DNS: the point of
-        // this case is that a public name is not wrongly refused, and no
-        // network means nothing to assert.
         if (result.reason === 'host does not resolve')
         {
             console.log('        (skipped: no DNS in this environment)');

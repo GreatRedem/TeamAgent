@@ -1,13 +1,3 @@
-/**
- * Self-check for team.json. No framework, no network, no database:
- *
- *     cd backend && npx tsx src/routes/team/team.roster.test.ts
- *
- * An agent writes this file, so the rules about what may land in it are worth
- * pinning: the expensive failures are silent ones, where a write reports
- * success and quietly drops what someone recorded last week.
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -32,8 +22,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a damaged file is refused, not read as empty', () =>
     {
-        // The expensive failure: reading damage as "nobody on the team" lets the
-        // next write make that true.
         for (const bad of [ '{oops', '[]', '"a string"', '42', 'null' ])
         {
             assert.throws(() => parseRoster(bad), RosterError, `accepted ${ bad }`);
@@ -53,7 +41,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'fields the roster does not know about survive a round trip', () =>
     {
-        // The file is the team's; an unrecognised field is not a mistake.
         const roster = parseRoster(JSON.stringify({
             team: 'Acme',
             members: [ { name: 'Alex', timezone: 'CET', pets: 2 } ] }));
@@ -78,8 +65,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'updating one field leaves the others alone', () =>
     {
-        // The regression this guards: recording a rank blanking the description
-        // someone wrote last week.
         const roster = upsertMember(parseRoster(sample), { name: 'alex', rank: 'CEO' });
         const alex = findMember(roster, 'Alex');
 
@@ -132,8 +117,6 @@ const tests: Array<[ string, () => void ]> = [
 
         assert.throws(() => upsertMember({ members }, { name: 'one-too-many' }), RosterError);
 
-        // An existing member is still editable at the cap: the limit is on
-        // growth, not on fixing what is already recorded.
         assert.equal(upsertMember({ members }, { name: 'member-0', rank: 'lead' }).members.length, MEMBERS_MAX);
     } ],
 

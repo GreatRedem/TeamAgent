@@ -36,8 +36,6 @@ export default fastifyPlugin(async function(fastify)
 
         if (record === undefined || record.time < now)
         {
-            // routeConfig.time is milliseconds; record.time is a unix timestamp in
-            // seconds, which is also what X-RateLimit-Reset reports.
             record = { count: routeConfig.count, time: now + Math.ceil(routeConfig.time / 1000) };
         }
 

@@ -1,19 +1,9 @@
-/**
- * Self-check for the webhook body parser. No framework and no network:
- *
- *     cd backend && npx tsx src/routes/telegram/telegram.service.test.ts
- *
- * It reads `.env`, because importing the service pulls in `utils/config.ts`,
- * which throws on a missing variable at import time.
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
 
 import { readInboundMessage } from './telegram.service.js';
 
-/** A realistic private message, as Telegram actually sends it. */
 const pm = (overrides: Record<string, unknown> = { }, from: Record<string, unknown> = { }) => ({
     update_id: 812490001,
     message: {
@@ -44,8 +34,6 @@ const tests: Array<[ string, () => void ]> = [
     {
         const inbound = readInboundMessage(pm());
 
-        // Reading this as a JS number would round it; the column is bigint and
-        // the parser must hand back the exact digits.
         assert.equal(inbound?.from.id, '7123456789012345');
         assert.equal(inbound?.chatId, '7123456789012345');
     } ],

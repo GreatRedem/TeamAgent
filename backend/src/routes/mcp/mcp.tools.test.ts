@@ -1,11 +1,3 @@
-/**
- * Self-check for the internal tool protocol. No framework, no network, no
- * database -- only the pure parts: which tools a permission set exposes, how
- * they adapt to the vendor format, and how tool calls are parsed.
- *
- *     cd backend && npx tsx src/routes/mcp/mcp.tools.test.ts
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -22,16 +14,11 @@ const call = (id: string, name: string, args: unknown) => ({
 const tests: Array<[ string, () => void ]> = [
     [ 'an agent with no capabilities gets no tools at all', () =>
     {
-        // Deny-by-default: a newly created agent must not be handed a single
-        // tool until someone switches one on.
         assert.deepEqual(allowedTools(''), [ ]);
     } ],
 
     [ 'capabilities belong to the agent, not to the person', () =>
     {
-        // The profile catalog must not contain these any more -- whether an
-        // agent keeps notes is a property of the agent, not a question each
-        // person answers.
         const profileKeys = PROFILE_PERMISSIONS.map((p) => p.key);
 
         assert.equal(profileKeys.includes('prefs.read'), false);
@@ -60,8 +47,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'no tool can touch permissions', () =>
     {
-        // An agent that could grant its own access would make the whole
-        // permission model decorative.
         const keys = AGENT_PERMISSIONS.map((p) => p.key);
 
         for (const tool of TOOLS)
@@ -73,8 +58,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'seeing the team is a separate capability from seeing the person in front of you', () =>
     {
-        // prefs.read is scoped to the current conversation. Looking past it at
-        // everyone else the team knows is a different thing to be allowed.
         const prefs = allowedTools(serializeAgentPermissions([ 'prefs.read' ])).map((t) => t.name);
 
         for (const name of [ 'team_members', 'team_member_read', 'team_member_note' ])
@@ -99,10 +82,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'the team file is a separate capability from the profile notes', () =>
     {
-        // `team.read`/`team.write` govern what has been recorded about Telegram
-        // profiles; `roster.*` governs the team's own team.json. Sharing a key
-        // between them would have granted every agent that already had one the
-        // other, without an owner choosing it.
         const notes = allowedTools(serializeAgentPermissions([ 'team.read', 'team.write' ])).map((t) => t.name);
         const roster = allowedTools(serializeAgentPermissions([ 'roster.read', 'roster.write' ])).map((t) => t.name);
 
@@ -119,9 +98,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'editing the team file cannot replace the whole of it', () =>
     {
-        // Every roster write is one member at a time, so a single confused turn
-        // cannot empty the file. Whole-file replacement is an owner action over
-        // HTTP, taken by someone who can see what was there.
         const names = allowedTools(serializeAgentPermissions([ 'roster.write' ])).map((t) => t.name).sort();
 
         assert.deepEqual(names, [ 'roster_member_remove', 'roster_member_set' ]);
@@ -136,8 +112,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'nothing can overwrite what the team remembers about someone', () =>
     {
-        // Only appending. A replace tool would let one bad turn erase
-        // everything gathered about a person.
         const write = TOOLS.filter((t) => t.permission === 'team.write');
 
         assert.equal(write.length, 1);
@@ -147,8 +121,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a member is addressed by the id the roster hands out', () =>
     {
-        // Not by telegram id and not by name: the roster is the only way in,
-        // and it is the query that scopes ids to the agent's own team.
         for (const name of [ 'team_member_read', 'team_member_note' ])
         {
             const tool = TOOLS.find((t) => t.name === name);

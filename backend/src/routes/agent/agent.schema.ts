@@ -1,9 +1,3 @@
-/**
- * Only the `response` half is enforced -- `setValidatorCompiler` in `main.ts`
- * disables request validation, so the `body` entries document the shape while
- * the handlers validate through `request.getBody(...)`.
- */
-
 const agent = {
     type: 'object',
     required: [ 'id', 'name', 'description', 'model_id', 'model_name', 'document_count', 'permissions', 'created_at' ],
@@ -11,7 +5,6 @@ const agent = {
         id: { type: 'integer' },
         name: { type: 'string' },
         description: { type: 'string' },
-        // 0 when no model is attached, which happens if the model was removed.
         model_id: { type: 'integer' },
         model_name: { type: 'string' },
         document_count: { type: 'integer' },
@@ -124,7 +117,6 @@ export const schemaAgentDocumentUpdate = {
 
 export const schemaAgentDocumentRemove = schemaAgentRemove;
 
-/** The agent capability catalog, so the client does not hard-code it. */
 export const schemaAgentPermissionCatalog = {
     response: {
         200: {
@@ -157,7 +149,6 @@ export const schemaAgentPermissionUpdate = {
     response: { 200: agent }
 } as const;
 
-/** One recorded round-trip between an agent and its model. */
 export const schemaAgentExchanges = {
     response: {
         200: {
@@ -166,7 +157,6 @@ export const schemaAgentExchanges = {
             properties: {
                 limit: { type: 'integer' },
                 offset: { type: 'integer' },
-                /** Whether another page follows; from one extra row, not a count. */
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
                 exchanges: {

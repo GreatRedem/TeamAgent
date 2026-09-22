@@ -1,9 +1,3 @@
-/**
- * Self-check for permission parsing. No framework, no database, no network:
- *
- *     cd backend && npx tsx src/routes/telegram/telegram.permission.test.ts
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -13,8 +7,6 @@ import { DEFAULT_PERMISSIONS, PERMISSIONS, hasPermission, isKnownPermission, par
 const tests: Array<[ string, () => void ]> = [
     [ 'an empty column grants nothing, rather than everything', () =>
     {
-        // The whole model is deny-by-default; getting this backwards would hand
-        // every new and every legacy row full access.
         assert.deepEqual(parsePermissions(''), [ ]);
         assert.equal(hasPermission('', 'chat'), false);
         assert.equal(hasPermission('', 'model'), false);
@@ -55,8 +47,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'unknown keys already in a row are ignored on read', () =>
     {
-        // A permission dropped from the catalog must not linger in the column
-        // and silently come back if the key is ever reused.
         assert.deepEqual(parsePermissions('chat,retired_permission'), [ 'chat' ]);
     } ],
 

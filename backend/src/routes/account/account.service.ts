@@ -98,7 +98,6 @@ export function walletSignIn(fastify: FastifyInstance)
             throw new BadRequestResponse('WALLET_NONCE_INVALID');
         }
 
-        // consume before verifying, and only proceed if this request is the one that claimed it
         const consumed = await fastify.db.getRepository(AccountNonce).createQueryBuilder().update(AccountNonce)
             .set({ consumed_at: new Date() })
             .where('id = :id', { id: challenge.id })

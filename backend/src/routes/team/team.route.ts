@@ -9,7 +9,6 @@ export default async function(fastify: FastifyInstance)
     fastify.get('/team/:id', teamDetails(fastify));
     fastify.patch('/team/:id', teamUpdate(fastify));
 
-    // team.json, the file the roster tools edit.
     fastify.get('/team/:id/roster', teamRosterRead(fastify));
     fastify.put('/team/:id/roster', teamRosterWrite(fastify));
 

@@ -4,8 +4,6 @@ import { conversationList, conversationMessages, permissionCatalog, profileDetai
 
 export default async function(fastify: FastifyInstance)
 {
-    // Called by Telegram, not by the client: no session, guarded by the bot's
-    // webhook secret instead.
     fastify.post('/telegram/webhook/:botId', telegramWebhook(fastify));
 
     fastify.get('/team/:id/conversation', conversationList(fastify));

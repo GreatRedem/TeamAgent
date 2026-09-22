@@ -1,14 +1,3 @@
-/**
- * Self-check for stream assembly. No framework, no network, no database:
- *
- *     cd backend && npx tsx src/routes/agent/agent.transport.test.ts
- *
- * A streamed answer has to end up as exactly the payload an unstreamed one
- * would have produced, because everything downstream reads only that. The
- * expensive failure here is silent: a tool call whose arguments were assembled
- * wrong is valid JSON right up until the tool runs on the wrong input.
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -38,17 +27,11 @@ const tests: Array<[ string, () => void ]> = [
         assembler.chunk({ }, undefined, undefined);
         assembler.chunk({ content: 'two' }, undefined, undefined);
 
-        // Each call carries the whole answer so far, not the delta, so a caller
-        // can render it without keeping its own copy. A chunk with no content
-        // is not an update and must not produce a frame.
         assert.deepEqual(frames, [ 'one ', 'one two' ]);
     } ],
 
     [ 'a tool call split across chunks is rebuilt whole', () =>
     {
-        // The regression this guards: arguments are streamed a few characters
-        // at a time, and a call assembled wrong is valid JSON that means
-        // something else.
         const assembler = createAssembler();
 
         assembler.chunk({ tool_calls: [ { index: 0, id: 'call_a', type: 'function', function: { name: 'team_mem', arguments: '' } } ] }, undefined, undefined);
@@ -80,9 +63,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'the SDK spelling of tool calls is understood too', () =>
     {
-        // The SDK decodes `tool_calls` into `toolCalls`; the fragments inside
-        // keep the same names. One assembler has to take both or the SDK path
-        // silently loses every tool call.
         const assembler = createAssembler();
 
         assembler.chunk({ toolCalls: [ { index: 0, id: 'x', function: { name: 'time_now', arguments: '{}' } } ] }, undefined, 'tool_calls');
@@ -114,8 +94,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a plain answer carries no tool_calls field at all', () =>
     {
-        // Some compatible servers reject an assistant turn that has an empty
-        // tool_calls array, and the turn is replayed verbatim on the next round.
         const assembler = createAssembler();
 
         assembler.chunk({ content: 'just words' }, undefined, 'stop');
@@ -144,8 +122,6 @@ const tests: Array<[ string, () => void ]> = [
             assert.equal(isOpenRouter(url), true, url);
         }
 
-        // The near-misses: a host that merely contains the name would send
-        // someone else's traffic, and their key, to the wrong client.
         for (const url of [
             'https://agentrouter.org/v1',
             'http://localhost:1234/v1',

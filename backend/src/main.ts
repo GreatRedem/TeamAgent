@@ -63,8 +63,6 @@ const main = async () => {
 
     await app.register(autoLoadPlugin, { dir: path.join(dirName, 'routes'), matchFilter: /\.route\.(ts|js)$/, dirNameRoutePrefix: false });
 
-    // After autoload: the poller reads entities the route modules register, and
-    // its own loops only start on the `onReady` hook.
     await app.register(telegramPollPlugin);
 
     await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });

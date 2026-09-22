@@ -1,8 +1,3 @@
-/**
- * Only the `response` half is enforced -- `setValidatorCompiler` in `main.ts`
- * disables request validation.
- */
-
 export const schemaMcpTools = {
     response: {
         200: {

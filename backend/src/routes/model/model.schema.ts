@@ -1,13 +1,3 @@
-/**
- * Only the `response` half is enforced -- `setValidatorCompiler` in `main.ts`
- * disables request validation, so the `body` entries document the shape while
- * the handlers validate through `request.getBody(...)`.
- *
- * No `api_key` field anywhere on the way out, on purpose: a response schema
- * strips what it does not declare, so even a handler mistake cannot return the
- * credential.
- */
-
 const model = {
     type: 'object',
     required: [ 'id', 'name', 'model', 'base_url', 'key_hint', 'context_tokens', 'created_at' ],
@@ -30,7 +20,6 @@ const body = {
         model: { type: 'string' },
         base_url: { type: 'string' },
         api_key: { type: 'string' },
-        /** 0 when the caller does not know it; the reply path falls back. */
         context_tokens: { type: 'integer' }
     }
 } as const;
@@ -56,7 +45,6 @@ export const schemaModelList = {
     }
 } as const;
 
-/** An empty `api_key` here means "keep the stored one". */
 export const schemaModelUpdate = {
     body,
     response: { 200: model }
@@ -74,12 +62,6 @@ export const schemaModelRemove = {
     }
 } as const;
 
-/**
- * A model that fails its check is still a successful request -- the answer is
- * "no" -- so the outcome is reported in the body rather than as an error
- * status. `found` says whether the configured model name appeared in the
- * endpoint's own list.
- */
 export const schemaModelTest = {
     response: {
         200: {
@@ -87,7 +69,6 @@ export const schemaModelTest = {
             required: [ 'ok' ],
             properties: {
                 ok: { type: 'boolean' },
-                /** The window the endpoint declared, 0 when it did not say. */
                 context: { type: 'integer' },
                 models: { type: 'integer' },
                 found: { type: 'boolean' },
@@ -97,11 +78,6 @@ export const schemaModelTest = {
     }
 } as const;
 
-
-/**
- * The provider catalog. `reason` appears only when the listing could not be
- * refreshed, in which case `models` is the last good copy and may be empty.
- */
 export const schemaModelCatalog = {
     response: {
         200: {
@@ -110,8 +86,6 @@ export const schemaModelCatalog = {
             properties: {
                 base_url: { type: 'string' },
                 reason: { type: 'string' },
-                // The add form's provider choices, so their urls have one
-                // definition rather than being repeated in the client.
                 providers: {
                     type: 'array',
                     items: {
@@ -123,8 +97,6 @@ export const schemaModelCatalog = {
                             url: { type: 'string' },
                             catalog: { type: 'boolean' },
                             key_required: { type: 'boolean' },
-                            // Documented names for a provider that serves no
-                            // listing; `context` is 0 where none is published.
                             models: {
                                 type: 'array',
                                 items: {
@@ -159,13 +131,6 @@ export const schemaModelCatalog = {
     }
 } as const;
 
-/**
- * Same flat outcome as the saved-model test, plus the names the endpoint
- * listed -- the add form needs those to suggest models for a provider whose
- * listing cannot be shared through `/model/catalog`.
- *
- * Nothing else from the response escapes: no body, no headers, no status.
- */
 export const schemaModelProbe = {
     body: {
         type: 'object',
@@ -173,7 +138,6 @@ export const schemaModelProbe = {
         properties: {
             base_url: { type: 'string' },
             api_key: { type: 'string' },
-            /** Optional: absent simply leaves `found` false. */
             model: { type: 'string' }
         }
     },

@@ -1,14 +1,3 @@
-/**
- * Self-check for the Telegram probe. There is no test framework in this repo;
- * run it directly:
- *
- *     cd backend && npx tsx src/routes/team/team.service.test.ts
- *
- * It stubs `fetch`, so it never reaches the network and needs no bot token. It
- * does read `.env`, because importing the service pulls in `utils/config.ts`,
- * which throws on a missing variable at import time.
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -19,13 +8,10 @@ const TOKEN = '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
 
 const realFetch = globalThis.fetch;
 
-/** Runs `probeTelegram` against a canned response, capturing the url it built. */
 async function withFetch(stub: () => Promise<Response> | never, run: (urls: string[]) => Promise<void>)
 {
     const urls: string[] = [ ];
 
-    // Typed off the global rather than naming `RequestInfo`, which the backend
-    // tsconfig does not pull in (`types: ["node"]`, no DOM lib).
     globalThis.fetch = ((input: Parameters<typeof globalThis.fetch>[0]) =>
     {
         urls.push(String(input));
@@ -52,7 +38,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
         {
             assert.deepEqual(await probeTelegram(TOKEN), { ok: true, username: 'support_bot' });
 
-            // getMe on the token, and nothing else.
             assert.equal(urls.length, 1);
             assert.equal(urls[0], `https://api.telegram.org/bot${ TOKEN }/getMe`);
         });
@@ -128,8 +113,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
             {
                 const probe = await probeTelegram(TOKEN);
 
-                // Telegram echoing the token, or an error naming the url, must
-                // not end up in the payload the client receives.
                 assert.equal(JSON.stringify(probe).includes(TOKEN), false, `token leaked: ${ JSON.stringify(probe) }`);
             });
         }

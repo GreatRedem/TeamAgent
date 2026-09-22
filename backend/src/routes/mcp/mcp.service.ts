@@ -9,13 +9,8 @@ import { schemaMcpTools, schemaProfileFiles } from './mcp.schema.js';
 
 import { BadRequestResponse } from '../../utils/response.js';
 
-/** Files per page. Small: every row carries a whole document, not a label. */
 const FILE_PAGE = 20;
 
-/**
- * The tool catalog, so the owner can see exactly what an agent is able to do
- * and which permission each capability costs.
- */
 export function mcpTools(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
@@ -28,13 +23,6 @@ export function mcpTools(fastify: FastifyInstance)
     return { schema: schemaMcpTools, config: { ...authGuard() }, handler };
 }
 
-/**
- * The files an agent has written for one person.
- *
- * Read-only over HTTP: these are written on the person's behalf by an agent,
- * and an owner editing them by hand would be changing what the agent believes
- * without the agent ever seeing it happen.
- */
 export function profileFiles(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
@@ -53,8 +41,6 @@ export function profileFiles(fastify: FastifyInstance)
 
         const { limit, offset } = readPage(request, FILE_PAGE);
 
-        // Each row carries a whole document, so a page here is a page of text,
-        // not of names -- smaller than the lists that only carry labels.
         const [ rows, total ] = await fastify.db.getRepository(TelegramUserDocument).findAndCount({
             where: { user_id: user.id },
             order: { name: 'ASC' },

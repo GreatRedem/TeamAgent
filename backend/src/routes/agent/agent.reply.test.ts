@@ -1,9 +1,3 @@
-/**
- * Self-check for prompt composition. No framework, no network, no database:
- *
- *     cd backend && npx tsx src/routes/agent/agent.reply.test.ts
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -19,7 +13,6 @@ const docs = [
 const tests: Array<[ string, () => void ]> = [
     [ 'history comes back oldest-first without the message being answered', () =>
     {
-        // Rows arrive newest-first from the database.
         const rows = [
             { id: 3, direction: 'in', text: 'three' },
             { id: 2, direction: 'out', text: 'two' },
@@ -31,12 +24,9 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a message that arrived while the reply was composing is kept', () =>
     {
-        // The regression this guards: dropping the newest row by position
-        // deleted the follow-up from the history and replayed the answered
-        // message twice, so the agent answered a turn behind.
         const rows = [
-            { id: 9, direction: 'in', text: 'and also this' },   // arrived mid-reply
-            { id: 8, direction: 'in', text: 'answer me' },       // the one being answered
+            { id: 9, direction: 'in', text: 'and also this' },
+            { id: 8, direction: 'in', text: 'answer me' },
             { id: 7, direction: 'out', text: 'earlier reply' }
         ];
 
@@ -59,8 +49,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'an id that is not in the window leaves the history intact', () =>
     {
-        // The answered message can fall outside the window on a busy thread;
-        // losing an unrelated row instead would be worse than replaying it.
         const rows = [ { id: 3, direction: 'in', text: 'c' }, { id: 2, direction: 'in', text: 'b' } ];
 
         assert.deepEqual(earlierTurns(rows, 99).map((m) => m.text), [ 'b', 'c' ]);
@@ -68,7 +56,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'the rows handed in are not reordered in place', () =>
     {
-        // reverse() mutates; the caller passes the array it just queried.
         const rows = [ { id: 2, direction: 'in', text: 'b' }, { id: 1, direction: 'in', text: 'a' } ];
 
         earlierTurns(rows, 2);
@@ -78,8 +65,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'instructions.md leads the system prompt', () =>
     {
-        // A model weights the opening of a system prompt most; the document
-        // that says what the agent *is* has to come first.
         const prompt = buildSystemPrompt(docs);
 
         assert.ok(prompt.startsWith('# Instructions'), prompt.slice(0, 40));
@@ -104,8 +89,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'instructions and guardrails are sent however large they are', () =>
     {
-        // Deferring these changes how the agent behaves: a guardrail the model
-        // only reads when it thinks to is not a guardrail.
         const bulky = ALWAYS_INLINE.map((name) => ({ name, content: `# ${ name }\n${ 'y'.repeat(DOCUMENT_INLINE_MAX * 2) }` }));
         const prompt = buildSystemPrompt(bulky, true);
 
@@ -119,8 +102,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a short document is sent rather than deferred', () =>
     {
-        // Fetching it would cost a tool definition, a call, a result and a
-        // second completion -- more than the file itself.
         const prompt = buildSystemPrompt([ { name: 'note.md', content: 'Short.' } ], true);
 
         assert.equal(prompt, 'Short.');
@@ -148,7 +129,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'history is dropped oldest-first to fit the window', () =>
     {
-        // 2000 tokens apiece against a 5632-token budget, so some must go.
         const filler = (at: number) => ({ role: 'user' as const, content: `${ at }:${ 'x'.repeat(8000) }` });
 
         const messages = [
@@ -163,7 +143,6 @@ const tests: Array<[ string, () => void ]> = [
         assert.equal(fitted[0].content, 'SYSTEM', 'the system prompt was dropped');
         assert.equal(fitted[fitted.length - 1].content, 'the question', 'the turn being answered was dropped');
 
-        // What survives must be the newest history, not the oldest.
         const kept = fitted.slice(1, -1).map((message) => message.content.split(':')[0]);
 
         assert.deepEqual(kept, kept.slice().sort(), 'order was not preserved');
@@ -192,8 +171,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a tool result is never left without the call it answers', () =>
     {
-        // An orphaned `tool` message makes an OpenAI-compatible endpoint reject
-        // the whole request, so trimming must not stop halfway through a round.
         const messages = [
             { role: 'system' as const, content: 'S' },
             { role: 'assistant' as const, content: '', tool_calls: [ { id: 'a' } ] },
@@ -229,8 +206,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a small model never asks for a reply it cannot afford', () =>
     {
-        // max_tokens plus the input has to fit, or the request is refused
-        // before a single token is generated.
         for (const window of [ 512, 1024, 2048, 4096, 8192, 200_000 ])
         {
             assert.ok(completionCap(window) <= Math.max(256, window / 2), `window ${ window }`);
@@ -254,8 +229,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'the agent\'s own replies come back as assistant, not user', () =>
     {
-        // Feeding its own words back as `user` would make the agent answer
-        // itself and drift after a couple of turns.
         const messages = buildMessages('S', [ { direction: 'in', text: 'hi' }, { direction: 'out', text: 'hello' } ], 'again');
 
         assert.deepEqual(messages.map((m) => m.role), [ 'system', 'user', 'assistant', 'user' ]);
@@ -297,9 +270,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a refusal about tools is told apart from every other refusal', () =>
     {
-        // Verbatim from OpenRouter when the chosen model has no tool-capable
-        // endpoint: the whole request is rejected before the conversation in it
-        // is read, so without this the person gets silence.
         const refusals = [
             { error: { message: 'No endpoints found that support tool use. Try disabling "preferences_list".', code: 404 } },
             { error: { message: 'This model does not support tool calling' } },
@@ -315,9 +285,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'an ordinary failure never costs an agent its tools', () =>
     {
-        // The expensive false positive: matching too broadly would strip an
-        // agent's capabilities every time a model name was misspelt or a card
-        // expired, and the agent would quietly get worse rather than fail.
         const others = [
             { error: { message: 'No endpoints found for openai/gpt-4o-mini', code: 404 } },
             { error: { message: 'This request requires more credits', code: 402 } },
@@ -339,8 +306,6 @@ const tests: Array<[ string, () => void ]> = [
 
     [ 'a provider error message is the reason a completion was unusable', () =>
     {
-        // The shape that actually reached us: OpenRouter answering 404 because
-        // the free variant of a model slug had been retired.
         assert.equal(readError({ error: { message: 'This model is unavailable for free', code: 404 } }), 'This model is unavailable for free');
 
         assert.equal(readError({ error: 'flat string' }), 'flat string');

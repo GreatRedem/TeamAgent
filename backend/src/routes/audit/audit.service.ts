@@ -6,13 +6,10 @@ import { findOwnedTeam, readPage, readTeamId, takePage } from '../team/team.acce
 import { AuditLog } from './audit.entity.js';
 import { schemaAuditHeatmap, schemaAuditList } from './audit.schema.js';
 
-/** How much history the heatmap covers. 12 weeks fits a readable grid. */
 const HEATMAP_DAYS = 84;
 
-/** One screen of trail. The caller may ask for more, up to PAGE_LIMIT_MAX. */
 const LIST_LIMIT = 60;
 
-/** `YYYY-MM-DD` in UTC, matching how the rows are bucketed. */
 function isoDate(date: Date): string
 {
     return date.toISOString().slice(0, 10);
@@ -56,16 +53,6 @@ export function auditList(fastify: FastifyInstance)
     return { schema: schemaAuditList, config: { ...authGuard() }, handler };
 }
 
-/**
- * Daily activity counts for one team.
- *
- * Bucketed in the database rather than by reading every row and counting in
- * JS: a busy team's history is unbounded, and the grid only ever needs one
- * number per day.
- *
- * Days are UTC. A team spread across timezones would otherwise see a square
- * change colour depending on who is looking at it.
- */
 export function auditHeatmap(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
@@ -91,8 +78,6 @@ export function auditHeatmap(fastify: FastifyInstance)
 
         const counts = new Map(rows.map((row) => [ row.date, { total: Number(row.total), errors: Number(row.errors) } ]));
 
-        // Emitted for every day in range, including empty ones, so the client
-        // does not have to reconstruct the calendar.
         const days: { date: string; total: number; errors: number }[] = [ ];
 
         for (let i = 0; i < HEATMAP_DAYS; i += 1)
@@ -108,8 +93,6 @@ export function auditHeatmap(fastify: FastifyInstance)
             from: isoDate(from),
             to: isoDate(to),
             total: days.reduce((sum, day) => sum + day.total, 0),
-            // The client scales its colour ramp against this rather than a
-            // fixed ceiling, so a quiet team's chart is still readable.
             busiest: days.reduce((most, day) => Math.max(most, day.total), 0) });
     };
 

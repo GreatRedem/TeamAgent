@@ -1,8 +1,3 @@
-/**
- * Only the `response` half is enforced -- `setValidatorCompiler` in `main.ts`
- * disables request validation.
- */
-
 export const schemaAuditList = {
     response: {
         200: {
@@ -11,8 +6,6 @@ export const schemaAuditList = {
             properties: {
                 limit: { type: 'integer' },
                 offset: { type: 'integer' },
-                // Whether another page follows, worked out from one extra row
-                // rather than a count over a table that only grows.
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
                 entries: {
@@ -43,8 +36,6 @@ export const schemaAuditHeatmap = {
             type: 'object',
             required: [ 'days', 'from', 'to', 'total', 'busiest' ],
             properties: {
-                // One entry per day in range, including days with no activity,
-                // so the client renders a continuous grid without filling gaps.
                 days: {
                     type: 'array',
                     items: {

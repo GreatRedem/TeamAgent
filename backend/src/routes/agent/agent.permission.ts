@@ -1,16 +1,3 @@
-/**
- * What an agent is allowed to do.
- *
- * Separate from `telegram.permission.ts`, which governs what a *person* may do
- * (may they chat, may they reach the model). These describe a capability of the
- * agent itself: whether it is the kind of agent that keeps notes about people.
- * Putting them on the profile made every person answer a question about the
- * agent's design, which is not theirs to answer.
- *
- * Stored and parsed exactly like the profile permissions: comma-joined keys,
- * deny-by-default, unknown keys dropped on read.
- */
-
 export interface AgentPermission
 {
     key: string;
@@ -68,10 +55,6 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
 
 const KNOWN = new Set(AGENT_PERMISSIONS.map((permission) => permission.key));
 
-/**
- * A new agent starts with only the harmless one. Everything that reads files,
- * history or the network is switched on deliberately.
- */
 export const DEFAULT_AGENT_PERMISSIONS: string[] = [ 'basics' ];
 
 export const AGENT_PERMISSIONS_MAX = 256;
@@ -86,8 +69,6 @@ export function parseAgentPermissions(stored: string): string[]
 
 export function serializeAgentPermissions(keys: string[]): string
 {
-    // Catalog order, de-duplicated, so the stored value does not depend on the
-    // order the client happened to send.
     return AGENT_PERMISSIONS
         .filter((permission) => keys.includes(permission.key))
         .map((permission) => permission.key)

@@ -8,31 +8,10 @@ import { TelegramMessage, TelegramUser, TelegramUserDocument } from '../telegram
 import { FETCH_BYTES_MAX, fetchPublicUrl } from './mcp.web.js';
 import { audit } from '../audit/audit.log.js';
 
-/**
- * The internal tool protocol agents use to manage the person they are talking
- * to.
- *
- * Definitions are MCP-shaped -- `name`, `description`, `inputSchema` -- rather
- * than written in the model vendor's format, so the registry stays the single
- * description of what a tool is and `toOpenAITools` adapts it at the edge. If
- * these are ever exposed over a real MCP transport, the definitions move
- * unchanged and only the adapter is replaced.
- *
- * Every tool names the permission it needs, and that permission belongs to the
- * **agent**, not to the person being talked about: whether an agent keeps notes
- * is a property of how it was built, not a question each person should have to
- * answer.
- *
- * There is deliberately **no tool that touches permissions themselves**: an
- * agent that could grant its own access would make the whole model decorative,
- * so that stays an owner-only action through the HTTP API.
- */
-
 export interface ToolDefinition
 {
     name: string;
     description: string;
-    /** The permission the profile must hold for the agent to use this. */
     permission: string;
     inputSchema: {
         type: 'object';
@@ -44,7 +23,6 @@ export interface ToolDefinition
 export const DOCUMENT_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,59}\.md$/;
 export const DOCUMENT_CONTENT_MAX = 16384;
 
-/** Seeded the first time a profile's files are touched. */
 const PREFERENCES_TEMPLATE = `# Preferences
 
 What this person wants remembered between conversations.
@@ -217,12 +195,6 @@ export const TOOLS: ToolDefinition[] = [
     }
 ];
 
-/**
- * Both agent-facing lists report a `total` and return a window of it, so a
- * model can already tell it is seeing part of the answer. This is how it
- * reaches the rest -- without it the 51st member is unreachable however the
- * question is phrased.
- */
 function readOffset(args: Record<string, unknown>): number
 {
     const offset = Number(args['offset'] ?? 0);
@@ -230,19 +202,15 @@ function readOffset(args: Record<string, unknown>): number
     return Number.isInteger(offset) && offset > 0 ? offset : 0;
 }
 
-/** How many past messages a search may return. */
 const SEARCH_LIMIT = 20;
 
-/** How many people one roster listing may return. */
 const ROSTER_LIMIT = 50;
 
-/** The tools an agent's own capabilities allow. */
 export function allowedTools(agentPermissions: string): ToolDefinition[]
 {
     return TOOLS.filter((tool) => agentHasPermission(agentPermissions, tool.permission));
 }
 
-/** Adapts the registry to the shape an OpenAI-compatible endpoint expects. */
 export function toOpenAITools(tools: ToolDefinition[])
 {
     return tools.map((tool) => ({
@@ -254,7 +222,6 @@ export function toOpenAITools(tools: ToolDefinition[])
 export interface ToolResult
 {
     ok: boolean;
-    /** Serialised back to the model as the tool message content. */
     content: string;
 }
 
@@ -263,11 +230,6 @@ function refuse(reason: string): ToolResult
     return { ok: false, content: JSON.stringify({ error: reason }) };
 }
 
-/**
- * The team's roster file as stored, or empty text when it has never been
- * written. Absent reads as empty so an agent's first write creates it rather
- * than failing on a file nobody made yet.
- */
 async function readRosterContent(fastify: FastifyInstance, teamId: number): Promise<string>
 {
     const row = await fastify.db.getRepository(TeamDocument).findOneBy({ team_id: teamId, name: ROSTER_FILE });
@@ -285,11 +247,6 @@ async function writeRosterContent(fastify: FastifyInstance, teamId: number, cont
         : repository.save({ team_id: teamId, name: ROSTER_FILE, content }));
 }
 
-/**
- * Creates `preferences.md` the first time a profile's files are looked at, so
- * an agent always has somewhere to write rather than having to invent a
- * filename.
- */
 async function ensureSeeded(fastify: FastifyInstance, userId: number): Promise<void>
 {
     const repository = fastify.db.getRepository(TelegramUserDocument);
@@ -302,16 +259,6 @@ async function ensureSeeded(fastify: FastifyInstance, userId: number): Promise<v
     await repository.save({ user_id: userId, name: 'preferences.md', content: PREFERENCES_TEMPLATE });
 }
 
-/**
- * Runs one tool call on behalf of an agent.
- *
- * The permission is re-checked here rather than trusted from the advertised
- * list: the tools offered to the model and the tools it actually asks for are
- * separate things, and a model can name a tool it was never given.
- *
- * Errors come back as tool results rather than thrown, because the model is
- * expected to read and react to them -- a refusal is information, not a crash.
- */
 export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: TelegramUser, name: string, args: Record<string, unknown>): Promise<ToolResult>
 {
     const tool = TOOLS.find((candidate) => candidate.name === name);
@@ -343,9 +290,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
         }
         catch (cause)
         {
-            // The stored file is damaged. Said plainly rather than answered with
-            // an empty roster, which the model would report as "nobody on the
-            // team" -- and which a later write would then make true.
             return refuse(cause instanceof RosterError ? cause.message : 'team.json could not be read');
         }
 
@@ -409,14 +353,9 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
         }
         catch (cause)
         {
-            // A damaged file is reported, never overwritten: repairing it is an
-            // owner action over HTTP, where someone can see what was there.
             return refuse(cause instanceof RosterError ? cause.message : 'team.json could not be written');
         }
 
-        // The only tools here that change what the whole team knows about a
-        // person, so they leave a trail an owner can find. The exchange table
-        // shows the call only to whoever opens that agent's history.
         await audit(fastify, fastify.log, {
             teamId: agent.team_id,
             actor: 'agent',
@@ -436,9 +375,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
             return refuse('name must be a plain markdown filename, e.g. knowledge.md');
         }
 
-        // Matched on the agent's own id as well as the name: a filename is not
-        // a secret, and without this an agent could read another agent's
-        // instructions by asking for them.
         const document = await fastify.db.getRepository(TeamAgentDocument).findOneBy({ agent_id: agent.id, name });
 
         if (!document)
@@ -487,8 +423,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
             return refuse('query is required');
         }
 
-        // Scoped to this one person's thread. An agent searching across a
-        // team's whole inbox would be a very different capability.
         const matches = await fastify.db.getRepository(TelegramMessage)
             .createQueryBuilder('message')
             .where('message.user_id = :userId', { userId: user.id })
@@ -514,9 +448,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
     {
         const query = typeof args['query'] === 'string' ? args['query'].trim() : '';
 
-        // Scoped to the agent's own team, always. The roster is the one place
-        // an agent looks past the person in front of it, so the tenancy line is
-        // drawn here rather than trusted from anything the model passed in.
         const builder = fastify.db.getRepository(TelegramUser)
             .createQueryBuilder('member')
             .where('member.team_id = :teamId', { teamId: agent.team_id });
@@ -536,12 +467,7 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
                 total,
                 shown: members.length,
                 offset,
-                // Named so the model asks for the next page rather than
-                // concluding the team has fifty people in it.
                 ...offset + members.length < total && { next_offset: offset + members.length },
-                // No permission keys here on purpose: what a person is allowed
-                // to do is the owner's business, and an agent that could read
-                // the access list is one step from reasoning about changing it.
                 members: members.map((member) => ({
                     member_id: member.id,
                     first_name: member.first_name,
@@ -549,8 +475,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
                     username: member.username,
                     message_count: member.message_count,
                     last_seen_at: member.last_seen_at,
-                    // So the agent does not describe the person it is talking
-                    // to as though they were someone else on the list.
                     is_you: member.id === user.id
                 }))
             })
@@ -566,8 +490,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
             return refuse('member_id is required; get it from team_members');
         }
 
-        // Matched on the agent's team as well as the id, so an id belonging to
-        // another team reads as "no such member" rather than crossing over.
         const member = await fastify.db.getRepository(TelegramUser).findOneBy({ id: memberId, team_id: agent.team_id });
 
         if (!member)
@@ -600,8 +522,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
             return refuse('content is required');
         }
 
-        // Append only. A tool that could replace the file would let one bad
-        // turn erase everything the team had gathered about someone.
         const merged = stored ? `${ stored.content.replace(/\s+$/, '') }\n${ line }\n` : `${ line }\n`;
 
         if (merged.length > DOCUMENT_CONTENT_MAX)
@@ -618,10 +538,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
             await documents.save({ user_id: member.id, name: noteName, content: merged });
         }
 
-        // A note written about someone who is not in the conversation is the
-        // one action here a team owner would want in the trail -- the exchange
-        // record shows it only to whoever opens that agent's history. Detail
-        // carries the shape, never the note itself.
         await audit(fastify, fastify.log, {
             teamId: agent.team_id,
             action: 'agent.member_note',
@@ -708,7 +624,6 @@ export async function runTool(fastify: FastifyInstance, agent: TeamAgent, user: 
         return { ok: true, content: JSON.stringify({ name: fileName, chars: merged.length }) };
     }
 
-    // preferences_write
     if (existing)
     {
         await repository.update({ id: existing.id }, { content: body });

@@ -20,14 +20,8 @@ const NAME_MIN = 2;
 const NAME_MAX = 64;
 const DESCRIPTION_MAX = 280;
 
-/**
- * Exchanges per page. Small because each row carries the whole message array
- * sent and the turn returned, up to 64KB apiece -- a page of 200 would be a
- * multi-megabyte response.
- */
 const EXCHANGE_PAGE = 40;
 
-/** A page of agents. Bounded by what a team builds, paged all the same. */
 const LIST_PAGE = 50;
 
 const readAgentId = (request: FastifyRequest) => readParamId(request, 'agentId', 'AGENT_ID_INVALID');
@@ -45,8 +39,6 @@ function toAgentView(agent: TeamAgent, modelName: string, documentCount: number)
         name: agent.name,
         description: agent.description,
         model_id: agent.model_id,
-        // Empty when the attached model has been removed, which the client
-        // shows as "no model" rather than a broken id.
         model_name: modelName,
         document_count: documentCount,
         permissions: parseAgentPermissions(agent.permissions),
@@ -68,13 +60,6 @@ async function findOwnedAgent(fastify: FastifyInstance, teamId: number, agentId:
     return agent;
 }
 
-/**
- * The model must belong to the same team.
- *
- * Without this check an agent could be pointed at another account's model by
- * id, and every message it sent would be billed to, and logged against, that
- * account's key.
- */
 async function readModelId(fastify: FastifyInstance, request: FastifyRequest, teamId: number): Promise<number>
 {
     const raw = (request.body as { model_id?: unknown } | undefined)?.model_id;
@@ -112,8 +97,6 @@ function readDocumentBody(request: FastifyRequest)
     const name = request.getBody('name').min(4).max(DOCUMENT_NAME_MAX).asString().trim();
     const content = request.getBody('content').max(DOCUMENT_CONTENT_MAX).asString();
 
-    // The name is an identifier inside the agent, so it is constrained rather
-    // than accepted as free text -- no paths, no spaces, always markdown.
     if (!DOCUMENT_NAME_PATTERN.test(name))
     {
         throw new BadRequestResponse('DOCUMENT_NAME_INVALID');
@@ -122,7 +105,6 @@ function readDocumentBody(request: FastifyRequest)
     return { name, content };
 }
 
-/** Names of every model the team owns, for labelling agents in one query. */
 async function modelNames(fastify: FastifyInstance, teamId: number): Promise<Map<number, string>>
 {
     const models = await fastify.db.getRepository(TeamModel).findBy({ team_id: teamId });
@@ -148,8 +130,6 @@ export function agentCreate(fastify: FastifyInstance)
             model_id: modelId,
             permissions: serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS) });
 
-        // Seeded from the template, then owned by the team: later template
-        // changes do not rewrite an existing agent's documents.
         await fastify.db.getRepository(TeamAgentDocument).save(
             DEFAULT_DOCUMENTS.map((document) => ({ agent_id: agent.id, name: document.name, content: document.content })));
 
@@ -185,7 +165,6 @@ export function agentList(fastify: FastifyInstance)
 
         const names = await modelNames(fastify, teamId);
 
-        // Counted in one grouped query rather than one per agent.
         const counts = new Map<number, number>();
 
         if (agents.length > 0)
@@ -194,8 +173,6 @@ export function agentList(fastify: FastifyInstance)
                 .createQueryBuilder('document')
                 .select('document.agent_id', 'agent_id')
                 .addSelect('COUNT(*)', 'count')
-                // Only the agents on this page: counting every agent's
-                // documents to label fifty of them would defeat the paging.
                 .where('document.agent_id IN (:...ids)', { ids: agents.map((agent) => agent.id) })
                 .groupBy('document.agent_id')
                 .getRawMany<{ agent_id: number; count: string }>();
@@ -272,12 +249,8 @@ export function agentRemove(fastify: FastifyInstance)
             throw new BadRequestResponse('AGENT_NOT_FOUND');
         }
 
-        // No cascade is configured, so the documents are removed explicitly --
-        // otherwise they would outlive the agent and leak into a reused id.
         await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
 
-        // Bots answering through this agent fall silent rather than pointing at
-        // an id that no longer resolves.
         const detached = await fastify.db.getRepository(TeamBot).update({ team_id: teamId, agent_id: agentId }, { agent_id: 0 });
 
         request.log.info({ module: 'agent', teamId, agentId, accountId: request.account_id, detachedBots: detached.affected ?? 0 }, 'agent removed');
@@ -330,8 +303,6 @@ export function agentDocumentUpdate(fastify: FastifyInstance)
 
         const repository = fastify.db.getRepository(TeamAgentDocument);
 
-        // Matched on the agent too, so a document id from another agent cannot
-        // be edited through one the caller happens to own.
         const document = await repository.findOneBy({ id: documentId, agent_id: agent.id });
 
         if (!document)
@@ -395,7 +366,6 @@ export function agentPermissionCatalog(fastify: FastifyInstance)
     return { schema: schemaAgentPermissionCatalog, config: { ...authGuard() }, handler };
 }
 
-/** Replaces an agent's capabilities with exactly what was sent. */
 export function agentPermissionUpdate(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
@@ -410,8 +380,6 @@ export function agentPermissionUpdate(fastify: FastifyInstance)
             throw new BadRequestResponse('PERMISSIONS_INVALID');
         }
 
-        // Rejected rather than quietly dropped: reporting success for a
-        // capability that was never granted is worse than an error.
         for (const key of requested as string[])
         {
             if (!isKnownAgentPermission(key))
@@ -442,7 +410,6 @@ export function agentPermissionUpdate(fastify: FastifyInstance)
     return { schema: schemaAgentPermissionUpdate, config: { ...authGuard() }, handler };
 }
 
-/** The recorded conversation between this agent and its model, newest first. */
 export function agentExchanges(fastify: FastifyInstance)
 {
     const handler = async(request: FastifyRequest, reply: FastifyReply) =>
@@ -452,8 +419,6 @@ export function agentExchanges(fastify: FastifyInstance)
 
         const { limit, offset } = readPage(request, EXCHANGE_PAGE);
 
-        // One of the tables that grows a row per model round and is never
-        // pruned, so the page is the only thing bounding this response.
         const [ rows, total ] = await fastify.db.getRepository(TeamAgentExchange).findAndCount({
             where: { team_id: teamId, agent_id: agent.id },
             order: { id: 'DESC' },

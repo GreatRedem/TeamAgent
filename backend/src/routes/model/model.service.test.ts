@@ -1,12 +1,3 @@
-/**
- * Self-check for the model connectivity probe. No framework and no network:
- *
- *     cd backend && npx tsx src/routes/model/model.service.test.ts
- *
- * It reads `.env`, because importing the service pulls in `utils/config.ts`
- * through the auth plugin, which throws on a missing variable at import time.
- */
-
 /* eslint-disable no-console -- this file is a CLI self-check; its output is the report. */
 
 import assert from 'node:assert/strict';
@@ -56,8 +47,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
             assert.notEqual(preset.key, '', 'a preset with no key cannot be selected');
             assert.notEqual(preset.label, '', `${ preset.key } has no label`);
 
-            // A blank url means "type your own"; anything else has to be a url
-            // the base-url check would accept.
             if (preset.url !== '')
             {
                 assert.doesNotThrow(() => new URL(preset.url), `${ preset.key } url is not parseable`);
@@ -74,11 +63,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
 
     [ 'only a listing that is the same for everyone is catalogued', async() =>
     {
-        // The catalog route is not team-scoped and caches in process, so a
-        // provider whose listing depends on the caller's key or plan must not
-        // be served from it -- one team's answer would be handed to another.
-        // Everything else is either probed with the caller's own key or served
-        // from the names it documents.
         for (const preset of PROVIDERS.filter((candidate) => candidate.catalog))
         {
             assert.equal(preset.url, OPENROUTER_URL, `${ preset.key } claims a catalog that is not fetched`);
@@ -87,9 +71,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
 
     [ 'a plain http preset is loopback, which is all readBaseUrl allows', async() =>
     {
-        // A hosted provider must never be plain http: the key travels on that
-        // request. `readBaseUrl` permits http only for loopback, so a preset
-        // that is not loopback and not https would be rejected on save anyway.
         for (const preset of PROVIDERS.filter((candidate) => candidate.url.startsWith('http://')))
         {
             const host = new URL(preset.url).hostname;
@@ -102,9 +83,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
 
     [ 'a provider that serves no listing still offers models to pick from', async() =>
     {
-        // AgentRouter documents its models rather than publishing /v1/models,
-        // so without these the add form would have nothing to suggest and the
-        // window would fall back to a default far below what it actually holds.
         const agentrouter = PROVIDERS.find((preset) => preset.key === 'agentrouter');
 
         assert.ok(agentrouter);
@@ -112,8 +90,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
         assert.ok(agentrouter.models.length > 0, 'nothing to suggest for a provider with no listing');
         assert.ok(agentrouter.models.some((entry) => entry.id === 'gpt-5.5'));
 
-        // Its Claude models answer on Anthropic's protocol at the bare origin,
-        // not on the OpenAI-compatible root this codebase talks to.
         assert.equal(agentrouter.models.some((entry) => entry.id.startsWith('claude')), false, 'a model this url cannot reach was suggested');
     } ],
 
@@ -131,16 +107,14 @@ const tests: Array<[ string, () => Promise<void> ]> = [
 
     [ 'a context window is read from whichever field the server uses', async() =>
     {
-        // There is no field for this in the OpenAI spec, so every compatible
-        // server invented its own. These are the names they actually send.
         const cases: Array<[ unknown, number ]> = [
-            [ { context_length: 200000 }, 200000 ],                 // OpenRouter, Together
-            [ { max_model_len: 32768 }, 32768 ],                    // vLLM
-            [ { max_context_length: 8192 }, 8192 ],                 // LM Studio
-            [ { context_window: 16384 }, 16384 ],                   // assorted gateways
-            [ { meta: { n_ctx_train: 4096 } }, 4096 ],              // llama.cpp
-            [ { id: 'plain', owned_by: 'openai' }, 0 ],             // the spec shape says nothing
-            [ { context_length: -1 }, 0 ],                          // a placeholder, not a window
+            [ { context_length: 200000 }, 200000 ],
+            [ { max_model_len: 32768 }, 32768 ],
+            [ { max_context_length: 8192 }, 8192 ],
+            [ { context_window: 16384 }, 16384 ],
+            [ { meta: { n_ctx_train: 4096 } }, 4096 ],
+            [ { id: 'plain', owned_by: 'openai' }, 0 ],
+            [ { context_length: -1 }, 0 ],
             [ { context_length: 'lots' }, 0 ],
             [ { context_length: 1.5 }, 0 ],
             [ null, 0 ],
@@ -159,7 +133,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
         {
             const probe = await probeModel('https://api.example.com/v1', 'k'.repeat(12), 'gpt-4o-mini');
 
-            // The matched model's window, not the first one in the listing.
             assert.equal(probe.context, 32768);
             assert.equal(probe.found, true);
         });
@@ -179,7 +152,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
             { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', context_length: 200000, pricing: { prompt: '0.000003', completion: '0.000015' }, description: 'x'.repeat(4000) }
         ] });
 
-        // Per-token on the wire, per-million on screen.
         assert.deepEqual(models, [ { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', context: 200000, prompt: 3, completion: 15 } ]);
     } ],
 
@@ -193,8 +165,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
             { id: 'legacy/no-architecture' }
         ] });
 
-        // The entry with no architecture is kept: refusing everything an older
-        // listing does not describe would be worse than one wrong suggestion.
         assert.deepEqual(models.map((entry) => entry.id), [ 'google/gemini-3', 'legacy/no-architecture', 'openai/gpt-4o' ]);
     } ],
 
@@ -211,7 +181,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
 
         assert.deepEqual(models.map((entry) => entry.id), [ 'free/model', 'variable/model' ]);
 
-        // Never NaN: the response schema would drop it and leave the field undefined.
         for (const entry of models)
         {
             assert.equal(entry.prompt, 0);
@@ -250,10 +219,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
 
     [ 'a refused client is not reported as a bad key', async() =>
     {
-        // A provider that admits only certain client applications answers 401
-        // for everything else. Reporting that as a bad key sends someone to
-        // re-paste a credential that was working -- observed against a real
-        // provider whose body carries type `unauthorized_client_error`.
         const bodies = [
             { type: 'unauthorized_client_error', message: 'UNAUTHENTICATED' },
             { error: { type: 'unauthorized_client_error' } }
@@ -342,8 +307,6 @@ const tests: Array<[ string, () => Promise<void> ]> = [
     {
         await withFetch(json(200, listing), async(calls) =>
         {
-            // A local endpoint that wants no key: `Bearer ` with nothing after
-            // it is worse than sending nothing, and some servers reject it.
             assert.deepEqual(await probeModel(BASE, '', 'gpt-4o'), { ok: true, models: 3, found: true, ids: [ 'gpt-4o-mini', 'gpt-4o', 'text-embedding-3-small' ] });
 
             assert.equal(calls.length, 1);

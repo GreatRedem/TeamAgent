@@ -15,13 +15,6 @@ export default fastifyPlugin(async function(fastify, options: { dir: string; mat
 {
     const isDevelopment = config.NODE_ENV === 'development';
 
-    /**
-     * `sslmode` in the URL wins over the `ssl` option below -- pg-connection-string
-     * turns it into its own ssl config, so a `ca` passed here is silently ignored
-     * and verification fails against a private CA. Drop it when we supply the CA
-     * ourselves; `ssl.ca` implies verification (rejectUnauthorized plus the default
-     * hostname check), so nothing is weakened by removing it.
-     */
     const url = config.NODE_DB_CA ? config.NODE_DB.replace(/[?&]sslmode=[^&]*/, '') : config.NODE_DB;
 
     const connection = new DataSource({

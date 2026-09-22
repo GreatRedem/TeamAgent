@@ -1,9 +1,3 @@
-/**
- * As elsewhere, only the `response` half is enforced -- `setValidatorCompiler`
- * in `main.ts` disables request validation. The webhook body is Telegram's
- * shape, not a form, so it is narrowed defensively in the handler instead.
- */
-
 const profile = {
     type: 'object',
     required: [ 'id', 'telegram_id', 'username', 'first_name', 'last_name', 'language_code', 'message_count', 'permissions', 'last_seen_at', 'created_at' ],
@@ -41,7 +35,6 @@ export const schemaConversationList = {
             properties: {
                 limit: { type: 'integer' },
                 offset: { type: 'integer' },
-                /** Whether another page follows; from one extra row, not a count. */
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
                 conversations: { type: 'array', items: profile }
@@ -59,7 +52,6 @@ export const schemaConversationMessages = {
                 profile,
                 limit: { type: 'integer' },
                 offset: { type: 'integer' },
-                /** Whether another page follows; from one extra row, not a count. */
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
                 messages: {
@@ -95,10 +87,6 @@ export const schemaTelegramWebhookRegister = {
     }
 } as const;
 
-/**
- * The whole record for one person: every field Telegram has given us, the
- * bots they have written to with a count each, and their full message history.
- */
 export const schemaProfileDetails = {
     response: {
         200: {
@@ -138,7 +126,6 @@ export const schemaProfileDetails = {
     }
 } as const;
 
-/** The permission catalog, so the client can render it without hard-coding it. */
 export const schemaPermissionCatalog = {
     response: {
         200: {
