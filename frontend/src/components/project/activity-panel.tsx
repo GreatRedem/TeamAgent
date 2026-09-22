@@ -368,7 +368,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
 
                                     <p
                                         className={cn(
-                                            'm-0 rounded-md border bg-well p-3 font-mono text-2xs leading-relaxed break-anywhere',
+                                            'm-0 rounded-md border bg-well p-3 font-mono text-2xs break-anywhere',
                                             selected.outcome === 'error'
                                                 ? 'border-destructive/40 text-destructive'
                                                 : 'text-muted-foreground',

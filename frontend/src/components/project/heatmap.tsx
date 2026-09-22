@@ -54,7 +54,7 @@ export function Heatmap({ days, busiest }: { days: HeatmapDay[]; busiest: number
                     aria-hidden="true"
                 >
                     {WEEKDAYS.map((label, i) => (
-                        <span className="flex h-3 items-center leading-none" key={label}>
+                        <span className="flex h-3 items-center" key={label}>
                             {i % 2 === 1 ? label : ''}
                         </span>
                     ))}

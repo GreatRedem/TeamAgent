@@ -87,7 +87,7 @@ export function DocumentEditor({
 
             <CardContent className="grid gap-2">
                 <Textarea
-                    className="min-h-56 font-mono text-2xs leading-relaxed"
+                    className="min-h-56 font-mono text-2xs"
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
                     spellCheck={false}

@@ -27,7 +27,7 @@ export function Stat({
         <div className="grid content-start gap-2 rounded-lg border bg-muted/40 px-4 py-3.5">
             <p className="m-0 text-sm text-muted-foreground">{label}</p>
 
-            <p className="m-0 font-mono text-stat leading-none font-medium">
+            <p className="m-0 font-mono text-stat font-medium">
                 {value}
                 {unit !== undefined && (
                     <span className="ml-1 text-sm font-normal text-muted-foreground">{unit}</span>

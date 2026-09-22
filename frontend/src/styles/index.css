@@ -91,11 +91,18 @@
     --font-mono: var(--font-data);
 
     --text-2xs: 0.6875rem;
-    --text-2xs--line-height: 1rem;
     --text-page: 1.625rem;
-    --text-page--line-height: 2rem;
     --text-stat: 2.125rem;
-    --text-stat--line-height: 2.25rem;
+
+    --text-2xs--line-height: 1.5;
+    --text-xs--line-height: 1.5;
+    --text-sm--line-height: 1.5;
+    --text-base--line-height: 1.5;
+    --text-lg--line-height: 1.5;
+    --text-xl--line-height: 1.5;
+    --text-2xl--line-height: 1.5;
+    --text-page--line-height: 1.5;
+    --text-stat--line-height: 1.5;
 
     --shadow-raised: var(--elevation-raised);
     --shadow-float: var(--elevation-float);
@@ -137,6 +144,7 @@
     body {
         @apply bg-background font-sans text-sm text-foreground;
 
+        line-height: 1.5;
         overflow-x: hidden;
         font-variant-numeric: tabular-nums;
         text-rendering: optimizeLegibility;

@@ -33,7 +33,7 @@ export function Field({
             )}
 
             {error === undefined && hint !== undefined && (
-                <p className="m-0 text-2xs leading-relaxed text-muted-foreground" id={`${id}-hint`}>
+                <p className="m-0 text-2xs text-muted-foreground" id={`${id}-hint`}>
                     {hint}
                 </p>
             )}
