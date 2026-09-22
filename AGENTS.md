@@ -23,7 +23,7 @@
 
 # UI Engineering Rules
 
-When working on UI, treat `design.md` as the project's source of truth.
+When working on UI, treat `DESIGN.md` as the project's source of truth.
 
 The UI must be built using:
 
@@ -43,7 +43,7 @@ Before modifying any UI:
 
 1. Inspect the existing page.
 2. Inspect existing components.
-3. Inspect `design.md`.
+3. Inspect `DESIGN.md`.
 4. Inspect existing Tailwind/theme tokens.
 5. Search for an existing shadcn/ui component before creating a custom component.
 6. Reuse existing components whenever possible.
@@ -100,7 +100,7 @@ When adding a component:
 
 ## 3. Spacing Rules
 
-Follow the spacing scale defined in `design.md`.
+Follow the spacing scale defined in `DESIGN.md`.
 
 Do not invent arbitrary spacing.
 
@@ -170,7 +170,7 @@ Do not design desktop first and attempt to repair mobile afterward.
 
 ## 6. Component Sizing
 
-Use the standard component sizes defined in `design.md`.
+Use the standard component sizes defined in `DESIGN.md`.
 
 Do not randomly change:
 
@@ -261,7 +261,7 @@ rounded-xl
 rounded-2xl
 ```
 
-Use the radius appropriate to the component defined in `design.md`.
+Use the radius appropriate to the component defined in `DESIGN.md`.
 
 ---
 
@@ -412,7 +412,7 @@ Do not disable a lint rule unless there is a documented reason.
 
 A UI task is complete only when:
 
-* It follows `design.md`.
+* It follows `DESIGN.md`.
 * It uses shadcn/ui where applicable.
 * Existing components were reused.
 * Spacing follows the design scale.
