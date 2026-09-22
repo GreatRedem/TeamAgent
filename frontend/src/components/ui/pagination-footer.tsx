@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-import type { Paged } from '../../api';
-import { CLASS_PAGER } from '../../lib/constant';
-import { MonoLabel } from './MonoLabel';
+import type { Paged } from '@/api';
+import { Button } from './button';
 
 export function PaginationFooter({ page, shown, busy = false, noun, onPage }: {
     page: Paged;
@@ -21,32 +20,37 @@ export function PaginationFooter({ page, shown, busy = false, noun, onPage }: {
     const to = page.offset + shown;
 
     return (
-        <footer className="flex items-center justify-between gap-3 border-t border-edge-soft px-4 py-2.5">
-            <MonoLabel aria-live="polite">
-                { from.toLocaleString() }–{ to.toLocaleString() } of { page.total.toLocaleString() }
-            </MonoLabel>
+        <div className="flex w-full items-center justify-between gap-4">
+            <p className="m-0 text-2xs text-muted-foreground" aria-live="polite">
+                <span className="font-mono">{ from.toLocaleString() }–{ to.toLocaleString() }</span>
+                { ' of ' }
+                <span className="font-mono">{ page.total.toLocaleString() }</span>
+                { ` ${ noun }` }
+            </p>
 
             <div className="flex gap-1.5">
-                <button
-                    className={ CLASS_PAGER }
+                <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
                     aria-label={ `Previous ${ noun }` }
                     disabled={ busy || page.offset === 0 }
                     onClick={ () => onPage(Math.max(0, page.offset - page.limit)) }
                 >
-                    <ChevronLeft size={ 12 } aria-hidden="true" />
-                </button>
+                    <ChevronLeft aria-hidden="true" />
+                </Button>
 
-                <button
-                    className={ CLASS_PAGER }
+                <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
                     aria-label={ `Next ${ noun }` }
                     disabled={ busy || !page.has_more }
                     onClick={ () => onPage(page.offset + page.limit) }
                 >
-                    <ChevronRight size={ 12 } aria-hidden="true" />
-                </button>
+                    <ChevronRight aria-hidden="true" />
+                </Button>
             </div>
-        </footer>
+        </div>
     );
 }
