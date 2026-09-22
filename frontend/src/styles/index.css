@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@font-face {
+  font-family: Vazirmatn;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/vazirmatn-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Vazirmatn;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/vazirmatn-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: Vazirmatn;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/vazirmatn-arabic-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@theme inline {
+  --color-*: initial;
+
+  --color-page: var(--nura-bg);
+  --color-panel: var(--nura-panel);
+  --color-panel-hover: var(--nura-panel-hover);
+  --color-raised: var(--nura-raised);
+  --color-well: var(--nura-well);
+
+  --color-edge: var(--nura-line);
+  --color-edge-soft: var(--nura-line-soft);
+  --color-edge-row: var(--nura-line-row);
+  --color-edge-strong: var(--nura-line-strong);
+
+  --color-ink: var(--nura-text);
+  --color-ink-2: var(--nura-text-2);
+  --color-ink-3: var(--nura-text-3);
+  --color-ink-4: var(--nura-text-4);
+
+  --color-live: var(--nura-live);
+  --color-live-ink: var(--nura-live-ink);
+  --color-live-wash: var(--nura-live-wash);
+  --color-live-edge: var(--nura-live-edge);
+
+  --color-pending: var(--nura-pending);
+  --color-pending-wash: var(--nura-pending-wash);
+  --color-pending-edge: var(--nura-pending-edge);
+
+  --color-fail: var(--nura-fail);
+  --color-fail-text: var(--nura-fail-text);
+  --color-fail-wash: var(--nura-fail-wash);
+  --color-fail-edge: var(--nura-fail-edge);
+
+  --color-off: var(--nura-off);
+
+  --color-heat-0: var(--nura-heat-0);
+  --color-heat-1: var(--nura-heat-1);
+  --color-heat-2: var(--nura-heat-2);
+  --color-heat-3: var(--nura-heat-3);
+  --color-heat-4: var(--nura-heat-4);
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-black: #000;
+
+  --radius-panel: var(--nura-r-panel);
+  --radius-control: var(--nura-r-control);
+  --radius-chip: var(--nura-r-chip);
+  --radius-pill: var(--nura-r-pill);
+
+  --shadow-float: var(--nura-shadow);
+  --shadow-lift: var(--nura-shadow-lift);
+
+  --font-sans: var(--nura-font-ui);
+  --font-mono: var(--nura-font-mono);
+
+  --animate-drift: drift 18s ease-in-out infinite;
+  --animate-float: float var(--dot-duration, 20s) ease-in-out infinite;
+
+  @keyframes drift {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-1.25rem); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0.6rem, -1.6rem, 0); }
+  }
+}
+
+@layer base {
+  html
+  {
+    color-scheme: dark;
+  }
+
+  body
+  {
+    @apply bg-page font-sans text-ink;
+
+    overflow-x: hidden;
+  }
+}

@@ -1,0 +1,50 @@
+:root {
+  --nura-bg:          #0B0D0F;
+  --nura-panel:       #121518;
+  --nura-panel-hover: #171C20;
+  --nura-raised:      #1E2429;
+  --nura-well:        #0E1114;
+
+  --nura-line:        #262D33;
+  --nura-line-soft:   #1F262B;
+  --nura-line-row:    #161B1F;
+  --nura-line-strong: #323A41;
+
+  --nura-text:        #EBEEEF;
+  --nura-text-2:      #AAB3B8;
+  --nura-text-3:      #7E888E;
+  --nura-text-4:      #5C656B;
+
+  --nura-live:        #3FCBB0;
+  --nura-live-ink:    #06231D;
+  --nura-live-wash:   #152B27;
+  --nura-live-edge:   #22463F;
+
+  --nura-pending:     #D9A441;
+  --nura-pending-wash:#1C1710;
+  --nura-pending-edge:#4A3A1B;
+
+  --nura-fail:        #E4705C;
+  --nura-fail-text:   #F0CFC8;
+  --nura-fail-wash:   #241715;
+  --nura-fail-edge:   #57302A;
+
+  --nura-off:         #4A5257;
+
+  --nura-heat-0: #151A1D;
+  --nura-heat-1: #1E3A34;
+  --nura-heat-2: #276E5C;
+  --nura-heat-3: #33A488;
+  --nura-heat-4: #3FCBB0;
+
+  --nura-font-ui:   Vazirmatn, 'Segoe UI', system-ui, sans-serif;
+  --nura-font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+
+  --nura-r-panel:   12px;
+  --nura-r-control: 8px;
+  --nura-r-chip:    6px;
+  --nura-r-pill:    999px;
+
+  --nura-shadow: 0 12px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  --nura-shadow-lift: 0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+}
