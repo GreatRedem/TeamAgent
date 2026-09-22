@@ -58,29 +58,30 @@ Never start by rewriting the entire page.
 
 Use shadcn/ui components whenever an appropriate component exists.
 
-Prefer:
+Installed and ready to import from `@/components/ui`:
 
-* Button
-* Input
-* Textarea
-* Label
-* Card
-* Dialog
-* Sheet
-* Drawer
-* DropdownMenu
-* Select
-* Tabs
-* Tooltip
-* Popover
-* Command
 * Alert
 * Badge
-* Avatar
+* Button
+* Card
+* Dialog
+* DropdownMenu
+* Input
+* Label
+* Select
 * Separator
 * Skeleton
+* Switch
 * Table
-* Form
+* Textarea
+* Tooltip
+
+Anything else in the registry (Sheet, Drawer, Tabs, Popover, Command, Avatar,
+Form) is not installed yet. Add it with `npx shadcn@latest add <name>` rather
+than hand-rolling a substitute.
+
+This project's own primitives sit beside them and are listed in `DESIGN.md`.
+Reach for one of those before writing a new component.
 
 Do not create a custom replacement for a shadcn/ui component unless there is a concrete project requirement.
 
@@ -387,18 +388,23 @@ Do not rewrite working logic when only the UI needs modification.
 
 ## 17. Validation
 
-After making code changes, run `npx oxlint --fix`, then run `npx oxfmt`.
-
 After UI implementation:
 
-1. Run the project's lint checks with `npx oxlint --deny-warnings --format=agent`.
-2. Run formatting checks with `npx oxfmt --check`.
-3. Run TypeScript checks with `npm run typecheck`.
-4. Run the project's build with `npm run build`.
-5. Inspect the changed page visually.
-6. Check responsive behavior.
-7. Check console errors.
-8. Fix issues before considering the task complete.
+1. `npm run typecheck`
+2. `npm run lint`
+3. `npm run build`
+4. Inspect the changed page visually at phone, tablet and desktop widths.
+5. Check the console for errors.
+6. Fix everything before considering the task complete.
+
+Do not run `npm run format` or `npx oxfmt` without a rewrite of the house style
+being the actual task. oxfmt's defaults disagree with this codebase's brace and
+JSX spacing style, so running it reformats every file in the repo.
+`npm run format:check` is expected to fail for that reason.
+
+`@shadcn/lint` runs inside `npm run lint`. `no-unknown-classes` catches a class
+that generates no CSS, and `no-raw-colors` keeps colour in `tokens.css`. Both
+must stay clean.
 
 Use the project's configured shadcn/ui lint conventions and existing lint configuration.
 
@@ -421,7 +427,7 @@ A UI task is complete only when:
 * Accessibility is preserved.
 * No unnecessary arbitrary Tailwind values were introduced.
 * No unrelated components were changed.
-* Lint passes.
+* Lint passes, `@shadcn/lint` included.
 * TypeScript passes.
 * Build passes.
 * The resulting UI is visually consistent with the rest of the application.
