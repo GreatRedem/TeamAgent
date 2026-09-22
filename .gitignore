@@ -28,3 +28,7 @@ Thumbs.db
 .idea
 
 ca.pem
+
+# Local tooling output
+.playwright-mcp
+.claude/settings.local.json
