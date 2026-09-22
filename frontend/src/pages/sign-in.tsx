@@ -7,12 +7,10 @@ export function SignIn() {
             <div className="rounded-xl border bg-card/90 p-8 shadow-lift backdrop-blur-xl">
                 <Brand />
 
-                <h1 className="mt-6 mb-2 text-page font-semibold tracking-tight">
-                    Run your agents
-                </h1>
+                <h1 className="mt-6 mb-2 text-page font-semibold tracking-tight">Nura Team AI</h1>
 
                 <p className="mt-0 mb-7 text-muted-foreground">
-                    Nura signs you in with a wallet signature. There is no password to lose.
+                    Sign in with a wallet signature. There is no password to lose.
                 </p>
 
                 <WalletSignIn />
