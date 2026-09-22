@@ -1,278 +1,56 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+NuraAI — agent platform. Wallet sign-in, Telegram bots, agents defined by
+markdown files, OpenAI-compatible model endpoints, a `team.json` roster, and a
+full record of every model round-trip.
 
-## Commands
+## Design source
 
-Run from the repo root (npm workspaces):
+- `design/SPEC.md` — component list, screen-by-screen intent, states to build.
+- `design/tokens.css` — colours, type, radii, elevation, DaisyUI theme mapping.
+- `design/screens/*.html` — **reference comps only.** Read them for spacing,
+  hierarchy and colour use. Never import them, never copy their inline styles
+  into a component, never ship them.
 
-```bash
-npm run dev            # both: concurrently runs dev:api + dev:web
-npm run dev:api        # backend only: tsx watch on backend/src/main.ts
-npm run dev:web        # frontend only: vite dev server on :1001
-npm run build          # both workspaces
-npm run build:api      # tsc -> .dist-backend/
-npm run build:web      # tsc --noEmit && vite build -> .dist-frontend/
-npm run lint           # oxlint over the whole repo
-npm run lint:fix
-npm run format         # oxfmt -- see the warning below before running
-npm run format:check
+Before changing any UI, read SPEC.md and tokens.css.
+
+## UI rules
+
+- **Red means broken.** `error` is for failures only. Volume, traffic and
+  activity stay teal however high the number gets. A busy week is never red.
+- **Mono for machine values.** Addresses, nonces, token counts, latency, model
+  ids, file paths, handles, timestamps → JetBrains Mono. Prose → Archivo.
+- **No new design values.** Every colour, radius, font size and shadow comes
+  from `tokens.css`. If something is genuinely missing, ask before inventing it.
+- **Deny by default is visible.** A capability that is off renders off — grey
+  track, grey knob, muted label. Never pre-check one.
+- **Every list is paginated**, with a footer showing range and total
+  (`1–12 OF 3,481`), not bare arrows.
+- **Failures get words.** Anywhere a model call can fail, render what failed and
+  what to do next. Never a spinner that just stops.
+- **Real elements.** `<button>`, `<a href>`, `<input>` + `<label>`. No clickable
+  divs or spans. `aria-label` on icon-only buttons. Text at 4.5:1 minimum.
+- **Touch targets:** 44px minimum on mobile. Desktop chrome may go to 36px,
+  list-row icon buttons to 28px.
+
+## Working rules
+
+- **Stay in scope.** A UI task is presentation only — don't change routes, data
+  fetching, props, state shape or API calls unless the task says so.
+- **If a component isn't in SPEC.md, leave it alone.** Don't refactor adjacent
+  code you happen to be reading.
+- **One screen or one step per session.** Finish it, then stop.
+- **Show diffs** for anything touching more than two files, before moving on.
+- Don't add a dependency without asking. DaisyUI and Tailwind are already here.
+- Sample data in the comps (names, handles, addresses, numbers) is placeholder.
+  Wire real data; don't copy the strings.
+
+## Before you say you're done
+
+```
+[YOUR TYPECHECK COMMAND]
+[YOUR LINT COMMAND]
+[YOUR BUILD COMMAND]
 ```
 
-Typecheck without emitting: `cd backend && npx tsc --noEmit`, or `npm run typecheck` for the frontend.
-
-**Both workspaces build to the repository root**: `.dist-backend/` (from `backend/tsconfig.json` `outDir`) and `.dist-frontend/` (from `vite.config.ts` `build.outDir`). Both are gitignored via `.dist-*` — note a plain `dist-*` pattern would *not* match a dot-prefixed name.
-
-Because `.dist-backend/` sits at the root, Node resolves its module type from the **root** `package.json`, which is why that file carries `"type": "module"`. Removing it makes Node re-parse every emitted file and warn `MODULE_TYPELESS_PACKAGE_JSON`.
-
-Deployment is a systemd unit driven by `scripts/*.sh`, exposed as `npm run service:install|start|stop|status|restart|uninstall|deploy`. `service-install.sh` sets `WorkingDirectory` to the repository root and `ExecStart` to `.dist-backend/main.js` (override with `SERVICE_PATH_APP`). The working directory matters beyond the binary path: `dotenv` resolves `.env` from the process cwd, and `.env` lives at the root — running the service from `backend/` instead loads zero variables.
-
-**There is no test framework configured.** Don't invent a `npm test` invocation; verify changes with `tsc --noEmit`, `npm run build`, and `npm run lint`.
-
-The exception is a set of plain self-check scripts, run directly and exiting non-zero on failure. They are `*.test.ts` files beside the code they check, with no framework and no runner -- `console.log` is the report:
-
-```bash
-cd backend
-npx tsx src/routes/team/team.service.test.ts          # Telegram probe, stubbed fetch
-npx tsx src/routes/telegram/telegram.service.test.ts  # webhook body parser
-npx tsx src/routes/telegram/telegram.permission.test.ts  # profile permission rules
-npx tsx src/routes/model/model.service.test.ts        # model probe and provider catalog
-npx tsx src/routes/agent/agent.reply.test.ts          # prompt composition and history windowing
-npx tsx src/routes/mcp/mcp.tools.test.ts              # which capability exposes which tool
-npx tsx src/routes/mcp/mcp.web.test.ts                # the web_fetch SSRF guard
-```
-
-Only the pure parts are covered: nothing here opens a database or a socket. Anything that needs either is checked by hand against the running instance, which is why the notes below record what was verified rather than pointing at a test.
-
-## Formatting warning
-
-Tooling is oxlint + oxfmt, configured at the repo root (`.oxlintrc.json`, `.oxfmtrc.json`). The source is written in **Allman brace style** (`{` on its own line), which oxfmt — being Prettier-compatible — cannot express. `npm run format:check` currently reports almost every file as needing changes, and running `npm run format` will reformat nearly the whole codebase to K&R. A few files (`main.ts`, `tsconfig.json`) have already been converted, so the tree is mixed. Match the surrounding file's style; do not run `npm run format` casually.
-
-oxlint silently ignores unknown rule names, so a typo in `.oxlintrc.json` is a rule that quietly does nothing.
-
-## Architecture
-
-Two npm workspaces:
-
-- **`backend/`** — Fastify + TypeORM + PostgreSQL, ESM, TypeScript.
-- **`frontend/`** — React 19 + Vite 8 + lucide-react, TypeScript.
-
-### Frontend
-
-The client never hardcodes a backend origin. It calls `/api/...` on its own origin; `vite.config.ts` proxies that to the backend in development and strips the `/api` prefix so paths match the routes Fastify registers. That proxy reads `NODE_PORT` from the root `.env` via Vite's `loadEnv`, so the backend port is defined in one place; the prefix passed to `loadEnv` is the full variable name so the rest of `.env` (notably `NODE_DB`) is never read into the frontend config. In production nginx serves `.dist-frontend/` and proxies `/api` the same way. The base is the constant `/api` in `src/lib/api.ts`; there is no env var for it.
-
-Routing is **react-router v8 in declarative mode** — import from `react-router`, not the older `react-router-dom`. `main.tsx` mounts `<BrowserRouter>`, `App.tsx` holds the `<Routes>` table, and `components/Layout.tsx` is the shell rendering `<Outlet />`. Pages live in `src/pages`.
-
-Because it is a client-routed SPA, any host serving `.dist-frontend/` must fall back to `index.html` for unknown paths (nginx `try_files $uri /index.html`), or a deep link like `/dashboard` 404s.
-
-`src/lib/session.ts` is the single place the access token is read/written, so moving it out of `sessionStorage` later is a one-file change.
-
-`src/lib/api.ts` is the only place that talks to the backend, and its `ApiError` carries the backend's `{ result: 'ERROR_CODE' }` envelope. Keep new endpoints there rather than calling `fetch` from components.
-
-Wallet sign-in uses the raw EIP-1193 provider (`window.ethereum`) — `eth_requestAccounts` then `personal_sign` over the server-authored message. There is deliberately no wallet SDK; adding wagmi/RainbowKit would be a real decision, not a detail.
-
-`.oxlintrc.json` has a `frontend/**` override enabling the `react` and `jsx-a11y` plugins with a browser env; backend files keep the node env.
-
-### Route wiring is indirect
-
-`main.ts` registers `@fastify/autoload` against `src/routes` with `matchFilter: /\.route\.(ts|js)$/` and `dirNameRoutePrefix: false`, so route files are discovered, not imported. Adding a directory under `src/routes` with a `*.route.ts` is enough to mount it.
-
-Inside a module the split is:
-
-- `*.route.ts` — only maps paths to handlers: `fastify.post('/path', someHandler(fastify))`
-- `*.service.ts` — exports **factories that return a Fastify route-options object**, not handlers: `{ schema, config, handler }`. The `config` object is where `rateLimit(...)` and `authGuard()` spreads go. This is the pattern to follow; reading `account.route.ts` alone makes it look like handlers are passed directly.
-- `*.schema.ts` — JSON schemas referenced from those options
-- `*.entity.ts` — TypeORM entities
-
-### Validation is manual, by design
-
-`main.ts` calls `setValidatorCompiler(() => () => true)`, which disables Fastify's JSON-schema request validation entirely. This is deliberate, not a bug: `plugins/validator.ts` decorates the request with a chained builder used inside handlers instead.
-
-```ts
-const address = request.getBody('address').min(42).max(42).asString();
-```
-
-The builder throws on failure. `schema` entries on routes therefore shape **responses** (and documentation), not request validation.
-
-### Errors are thrown response objects
-
-`utils/response.ts` exports `BadRequestResponse` / `UnauthorizedResponse`. Their constructors `return` an object literal, so `new BadRequestResponse('X')` evaluates to a plain `{ statusCode, result }` — not an `Error`, and with no stack trace. Handlers `throw` these; `setErrorHandler` in `main.ts` reads `statusCode` and `result`. Anything not in its known-status list becomes a logged 500.
-
-### Plugin registration order is load-bearing
-
-In `main.ts` the order is typeorm → authentication → ratelimit → validator → cookie → autoload. **`authenticationPlugin` must stay before `ratelimitPlugin`**: the auth plugin `decorateRequest`s `account_id` to `0` and populates it in a `preHandler` hook, and the rate limiter skips requests where `account_id !== 0` so limits apply to anonymous callers only. Reversing them disables rate limiting.
-
-Both plugins are `preHandler` hooks keyed off `request.routeOptions.config`, which is what the `authGuard()` / `authRole()` / `rateLimit()` spreads in a service's `config` object populate. `authGuard()` is now on every route except the Telegram webhook, which has no account to authenticate and is protected by its per-bot secret instead. `authRole` still has no callers -- there is one kind of account.
-
-Rate-limit state is an in-process `LRUCache` (`utils/lru.ts`), so limits are per-instance, not global. `rateLimit(name, count, time)` takes **`time` in milliseconds**; the plugin converts it to the unix-seconds value it stores and reports via `X-RateLimit-Reset`.
-
-### Database: no migrations
-
-`plugins/typeorm.ts` builds the `DataSource` from `NODE_DB` as a connection URL and discovers entities by glob (`**/*.entity.{ts,js}`) — entities are never imported by name, so adding an `*.entity.ts` file registers a table.
-
-`synchronize` and `logging` are both tied to `NODE_ENV === 'development'`. There is no migration tooling: **in development, removing or renaming an entity column or class will drop the corresponding table/column on next start.** In production `synchronize` is off, so schema changes must be applied by hand.
-
-Column types must be PostgreSQL-valid — notably `timestamp`, not MySQL's `datetime`.
-
-### Authentication is wallet-only
-
-There is no password auth. `POST /account/wallet/nonce` → `POST /account/wallet/sign-in`, implemented in `routes/account/account.service.ts`:
-
-- The **server authors the sign-in message** and stores it on an `account_nonce` row; the client never supplies message text. Verification runs against the stored copy, so there is no message parser and no client-controlled domain.
-- The nonce is single-use with a 5-minute TTL, consumed by a conditional `UPDATE ... WHERE consumed_at IS NULL` that proceeds only when `affected === 1`, and consumed **before** signature verification.
-- `viem`'s `recoverMessageAddress` verifies the signature. This is EOA-only — smart-contract wallets (EIP-1271) are not supported.
-- Addresses are stored lowercase, checksummed via `getAddress` only for display inside the message.
-- First sign-in auto-creates the `Account` row.
-
-Tokens are HMAC-signed JSON (`plugins/authentication.ts`), not JWTs. Lifetimes are the `SESSION_ACCESS_TIME` / `SESSION_REFRESH_TIME` constants in that file, not env vars.
-
-`startSession()` writes an `AccountSession` row and sets a `refresh` cookie scoped to `/account/refresh` and `/account/sign-out` — **neither route exists**, so that path is currently write-only. The session row is what the access token's `sid` claim references.
-
-### Telegram ingestion is a webhook, not a poller
-
-Inbound messages arrive at `POST /telegram/webhook/:botId`, the one route with no `authGuard` — Telegram has no account here. What protects it is `team_bot.webhook_secret`, a 32-byte value generated when a bot is created and handed to Telegram via `setWebhook`'s `secret_token`; it comes back on every delivery in `X-Telegram-Bot-Api-Secret-Token`. An unknown bot id and a wrong secret produce the identical 401, so the endpoint cannot be used to enumerate bots. A bot whose secret is still blank rejects everything, which is why bots created before that column existed must be registered before they receive anything.
-
-The route deliberately carries **no `rateLimit`**. It is anonymous, so the limiter would otherwise apply, and a 429 makes Telegram redeliver the same update indefinitely. For the same reason it answers 200 to updates it understands but chooses not to store (group chats, other bots, messages with no text) — only a genuinely bad secret gets a non-2xx.
-
-Deliveries are deduplicated on `(bot_id, update_id)`, because Telegram redelivers until it sees a 2xx.
-
-Registration is driven by `POST /team/:id/bot/:botId/webhook` and uses the bot's **own** `public_url` column, not a global env var: a team can run several bots behind different hostnames, and one shared `NODE_PUBLIC_URL` could not express that. A bot with the column still blank answers `BOT_PUBLIC_URL_NOT_SET` rather than registering something wrong, and a bot with no webhook falls back to polling (`plugins/telegrampoll.ts`). The url it registers includes the `/api` prefix that nginx strips, so the path Fastify registers does not have it.
-
-`telegram_user.telegram_id` and the message id columns are **`bigint`, surfaced as strings**. Telegram ids already exceed 32 bits and are specified to reach 52, so reading them as JS numbers loses precision — the API returns `telegram_id` as a string for the same reason.
-
-### OpenRouter is a default, not an integration
-
-The add-model form defaults to OpenRouter because it is the shortest path from a new team to a working agent: one key, no url to find, and an OpenAI-compatible root, so **nothing downstream changes**. A model added that way is an ordinary `team_model` row -- the reply path, the probe and the audit trail cannot tell it apart from a self-hosted endpoint, and picking "Other OpenAI-compatible endpoint" restores the original free-text form.
-
-`routes/model/model.provider.ts` serves the listing from `GET /model/catalog`. Three things about that route:
-
-- It is **not team-scoped**. The listing is the same public page for everyone, so scoping it to a team would only add a database round-trip. `authGuard` is still on it so it cannot be used as an open proxy.
-- The catalog is **cached in process for an hour**. The rate limiter deliberately skips authenticated routes, so without a cache every page load would be one more outbound request any signed-in account could drive.
-- A refresh failure serves the **expired copy** with `reason` set, rather than emptying a dropdown that was fine a minute ago.
-
-`readCatalog` keeps five fields and drops the rest -- the raw listing is megabytes of descriptions and benchmark data -- and leaves out models that cannot answer with text, since an embedding or image model in a chat agent's dropdown is only ever a mistake. Prices are converted from per-token strings to dollars per million, which is the unit they are quoted in. An entry with no `architecture` is kept: refusing everything an older listing does not describe would be worse than one wrong suggestion.
-
-The model field is an `<input list=...>` over a `<datalist>`, not a `<select>`: the browser filters 400-odd entries as you type for free, and a model released since the cache was filled can still be typed in by hand.
-
-### web_fetch is guarded against SSRF, not just documented
-
-`routes/mcp/mcp.web.ts` is the most dangerous thing in the tool set, because the agent does not pick the url in isolation -- whoever is chatting with it can ask it to fetch anything, and the body comes straight back to them. Unguarded that is a read primitive against everything this server can reach.
-
-So: only http/https, the hostname is resolved up front and refused if **any** address it resolves to is private, loopback, link-local, CGNAT, multicast or cloud-metadata, and redirects are followed **manually** with every hop re-checked. A public url that 302s to `169.254.169.254` is the standard way past a naive allow-list, which is why `redirect: 'manual'` is not optional here. IPv4-mapped IPv6 (`::ffff:10.0.0.1`) and bracketed literals (`http://[::1]/`) are both normalised before the check.
-
-Unlike `team_model.base_url`, loopback is refused outright -- there is no legitimate reason for an agent to fetch an internal address, so nothing is lost by blocking it.
-
-Known residual risk: DNS rebinding, where a name passes the check then resolves differently when the socket opens. Closing it needs pinning the connection to the checked address, which `fetch` does not expose.
-
-### Agent capabilities are the agent's, not the person's
-
-`prefs.read` and `prefs.write` live in `routes/agent/agent.permission.ts` on `team_agent.permissions`, **not** in the profile catalog. Whether an agent keeps notes is a property of how it was built; putting it on the profile made every person answer a design question that was not theirs. `telegram.permission.ts` still governs what a *person* may do (`chat`, `model`).
-
-Both catalogs are deny-by-default and drop unknown keys on read, so a key removed from either catalog stops taking effect immediately and cannot come back if the name is reused.
-
-### Every model round-trip is stored
-
-`team_agent_exchange` keeps one row per round: the full message array sent, the assistant turn returned, tool-call count, duration and outcome. This is the conversation as the **model** saw it -- system prompt, replayed history, tool calls and tool results -- which is not the Telegram thread. It is what lets a surprising answer be traced to exactly what was asked.
-
-That duplicates conversation text into a second table, so it carries the same privacy weight as `telegram_message` and needs the same retention answer. Bodies are truncated at 64KB rather than rejected: losing the whole record because one conversation ran long would defeat the point. Credentials never appear -- the API key travels in a header, not in the recorded body.
-
-`audit_log` also carries `duration_ms` and `actor` (`owner`, `agent`, `telegram`, `system`) as columns, so the trail can be sorted and filtered without parsing prose out of `detail`.
-
-### The internal MCP for agents
-
-`routes/mcp/mcp.tools.ts` is the tool protocol agents use to manage the person they are talking to. Definitions are **MCP-shaped** (`name`, `description`, `inputSchema`) rather than written in the model vendor's format; `toOpenAITools` adapts them at the edge. Exposing these over a real MCP transport later means replacing the adapter, not the registry.
-
-There is deliberately **no tool that touches permissions**. An agent able to grant its own access would make the permission model decorative, so that stays an owner-only action over HTTP. A self-check asserts no tool name matches `permission|grant|revoke` and that every tool requires a key from the catalog.
-
-Each tool names the permission it costs, and the gate is applied **twice**: only granted tools are advertised to the model, and `runTool` re-checks before executing — the tools offered and the tools a model asks for are separate things, and a model can name one it was never given. Tool refusals come back as tool *results*, not thrown errors, because the model is expected to read and react to them.
-
-`team.read` and `team.write` are the one place an agent looks **past the person in front of it**. `team_members` lists everyone the team knows, `team_member_read` reads what has been recorded about one of them, and `team_member_note` appends to it. They are separate keys from `prefs.read`/`prefs.write` precisely because the boundary is different: reading the notes of the person you are talking to and reading the notes of everyone else are not the same permission, and neither is on by default.
-
-A member is addressed by the `member_id` the roster hands out, never by Telegram id or name, and every lookup matches on the agent's own `team_id` as well as the id -- an id belonging to another team reads as "no such member" rather than crossing the tenancy line. The roster deliberately omits permission keys: what a person is allowed to do is the owner's business, and an agent that could read the access list is one step from reasoning about changing it.
-
-`team_member_note` only appends. A tool that could replace the file would let one bad turn erase everything the team had gathered about someone, and `preferences_write` already covers rewriting for the person actually in the conversation. It is the only tool here that writes about a third party, so it also records an `agent.member_note` audit entry -- the exchange table shows the call only to whoever opens that agent's history, and the trail is where an owner would look. Reads are not audited: they are far higher volume and carry no change.
-
-`prefs.read` and `prefs.write` are independent — granting write does not imply read. Both are absent from `DEFAULT_PERMISSIONS`, so every existing and future profile has them off until switched on.
-
-The reply loop runs at most `MAX_TOOL_ROUNDS` rounds and drops the `tools` field on the final round, so a model that keeps calling tools instead of answering still terminates. `telegram_user_document` rows are read-only over HTTP: an owner editing them by hand would change what an agent believes without the agent seeing it happen.
-
-### Audit logging
-
-`routes/audit/audit.log.ts` exports one `audit(fastify, log, entry)` helper, called from every write path and every outbound call. It **never throws and never rejects**: an audit write failing must not take down the operation it was describing, which would turn a logging problem into an outage. Failures go to the normal logger instead.
-
-`audit_log.detail` carries shape and timing, never credentials and never message content. A model request records which model, how many messages went in, how many characters came back and how long it took — the conversation text is already in `telegram_message`, and copying it here would spread the same personal data into a second table with a different retention story.
-
-The heatmap is bucketed **in the database**, not by reading rows and counting in JS: a busy team's history is unbounded and the grid only needs one number per day. Days are UTC on both sides — the SQL buckets with `AT TIME ZONE 'UTC'` and the client walks the calendar with `getUTCDay`, so a square cannot change colour depending on who is looking at it. Every day in range is returned including empty ones, so the client never has to reconstruct the calendar.
-
-Colour means volume; a day containing failures is **outlined** rather than recoloured, so one channel is not overloaded with two variables.
-
-### A bot's agent replies out of band
-
-`team_bot.agent_id` names the agent that answers people who message that bot; 0 means nobody answers and the bot only records. The reply is fired from `ingestUpdate` and **deliberately not awaited**: a completion takes seconds, and Telegram redelivers any webhook it does not get a prompt 2xx for, so blocking on the model would turn one message into several. Both transports funnel through `ingestUpdate`, so the poller gets replies for free.
-
-**The agent always answers the latest message.** People send two or three short messages in a row and a completion takes seconds, so a reply started for the first one is routinely still running when the next arrives. Two things keep the agent on the current turn rather than a turn behind:
-
-- The message being answered is removed from the replayed history **by id, never by position**. It is not reliably the newest row by the time the reply runs, and dropping the last row instead deleted the newer message from the history and replayed the answered one twice. `earlierTurns` in `agent.reply.ts` owns that, with a self-check on exactly this case.
-- `supersededBy` is checked twice: before the model is called, and again once the answer exists but before it is sent. Either way the reply stands down, because every stored inbound message fires its own reply and the newer one is already being answered with this turn in its history. The second check is the one that matters in practice -- a follow-up sent *while* the model is working is the common case, and the finished completion is discarded rather than sent, having already been recorded in `team_agent_exchange`.
-
-Both stand-downs are audited as `skipped`, so a silent agent can be told apart from a broken one. The residual case: if two messages land close enough that neither sees the other, both replies send. Closing that needs a lock per conversation, which is not worth it for a duplicate answer.
-
-While the model is working the chat shows "typing…", refreshed every 4s because Telegram expires a chat action after about five. The timer is cleared in a `finally` and additionally unref'd and self-cancelling, so it can neither outlive the reply nor hold the process open at shutdown. A failed typing ping is ignored: it is cosmetic, and letting it interrupt the actual reply would trade something that matters for something that does not.
-
-Everything on that path is swallowed into a logged reason rather than thrown — it runs detached, so a throw would surface as an unhandled rejection with nothing to catch it, and both the model url and the bot url carry credentials.
-
-This is where the `model` permission finally bites: without it the message is still recorded but no agent answers. Two more gates sit alongside it — the bot must have an agent, and that agent must still have a model.
-
-Replies are stored as `telegram_message` rows with `direction = 'out'` so a thread reads as a dialogue. Their `update_id` is a negated timestamp, staying clear of Telegram's own ids, which the `(bot_id, update_id)` uniqueness is built around.
-
-Deleting an agent sets `agent_id = 0` on the bots using it, the same way deleting a model detaches agents.
-
-### Agents own their markdown, the template does not
-
-An agent is a name plus a description bound to one `team_model`, and its behaviour is defined by rows in `team_agent_document` -- markdown files the team edits. `routes/agent/agent.template.ts` seeds those rows **once, at creation**. Editing the template deliberately does not touch existing agents: rewriting an agent's instructions because a default moved would silently change how it answers.
-
-`model_id` is a plain column, not a relation, matching the rest of this codebase. Two consequences are handled explicitly rather than by cascade: removing a model sets `model_id = 0` on every agent in that team that used it (0 reads as "no model attached", and the agent page prompts for a replacement), and deleting an agent deletes its documents in the same handler, since nothing would otherwise collect them and a reused id would inherit them.
-
-The model an agent binds to is checked to belong to the same team. Without that check an agent could be pointed at another account's model by id, and every call it made would be billed to, and logged against, that account's key.
-
-Document names are identifiers, not free text: `DOCUMENT_NAME_PATTERN` requires a plain `*.md` filename, so no paths and no spaces, and they are unique per agent.
-
-### Profile permissions are deny-by-default
-
-`telegram_user.permissions` holds comma-joined keys from the catalog in `routes/telegram/telegram.permission.ts`. A key that is **absent is denied** — an empty column grants nothing, not everything — so a permission added to the catalog later is off for everyone until it is switched on deliberately. Adding one is a single entry in `PERMISSIONS` with no schema change.
-
-The only enforcement point today is `ingestUpdate`: without `chat`, a message is acknowledged to Telegram with a 200 (so it stops redelivering) but nothing is stored, while the profile and its last-seen are still updated so the person can be found and granted access. `model` is enforced in `deliverAgentReply`: without it the message is still recorded, but no agent answers. That is the split -- `chat` decides whether a person is heard at all, `model` decides whether they get a reply.
-
-Because the column arrives as `''` on rows that predate it, and `''` reads as fully denied, existing profiles must be backfilled by hand — there is no migration tooling:
-
-```sql
-UPDATE telegram_user SET permissions = 'chat' WHERE permissions = '';
-```
-
-### Logging
-
-`utils/logger.ts` owns the single pino instance; `main.ts` passes it to Fastify as **`loggerInstance`** (v5 requires that for a prebuilt instance — the `logger` option only takes an options object). Because Fastify uses that same instance, `request.log` is a child of it carrying `reqId`.
-
-- Inside a request handler or hook, use `request.log` — it correlates the line to the request.
-- Outside request scope (startup, shutdown, plugin wiring), use `createLogger('module')`.
-
-Redaction is configured structurally on the instance (`redact` paths), not per call site, so credentials nested inside an error or config object are still censored. Add new secret-bearing field names to `redactPaths` rather than filtering at the call site.
-
-`config.ts` must not import the logger — `logger.ts` imports `config` for `NODE_ENV`, and the reverse would be a cycle.
-
-### Configuration
-
-`utils/config.ts` reads every value through a `builder()` that **throws at import time** if the variable is missing, so a missing key is a startup crash rather than a runtime surprise. Keys live in `.env.example`. Adding a config value means adding it there, to the builder, and to the default export.
-
-`trustProxy` is set to `'127.0.0.1'` (not `true`) in `main.ts`, since `request.ip` is the rate-limit key and a blanket `true` lets any caller spoof `X-Forwarded-For`.
-
-## Known gaps
-
-- `account_nonce` rows are written by an unauthenticated endpoint and never pruned.
-- The refresh-token flow has no endpoints (see above), so `@fastify/cookie` and `NODE_COOKIE` exist only for a cookie nothing reads.
-- `account_session.token` stores the refresh token in plaintext; a database compromise would hand over live sessions.
-- `POST /team/:id/bot/:botId/test` calls `api.telegram.org` on the caller's behalf. Because the rate limiter skips requests where `account_id !== 0`, no authenticated route is throttled, so a signed-in account can drive outbound requests at will. Fixing it means changing the plugin's skip rule, which affects every route.
-- `team_model.base_url` is fetched by the server on the caller's behalf when a model is tested, which is a server-side request forgery vector: an authenticated account can point it at an internal address and learn from the outcome whether something answers there. The probe returns only a flat `ok`/`reason` and never the response body, headers or status, so the leak is coarse. The guard that would close it now exists -- `checkPublicUrl` in `routes/mcp/mcp.web.ts` -- but it is deliberately **not** applied here: `web_fetch` refuses loopback because an agent has no business reaching an internal address, while a self-hosted model on `127.0.0.1` is the normal case for this field. Closing it needs a narrower rule (refuse private ranges, allow loopback), not the same one.
-- `team_bot.token` and `team_model.api_key` store credentials in plaintext, the same exposure. It never leaves the server — handlers return a `token_hint` and the response schema omits `token` entirely — so the risk is at rest, not in transit.
-- Request body schemas in `*.schema.ts` are inert, since `setValidatorCompiler` disables request validation. Only the `response` half is enforced.
-- Nothing is ever pruned. `audit_log`, `telegram_message`, `team_agent_exchange` and `account_nonce` all grow without bound, and the middle two hold conversation text -- so this is a retention question, not only a disk one. There is no migration tooling either, so a retention policy would arrive as hand-run SQL.
+All three pass, or say plainly what's still failing.
