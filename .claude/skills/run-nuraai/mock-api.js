@@ -13,6 +13,24 @@ async (page) => {
         'GET /team': { teams: [team], ...paged, total: 1 },
         'GET /team/1': team,
         'GET /team/1/agent': { agents: [agent(1, 'Support'), agent(2, 'Social')], ...paged, total: 2 },
+        'GET /team/1/roster': {
+            members: [
+                { name: 'Alex', roles: ['Administrator', 'Senior software engineer'], description: 'Runs the platform and reviews every release.', social: { telegram: '@alex' } },
+                { name: 'Sara', roles: ['Community manager'], description: 'Looks after the Telegram and Discord groups.' },
+            ],
+            count: 2,
+            ...paged,
+            total: 2,
+        },
+        'GET /team/1/model': { models: [{ id: 1, name: 'Model', model: 'gpt-mini', base_url: 'https://api.example.com/v1', context_tokens: 0, created_at: at }], ...paged, total: 1 },
+        'GET /team/1/bot': {
+            bots: [
+                { id: 1, name: 'Front desk', token_hint: '123456:...a1b2', public_url: '', mode: 'polling', agent_id: 1, agent_name: 'Support', groups: true, profiles: [{ id: 3, name: 'Sara K' }], created_at: at },
+                { id: 2, name: 'Imported bot', token_hint: '', public_url: '', mode: 'polling', agent_id: 2, agent_name: 'Social', groups: false, profiles: [], created_at: at },
+            ],
+            ...paged,
+            total: 2,
+        },
         'GET /team/1/plugin': {
             plugins: [
                 plugin({ id: 1, kind: 'telegram', name: 'News channel', agents: [1, 2], hook_agent_id: 1, account: '@nura_news_bot', listening: true, stats: stats({ requests: 130, failures: 2, inbound: 40, replies: 38, week: 124, day: 18, average_ms: 640, last_at: at }) }),
