@@ -2,9 +2,9 @@ import {
     INSTAGRAM_API,
     INSTAGRAM_CAPTION_MAX,
     INSTAGRAM_MESSAGE_MAX,
+    INSTAGRAM_USER_IDS,
     PLUGIN_PUBLISH_TRIES,
     PLUGIN_PUBLISH_WAIT,
-    PLUGIN_READ_MAX,
 } from '../../constant.js';
 
 import {
@@ -14,9 +14,10 @@ import {
     type InboundEvent,
     type PluginOutcome,
     type PluginSettings,
+    readLimit,
 } from './plugin.common.js';
 
-export function instagramCall(
+function instagramCall(
     token: string,
     method: 'GET' | 'POST' | 'DELETE',
     path: string,
@@ -46,9 +47,20 @@ function idOf(outcome: PluginOutcome): string {
 }
 
 async function ownId(token: string): Promise<string> {
-    const me = await instagramCall(token, 'GET', '/me', { fields: 'user_id' });
+    const known = INSTAGRAM_USER_IDS.get(token);
 
-    return me.ok ? String((me.data as { user_id?: unknown }).user_id ?? '') : '';
+    if (known !== undefined) {
+        return known;
+    }
+
+    const me = await instagramCall(token, 'GET', '/me', { fields: 'user_id' });
+    const id = me.ok ? String((me.data as { user_id?: unknown }).user_id ?? '') : '';
+
+    if (id !== '') {
+        INSTAGRAM_USER_IDS.set(token, id);
+    }
+
+    return id;
 }
 
 async function whenReady(token: string, container: string): Promise<PluginOutcome> {
@@ -102,24 +114,23 @@ async function publish(token: string, args: Record<string, unknown>): Promise<Pl
     let container: PluginOutcome;
 
     if (images.length > 0) {
-        const children: string[] = [];
+        const children = await Promise.all(
+            images.map((url) =>
+                instagramCall(token, 'POST', `/${user}/media`, {
+                    image_url: url,
+                    is_carousel_item: true,
+                }),
+            ),
+        );
+        const broken = children.find((child) => !child.ok);
 
-        for (const url of images) {
-            const child = await instagramCall(token, 'POST', `/${user}/media`, {
-                image_url: url,
-                is_carousel_item: true,
-            });
-
-            if (!child.ok) {
-                return child;
-            }
-
-            children.push(idOf(child));
+        if (broken) {
+            return broken;
         }
 
         container = await instagramCall(token, 'POST', `/${user}/media`, {
             media_type: 'CAROUSEL',
-            children: children.join(','),
+            children: children.map(idOf).join(','),
             caption,
         });
     } else {
@@ -162,12 +173,6 @@ async function publish(token: string, args: Record<string, unknown>): Promise<Pl
             permalink: (link.data as { permalink?: string } | undefined)?.permalink,
         },
     };
-}
-
-function readLimit(args: Record<string, unknown>, fallback: number): number {
-    const limit = Number(args['limit']);
-
-    return Number.isInteger(limit) && limit > 0 ? Math.min(limit, PLUGIN_READ_MAX) : fallback;
 }
 
 export function instagramReply(token: string, commentId: string, message: string) {
@@ -278,7 +283,7 @@ export async function instagramProbe(settings: PluginSettings): Promise<PluginOu
     return me.ok ? { ...me, data: `@${(me.data as { username?: string }).username ?? ''}` } : me;
 }
 
-export interface InstagramInbound {
+interface InstagramInbound {
     account: string;
     event: InboundEvent;
 }

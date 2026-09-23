@@ -1,4 +1,4 @@
-import { APP_NAME, DISCORD_API, DISCORD_TEXT_MAX, PLUGIN_READ_MAX } from '../../constant.js';
+import { APP_NAME, DISCORD_API, DISCORD_TEXT_MAX } from '../../constant.js';
 
 import {
     argText,
@@ -7,6 +7,7 @@ import {
     type InboundEvent,
     type PluginOutcome,
     type PluginSettings,
+    readLimit,
 } from './plugin.common.js';
 
 export function discordCall(
@@ -82,12 +83,6 @@ export async function discordSend(
     return { ...first, data: { message_id: message?.id, channel_id: message?.channel_id } };
 }
 
-function readLimit(args: Record<string, unknown>, fallback: number): number {
-    const limit = Number(args['limit']);
-
-    return Number.isInteger(limit) && limit > 0 ? Math.min(limit, PLUGIN_READ_MAX) : fallback;
-}
-
 export async function discordAct(
     settings: PluginSettings,
     name: string,
@@ -102,21 +97,33 @@ export async function discordAct(
             return guilds;
         }
 
-        const servers = [];
+        const servers = await Promise.all(
+            ((guilds.data ?? []) as { id: string; name: string }[])
+                .slice(0, 10)
+                .map(async (guild) => {
+                    const channels = await discordCall(
+                        token,
+                        'GET',
+                        `/guilds/${guild.id}/channels`,
+                    );
 
-        for (const guild of ((guilds.data ?? []) as { id: string; name: string }[]).slice(0, 10)) {
-            const channels = await discordCall(token, 'GET', `/guilds/${guild.id}/channels`);
-
-            servers.push({
-                server: guild.name,
-                server_id: guild.id,
-                channels: channels.ok
-                    ? ((channels.data ?? []) as { id: string; name: string; type: number }[])
-                          .filter((channel) => [0, 5, 15].includes(channel.type))
-                          .map((channel) => ({ id: channel.id, name: `#${channel.name}` }))
-                    : [],
-            });
-        }
+                    return {
+                        server: guild.name,
+                        server_id: guild.id,
+                        channels: channels.ok
+                            ? (
+                                  (channels.data ?? []) as {
+                                      id: string;
+                                      name: string;
+                                      type: number;
+                                  }[]
+                              )
+                                  .filter((channel) => [0, 5, 15].includes(channel.type))
+                                  .map((channel) => ({ id: channel.id, name: `#${channel.name}` }))
+                            : [],
+                    };
+                }),
+        );
 
         return { ...guilds, data: { servers } };
     }

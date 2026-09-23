@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { PLUGIN_HOOK_RATE, PLUGIN_HOOK_WINDOW, TEXT_MAX } from '../../constant.js';
+import { PLUGIN_HOOK_RATE, PLUGIN_HOOK_WINDOW, PLUGIN_KINDS, TEXT_MAX } from '../../constant.js';
 
 import { rateLimit } from '../../plugins/ratelimit.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
@@ -28,7 +28,9 @@ async function hookPlugin(fastify: FastifyInstance, request: FastifyRequest): Pr
         .getRepository(TeamPlugin)
         .findOneBy({ id: readParamId(request, 'pluginId', 'PLUGIN_ID_INVALID') });
 
-    if (!plugin?.enabled || (plugin.kind !== 'instagram' && plugin.kind !== 'webhook')) {
+    const inbound = PLUGIN_KINDS.find((kind) => kind.key === plugin?.kind)?.inbound;
+
+    if (!plugin?.enabled || inbound !== 'webhook') {
         throw new BadRequestResponse('PLUGIN_NOT_FOUND');
     }
 

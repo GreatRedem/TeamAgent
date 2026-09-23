@@ -10,7 +10,7 @@ import {
     type TeamPlugin,
 } from '@/apis';
 import { Field } from '@/components/field';
-import { PLUGIN_ERRORS, PLUGIN_EVENT_LABELS } from '@/libs/constant';
+import { API_BASE_URL, PLUGIN_ERRORS, PLUGIN_EVENT_LABELS } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { CodeBlock } from '@/ui/code-block';
@@ -351,7 +351,7 @@ export function PluginDialog({
                                 ) : (
                                     <>
                                         <CodeBlock
-                                            message={`${window.location.origin}/api${plugin.hook_path}`}
+                                            message={`${window.location.origin}${API_BASE_URL}${plugin.hook_path}`}
                                         />
                                         <Text
                                             type="Caption"

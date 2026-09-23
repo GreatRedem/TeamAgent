@@ -1,7 +1,12 @@
 import { createHmac } from 'node:crypto';
-import { APP_NAME, PLUGIN_TIMEOUT } from '../../constant.js';
+import { setTimeout as wait } from 'node:timers/promises';
+import { APP_NAME, PLUGIN_READ_MAX } from '../../constant.js';
 
+import { type CallOutcome, callJson, failed } from '../../utils/http.js';
 import { checkPublicUrl } from '../mcp/mcp.web.js';
+
+export { callJson, failed };
+export type PluginOutcome = CallOutcome;
 
 export interface PluginField {
     key: string;
@@ -22,13 +27,6 @@ export interface PluginKind {
     fields: PluginField[];
 }
 
-export interface PluginOutcome {
-    ok: boolean;
-    status: number;
-    data?: unknown;
-    error?: string;
-}
-
 export interface InboundEvent {
     kind: 'direct' | 'mention' | 'comment' | 'message';
     thread: string;
@@ -44,7 +42,7 @@ export interface PluginSettings {
     config: Record<string, string>;
 }
 
-export function readMap(stored: string): Record<string, string> {
+function readMap(stored: string): Record<string, string> {
     try {
         const parsed: unknown = JSON.parse(stored);
 
@@ -76,60 +74,19 @@ export function argText(args: Record<string, unknown>, key: string): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-export function failed(error: string, status = 0): PluginOutcome {
-    return { ok: false, status, error };
+export function readLimit(
+    args: Record<string, unknown>,
+    fallback: number,
+    low = 1,
+    high = PLUGIN_READ_MAX,
+): number {
+    const limit = Number(args['limit']);
+
+    return Number.isInteger(limit) && limit > 0 ? Math.min(Math.max(limit, low), high) : fallback;
 }
 
 export function sleep(ms: number, signal: AbortSignal): Promise<void> {
-    return new Promise((resolve) => {
-        const timer = setTimeout(resolve, ms);
-
-        signal.addEventListener(
-            'abort',
-            () => {
-                clearTimeout(timer);
-
-                resolve();
-            },
-            { once: true },
-        );
-    });
-}
-
-export async function callJson(
-    url: string,
-    init: RequestInit,
-    errorOf: (body: unknown) => string,
-    timeout = PLUGIN_TIMEOUT,
-): Promise<PluginOutcome> {
-    const limit = AbortSignal.timeout(timeout);
-
-    try {
-        const response = await fetch(url, {
-            ...init,
-            signal: init.signal ? AbortSignal.any([init.signal, limit]) : limit,
-        });
-        const raw = await response.text();
-
-        let body: unknown = raw;
-
-        try {
-            body = raw === '' ? undefined : JSON.parse(raw);
-        } catch {
-            body = raw.slice(0, 200);
-        }
-
-        return response.ok
-            ? { ok: true, status: response.status, data: body }
-            : {
-                  ok: false,
-                  status: response.status,
-                  data: body,
-                  error: errorOf(body) || `http ${response.status}`,
-              };
-    } catch {
-        return failed(limit.aborted ? 'timed out' : 'could not be reached');
-    }
+    return wait(ms, undefined, { signal }).catch(() => undefined);
 }
 
 export function signature(secret: string, body: string): string {

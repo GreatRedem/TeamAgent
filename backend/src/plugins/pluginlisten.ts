@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 import { In } from 'typeorm';
 
-import { LOGGER, PLUGIN_STATUS, RESCAN_INTERVAL } from '../constant.js';
+import { LOGGER, PLUGIN_KINDS, PLUGIN_STATUS, RESCAN_INTERVAL } from '../constant.js';
 import { sleep } from '../routes/plugin/plugin.common.js';
 import { TeamPlugin } from '../routes/plugin/plugin.entity.js';
 import { listenDiscord, listenTelegram } from '../routes/plugin/plugin.listen.js';
@@ -19,9 +19,12 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
     const supervisor = new AbortController();
 
     async function rescan() {
-        const plugins = await fastify.db
-            .getRepository(TeamPlugin)
-            .findBy({ enabled: true, kind: In(['telegram', 'discord']) });
+        const plugins = await fastify.db.getRepository(TeamPlugin).findBy({
+            enabled: true,
+            kind: In(
+                PLUGIN_KINDS.filter((kind) => kind.inbound === 'listen').map((kind) => kind.key),
+            ),
+        });
 
         const wanted = new Map(
             plugins

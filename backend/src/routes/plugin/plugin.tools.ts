@@ -32,7 +32,7 @@ export function isPluginTool(name: string): boolean {
     return PLUGIN_TOOLS.some((tool) => tool.name === name);
 }
 
-export interface CallEntry {
+interface CallEntry {
     direction: 'tool' | 'in' | 'reply' | 'out' | 'test';
     action: string;
     outcome: PluginOutcome;
@@ -112,81 +112,77 @@ export function forwardEvent(
         );
 }
 
-export function actOn(
+function webhookSend(
     plugin: TeamPlugin,
     name: string,
     args: Record<string, unknown>,
     agent?: { id: number; name: string },
 ): Promise<PluginOutcome> {
+    const { config, secrets } = settingsOf(plugin);
+    const data = args['data'];
+
+    if (name !== 'webhook_send') {
+        return Promise.resolve(failed('this plugin does not do that'));
+    }
+
+    return postSigned(
+        config['url'] ?? '',
+        {
+            event: argText(args, 'event') || 'agent.message',
+            at: new Date().toISOString(),
+            text: argText(args, 'text'),
+            data: typeof data === 'object' && data !== null && !Array.isArray(data) ? data : {},
+            plugin: { id: plugin.id, name: plugin.name },
+            ...(agent && { agent }),
+        },
+        plugin.hook_secret,
+        secrets['authorization'] ?? '',
+    );
+}
+
+function clientOf(plugin: TeamPlugin) {
     const settings = settingsOf(plugin);
+    const act = (run: typeof telegramAct) => (name: string, args: Record<string, unknown>) =>
+        run(settings, name, args);
+    const clients = {
+        telegram: { act: act(telegramAct), probe: () => telegramProbe(settings) },
+        discord: { act: act(discordAct), probe: () => discordProbe(settings) },
+        x: { act: act(xAct), probe: () => xProbe(settings) },
+        instagram: { act: act(instagramAct), probe: () => instagramProbe(settings) },
+        browser: { act: act(browserAct), probe: async () => browserProbe(settings) },
+        webhook: {
+            act: (
+                name: string,
+                args: Record<string, unknown>,
+                agent?: { id: number; name: string },
+            ) => webhookSend(plugin, name, args, agent),
+            probe: async () => {
+                const ping = await webhookSend(plugin, 'webhook_send', {
+                    event: 'ping',
+                    text: 'Test from NuraAI',
+                });
 
-    if (plugin.kind === 'telegram') {
-        return telegramAct(settings, name, args);
-    }
-
-    if (plugin.kind === 'discord') {
-        return discordAct(settings, name, args);
-    }
-
-    if (plugin.kind === 'x') {
-        return xAct(settings, name, args);
-    }
-
-    if (plugin.kind === 'instagram') {
-        return instagramAct(settings, name, args);
-    }
-
-    if (plugin.kind === 'browser') {
-        return browserAct(settings, name, args);
-    }
-
-    if (plugin.kind === 'webhook' && name === 'webhook_send') {
-        const data = args['data'];
-
-        return postSigned(
-            settings.config['url'] ?? '',
-            {
-                event: argText(args, 'event') || 'agent.message',
-                at: new Date().toISOString(),
-                text: argText(args, 'text'),
-                data: typeof data === 'object' && data !== null && !Array.isArray(data) ? data : {},
-                plugin: { id: plugin.id, name: plugin.name },
-                ...(agent && { agent }),
+                return ping.ok
+                    ? { ...ping, data: new URL(settings.config['url'] ?? '').host }
+                    : ping;
             },
-            plugin.hook_secret,
-            settings.secrets['authorization'] ?? '',
-        );
-    }
+        },
+    };
 
-    return Promise.resolve(failed('this plugin does not do that'));
+    return clients[plugin.kind as keyof typeof clients];
+}
+
+function actOn(
+    plugin: TeamPlugin,
+    name: string,
+    args: Record<string, unknown>,
+    agent?: { id: number; name: string },
+): Promise<PluginOutcome> {
+    return clientOf(plugin)?.act(name, args, agent) ?? Promise.resolve(failed('unknown plugin'));
 }
 
 export async function probePlugin(plugin: TeamPlugin): Promise<PluginOutcome> {
-    const settings = settingsOf(plugin);
-
-    if (plugin.kind === 'telegram') {
-        return telegramProbe(settings);
-    }
-
-    if (plugin.kind === 'discord') {
-        return discordProbe(settings);
-    }
-
-    if (plugin.kind === 'x') {
-        return xProbe(settings);
-    }
-
-    if (plugin.kind === 'instagram') {
-        return instagramProbe(settings);
-    }
-
-    if (plugin.kind === 'browser') {
-        return browserProbe(settings);
-    }
-
-    const ping = await actOn(plugin, 'webhook_send', { event: 'ping', text: 'Test from NuraAI' });
-
-    return ping.ok ? { ...ping, data: new URL(settings.config['url'] ?? '').host } : ping;
+    return (await clientOf(plugin)?.probe()) ?? failed('unknown plugin');
 }
 
 async function usable(fastify: FastifyInstance, agent: TeamAgent): Promise<TeamPlugin[]> {

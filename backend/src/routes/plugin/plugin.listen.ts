@@ -14,11 +14,12 @@ import {
 } from '../../constant.js';
 
 import { TeamBot } from '../team/team.entity.js';
+import { telegramMethod, telegramRich } from '../telegram/telegram.client.js';
 import { settingsOf, sleep } from './plugin.common.js';
 import { discordCall, discordInbound, discordSend } from './plugin.discord.js';
 import { TeamPlugin } from './plugin.entity.js';
 import { receiveInbound } from './plugin.inbound.js';
-import { telegramInbound, telegramMethod, telegramRich } from './plugin.telegram.js';
+import { telegramInbound } from './plugin.telegram.js';
 
 function report(plugin: TeamPlugin, listening: boolean, error = '') {
     PLUGIN_STATUS.set(plugin.id, { listening, error });
@@ -112,31 +113,29 @@ export async function listenTelegram(
             const chat = event.ids['chat_id'] ?? '';
             const replyTo = Number(event.ids['message_id']);
 
-            void (
-                plugin.hook_agent_id > 0
-                    ? telegramMethod(token, 'sendChatAction', { chat_id: chat, action: 'typing' })
-                    : Promise.resolve()
-            )
-                .then(() =>
-                    receiveInbound(fastify, log, plugin, event, (text) =>
-                        telegramRich(
-                            token,
-                            'sendMessage',
-                            {
-                                chat_id: chat,
-                                reply_parameters: {
-                                    message_id: replyTo,
-                                    allow_sending_without_reply: true,
-                                },
+            void receiveInbound(
+                fastify,
+                log,
+                plugin,
+                event,
+                (text) =>
+                    telegramRich(
+                        token,
+                        'sendMessage',
+                        {
+                            chat_id: chat,
+                            reply_parameters: {
+                                message_id: replyTo,
+                                allow_sending_without_reply: true,
                             },
-                            'text',
-                            text.slice(0, TELEGRAM_TEXT_MAX),
-                        ),
+                        },
+                        'text',
+                        text.slice(0, TELEGRAM_TEXT_MAX),
                     ),
-                )
-                .catch((error: unknown) =>
-                    log.error({ pluginId: plugin.id, err: error }, 'telegram plugin reply crashed'),
-                );
+                () => telegramMethod(token, 'sendChatAction', { chat_id: chat, action: 'typing' }),
+            ).catch((error: unknown) =>
+                log.error({ pluginId: plugin.id, err: error }, 'telegram plugin reply crashed'),
+            );
         }
 
         if (updates.length > 0) {
@@ -228,7 +227,7 @@ function discordSession(
     });
 }
 
-export function discordCloseReason(code: number, reason: string): string {
+function discordCloseReason(code: number, reason: string): string {
     if (code === 4004) {
         return 'Discord refused the bot token.';
     }
@@ -268,22 +267,16 @@ export async function listenDiscord(
 
                 const channel = event.ids['channel_id'] ?? '';
 
-                void (
-                    plugin.hook_agent_id > 0
-                        ? discordCall(token, 'POST', `/channels/${channel}/typing`)
-                        : Promise.resolve()
-                )
-                    .then(() =>
-                        receiveInbound(fastify, log, plugin, event, (text) =>
-                            discordSend(token, channel, text, event.ids['message_id'] ?? ''),
-                        ),
-                    )
-                    .catch((error: unknown) =>
-                        log.error(
-                            { pluginId: plugin.id, err: error },
-                            'discord plugin reply crashed',
-                        ),
-                    );
+                void receiveInbound(
+                    fastify,
+                    log,
+                    plugin,
+                    event,
+                    (text) => discordSend(token, channel, text, event.ids['message_id'] ?? ''),
+                    () => discordCall(token, 'POST', `/channels/${channel}/typing`),
+                ).catch((error: unknown) =>
+                    log.error({ pluginId: plugin.id, err: error }, 'discord plugin reply crashed'),
+                );
             },
         );
 

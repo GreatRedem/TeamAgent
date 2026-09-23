@@ -408,7 +408,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
 
                                                     if (tested.ok) {
                                                         setNotice(
-                                                            `${plugin.name} works${tested.account === '' ? '' : `: ${tested.account}`}.`,
+                                                            `${plugin.name} works${tested.plugin.account === '' ? '' : `: ${tested.plugin.account}`}.`,
                                                         );
                                                     } else {
                                                         setError(

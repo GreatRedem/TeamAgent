@@ -22,6 +22,7 @@ import {
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
 import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
+import type { Status } from '@/ui/status-dot';
 
 export const API_BASE_URL = '/api';
 
@@ -182,7 +183,7 @@ export const AUDIT_RESULT: Record<AuditEntry['outcome'], { label: string; classN
     skipped: { label: 'Skipped', className: 'text-warning' },
 };
 
-export const HEALTH_TONE: Record<'live' | 'degraded' | 'off' | 'failed', string> = {
+export const HEALTH_TONE: Record<Status, string> = {
     live: 'text-primary',
     degraded: 'text-warning',
     off: 'text-muted-foreground',

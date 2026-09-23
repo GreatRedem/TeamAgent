@@ -374,7 +374,6 @@ export function pluginTest(fastify: FastifyInstance) {
 
         reply.send({
             ok: probe.ok,
-            account: probe.ok && typeof probe.data === 'string' ? probe.data : '',
             error: probe.error ?? '',
             plugin: view,
         });
@@ -389,28 +388,29 @@ export function pluginCalls(fastify: FastifyInstance) {
         const { limit, offset } = readPage(request, PLUGIN_CALL_PAGE);
         const calls = fastify.db.getRepository(TeamPluginCall);
 
-        const [rows, total] = await calls.findAndCount({
-            where: { plugin_id: plugin.id },
-            order: { id: 'DESC' },
-            skip: offset,
-            take: limit + 1,
-        });
+        const [[rows, total], actions] = await Promise.all([
+            calls.findAndCount({
+                where: { plugin_id: plugin.id },
+                order: { id: 'DESC' },
+                skip: offset,
+                take: limit + 1,
+            }),
+            calls
+                .createQueryBuilder('c')
+                .select('c.direction', 'direction')
+                .addSelect('c.action', 'action')
+                .addSelect('COUNT(*)', 'count')
+                .addSelect('COUNT(*) FILTER (WHERE NOT c.ok)', 'failures')
+                .addSelect('COALESCE(AVG(c.duration_ms) FILTER (WHERE c.ok), 0)', 'average_ms')
+                .addSelect('MAX(c.created_at)', 'last_at')
+                .where('c.plugin_id = :pluginId', { pluginId: plugin.id })
+                .groupBy('c.direction')
+                .addGroupBy('c.action')
+                .orderBy('COUNT(*)', 'DESC')
+                .getRawMany<Record<string, string | Date>>(),
+        ]);
 
         const { items, has_more } = takePage(rows, limit);
-
-        const actions = await calls
-            .createQueryBuilder('c')
-            .select('c.direction', 'direction')
-            .addSelect('c.action', 'action')
-            .addSelect('COUNT(*)', 'count')
-            .addSelect('COUNT(*) FILTER (WHERE NOT c.ok)', 'failures')
-            .addSelect('COALESCE(AVG(c.duration_ms) FILTER (WHERE c.ok), 0)', 'average_ms')
-            .addSelect('MAX(c.created_at)', 'last_at')
-            .where('c.plugin_id = :pluginId', { pluginId: plugin.id })
-            .groupBy('c.direction')
-            .addGroupBy('c.action')
-            .orderBy('COUNT(*)', 'DESC')
-            .getRawMany<Record<string, string | Date>>();
 
         const agentIds = [...new Set(items.map((call) => call.agent_id).filter((id) => id > 0))];
         const agents = new Map(

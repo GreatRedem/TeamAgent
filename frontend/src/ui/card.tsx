@@ -1,6 +1,7 @@
 import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
+import type { Status } from '@/ui/status-dot';
 
 const cardVariant = {
     raised: { surface: 'rounded-xl bg-card shadow-raised', inset: 'py-5' },
@@ -9,11 +10,11 @@ const cardVariant = {
 
 const cardGap = { 0: 'gap-0', 2: 'gap-2', 3: 'gap-3', 4: 'gap-4', 5: 'gap-5' };
 
-const cardSignal = {
-    live: 'border-l-2 border-l-primary',
-    degraded: 'border-l-2 border-l-warning',
-    off: 'border-l-2 border-l-neutral',
-    failed: 'border-l-2 border-l-destructive',
+const cardSignal: Record<Status, string> = {
+    live: 'border-l-primary',
+    degraded: 'border-l-warning',
+    off: 'border-l-neutral',
+    failed: 'border-l-destructive',
 };
 
 function Card({
@@ -27,7 +28,7 @@ function Card({
     variant?: keyof typeof cardVariant;
     gap?: keyof typeof cardGap;
     flush?: boolean;
-    signal?: keyof typeof cardSignal;
+    signal?: Status;
 }) {
     return (
         <div
@@ -38,7 +39,7 @@ function Card({
                 cardVariant[variant].surface,
                 flush ? 'py-0' : cardVariant[variant].inset,
                 cardGap[gap],
-                signal !== undefined && cardSignal[signal],
+                signal !== undefined && `border-l-2 ${cardSignal[signal]}`,
                 className,
             )}
             {...props}

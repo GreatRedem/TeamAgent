@@ -1,58 +1,13 @@
-import { TELEGRAM_API, TELEGRAM_TEXT_MAX } from '../../constant.js';
+import { TELEGRAM_TEXT_MAX } from '../../constant.js';
 
-import { telegramHtml } from '../telegram/telegram.format.js';
+import { telegramMethod, telegramRich } from '../telegram/telegram.client.js';
 import {
     argText,
-    callJson,
     failed,
     type InboundEvent,
     type PluginOutcome,
     type PluginSettings,
 } from './plugin.common.js';
-
-export async function telegramMethod(
-    token: string,
-    method: string,
-    payload: Record<string, unknown>,
-    signal?: AbortSignal,
-    timeout?: number,
-): Promise<PluginOutcome> {
-    const answer = await callJson(
-        `${TELEGRAM_API}/bot${token}/${method}`,
-        {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload),
-            ...(signal && { signal }),
-        },
-        (body) => (body as { description?: string } | undefined)?.description ?? '',
-        timeout,
-    );
-
-    return answer.ok ? { ...answer, data: (answer.data as { result?: unknown })?.result } : answer;
-}
-
-export async function telegramRich(
-    token: string,
-    method: string,
-    payload: Record<string, unknown>,
-    field: 'text' | 'caption',
-    text: string,
-): Promise<PluginOutcome> {
-    const rich = await telegramMethod(token, method, {
-        ...payload,
-        [field]: telegramHtml(text),
-        parse_mode: 'HTML',
-    });
-
-    if (rich.ok || /not modified/i.test(rich.error ?? '')) {
-        return { ...rich, ok: true };
-    }
-
-    return rich.status === 400
-        ? telegramMethod(token, method, { ...payload, [field]: text })
-        : rich;
-}
 
 function sent(outcome: PluginOutcome): PluginOutcome {
     if (!outcome.ok) {
@@ -214,13 +169,15 @@ export async function telegramAct(
     }
 
     if (name === 'telegram_chat_info') {
-        const info = await telegramMethod(token, 'getChat', { chat_id: chat });
+        const [info, members] = await Promise.all([
+            telegramMethod(token, 'getChat', { chat_id: chat }),
+            telegramMethod(token, 'getChatMemberCount', { chat_id: chat }),
+        ]);
 
         if (!info.ok) {
             return info;
         }
 
-        const members = await telegramMethod(token, 'getChatMemberCount', { chat_id: chat });
         const found = info.data as Record<string, unknown>;
 
         return {

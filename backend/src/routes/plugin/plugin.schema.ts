@@ -159,10 +159,9 @@ export function schemaPluginTest() {
         response: {
             200: {
                 type: 'object',
-                required: ['ok', 'account', 'error', 'plugin'],
+                required: ['ok', 'error', 'plugin'],
                 properties: {
                     ok: { type: 'boolean' },
-                    account: { type: 'string' },
                     error: { type: 'string' },
                     plugin: plugin(),
                 },

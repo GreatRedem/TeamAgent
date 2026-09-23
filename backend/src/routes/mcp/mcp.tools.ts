@@ -3,6 +3,7 @@ import {
     DOCUMENT_NAME_PATTERN,
     FETCH_TEXT_MAX,
     MCP_DOCUMENT_CONTENT_MAX,
+    PERSONAL_TOOLS,
     PREFERENCES_TEMPLATE,
     ROSTER_FILE,
     ROSTER_LIMIT,
@@ -86,20 +87,25 @@ export async function agentTools(
     fastify: FastifyInstance,
     agent: TeamAgent,
     person: TelegramUser,
+    nested = false,
 ): Promise<ToolDefinition[]> {
-    const tools = [...allowedTools(agent.permissions), ...(await pluginTools(fastify, agent))];
+    const tools = [
+        ...allowedTools(agent.permissions),
+        ...(await pluginTools(fastify, agent)),
+    ].filter((tool) => person.id !== 0 || !PERSONAL_TOOLS.includes(tool.name));
 
     if (!tools.some((tool) => tool.name === 'agent_call')) {
         return tools;
     }
 
-    const others = hasPermission(person.permissions, 'delegate')
-        ? (
-              await fastify.db
-                  .getRepository(TeamAgent)
-                  .find({ where: { team_id: agent.team_id }, order: { id: 'ASC' } })
-          ).filter((other) => other.id !== agent.id && other.model_id !== 0)
-        : [];
+    const others =
+        !nested && hasPermission(person.permissions, 'delegate')
+            ? (
+                  await fastify.db
+                      .getRepository(TeamAgent)
+                      .find({ where: { team_id: agent.team_id }, order: { id: 'ASC' } })
+              ).filter((other) => other.id !== agent.id && other.model_id !== 0)
+            : [];
 
     return withCallable(tools, others);
 }
@@ -116,11 +122,11 @@ export interface ToolResult {
     content: string;
 }
 
-function refuse(reason: string): ToolResult {
+export function refuse(reason: string): ToolResult {
     return { ok: false, content: JSON.stringify({ error: reason }) };
 }
 
-async function readRosterContent(fastify: FastifyInstance, teamId: number): Promise<string> {
+export async function readRosterContent(fastify: FastifyInstance, teamId: number): Promise<string> {
     const row = await fastify.db
         .getRepository(TeamDocument)
         .findOneBy({ team_id: teamId, name: ROSTER_FILE });

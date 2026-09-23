@@ -116,7 +116,7 @@ export function pluginRemove(teamId: number, pluginId: number) {
 }
 
 export function pluginTest(teamId: number, pluginId: number) {
-    return request<{ ok: boolean; account: string; error: string; plugin: TeamPlugin }>(
+    return request<{ ok: boolean; error: string; plugin: TeamPlugin }>(
         'POST',
         `/team/${teamId}/plugin/${pluginId}/test`,
     );

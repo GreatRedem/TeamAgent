@@ -2,7 +2,6 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { Not } from 'typeorm';
 import {
     DRAFT_INTERVAL,
-    PERSONAL_TOOLS,
     TASK_MEMORY,
     TASK_MODEL_REST,
     TASK_RETRY_DELAYS,
@@ -19,6 +18,7 @@ import {
     agentInstructions,
     placeholderUser,
     runAgent,
+    runFailure,
     telegramText,
 } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
@@ -207,10 +207,7 @@ export async function runTask(
 
         const person = recipient ?? placeholderUser(task.team_id, startedAt);
 
-        const allowed = await agentTools(fastify, agent, person);
-        const tools = recipient
-            ? allowed
-            : allowed.filter((tool) => !PERSONAL_TOOLS.includes(tool.name));
+        const tools = await agentTools(fastify, agent, person);
 
         const instructions = await agentInstructions(fastify, agent, tools);
 
@@ -254,17 +251,7 @@ export async function runTask(
                 note({ kind: 'switch', model: result.served });
             }
 
-            await finish(
-                'error',
-                '',
-                false,
-                result.unreachable
-                    ? 'the model could not be reached'
-                    : result.failure === ''
-                      ? 'the model returned no text'
-                      : result.failure,
-                true,
-            );
+            await finish('error', '', false, runFailure(result), true);
 
             return true;
         }

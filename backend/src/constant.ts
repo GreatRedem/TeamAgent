@@ -920,6 +920,8 @@ export const INSTAGRAM_CAPTION_MAX = 2200;
 
 export const INSTAGRAM_MESSAGE_MAX = 1000;
 
+export const INSTAGRAM_USER_IDS = new Map<string, string>();
+
 export const TELEGRAM_CHAT_FIELD = {
     type: 'string',
     description: '@channelname or a numeric chat id; defaults to the plugin default chat',

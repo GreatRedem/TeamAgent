@@ -14,9 +14,10 @@ import {
     failed,
     type PluginOutcome,
     type PluginSettings,
+    readLimit,
 } from './plugin.common.js';
 
-export interface XKeys {
+interface XKeys {
     api_key: string;
     api_secret: string;
     access_token: string;
@@ -100,7 +101,7 @@ function keysOf(settings: PluginSettings): XKeys {
     };
 }
 
-export function xCall(
+function xCall(
     keys: XKeys,
     method: 'GET' | 'POST' | 'DELETE',
     path: string,
@@ -202,14 +203,6 @@ export function readPosts(payload: unknown): Record<string, unknown>[] {
     });
 }
 
-function readLimit(args: Record<string, unknown>, low: number): string {
-    const limit = Number(args['limit']);
-
-    return String(
-        Number.isInteger(limit) ? Math.min(Math.max(limit, low), 100) : Math.max(low, 10),
-    );
-}
-
 export async function xAct(
     settings: PluginSettings,
     name: string,
@@ -272,7 +265,7 @@ export async function xAct(
 
         const found = await xCall(keys, 'GET', '/tweets/search/recent', undefined, {
             query,
-            max_results: readLimit(args, 10),
+            max_results: String(readLimit(args, 10, 10, 100)),
             ...X_POST_FIELDS,
         });
 
@@ -299,7 +292,7 @@ export async function xAct(
             'GET',
             `/users/${user}/${name === 'x_mentions' ? 'mentions' : 'tweets'}`,
             undefined,
-            { max_results: readLimit(args, 5), ...X_POST_FIELDS },
+            { max_results: String(readLimit(args, 10, 5, 100)), ...X_POST_FIELDS },
         );
 
         return read.ok ? { ...read, data: { posts: readPosts(read.data) } } : read;

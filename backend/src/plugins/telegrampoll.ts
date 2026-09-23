@@ -10,24 +10,9 @@ import {
     RESCAN_INTERVAL,
     TELEGRAM_API,
 } from '../constant.js';
+import { sleep } from '../routes/plugin/plugin.common.js';
 import { TeamBot } from '../routes/team/team.entity.js';
 import { ingestUpdate } from '../routes/telegram/telegram.service.js';
-
-function sleep(ms: number, signal: AbortSignal) {
-    return new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, ms);
-
-        signal.addEventListener(
-            'abort',
-            () => {
-                clearTimeout(timer);
-
-                resolve();
-            },
-            { once: true },
-        );
-    });
-}
 
 interface TelegramReply {
     ok?: boolean;

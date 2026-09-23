@@ -1,18 +1,23 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { In } from 'typeorm';
-import { PERSONAL_TOOLS, PLUGIN_HISTORY, PLUGIN_KINDS } from '../../constant.js';
+import { PLUGIN_HISTORY, PLUGIN_KINDS } from '../../constant.js';
 
 import { TeamAgent } from '../agent/agent.entity.js';
 import { buildMessages } from '../agent/agent.reply.js';
 import { audit } from '../audit/audit.log.js';
 import { agentTools } from '../mcp/mcp.tools.js';
 import { TeamModel } from '../team/team.entity.js';
-import { agentInstructions, placeholderUser, runAgent } from '../telegram/telegram.service.js';
+import {
+    agentInstructions,
+    placeholderUser,
+    runAgent,
+    runFailure,
+} from '../telegram/telegram.service.js';
 import { failed, type InboundEvent, type PluginOutcome } from './plugin.common.js';
 import { type TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import { forwardEvent, recordCall } from './plugin.tools.js';
 
-export interface InboundResult {
+interface InboundResult {
     answered: boolean;
     text: string;
     error: string;
@@ -24,6 +29,7 @@ export async function receiveInbound(
     plugin: TeamPlugin,
     event: InboundEvent,
     reply: (text: string) => Promise<PluginOutcome>,
+    typing?: () => Promise<unknown>,
 ): Promise<InboundResult> {
     const calls = fastify.db.getRepository(TeamPluginCall);
 
@@ -42,6 +48,8 @@ export async function receiveInbound(
     if (plugin.hook_agent_id === 0) {
         return { answered: false, text: '', error: '' };
     }
+
+    void typing?.();
 
     const startedAt = Date.now();
 
@@ -79,9 +87,7 @@ export async function receiveInbound(
 
     const person = placeholderUser(plugin.team_id, new Date());
 
-    const tools = (await agentTools(fastify, agent, person)).filter(
-        (tool) => !PERSONAL_TOOLS.includes(tool.name),
-    );
+    const tools = await agentTools(fastify, agent, person);
 
     const earlier = (
         await calls.find({
@@ -129,13 +135,7 @@ export async function receiveInbound(
     });
 
     if (run.unreachable || run.text === undefined || run.text.trim() === '') {
-        return fail(
-            run.unreachable
-                ? 'the model could not be reached'
-                : run.failure === ''
-                  ? 'the model returned no text'
-                  : run.failure,
-        );
+        return fail(runFailure(run));
     }
 
     const text = run.text.trim();

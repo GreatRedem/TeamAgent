@@ -12,7 +12,6 @@ import {
     MAX_TOOL_ROUNDS,
     MESSAGE_PAGE,
     PERMISSIONS,
-    ROSTER_FILE,
     STREAM_EDIT_INTERVAL,
     STREAM_FIRST_CHARS,
     TELEGRAM_API,
@@ -44,7 +43,14 @@ import {
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
-import { agentTools, runTool, type ToolDefinition, toOpenAITools } from '../mcp/mcp.tools.js';
+import {
+    agentTools,
+    readRosterContent,
+    refuse,
+    runTool,
+    type ToolDefinition,
+    toOpenAITools,
+} from '../mcp/mcp.tools.js';
 import {
     freeCandidates,
     freeQuotaUntil,
@@ -56,10 +62,10 @@ import {
 import { fetchCatalog } from '../model/model.provider.js';
 import { profileLabel } from '../task/task.plan.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
-import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
+import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { rosterPrompt } from '../team/team.roster.js';
+import { telegramMethod, telegramRich } from './telegram.client.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
-import { telegramHtml } from './telegram.format.js';
 import {
     hasPermission,
     isKnownPermission,
@@ -327,60 +333,15 @@ async function recordExchange(
     }
 }
 
-async function telegramCall(
-    token: string,
-    method: string,
-    payload: unknown,
-): Promise<{ ok: boolean; status: number; result?: unknown; description?: string }> {
-    try {
-        const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT),
-        });
-
-        const body = (await response.json().catch(() => undefined)) as
-            | { result?: unknown; description?: string }
-            | undefined;
-
-        return {
-            ok: response.ok,
-            status: response.status,
-            result: body?.result,
-            description: body?.description,
-        };
-    } catch {
-        return { ok: false, status: 0 };
-    }
-}
-
 export async function telegramText(
     token: string,
     method: 'sendMessage' | 'editMessageText',
     payload: Record<string, unknown>,
     text: string,
 ): Promise<{ ok: boolean; status: number; result?: unknown }> {
-    const unchanged = (sent: { description?: string }) =>
-        /message is not modified/i.test(sent.description ?? '');
+    const sent = await telegramRich(token, method, payload, 'text', text, TELEGRAM_TIMEOUT);
 
-    const rich = await telegramCall(token, method, {
-        ...payload,
-        text: telegramHtml(text),
-        parse_mode: 'HTML',
-    });
-
-    if (rich.ok || unchanged(rich)) {
-        return { ...rich, ok: true };
-    }
-
-    if (rich.status !== 400) {
-        return rich;
-    }
-
-    const plain = await telegramCall(token, method, { ...payload, text });
-
-    return unchanged(plain) ? { ...plain, ok: true } : plain;
+    return { ok: sent.ok, status: sent.status, result: sent.data };
 }
 
 function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
@@ -460,10 +421,13 @@ function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
                 return;
             }
 
-            const removed = await telegramCall(token, 'deleteMessage', {
-                chat_id: chatId,
-                message_id: messageId,
-            });
+            const removed = await telegramMethod(
+                token,
+                'deleteMessage',
+                { chat_id: chatId, message_id: messageId },
+                undefined,
+                TELEGRAM_TIMEOUT,
+            );
 
             if (!removed.ok) {
                 log.warn(
@@ -504,10 +468,13 @@ async function notifyFailure(
     status: number,
     log: FastifyBaseLogger,
 ): Promise<void> {
-    const sent = await telegramCall(bot.token, 'sendMessage', {
-        chat_id: chatId,
-        text: failureNotice(status),
-    });
+    const sent = await telegramMethod(
+        bot.token,
+        'sendMessage',
+        { chat_id: chatId, text: failureNotice(status) },
+        undefined,
+        TELEGRAM_TIMEOUT,
+    );
 
     if (!sent.ok) {
         log.warn(
@@ -596,13 +563,7 @@ export async function agentInstructions(
         .find({ where: { agent_id: agent.id } });
 
     const roster = agentHasPermission(agent.permissions, 'roster.read')
-        ? rosterPrompt(
-              (
-                  await fastify.db
-                      .getRepository(TeamDocument)
-                      .findOneBy({ team_id: agent.team_id, name: ROSTER_FILE })
-              )?.content ?? '',
-          )
+        ? rosterPrompt(await readRosterContent(fastify, agent.team_id))
         : '';
 
     return [
@@ -642,6 +603,14 @@ export type AgentEvent =
           result: string;
           duration_ms: number;
       };
+
+export function runFailure(run: AgentRun): string {
+    if (run.unreachable) {
+        return 'the model could not be reached';
+    }
+
+    return run.failure === '' ? 'the model returned no text' : run.failure;
+}
 
 interface AgentRun {
     text: string | undefined;
@@ -966,8 +935,6 @@ async function callAgent(
     user: TelegramUser,
     args: Record<string, unknown>,
 ): Promise<{ ok: boolean; content: string }> {
-    const refuse = (error: string) => ({ ok: false, content: JSON.stringify({ error }) });
-
     if (!hasPermission(user.permissions, 'delegate')) {
         return refuse('the person you are answering may not ask other agents');
     }
@@ -999,9 +966,7 @@ async function callAgent(
         return refuse(`${target.name} has no model to answer with`);
     }
 
-    const tools = (await agentTools(fastify, target, user)).filter(
-        (tool) => tool.name !== 'agent_call',
-    );
+    const tools = await agentTools(fastify, target, user, true);
     const person = profileLabel(user);
     const startedAt = Date.now();
 
@@ -1036,13 +1001,11 @@ async function callAgent(
         target: `agent:${target.id}`,
         outcome: answer === '' ? 'error' : 'ok',
         durationMs: Date.now() - startedAt,
-        detail: `${caller.name} asked ${target.name} for ${person} (profile ${user.id}) · ${run.toolRuns} tool call(s)${answer === '' ? ` · ${run.failure || 'no answer'}` : ''}`,
+        detail: `${caller.name} asked ${target.name} for ${person} (profile ${user.id}) · ${run.toolRuns} tool call(s)${answer === '' ? ` · ${runFailure(run)}` : ''}`,
     });
 
     if (answer === '') {
-        return refuse(
-            `${target.name} could not answer: ${run.unreachable ? 'its model could not be reached' : run.failure || 'it returned no text'}`,
-        );
+        return refuse(`${target.name} could not answer: ${runFailure(run)}`);
     }
 
     return {
