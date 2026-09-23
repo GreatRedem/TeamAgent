@@ -159,7 +159,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                 <EmptyState
                     icon={Users}
                     title="Nobody on the team yet"
-                    description="Add the people agents should know about: their rank, what they do and where to find them. Pick them from the profiles that have written to your bots, or type them in."
+                    description="Add the people agents should know about: their roles, what they do and where to find them. Pick them from the profiles that have written to your bots, or type them in."
                     action={addButton}
                 />
             )}
@@ -180,9 +180,11 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                                             className="truncate"
                                             message={member.name}
                                         />
-                                        {member.rank !== undefined && (
-                                            <Badge variant="secondary">{member.rank}</Badge>
-                                        )}
+                                        {member.roles?.map((role) => (
+                                            <Badge variant="secondary" key={role}>
+                                                {role}
+                                            </Badge>
+                                        ))}
                                     </CardTitle>
                                     {member.description !== undefined && (
                                         <CardDescription className="whitespace-pre-wrap">

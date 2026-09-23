@@ -104,7 +104,7 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
         key: 'roster.read',
         label: 'May read the team file',
         description:
-            'Lets this agent read team.json: who is on the team, what they do, their rank and their public handles.',
+            'Lets this agent read team.json: who is on the team, what they do, their roles and their public handles.',
     },
     {
         key: 'roster.create',
@@ -116,7 +116,7 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
         key: 'roster.update',
         label: 'May update team members',
         description:
-            'Lets this agent change what team.json says about someone already on it: their rank, description, handles or name. Only the fields it passes change.',
+            'Lets this agent change what team.json says about someone already on it: their roles, description, handles or name. Only the fields it passes change.',
     },
     {
         key: 'roster.delete',
@@ -492,7 +492,7 @@ export const TOOLS: ToolDefinition[] = [
     {
         name: 'roster_read',
         description:
-            'Read team.json: the people on this team with their rank, description and public handles. Use it before answering questions about who someone is or what they do.',
+            'Read team.json: the people on this team with their roles, description and public handles. Use it before answering questions about who someone is or what they do.',
         permission: 'roster.read',
         inputSchema: {
             type: 'object',
@@ -517,9 +517,11 @@ export const TOOLS: ToolDefinition[] = [
                     type: 'string',
                     description: "The person's name; this is how they are addressed",
                 },
-                rank: {
-                    type: 'string',
-                    description: 'Their role or rank on the team, e.g. founder, engineer',
+                roles: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description:
+                        'Every role they hold on the team, e.g. ["Administrator", "Senior software engineer"]',
                 },
                 description: {
                     type: 'string',
@@ -536,14 +538,18 @@ export const TOOLS: ToolDefinition[] = [
     {
         name: 'roster_member_update',
         description:
-            'Change what team.json says about someone already on it. Only the fields you pass change, so you can set a rank without touching a description; handles are merged with those recorded. Pass new_name to rename them. Use roster_read first when you need to know what is there.',
+            'Change what team.json says about someone already on it. Only the fields you pass change, so you can set roles without touching a description; handles are merged with those recorded. roles replaces their whole list, so pass every role they should keep. Pass new_name to rename them. Use roster_read first when you need to know what is there.',
         permission: 'roster.update',
         inputSchema: {
             type: 'object',
             properties: {
                 name: { type: 'string', description: 'Who to update, by their current name' },
                 new_name: { type: 'string', description: 'Optional: a new name for them' },
-                rank: { type: 'string', description: 'Their role or rank on the team' },
+                roles: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'The full list of roles they hold on the team',
+                },
                 description: { type: 'string', description: 'What they do' },
                 social: {
                     type: 'object',
@@ -714,9 +720,13 @@ export const MEMBER_TEXT_MAX = 2000;
 
 export const SOCIAL_MAX = 20;
 
+export const MEMBER_ROLES_MAX = 8;
+
+export const MEMBER_ROLE_MAX = 64;
+
 export const ROSTER_INLINE_MAX = 8000;
 
-export const FORM_FIELDS = ['name', 'rank', 'description', 'social', 'profile_id'];
+export const FORM_FIELDS = ['name', 'rank', 'roles', 'description', 'social', 'profile_id'];
 
 export const ROSTER_PAGE = 50;
 

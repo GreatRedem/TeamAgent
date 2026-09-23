@@ -10,7 +10,7 @@ import {
 } from '@/apis';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
-import { ROSTER_ERRORS, SOCIAL_NETWORKS } from '@/libs/constant';
+import { MEMBER_ROLE_MAX, MEMBER_ROLES_MAX, ROSTER_ERRORS, SOCIAL_NETWORKS } from '@/libs/constant';
 import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -49,7 +49,8 @@ export function MemberDialog({
     const listId = useId();
 
     const [name, setName] = useState('');
-    const [rank, setRank] = useState('');
+    const [roles, setRoles] = useState<string[]>([]);
+    const [role, setRole] = useState('');
     const [description, setDescription] = useState('');
     const [social, setSocial] = useState<SocialRow[]>([]);
     const [profileId, setProfileId] = useState<number | undefined>(undefined);
@@ -64,7 +65,8 @@ export function MemberDialog({
         }
 
         setName(member?.name ?? '');
-        setRank(member?.rank ?? '');
+        setRoles(member?.roles ?? []);
+        setRole('');
         setDescription(member?.description ?? '');
         setSocial(
             Object.entries(member?.social ?? {}).map(([network, handle]) => ({ network, handle })),
@@ -114,6 +116,21 @@ export function MemberDialog({
         }
     };
 
+    const withRole = (list: string[]) => {
+        const next = role.trim();
+
+        return next === '' ||
+            list.length >= MEMBER_ROLES_MAX ||
+            list.some((known) => known.toLowerCase() === next.toLowerCase())
+            ? list
+            : [...list, next];
+    };
+
+    const addRole = () => {
+        setRoles(withRole);
+        setRole('');
+    };
+
     const save = async () => {
         setBusy(true);
         setError(null);
@@ -123,7 +140,7 @@ export function MemberDialog({
                 teamId,
                 {
                     name: name.trim(),
-                    rank: rank.trim(),
+                    roles: withRole(roles),
                     description: description.trim(),
                     social: Object.fromEntries(
                         social
@@ -207,15 +224,48 @@ export function MemberDialog({
                         </Field>
 
                         <Field
-                            label="Rank"
-                            hint="Their role on the team, such as founder or support lead.">
+                            label="Roles"
+                            hint={`Everything they are on the team, such as Administrator and Senior software engineer. Press Enter after each one, up to ${MEMBER_ROLES_MAX}.`}>
                             {(id) => (
-                                <Input
-                                    id={id}
-                                    value={rank}
-                                    onChange={(event) => setRank(event.target.value)}
-                                    maxLength={200}
-                                />
+                                <Stack direction="Vertical" className="gap-2">
+                                    <Input
+                                        id={id}
+                                        value={role}
+                                        onChange={(event) => setRole(event.target.value)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ',') {
+                                                event.preventDefault();
+                                                addRole();
+                                            }
+                                        }}
+                                        onBlur={addRole}
+                                        disabled={roles.length >= MEMBER_ROLES_MAX}
+                                        maxLength={MEMBER_ROLE_MAX}
+                                        placeholder="Add a role"
+                                    />
+
+                                    {roles.length > 0 && (
+                                        <Stack direction="Horizontal" className="flex-wrap gap-1.5">
+                                            {roles.map((item) => (
+                                                <Button
+                                                    key={item}
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    icon={<X />}
+                                                    onClick={() =>
+                                                        setRoles((current) =>
+                                                            current.filter(
+                                                                (known) => known !== item,
+                                                            ),
+                                                        )
+                                                    }
+                                                    message={item}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    )}
+                                </Stack>
                             )}
                         </Field>
                     </Stack>

@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { MEMBERS_MAX, ROSTER_CONTENT_MAX, ROSTER_INLINE_MAX } from '../constant.js';
+import {
+    MEMBER_ROLES_MAX,
+    MEMBERS_MAX,
+    ROSTER_CONTENT_MAX,
+    ROSTER_INLINE_MAX,
+} from '../constant.js';
 
 import {
     emptyRoster,
@@ -18,15 +23,58 @@ function main() {
         members: [
             {
                 name: 'Alex',
-                rank: 'founder',
+                roles: ['founder'],
                 description: 'runs the place',
                 social: { x: '@alex', github: 'alexk' },
             },
-            { name: 'Sam', rank: 'engineer', description: 'ships the backend' },
+            { name: 'Sam', roles: ['engineer'], description: 'ships the backend' },
         ],
     });
 
     const tests: Array<[string, () => void]> = [
+        [
+            'a member can hold several roles, and an old single rank becomes one of them',
+            () => {
+                const legacy = parseRoster(
+                    JSON.stringify({ members: [{ name: 'Alex', rank: 'Founder' }] }),
+                );
+
+                assert.deepEqual(findMember(legacy, 'alex')?.roles, ['Founder']);
+                assert.equal(findMember(legacy, 'alex')?.['rank'], undefined);
+
+                const many = replaceMember(emptyRoster(), undefined, {
+                    name: 'Kim',
+                    roles: [
+                        'Administrator',
+                        ' Senior software engineer ',
+                        'administrator',
+                        '',
+                        42,
+                        'x'.repeat(100),
+                        ...Array.from({ length: 10 }, (_, index) => `role ${index}`),
+                    ],
+                });
+                const kim = findMember(many, 'kim');
+
+                assert.deepEqual(kim?.roles?.slice(0, 3), [
+                    'Administrator',
+                    'Senior software engineer',
+                    'x'.repeat(64),
+                ]);
+                assert.equal(kim?.roles?.length, MEMBER_ROLES_MAX);
+                assert.deepEqual(
+                    findMember(replaceMember(many, 'Kim', { name: 'Kim', roles: 'Admin' }), 'kim')
+                        ?.roles,
+                    ['Admin'],
+                );
+                assert.equal(
+                    findMember(replaceMember(many, 'Kim', { name: 'Kim', roles: [] }), 'kim')
+                        ?.roles,
+                    undefined,
+                );
+            },
+        ],
+
         [
             'the form saves a whole member: emptied fields go, extra fields an agent kept stay',
             () => {
@@ -34,7 +82,7 @@ function main() {
                 const withExtra = upsertMember(roster, { name: 'Alex', email: 'alex@example.com' });
                 const saved = replaceMember(withExtra, 'Alex', {
                     name: 'Alex',
-                    rank: 'founder',
+                    roles: ['founder'],
                     description: '',
                     social: { telegram: '@alexk' },
                     profile_id: 12,
@@ -60,17 +108,20 @@ function main() {
             'a save can rename a member, but never onto someone else',
             () => {
                 const roster = parseRoster(sample);
-                const renamed = replaceMember(roster, 'Sam', { name: 'Samantha', rank: 'lead' });
+                const renamed = replaceMember(roster, 'Sam', { name: 'Samantha', roles: ['lead'] });
 
                 assert.equal(findMember(renamed, 'Sam'), undefined);
-                assert.equal(findMember(renamed, 'Samantha')?.rank, 'lead');
+                assert.deepEqual(findMember(renamed, 'Samantha')?.roles, ['lead']);
                 assert.equal(renamed.members.length, 2);
                 assert.throws(() => replaceMember(roster, 'Sam', { name: 'alex' }), RosterError);
                 assert.throws(
                     () => replaceMember(roster, undefined, { name: 'ALEX' }),
                     RosterError,
                 );
-                assert.throws(() => replaceMember(roster, undefined, { rank: 'x' }), RosterError);
+                assert.throws(
+                    () => replaceMember(roster, undefined, { roles: ['x'] }),
+                    RosterError,
+                );
 
                 const added = replaceMember(roster, undefined, { name: 'Kim', profile_id: -4 });
 
@@ -91,7 +142,7 @@ function main() {
 
                 const small = rosterPrompt(sample);
 
-                assert.ok(small.includes('"rank": "founder"'));
+                assert.ok(small.includes('"roles"') && small.includes('"founder"'));
                 assert.ok(small.includes('```json'));
 
                 const big = serializeRoster({
@@ -188,10 +239,10 @@ function main() {
         [
             'updating one field leaves the others alone',
             () => {
-                const roster = upsertMember(parseRoster(sample), { name: 'alex', rank: 'CEO' });
+                const roster = upsertMember(parseRoster(sample), { name: 'alex', roles: ['CEO'] });
                 const alex = findMember(roster, 'Alex');
 
-                assert.equal(alex?.rank, 'CEO');
+                assert.deepEqual(alex?.roles, ['CEO']);
                 assert.equal(alex?.description, 'runs the place', 'the description was lost');
                 assert.equal(alex?.name, 'Alex', 'the stored spelling was overwritten');
                 assert.equal(roster.members.length, 2, 'a duplicate was added');
@@ -217,10 +268,10 @@ function main() {
         [
             'an unknown member is added rather than refused',
             () => {
-                const roster = upsertMember(parseRoster(sample), { name: 'Jo', rank: 'design' });
+                const roster = upsertMember(parseRoster(sample), { name: 'Jo', roles: ['design'] });
 
                 assert.equal(roster.members.length, 3);
-                assert.equal(findMember(roster, 'jo')?.rank, 'design');
+                assert.deepEqual(findMember(roster, 'jo')?.roles, ['design']);
             },
         ],
 
@@ -268,7 +319,7 @@ function main() {
                 );
 
                 assert.equal(
-                    upsertMember({ members }, { name: 'member-0', rank: 'lead' }).members.length,
+                    upsertMember({ members }, { name: 'member-0', roles: ['lead'] }).members.length,
                     MEMBERS_MAX,
                 );
             },

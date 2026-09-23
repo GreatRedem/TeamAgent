@@ -1,6 +1,8 @@
 import {
     FORM_FIELDS,
     MEMBER_NAME_MAX,
+    MEMBER_ROLE_MAX,
+    MEMBER_ROLES_MAX,
     MEMBER_TEXT_MAX,
     MEMBERS_MAX,
     ROSTER_CONTENT_MAX,
@@ -10,7 +12,7 @@ import {
 } from '../../constant.js';
 export interface RosterMember {
     name: string;
-    rank?: string;
+    roles?: string[];
     description?: string;
     social?: Record<string, string>;
     [key: string]: unknown;
@@ -59,6 +61,20 @@ function readSocial(value: unknown): Record<string, string> | undefined {
     return Object.keys(social).length === 0 ? undefined : social;
 }
 
+function readRoles(values: unknown[]): string[] {
+    const roles: string[] = [];
+
+    for (const value of values.flat()) {
+        const role = typeof value === 'string' ? value.trim().slice(0, MEMBER_ROLE_MAX) : '';
+
+        if (role !== '' && !roles.some((known) => memberKey(known) === memberKey(role))) {
+            roles.push(role);
+        }
+    }
+
+    return roles.slice(0, MEMBER_ROLES_MAX);
+}
+
 export function readMember(entry: unknown): RosterMember | undefined {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
         return undefined;
@@ -81,12 +97,21 @@ export function readMember(entry: unknown): RosterMember | undefined {
     }
 
     const social = readSocial(source['social']);
+    const roles = readRoles([source['roles'], source['rank']]);
 
     if (social) {
         member.social = social;
     } else {
         delete member.social;
     }
+
+    if (roles.length > 0) {
+        member.roles = roles;
+    } else {
+        delete member.roles;
+    }
+
+    delete member['rank'];
 
     return member;
 }
@@ -194,10 +219,8 @@ export function replaceMember(
         throw new RosterError('a member needs a name');
     }
 
-    for (const field of ['rank', 'description']) {
-        if (typeof member[field] !== 'string' || (member[field] as string).trim() === '') {
-            delete member[field];
-        }
+    if (typeof member.description !== 'string' || member.description.trim() === '') {
+        delete member.description;
     }
 
     const profile = member['profile_id'];
@@ -260,7 +283,7 @@ export function rosterPrompt(content: string): string {
     const heading = [
         `# Your team (${ROSTER_FILE})`,
         '',
-        'The people on this team: their rank, what they do and where to find them. Use it to answer questions about who someone is, what they do, who to ask about something and how to reach them. Do not invent members, ranks or handles that are not in it.',
+        'The people on this team: their roles, what they do and where to find them. Someone can hold several roles at once. Use it to answer questions about who someone is, what they do, who to ask about something and how to reach them. Do not invent members, roles or handles that are not in it.',
     ];
     const json = JSON.stringify({ members: roster.members }, null, 1);
 

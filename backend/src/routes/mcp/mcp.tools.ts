@@ -238,7 +238,7 @@ export async function runTool(
         }
 
         const fields = {
-            ...(typeof args['rank'] === 'string' && { rank: args['rank'] }),
+            ...(args['roles'] !== undefined && { roles: args['roles'] }),
             ...(typeof args['description'] === 'string' && { description: args['description'] }),
             ...(typeof args['social'] === 'object' &&
                 args['social'] !== null &&

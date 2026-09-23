@@ -261,6 +261,10 @@ export const PLUGIN_EVENT_LABELS: Record<string, string> = {
     'agent.failed': 'Something fails',
 };
 
+export const MEMBER_ROLES_MAX = 8;
+
+export const MEMBER_ROLE_MAX = 64;
+
 export const PLUGIN_ERRORS: Record<string, string> = {
     PLUGIN_NAME_REQUIRED: 'Give the plugin a name.',
     PLUGIN_NAME_TAKEN: 'Another plugin in this project already has that name.',

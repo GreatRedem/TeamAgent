@@ -38,7 +38,7 @@ export function teamUpdate(id: number, name: string, description: string) {
 
 export interface RosterMember {
     name: string;
-    rank?: string;
+    roles?: string[];
     description?: string;
     social?: Record<string, string>;
     profile_id?: number;
