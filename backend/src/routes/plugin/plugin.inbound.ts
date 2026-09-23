@@ -1,15 +1,13 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { In } from 'typeorm';
-import { PERSONAL_TOOLS, PLUGIN_HISTORY, PLUGIN_KINDS, ROSTER_FILE } from '../../constant.js';
+import { PERSONAL_TOOLS, PLUGIN_HISTORY, PLUGIN_KINDS } from '../../constant.js';
 
-import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
-import { agentHasPermission } from '../agent/agent.permission.js';
-import { buildMessages, buildSystemPrompt, toolGuidance } from '../agent/agent.reply.js';
+import { TeamAgent } from '../agent/agent.entity.js';
+import { buildMessages } from '../agent/agent.reply.js';
 import { audit } from '../audit/audit.log.js';
 import { agentTools } from '../mcp/mcp.tools.js';
-import { TeamDocument, TeamModel } from '../team/team.entity.js';
-import { rosterPrompt } from '../team/team.roster.js';
-import { placeholderUser, runAgent } from '../telegram/telegram.service.js';
+import { TeamModel } from '../team/team.entity.js';
+import { agentInstructions, placeholderUser, runAgent } from '../telegram/telegram.service.js';
 import { failed, type InboundEvent, type PluginOutcome } from './plugin.common.js';
 import { type TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import { forwardEvent, recordCall } from './plugin.tools.js';
@@ -79,23 +77,11 @@ export async function receiveInbound(
         return fail(`${agent.name} has no model to answer with`);
     }
 
-    const documents = await fastify.db
-        .getRepository(TeamAgentDocument)
-        .find({ where: { agent_id: agent.id } });
+    const person = placeholderUser(plugin.team_id, new Date());
 
-    const tools = (await agentTools(fastify, agent)).filter(
+    const tools = (await agentTools(fastify, agent, person)).filter(
         (tool) => !PERSONAL_TOOLS.includes(tool.name),
     );
-
-    const roster = agentHasPermission(agent.permissions, 'roster.read')
-        ? rosterPrompt(
-              (
-                  await fastify.db
-                      .getRepository(TeamDocument)
-                      .findOneBy({ team_id: plugin.team_id, name: ROSTER_FILE })
-              )?.content ?? '',
-          )
-        : '';
 
     const earlier = (
         await calls.find({
@@ -119,21 +105,16 @@ export async function receiveInbound(
     const place = PLUGIN_KINDS.find((kind) => kind.key === plugin.kind)?.label ?? plugin.kind;
 
     const messages = buildMessages(
-        [
-            buildSystemPrompt(
-                documents,
-                tools.some((tool) => tool.name === 'document_read'),
-            ),
-            roster,
-            toolGuidance(tools.map((tool) => tool.name)),
+        await agentInstructions(
+            fastify,
+            agent,
+            tools,
             [
                 '# Where you are',
                 '',
                 `You are answering ${event.author} on ${place}, in ${event.where}. What you write is sent back there as your reply, so write only the reply itself, in the language they wrote in.`,
             ].join('\n'),
-        ]
-            .filter((section) => section !== '')
-            .join('\n\n---\n\n'),
+        ),
         earlier,
         event.text,
     );
@@ -142,7 +123,7 @@ export async function receiveInbound(
         teamId: plugin.team_id,
         agent,
         model,
-        user: placeholderUser(plugin.team_id, new Date()),
+        user: person,
         messages,
         tools,
     });

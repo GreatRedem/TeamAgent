@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
     AGENT_PERMISSIONS,
     DEFAULT_AGENT_PERMISSIONS,
+    DEFAULT_PERMISSIONS,
     DOCUMENT_NAME_PATTERN,
     PERMISSIONS,
     TOOLS,
@@ -12,7 +13,7 @@ import {
     serializeAgentPermissions,
 } from '../routes/agent/agent.permission.js';
 import { readToolCalls } from '../routes/agent/agent.reply.js';
-import { allowedTools, toOpenAITools } from '../routes/mcp/mcp.tools.js';
+import { allowedTools, toOpenAITools, withCallable } from '../routes/mcp/mcp.tools.js';
 
 function main() {
     const call = (id: string, name: string, args: unknown) => ({
@@ -342,6 +343,56 @@ function main() {
                         `accepted ${JSON.stringify(payload)}`,
                     );
                 }
+            },
+        ],
+
+        [
+            'asking other agents needs the agent capability and is never on by default',
+            () => {
+                const names = allowedTools(serializeAgentPermissions(['agents.call'])).map(
+                    (t) => t.name,
+                );
+
+                assert.deepEqual(names, ['agent_call']);
+                assert.equal(DEFAULT_AGENT_PERMISSIONS.includes('agents.call'), false);
+                assert.equal(DEFAULT_PERMISSIONS.includes('delegate'), false);
+                assert.ok(PERMISSIONS.some((p) => p.key === 'delegate'));
+            },
+        ],
+
+        [
+            'agent_call is dropped when there is nobody to ask',
+            () => {
+                const tools = allowedTools(serializeAgentPermissions(['agents.call', 'basics']));
+
+                assert.deepEqual(
+                    withCallable(tools, []).map((t) => t.name),
+                    tools.map((t) => t.name).filter((name) => name !== 'agent_call'),
+                );
+            },
+        ],
+
+        [
+            'agent_call names the agents it can reach and what they may do',
+            () => {
+                const [call] = withCallable(
+                    allowedTools(serializeAgentPermissions(['agents.call'])),
+                    [
+                        {
+                            name: 'Team Agent',
+                            description: 'Keeps team.json',
+                            permissions: 'basics,roster.read,roster.create',
+                        },
+                        { name: 'Quiet', description: '', permissions: 'basics' },
+                    ],
+                );
+
+                assert.ok(
+                    call?.description.endsWith(
+                        'Agents you can ask: "Team Agent": Keeps team.json (may: roster.read, roster.create); "Quiet".',
+                    ),
+                    call?.description,
+                );
             },
         ],
     ];

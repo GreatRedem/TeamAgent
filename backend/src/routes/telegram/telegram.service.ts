@@ -54,6 +54,7 @@ import {
     setAside,
 } from '../model/model.auto.js';
 import { fetchCatalog } from '../model/model.provider.js';
+import { profileLabel } from '../task/task.plan.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
 import { rosterPrompt } from '../team/team.roster.js';
@@ -584,6 +585,39 @@ export function placeholderUser(teamId: number, at: Date): TelegramUser {
     });
 }
 
+export async function agentInstructions(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    tools: ToolDefinition[],
+    situation = '',
+): Promise<string> {
+    const documents = await fastify.db
+        .getRepository(TeamAgentDocument)
+        .find({ where: { agent_id: agent.id } });
+
+    const roster = agentHasPermission(agent.permissions, 'roster.read')
+        ? rosterPrompt(
+              (
+                  await fastify.db
+                      .getRepository(TeamDocument)
+                      .findOneBy({ team_id: agent.team_id, name: ROSTER_FILE })
+              )?.content ?? '',
+          )
+        : '';
+
+    return [
+        buildSystemPrompt(
+            documents,
+            tools.some((tool) => tool.name === 'document_read'),
+        ),
+        roster,
+        toolGuidance(tools.map((tool) => tool.name)),
+        situation,
+    ]
+        .filter((section) => section !== '')
+        .join('\n\n---\n\n');
+}
+
 export type AgentEvent =
     | {
           kind: 'model';
@@ -884,7 +918,9 @@ export async function runAgent(
                 const toolStartedAt = Date.now();
 
                 const result = tools.some((tool) => tool.name === call.name)
-                    ? await runTool(fastify, agent, user, call.name, call.arguments)
+                    ? call.name === 'agent_call'
+                        ? await callAgent(fastify, log, agent, user, call.arguments)
+                        : await runTool(fastify, agent, user, call.name, call.arguments)
                     : {
                           ok: false,
                           content: JSON.stringify({ error: `${call.name} is not available here` }),
@@ -921,6 +957,98 @@ export async function runAgent(
     }
 
     return { text, failure, lastStatus, served, toolRuns, unreachable: false };
+}
+
+async function callAgent(
+    fastify: FastifyInstance,
+    log: FastifyBaseLogger,
+    caller: TeamAgent,
+    user: TelegramUser,
+    args: Record<string, unknown>,
+): Promise<{ ok: boolean; content: string }> {
+    const refuse = (error: string) => ({ ok: false, content: JSON.stringify({ error }) });
+
+    if (!hasPermission(user.permissions, 'delegate')) {
+        return refuse('the person you are answering may not ask other agents');
+    }
+
+    const wanted = typeof args['agent'] === 'string' ? args['agent'].trim().toLowerCase() : '';
+    const request = typeof args['request'] === 'string' ? args['request'].trim() : '';
+
+    if (wanted === '' || request === '') {
+        return refuse('agent and request are required');
+    }
+
+    const target = (
+        await fastify.db.getRepository(TeamAgent).find({ where: { team_id: caller.team_id } })
+    ).find(
+        (other) =>
+            other.id !== caller.id &&
+            (other.name.toLowerCase() === wanted || String(other.id) === wanted),
+    );
+
+    if (!target) {
+        return refuse(`there is no other agent called ${wanted}`);
+    }
+
+    const model = await fastify.db
+        .getRepository(TeamModel)
+        .findOneBy({ id: target.model_id, team_id: caller.team_id });
+
+    if (!model) {
+        return refuse(`${target.name} has no model to answer with`);
+    }
+
+    const tools = (await agentTools(fastify, target, user)).filter(
+        (tool) => tool.name !== 'agent_call',
+    );
+    const person = profileLabel(user);
+    const startedAt = Date.now();
+
+    const run = await runAgent(fastify, log.child({ calledAgentId: target.id }), {
+        teamId: caller.team_id,
+        agent: target,
+        model,
+        user,
+        messages: buildMessages(
+            await agentInstructions(
+                fastify,
+                target,
+                tools,
+                [
+                    '# Asked by another agent',
+                    '',
+                    `${caller.name} is passing on a request from ${person}, who may ask other agents. Carry it out with your own tools, then say in a few sentences what you did, or why you could not. Your answer goes back to ${caller.name}, not to ${person}.`,
+                ].join('\n'),
+            ),
+            [],
+            request,
+        ),
+        tools,
+    });
+
+    const answer = run.unreachable ? '' : (run.text ?? '').trim();
+
+    await audit(fastify, log, {
+        teamId: caller.team_id,
+        actor: 'agent',
+        action: 'agent.call',
+        target: `agent:${target.id}`,
+        outcome: answer === '' ? 'error' : 'ok',
+        durationMs: Date.now() - startedAt,
+        detail: `${caller.name} asked ${target.name} for ${person} (profile ${user.id}) · ${run.toolRuns} tool call(s)${answer === '' ? ` · ${run.failure || 'no answer'}` : ''}`,
+    });
+
+    if (answer === '') {
+        return refuse(
+            `${target.name} could not answer: ${run.unreachable ? 'its model could not be reached' : run.failure || 'it returned no text'}`,
+        );
+    }
+
+    return {
+        ok: true,
+        content: JSON.stringify({ agent: target.name, answer, tool_calls: run.toolRuns }),
+    };
 }
 
 async function deliverAgentReply(
@@ -998,10 +1126,6 @@ async function deliverAgentReply(
         return;
     }
 
-    const documents = await fastify.db
-        .getRepository(TeamAgentDocument)
-        .find({ where: { agent_id: agent.id } });
-
     const history = await fastify.db.getRepository(TelegramMessage).find({
         where: { team_id: bot.team_id, user_id: user.id },
         order: { id: 'DESC' },
@@ -1010,28 +1134,10 @@ async function deliverAgentReply(
 
     const earlier = earlierTurns(history, messageId);
 
-    const tools = await agentTools(fastify, agent);
-
-    const lazyDocuments = tools.some((tool) => tool.name === 'document_read');
-
-    const roster = agentHasPermission(agent.permissions, 'roster.read')
-        ? rosterPrompt(
-              (
-                  await fastify.db
-                      .getRepository(TeamDocument)
-                      .findOneBy({ team_id: bot.team_id, name: ROSTER_FILE })
-              )?.content ?? '',
-          )
-        : '';
+    const tools = await agentTools(fastify, agent, user);
 
     const messages: ChatMessage[] = buildMessages(
-        [
-            buildSystemPrompt(documents, lazyDocuments),
-            roster,
-            toolGuidance(tools.map((tool) => tool.name)),
-        ]
-            .filter((section) => section !== '')
-            .join('\n\n---\n\n'),
+        await agentInstructions(fastify, agent, tools),
         earlier,
         incoming,
     );

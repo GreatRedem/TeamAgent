@@ -10,8 +10,8 @@ import {
     TOOLS,
 } from '../../constant.js';
 
-import { type TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
-import { agentHasPermission } from '../agent/agent.permission.js';
+import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
+import { agentHasPermission, parseAgentPermissions } from '../agent/agent.permission.js';
 import { audit } from '../audit/audit.log.js';
 import { isPluginTool, pluginTools, runPluginTool } from '../plugin/plugin.tools.js';
 import { TeamDocument } from '../team/team.entity.js';
@@ -29,6 +29,7 @@ import {
     TelegramUser,
     TelegramUserDocument,
 } from '../telegram/telegram.entity.js';
+import { hasPermission } from '../telegram/telegram.permission.js';
 import { searchWeb } from './mcp.search.js';
 import { weatherFor } from './mcp.weather.js';
 import { fetchPublicUrl } from './mcp.web.js';
@@ -54,11 +55,53 @@ export function allowedTools(agentPermissions: string): ToolDefinition[] {
     return TOOLS.filter((tool) => agentHasPermission(agentPermissions, tool.permission));
 }
 
+export function withCallable(
+    tools: ToolDefinition[],
+    others: { name: string; description: string; permissions: string }[],
+): ToolDefinition[] {
+    if (others.length === 0) {
+        return tools.filter((tool) => tool.name !== 'agent_call');
+    }
+
+    const listed = others
+        .map((other) => {
+            const may = parseAgentPermissions(other.permissions).filter((key) => key !== 'basics');
+
+            return [
+                `"${other.name}"`,
+                other.description === '' ? '' : `: ${other.description}`,
+                may.length === 0 ? '' : ` (may: ${may.join(', ')})`,
+            ].join('');
+        })
+        .join('; ');
+
+    return tools.map((tool) =>
+        tool.name === 'agent_call'
+            ? { ...tool, description: `${tool.description} Agents you can ask: ${listed}.` }
+            : tool,
+    );
+}
+
 export async function agentTools(
     fastify: FastifyInstance,
     agent: TeamAgent,
+    person: TelegramUser,
 ): Promise<ToolDefinition[]> {
-    return [...allowedTools(agent.permissions), ...(await pluginTools(fastify, agent))];
+    const tools = [...allowedTools(agent.permissions), ...(await pluginTools(fastify, agent))];
+
+    if (!tools.some((tool) => tool.name === 'agent_call')) {
+        return tools;
+    }
+
+    const others = hasPermission(person.permissions, 'delegate')
+        ? (
+              await fastify.db
+                  .getRepository(TeamAgent)
+                  .find({ where: { team_id: agent.team_id }, order: { id: 'ASC' } })
+          ).filter((other) => other.id !== agent.id && other.model_id !== 0)
+        : [];
+
+    return withCallable(tools, others);
 }
 
 export function toOpenAITools(tools: ToolDefinition[]) {

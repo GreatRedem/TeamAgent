@@ -2,22 +2,23 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import {
     DRAFT_INTERVAL,
     PERSONAL_TOOLS,
-    ROSTER_FILE,
     TASK_MODEL_REST,
     TASK_RETRY_DELAYS,
     TELEGRAM_TEXT_MAX,
 } from '../../constant.js';
 
-import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
-import { agentHasPermission } from '../agent/agent.permission.js';
-import { buildSystemPrompt, toolGuidance } from '../agent/agent.reply.js';
+import { TeamAgent } from '../agent/agent.entity.js';
 import { audit } from '../audit/audit.log.js';
 import { agentTools } from '../mcp/mcp.tools.js';
 import { isAutoFree, rest } from '../model/model.auto.js';
-import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
-import { rosterPrompt } from '../team/team.roster.js';
+import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
-import { placeholderUser, runAgent, telegramText } from '../telegram/telegram.service.js';
+import {
+    agentInstructions,
+    placeholderUser,
+    runAgent,
+    telegramText,
+} from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import {
     nextStart,
@@ -185,37 +186,14 @@ export async function runTask(
             return true;
         }
 
-        const documents = await fastify.db
-            .getRepository(TeamAgentDocument)
-            .find({ where: { agent_id: agent.id } });
+        const person = recipient ?? placeholderUser(task.team_id, startedAt);
 
-        const allowed = await agentTools(fastify, agent);
+        const allowed = await agentTools(fastify, agent, person);
         const tools = recipient
             ? allowed
             : allowed.filter((tool) => !PERSONAL_TOOLS.includes(tool.name));
 
-        const roster = agentHasPermission(agent.permissions, 'roster.read')
-            ? rosterPrompt(
-                  (
-                      await fastify.db
-                          .getRepository(TeamDocument)
-                          .findOneBy({ team_id: task.team_id, name: ROSTER_FILE })
-                  )?.content ?? '',
-              )
-            : '';
-
-        const instructions = [
-            buildSystemPrompt(
-                documents,
-                tools.some((tool) => tool.name === 'document_read'),
-            ),
-            roster,
-            toolGuidance(tools.map((tool) => tool.name)),
-        ]
-            .filter((part) => part !== '')
-            .join('\n\n---\n\n');
-
-        const person = recipient ?? placeholderUser(task.team_id, startedAt);
+        const instructions = await agentInstructions(fastify, agent, tools);
 
         let draftAt = 0;
 

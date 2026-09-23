@@ -125,6 +125,12 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
             'Lets this agent take a person out of team.json. The one team.json action that loses information, so grant it sparingly.',
     },
     {
+        key: 'agents.call',
+        label: 'May ask other agents',
+        description:
+            'Lets this agent hand a request to another agent in this project, which carries it out with its own capabilities. It is only offered while answering someone who may ask other agents.',
+    },
+    {
         key: 'web.fetch',
         label: 'May use the web',
         description:
@@ -460,6 +466,23 @@ export const TOOLS: ToolDefinition[] = [
         },
     },
     {
+        name: 'agent_call',
+        description:
+            'Hand a request to another agent in this project. It carries it out with its own tools and tells you what it did. Use it when the person asks for something another agent can do and you cannot, such as adding someone to the team. It cannot see this conversation, so put every detail it needs in the request.',
+        permission: 'agents.call',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent: { type: 'string', description: 'The agent to ask, by name' },
+                request: {
+                    type: 'string',
+                    description: 'What it should do, with every name and detail it needs',
+                },
+            },
+            required: ['agent', 'request'],
+        },
+    },
+    {
         name: 'time_now',
         description:
             'The current date and time in UTC. Use this rather than guessing what day it is.',
@@ -735,6 +758,12 @@ export const PERMISSIONS: Permission[] = [
         key: 'model',
         label: 'Chat with model',
         description: "May have messages answered by the team's configured model.",
+    },
+    {
+        key: 'delegate',
+        label: 'Ask other agents',
+        description:
+            'May have the agent they talk to pass a request on to another agent of this project, which acts with its own capabilities, such as adding someone to team.json.',
     },
 ];
 
