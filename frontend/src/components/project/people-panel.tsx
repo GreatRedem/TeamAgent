@@ -180,7 +180,6 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                     as="li"
                                     className="border-b last:border-b-0"
                                     key={profile.id}>
-                                    {/* The toggle stretches over the whole row; the profile link sits above it. */}
                                     <Stack
                                         direction="Horizontal"
                                         className="relative items-center gap-3 px-5 py-3 hover:bg-accent/40">

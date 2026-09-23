@@ -25,13 +25,11 @@ import { Text } from '@/ui/text';
 
 import { MemberDialog } from './member-dialog';
 
-// The team in team.json: who is on it, which agents answer from it, and the file itself.
 export function TeamPanel({ teamId }: { teamId: number }) {
     const [members, setMembers] = useState<RosterMember[] | null>(null);
     const [agents, setAgents] = useState<TeamAgent[] | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // null: closed. 'new': adding. A member: editing them.
     const [editing, setEditing] = useState<RosterMember | 'new' | null>(null);
     const [saving, setSaving] = useState<string | null>(null);
 
@@ -79,7 +77,6 @@ export function TeamPanel({ teamId }: { teamId: number }) {
         [teamId],
     );
 
-    // Grants or takes back one of the team.json capabilities from an agent.
     const toggle = useCallback(
         async (agent: TeamAgent, key: string) => {
             const next = agent.permissions.includes(key)

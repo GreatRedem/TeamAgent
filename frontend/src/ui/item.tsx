@@ -3,7 +3,6 @@ import { cn } from '@/libs/cn';
 import { Separator } from '@/ui/separator';
 import { Slot } from '@/ui/slot';
 
-// A list of items; each Item inside renders as an li through asChild.
 function ItemGroup({ className, ...props }: React.ComponentProps<'ul'>) {
     return (
         <ul
@@ -47,7 +46,6 @@ function Item({
     variant?: keyof typeof itemVariant;
     size?: keyof typeof itemSize;
     asChild?: boolean;
-    // No horizontal padding: the item lines up with the text around it.
     flush?: boolean;
 }) {
     const Comp = asChild ? Slot : 'div';

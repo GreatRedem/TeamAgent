@@ -8,7 +8,6 @@ function Input({
     compact = false,
     ...props
 }: React.ComponentProps<'input'> & {
-    // A short field that sits inline beside a button instead of filling the row.
     compact?: boolean;
 }) {
     return (

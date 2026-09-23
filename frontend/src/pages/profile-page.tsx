@@ -225,7 +225,6 @@ export function ProfilePage() {
                                 </CardDescription>
                             </CardHeader>
 
-                            {/* Newest first and reversed, so the list opens scrolled to the latest message. */}
                             <CardContent className="flex max-h-125 flex-col-reverse gap-3 overflow-y-auto">
                                 {details.messages.length === 0 && (
                                     <Text type="BodyMuted" message="No messages stored yet." />

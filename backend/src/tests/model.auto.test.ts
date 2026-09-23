@@ -13,9 +13,6 @@ import {
 import type { CatalogModel } from '../routes/model/model.provider.js';
 import { listingKey } from '../routes/model/model.service.js';
 
-// Self-check for auto-free model switching and the stored-key listing rule. Run with:
-// npx tsx --tsconfig backend/tsconfig.json backend/src/tests/model.auto.test.ts
-
 const model = (id: string, context: number, price: number, tools = true): CatalogModel => ({
     id,
     name: id,
@@ -32,7 +29,6 @@ const catalog = [
     model('free/no-tools', 256_000, 0, false),
 ];
 
-// Only free models, tool-capable when the agent has tools, largest context first.
 assert.deepEqual(
     freeCandidates(catalog, true).map((m) => m.id),
     ['free/large', 'free/small'],
@@ -42,7 +38,6 @@ assert.deepEqual(
     ['free/no-tools', 'free/large', 'free/small'],
 );
 
-// Picking: the first model neither tried this round nor resting.
 {
     wake();
     const pool = freeCandidates(catalog, true);
@@ -59,16 +54,13 @@ assert.deepEqual(
         'a model is back once its rest is over',
     );
 
-    // Everything resting: the one that wakes soonest, rather than no answer at all.
     rest('free/small', REST_GONE, now);
     assert.equal(pickFree(pool, new Set(), now)?.id, 'free/large');
 
-    // Everything tried this round: nothing left.
     assert.equal(pickFree(pool, new Set(['free/large', 'free/small']), now), null);
     wake();
 }
 
-// Failures: the model's own problems switch; ones every model shares do not.
 assert.equal(restFor(429, '', false), REST_BUSY, 'rate limited');
 assert.equal(restFor(0, '', false), REST_DOWN, 'unreachable');
 assert.equal(restFor(503, '', false), REST_DOWN, 'provider down');
@@ -79,7 +71,6 @@ assert.equal(restFor(401, '', false), null, 'a rejected key is the same for ever
 assert.equal(restFor(402, '', false), null, 'no credit is the same for every model');
 assert.equal(restFor(400, 'messages must not be empty', false), null, 'a bad request is ours');
 
-// Listing with the stored key: only against the origin it was saved for.
 {
     const stored = { base_url: 'https://api.example.com/v1', api_key: 'sk-stored' };
 

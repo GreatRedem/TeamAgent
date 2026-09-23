@@ -10,12 +10,8 @@ export const MEMBER_TEXT_MAX = 2000;
 
 export const SOCIAL_MAX = 20;
 
-// Up to this size team.json goes into an agent's instructions whole; past it the agent is told
-// to read it with roster_read, so a large team cannot crowd out the conversation.
 export const ROSTER_INLINE_MAX = 8000;
 
-// The fields the member form owns. Anything else on a member, recorded by an agent or written
-// into the file by hand, is kept when the form saves.
 const FORM_FIELDS = ['name', 'rank', 'description', 'social', 'profile_id'];
 
 export interface RosterMember {
@@ -31,7 +27,6 @@ export interface Roster {
     [key: string]: unknown;
 }
 
-// `code` is what the API answers with, so the page can say what went wrong.
 export class RosterError extends Error {
     readonly code: string;
 
@@ -194,9 +189,6 @@ export function removeMember(roster: Roster, name: string): { roster: Roster; re
     return { roster: { ...roster, members }, removed: members.length !== roster.members.length };
 }
 
-// Saves one member as the form describes them: the whole member, not a merge, so a field left
-// empty is removed. `previous` is the name they were saved under, which lets a save rename them.
-// A new name that belongs to someone else is refused rather than merging two people.
 export function replaceMember(
     roster: Roster,
     previous: string | undefined,
@@ -220,7 +212,6 @@ export function replaceMember(
         delete member['profile_id'];
     }
 
-    // Adding (no previous name) never lands on an existing member; it clashes instead.
     const at =
         previous === undefined
             ? -1
@@ -259,8 +250,6 @@ export function replaceMember(
     return { ...roster, members };
 }
 
-// The part of an agent's instructions that carries team.json, for an agent allowed to read it.
-// Empty when nobody is on the team or the file cannot be read.
 export function rosterPrompt(content: string): string {
     let roster: Roster;
 

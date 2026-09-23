@@ -27,11 +27,8 @@ export const METRICS_REFRESH = 10_000;
 
 export const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
-// A model set to this uses a free OpenRouter model for each reply and moves to the next one
-// when a model is busy or fails. The backend stores and recognises the same value.
 export const MODEL_AUTO_FREE = 'auto:free';
 
-// How long the model form waits after the address or key stops changing before it lists models.
 export const MODEL_LIST_DELAY = 500;
 
 export const LOCALES = [
@@ -58,7 +55,6 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
 
-// The team.json capabilities the Team page offers per agent, one per tool.
 export const ROSTER_ACCESS = [
     { key: 'roster.read', label: 'Reads it' },
     { key: 'roster.create', label: 'Adds members' },
@@ -66,7 +62,6 @@ export const ROSTER_ACCESS = [
     { key: 'roster.delete', label: 'Removes members' },
 ];
 
-// Networks offered when recording where a team member can be found; any other name works too.
 export const SOCIAL_NETWORKS = [
     'telegram',
     'x',
@@ -77,7 +72,6 @@ export const SOCIAL_NETWORKS = [
     'email',
 ];
 
-// What the Team page says for each refusal the roster endpoints can give.
 export const ROSTER_ERRORS: Record<string, string> = {
     ROSTER_MEMBER_TAKEN: 'Someone with that name is already on the team.',
     ROSTER_MEMBER_NOT_FOUND: 'That person is no longer on the team.',
@@ -87,14 +81,12 @@ export const ROSTER_ERRORS: Record<string, string> = {
     ROSTER_MALFORMED: 'team.json is damaged and cannot be read.',
 };
 
-// How often a task repeats, as the task form and cards name it.
 export const TASK_REPEAT_LABELS: Record<string, string> = {
     none: 'Once',
     daily: 'Every day',
     weekly: 'Every week',
 };
 
-// A task's state as its card shows it: the words, and the badge that carries them.
 export const TASK_STATUS: Record<
     string,
     { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
@@ -106,10 +98,8 @@ export const TASK_STATUS: Record<
     cancelled: { label: 'Cancelled', variant: 'outline' },
 };
 
-// How often an open run log asks for news while a task is running.
 export const TASK_LIVE_POLL = 1500;
 
-// What the Tasks page says for each refusal the task endpoints can give.
 export const TASK_ERRORS: Record<string, string> = {
     TASK_TITLE_REQUIRED: 'Give the task a title.',
     TASK_AGENT_REQUIRED: 'Pick the agent that carries it out.',
@@ -120,10 +110,8 @@ export const TASK_ERRORS: Record<string, string> = {
     TASK_CANCELLED: 'It is cancelled. Schedule it again to run it.',
 };
 
-// How long the person picker waits after typing stops before it searches.
 export const PROFILE_SEARCH_DELAY = 300;
 
-// The agent page's tabs, in order; the first is the one it opens on.
 export const AGENT_TABS = [
     { value: 'settings', label: 'Settings', icon: Settings2 },
     { value: 'capabilities', label: 'Capabilities', icon: ShieldCheck },
@@ -158,7 +146,6 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const HEAT_SCALE = ['bg-scale-0', 'bg-scale-1', 'bg-scale-2', 'bg-scale-3', 'bg-scale-4'];
 
-// The failure heatmap: red is for failures only.
 export const HEAT_SCALE_FAILED = [
     'bg-scale-0',
     'bg-scale-fail-1',

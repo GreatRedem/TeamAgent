@@ -2,8 +2,6 @@ import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
 
-// Each type is a typography role: size, weight and line height together. Types without a size
-// (Foreground, ForegroundMuted, Strong, Mono) inherit all three from where they sit.
 const textType = {
     Title: 'text-page font-semibold tracking-tight leading-display',
     Heading: 'text-base font-semibold leading-heading',
@@ -30,8 +28,6 @@ const textElement: Partial<Record<TextType, 'h1' | 'h2'>> = {
     Heading: 'h2',
 };
 
-// Every piece of UI copy goes through here: `type` picks the typography, `as` the element.
-// It takes a `message` and never children, so copy cannot nest markup.
 function Text({
     type,
     message,

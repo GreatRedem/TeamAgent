@@ -12,12 +12,8 @@ import { runAgent, telegramText } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import { nextStart, profileLabel, type TaskRepeat, taskMessages } from './task.plan.js';
 
-// How often a running task's answer is saved while the agent is still writing it.
 const DRAFT_INTERVAL = 1000;
 
-// Runs one task now, if it is still waiting: claims it so it runs once even when the scheduler
-// and a "Run now" meet, runs its agent, sends the result to its person, records the run and
-// schedules the next one for a repeating task. Returns false when someone else had claimed it.
 export async function runTask(
     fastify: FastifyInstance,
     log: FastifyBaseLogger,
@@ -43,8 +39,6 @@ export async function runTask(
 
     log.info({ module: 'task', taskId: task.id, runId: run.id }, 'task run started');
 
-    // The run's log, written to its row as each step happens so the page can follow along. Writes
-    // go one after another, so a step never lands before the one it follows.
     const events: Record<string, unknown>[] = [];
     const spent = { model: '', prompt_tokens: 0, completion_tokens: 0, tool_calls: 0 };
     let written: Promise<unknown> = Promise.resolve();
@@ -188,8 +182,6 @@ export async function runTask(
             .filter((part) => part !== '')
             .join('\n\n---\n\n');
 
-        // A task for nobody in particular still runs as someone; its personal tools are withheld,
-        // so this stand-in is never read or written.
         const person =
             recipient ??
             Object.assign(new TelegramUser(), {
@@ -231,7 +223,6 @@ export async function runTask(
 
                 note(event);
             },
-            // The answer as it is written, kept on the run about once a second.
             onText: (partial) => {
                 if (Date.now() - draftAt >= DRAFT_INTERVAL) {
                     draftAt = Date.now();
@@ -263,8 +254,6 @@ export async function runTask(
             return true;
         }
 
-        // Sent through the bot this person last wrote to; a bot can only message someone who
-        // has written to it.
         const last = await fastify.db.getRepository(TelegramMessage).findOne({
             where: { team_id: task.team_id, user_id: recipient.id, direction: 'in' },
             order: { id: 'DESC' },

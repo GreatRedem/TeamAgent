@@ -126,7 +126,6 @@ function readModelBody(request: FastifyRequest) {
         throw new BadRequestResponse('ERROR_MIN_LENGTH');
     }
 
-    // Auto-free picks from the OpenRouter catalog, the only listing that says what is free.
     if (isAutoFree(model) && !isOpenRouter(baseUrl)) {
         throw new BadRequestResponse('MODEL_AUTO_FREE_UNSUPPORTED');
     }
@@ -234,8 +233,6 @@ export async function probeModel(
     };
 }
 
-// An auto-free model is never in a listing under its own name. What matters is that free
-// models exist to switch between; the largest context among them is the most it can hold.
 async function withAutoFree(probe: ModelProbe, model: string): Promise<ModelProbe> {
     if (!probe.ok || !isAutoFree(model)) {
         return probe;
@@ -250,9 +247,6 @@ async function withAutoFree(probe: ModelProbe, model: string): Promise<ModelProb
     };
 }
 
-// The key that lists an endpoint's models: the one typed into the form, or, when an edit
-// form leaves it blank, the stored one, but only against the origin it was saved for, so a
-// changed URL can never carry the stored key to another server.
 export function listingKey(
     typed: string,
     baseUrl: string,
@@ -269,7 +263,6 @@ export function listingKey(
     }
 }
 
-// The model an edit form names with `model_id`, so a blank key can fall back to its stored one.
 async function readStoredModel(fastify: FastifyInstance, request: FastifyRequest, teamId: number) {
     const raw = (request.body as { model_id?: unknown } | undefined)?.model_id;
 
@@ -301,7 +294,6 @@ export function modelCreate(fastify: FastifyInstance) {
             throw new BadRequestResponse('MODEL_ALREADY_ADDED');
         }
 
-        // An auto-free model's context changes with the model it picks, so none is stored.
         const detected =
             contextTokens > 0 || isAutoFree(model)
                 ? contextTokens
@@ -374,7 +366,6 @@ export function modelList(fastify: FastifyInstance) {
     return { schema: schemaModelList, config: { ...authGuard() }, handler };
 }
 
-// Every round-trip one model has made, newest first, whichever agent asked.
 export function modelExchanges(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
@@ -615,8 +606,6 @@ export function modelProbe(fastify: FastifyInstance) {
     return { schema: schemaModelProbe, config: { ...authGuard() }, handler };
 }
 
-// Lists an endpoint's model ids so the form can offer them as you type. Read-only and run
-// automatically, so it is logged but not added to the audit trail.
 export function modelListIds(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);

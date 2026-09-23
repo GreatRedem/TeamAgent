@@ -15,10 +15,6 @@ import { Text } from '@/ui/text';
 
 import { TaskRunLog } from './task-run-log';
 
-// Every time one task ran, newest first: when it started, how long it took, how it ended, what it
-// cost, what the agent produced, whether it reached its person, and each step on the way. While a
-// run is going the dialog follows it live. `liveSince` is when "Run now" was pressed, so the
-// dialog keeps looking until that run appears.
 export function TaskRunsDialog({
     teamId,
     task,
@@ -71,7 +67,6 @@ export function TaskRunsDialog({
         };
     }, [teamId, taskId]);
 
-    // Follows along while a run is going, and for a minute after "Run now" until its run shows.
     const awaited =
         liveSince !== null &&
         Date.now() - liveSince < 60_000 &&

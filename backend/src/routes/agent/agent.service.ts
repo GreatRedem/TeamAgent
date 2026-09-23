@@ -334,10 +334,8 @@ export function agentRemove(fastify: FastifyInstance) {
 
         await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
 
-        // The notes it kept on people go with it; no other agent could read them.
         await fastify.db.getRepository(TelegramUserDocument).delete({ agent_id: agentId });
 
-        // Its waiting tasks are cancelled rather than left to fail each time they come round.
         await fastify.db
             .getRepository(TeamTask)
             .update(
@@ -587,8 +585,6 @@ export function agentPermissionUpdate(fastify: FastifyInstance) {
     return { schema: schemaAgentPermissionUpdate, config: { ...authGuard() }, handler };
 }
 
-// One model round-trip as the agent and model pages show it. `agentName` is empty for an agent
-// since removed.
 export function exchangeView(exchange: TeamAgentExchange, agentName: string) {
     return {
         id: exchange.id,

@@ -74,8 +74,6 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
 
 const KNOWN = new Set(AGENT_PERMISSIONS.map((permission) => permission.key));
 
-// Keys since split into finer ones. An agent that held the old key holds every one it became,
-// so a stored agent keeps what it could do; the next save writes the new keys.
 const SPLIT: Record<string, string[]> = {
     'roster.write': ['roster.create', 'roster.update', 'roster.delete'],
 };

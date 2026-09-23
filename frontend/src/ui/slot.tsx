@@ -6,7 +6,6 @@ type Handler = (...args: unknown[]) => void;
 
 type SlotProps = React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode };
 
-// Renders its only child with these props merged in, the child's own handlers running first.
 function Slot({ children, className, ...props }: SlotProps) {
     if (!React.isValidElement<SlotProps>(children)) {
         return null;

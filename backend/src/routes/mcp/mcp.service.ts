@@ -43,7 +43,6 @@ export function profileFiles(fastify: FastifyInstance) {
 
         const { limit, offset } = readPage(request, FILE_PAGE);
 
-        // Each agent keeps its own files on a person, so they come grouped by agent.
         const [rows, total] = await fastify.db.getRepository(TelegramUserDocument).findAndCount({
             where: { user_id: user.id },
             order: { agent_id: 'ASC', name: 'ASC' },

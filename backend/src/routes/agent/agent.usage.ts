@@ -2,9 +2,6 @@ import type { FastifyInstance } from 'fastify';
 
 import { TeamAgentExchange } from './agent.entity.js';
 
-// What a model or an agent has done over every round-trip on record. A reply is a round that
-// succeeded without asking for tools, so a tool round and its answer count as one reply; a
-// round-trip is every call, tool rounds and failures included.
 export interface ExchangeUsage {
     replies: number;
     round_trips: number;
@@ -51,7 +48,6 @@ export const schemaUsage = {
     },
 } as const;
 
-// Totals per model or per agent, in one grouped query. Ids with no round-trips are absent.
 export async function exchangeUsage(
     fastify: FastifyInstance,
     teamId: number,

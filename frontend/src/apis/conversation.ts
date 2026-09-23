@@ -21,7 +21,6 @@ export interface TelegramMessage {
     sent_at: string;
 }
 
-// `query` narrows the list to names and usernames containing it.
 export function conversationList(teamId: number, page?: Partial<Paged>, query = '') {
     const search = query.trim() === '' ? '' : `q=${encodeURIComponent(query.trim())}`;
     const paging = pageQuery(page);

@@ -6,12 +6,9 @@ import { profileName } from '@/libs/profileName';
 import { Input } from '@/ui/input';
 import { Suggestions } from '@/ui/suggestions';
 
-// How a person reads in the picker; the trailing #id is how a choice is recognised.
 const pickLabel = (profile: TelegramProfile) =>
     `${profileName(profile)}${profile.username === '' ? '' : ` @${profile.username}`} #${profile.id}`;
 
-// Finds one of the project's profiles by name or username as it is typed, and hands the one
-// picked to `onPick`. The field empties again after a pick.
 export function ProfilePicker({
     id,
     teamId,

@@ -73,7 +73,6 @@ export const schemaTaskList = { response: paged('tasks', task) } as const;
 
 export const schemaTaskSave = { body, response: { 200: task } } as const;
 
-// Cancelling stops it from running; scheduling it again lets it run at its time.
 export const schemaTaskStatus = {
     body: {
         type: 'object',
@@ -118,7 +117,6 @@ export const schemaTaskRuns = {
             prompt_tokens: { type: 'integer' },
             completion_tokens: { type: 'integer' },
             tool_calls: { type: 'integer' },
-            // Each step as it happened: start, the model's rounds, tools, the send, the end.
             log: { type: 'array', items: { type: 'object', additionalProperties: true } },
         },
     }),

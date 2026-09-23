@@ -38,7 +38,6 @@ export function Projects() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
-    // Archived projects stay out of the main list; this switches the page to them.
     const [archived, setArchived] = useState(false);
 
     useEffect(() => {

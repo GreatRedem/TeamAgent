@@ -3,7 +3,6 @@ import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
 
-// A native <select>: the platform owns the picker, keyboard and screen reader behaviour.
 function Select({
     className,
     size = 'default',

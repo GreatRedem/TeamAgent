@@ -99,8 +99,6 @@ function DialogClose({
     );
 }
 
-// The native modal: top layer, focus trap, inert page and Escape come from the browser.
-// Children mount only while open, so a form inside starts fresh each time.
 const dialogSize = { default: 'sm:max-w-lg', sm: 'sm:max-w-sm', lg: 'sm:max-w-3xl' };
 
 function DialogContent({

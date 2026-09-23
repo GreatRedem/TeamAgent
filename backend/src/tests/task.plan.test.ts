@@ -8,10 +8,6 @@ import {
     taskMessages,
 } from '../routes/task/task.plan.js';
 
-// Self-check for scheduled tasks: what a task must have, when it runs next, what its agent is
-// told. Run with:
-// npx tsx --tsconfig backend/tsconfig.json backend/src/tests/task.plan.test.ts
-
 const code = (run: () => unknown) => {
     try {
         run();
@@ -22,7 +18,6 @@ const code = (run: () => unknown) => {
     return 'none';
 };
 
-// A task needs a title, an agent and a time; the rest is optional.
 {
     const body = readTaskBody({
         title: '  Weather for Alex ',
@@ -61,7 +56,6 @@ const code = (run: () => unknown) => {
     );
 }
 
-// When it runs next.
 {
     const nine = new Date('2026-09-23T09:00:00.000Z');
     const day = 86_400_000;
@@ -88,7 +82,6 @@ const code = (run: () => unknown) => {
     );
 }
 
-// What the agent is told.
 {
     const now = new Date('2026-09-23T09:00:00.000Z');
     const [system, request] = taskMessages(

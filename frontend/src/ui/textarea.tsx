@@ -4,7 +4,6 @@ import { cn } from '@/libs/cn';
 
 const textareaVariant = {
     default: 'min-h-16 text-base md:text-sm',
-    // Machine text such as a document body: mono, small, and tall enough to edit in.
     code: 'min-h-56 max-h-75 font-mono text-2xs',
 };
 

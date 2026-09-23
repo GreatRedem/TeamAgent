@@ -29,7 +29,6 @@ export function AppHeader() {
             direction="Vertical"
             as="header"
             className="pointer-events-none fixed inset-x-0 top-0 z-30 px-4 pt-3 sm:px-6">
-            {/* Always fully open, 32px narrower than the page column under it. */}
             <Stack
                 direction="Vertical"
                 className="pointer-events-auto mx-auto w-full max-w-[calc(var(--container-5xl)-2rem)] overflow-hidden rounded-xl border bg-card/95 shadow-float backdrop-blur-xl">

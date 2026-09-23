@@ -28,8 +28,6 @@ import { Select, SelectItem } from '@/ui/select';
 import { Stack } from '@/ui/stack';
 import { Textarea } from '@/ui/textarea';
 
-// Creates or edits a task: what to do and why, which agent does it, who gets the result and when
-// it runs. `task` is null to create one.
 export function TaskDialog({
     open,
     teamId,
@@ -57,7 +55,6 @@ export function TaskDialog({
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Each opening starts from the task being edited, or from a blank one due in ten minutes.
     useEffect(() => {
         if (!open) {
             return;

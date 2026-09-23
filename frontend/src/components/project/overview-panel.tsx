@@ -12,7 +12,6 @@ import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
-// The project's people, chats, requests and model spend, for the overview.
 export function OverviewPanel({ teamId }: { teamId: number }) {
     const [data, setData] = useState<ProjectOverview | null>(null);
     const [error, setError] = useState<string | null>(null);

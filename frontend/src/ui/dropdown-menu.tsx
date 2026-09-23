@@ -79,8 +79,6 @@ const menuAlign = {
     end: { right: 'anchor(right)' },
 };
 
-// A native popover: light dismiss, Escape and top layer come from the browser, and CSS
-// anchor positioning places it under the trigger.
 function DropdownMenuContent({
     className,
     align = 'center',

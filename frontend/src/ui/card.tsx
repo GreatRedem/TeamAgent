@@ -9,8 +9,6 @@ const cardVariant = {
 
 const cardGap = { 0: 'gap-0', 2: 'gap-2', 3: 'gap-3', 4: 'gap-4', 5: 'gap-5' };
 
-// Spacing and surface are props, not className overrides: `cn` does not merge classes,
-// so a className that fights one of these would lose to it.
 function Card({
     className,
     variant = 'raised',
@@ -20,7 +18,6 @@ function Card({
 }: React.ComponentProps<'div'> & {
     variant?: keyof typeof cardVariant;
     gap?: keyof typeof cardGap;
-    // No vertical padding: the content runs to the card's edges.
     flush?: boolean;
 }) {
     return (

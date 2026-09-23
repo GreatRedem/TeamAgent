@@ -67,14 +67,12 @@ export class TeamAgentExchange {
     @Column({ type: 'int', default: 0 })
     tool_calls: number;
 
-    // What the model reported reading and writing for this call; 0 when it reported nothing.
     @Column({ type: 'int', default: 0 })
     prompt_tokens: number;
 
     @Column({ type: 'int', default: 0 })
     completion_tokens: number;
 
-    // The provider reported no count for this call, so the two above are estimated.
     @Column({ type: 'boolean', default: false })
     tokens_estimated: boolean;
 

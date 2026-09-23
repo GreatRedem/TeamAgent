@@ -1,14 +1,6 @@
-// Turns the Markdown a model writes into the HTML subset Telegram renders (parse_mode HTML).
-// Telegram has no headings, lists or tables, so headings become bold lines, bullets become •,
-// and a table keeps its columns in a fixed-width block. Every tag comes from a pair matched on
-// one line, so a reply cut off mid-stream still parses; an unclosed fence runs to the end as
-// code. Nothing here makes the visible text longer than the Markdown it came from, so a
-// reply cut to Telegram's 4096 characters before converting still fits after.
-
 const escapeHtml = (text: string): string =>
     text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-// Only links Telegram opens safely; anything else stays as the text the model wrote.
 const SAFE_LINK = /^(https?:\/\/|mailto:|tg:\/\/)/i;
 
 const FENCE = /^\s*(```|~~~)\s*([\w+#.-]*)\s*$/;
@@ -19,8 +11,6 @@ const QUOTE = /^\s*>\s?(.*)$/;
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const TABLE_RULE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
 
-// Code spans and links are set aside first, as placeholders marked with a private-use character
-// no model writes, so the emphasis rules never reach inside a URL or a piece of code.
 function inline(line: string): string {
     const kept: string[] = [];
     const keep = (html: string) => `${kept.push(html) - 1}`;

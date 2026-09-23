@@ -197,7 +197,6 @@ export function teamList(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const { limit, offset } = readPage(request, LIST_PAGE);
 
-        // Archived projects stay out of the list; ?archived=true lists only them.
         const archived = (request.query as { archived?: boolean }).archived === true;
 
         const [rows, total] = await fastify.db.getRepository(Team).findAndCount({
@@ -299,8 +298,6 @@ export function teamArchive(fastify: FastifyInstance) {
     return { schema: schemaTeamArchive, config: { ...authGuard() }, handler };
 }
 
-// Deleting is final, so only an archived project can go: archive first, then delete. Every row
-// the project owns goes with it in one transaction, so a failure leaves nothing half removed.
 export function teamRemove(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const id = readTeamId(request);
@@ -662,8 +659,6 @@ export function teamRosterWrite(fastify: FastifyInstance) {
     return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
 }
 
-// Applies one change to team.json against what is stored now, not what the page loaded, so a
-// save from the page never undoes a member an agent recorded a moment before.
 async function editRoster(
     fastify: FastifyInstance,
     teamId: number,

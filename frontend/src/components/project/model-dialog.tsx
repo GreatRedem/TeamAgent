@@ -84,7 +84,6 @@ export function ModelDialog({
     open: boolean;
     mode: 'create' | 'edit';
     teamId: number;
-    // The model being edited, so its stored key can list the endpoint's models.
     modelId?: number;
     draft: ModelDraft;
     providers: ProviderPreset[];
@@ -108,8 +107,6 @@ export function ModelDialog({
     const url = usesCatalog ? catalogUrl : draft.baseUrl.trim();
     const apiKey = draft.apiKey.trim();
 
-    // OpenRouter's catalog names every model with its price, so it is offered instead of a
-    // plain listing, and it is the only endpoint auto-free can pick from.
     const openRouter = usesCatalog || isOpenRouterUrl(url);
     const autoFree = draft.model === MODEL_AUTO_FREE;
 
@@ -121,9 +118,6 @@ export function ModelDialog({
           ? 'endpoint-models'
           : undefined;
 
-    // Lists the endpoint's models as soon as there is an address to ask, and again once the
-    // address or key settles after a change, so the Model field offers them without a test.
-    // Editing passes the model's id, so a blank key lists with the stored one.
     useEffect(() => {
         if (!open || url === '' || openRouter) {
             setListing(null);
@@ -197,8 +191,6 @@ export function ModelDialog({
         [catalog, preset, draft, onChange],
     );
 
-    // Switching provider points the form at its address; the listing effect above then asks it
-    // for its models. Auto-free only exists on OpenRouter, so leaving it clears that choice.
     const chooseProvider = useCallback(
         (key: string) => {
             const next = providers.find((candidate) => candidate.key === key);

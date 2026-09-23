@@ -1,4 +1,3 @@
-// Values an Input offers as the user types. Point the Input's `list` at this `id`.
 function Suggestions({
     id,
     options,

@@ -20,9 +20,6 @@ type StackElement =
     | 'ul'
     | 'li';
 
-// Every layout box goes through here: `direction` picks the axis, `as` the element.
-// There is no raw <div> outside src/ui; a wrapper with no layout of its own is Vertical,
-// which lays its children out the way block flow would.
 function Stack({
     direction,
     as: Comp = 'div',
@@ -36,7 +33,6 @@ function Stack({
 }) {
     return (
         <Comp
-            // The element is only known at runtime, so the ref is typed as the common base.
             ref={ref as React.Ref<never>}
             data-slot="stack"
             data-direction={direction}

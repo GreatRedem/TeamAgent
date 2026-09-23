@@ -22,7 +22,6 @@ const LIST_PAGE = 50;
 
 const RUN_PAGE = 20;
 
-// A run's stored log; one that cannot be read shows as empty rather than failing the list.
 function readLog(stored: string): unknown[] {
     try {
         const parsed: unknown = JSON.parse(stored);
@@ -54,7 +53,6 @@ async function findOwnedTask(
     return task;
 }
 
-// Tasks as the page shows them: with their agent's and person's names, and how the last run went.
 async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTask[]) {
     if (tasks.length === 0) {
         return [];
@@ -78,7 +76,6 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
         ).map((person) => [person.id, profileLabel(person)]),
     );
 
-    // How many runs of each ended well and how many failed.
     const tallies = new Map(
         (
             await fastify.db
@@ -128,7 +125,6 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
     }));
 }
 
-// Checks a task from the page against this project: its agent and its person must be here.
 async function readCheckedBody(
     fastify: FastifyInstance,
     request: FastifyRequest,
@@ -230,7 +226,6 @@ export function taskUpdate(fastify: FastifyInstance) {
 
         const body = await readCheckedBody(fastify, request, teamId);
 
-        // A finished task that is changed is meant to run again; a cancelled one stays so.
         const status = task.status === 'cancelled' ? 'cancelled' : 'scheduled';
 
         await fastify.db.getRepository(TeamTask).update({ id: task.id }, { ...body, status });
@@ -304,9 +299,6 @@ export function taskRemove(fastify: FastifyInstance) {
     return { schema: schemaTaskResult, config: { ...authGuard() }, handler };
 }
 
-// Runs a task now instead of at its time. A cancelled task is left alone until it is scheduled
-// again; a finished one runs once more. The run happens in the background; its result appears
-// in the task's runs.
 export function taskRunNow(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);

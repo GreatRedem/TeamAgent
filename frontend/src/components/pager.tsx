@@ -20,7 +20,6 @@ export function Pager({
     busy?: boolean;
     noun: string;
     onPage: (offset: number) => void;
-    // On its own surface, for a pager that sits on the page background rather than in a card.
     framed?: boolean;
 }) {
     if (page.total === 0) {

@@ -7,8 +7,6 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 
-// Work an agent carries out at a set time. Times are timestamptz so the moment set on the page
-// is the moment it runs, whatever the server's own time zone.
 @Entity({ name: 'team_task' })
 export class TeamTask {
     @PrimaryGeneratedColumn()
@@ -30,20 +28,16 @@ export class TeamTask {
     @Column({ type: 'text', default: '' })
     goal: string;
 
-    // Who the result is sent to on Telegram; 0 keeps it on the page only.
     @Column({ type: 'int', default: 0 })
     profile_id: number;
 
-    // When it next runs.
     @Index()
     @Column({ type: 'timestamptz' })
     start_at: Date;
 
-    // none, daily or weekly.
     @Column({ type: 'varchar', length: 8, default: 'none' })
     repeat: string;
 
-    // scheduled, running, done, failed or cancelled.
     @Index()
     @Column({ type: 'varchar', length: 16, default: 'scheduled' })
     status: string;
@@ -61,7 +55,6 @@ export class TeamTask {
     updated_at: Date;
 }
 
-// One time a task ran: when, how it ended, what the agent produced and whether it was sent.
 @Entity({ name: 'team_task_run' })
 export class TeamTaskRun {
     @PrimaryGeneratedColumn()
@@ -81,7 +74,6 @@ export class TeamTaskRun {
     @Column({ type: 'timestamptz', nullable: true, default: null })
     finished_at: Date | null;
 
-    // running, ok or error.
     @Column({ type: 'varchar', length: 16, default: 'running' })
     outcome: string;
 
@@ -94,7 +86,6 @@ export class TeamTaskRun {
     @Column({ type: 'varchar', length: 240, default: '' })
     reason: string;
 
-    // The model that answered, what it cost, and how many tools it used.
     @Column({ type: 'varchar', length: 128, default: '' })
     model: string;
 
@@ -107,7 +98,6 @@ export class TeamTaskRun {
     @Column({ type: 'int', default: 0 })
     tool_calls: number;
 
-    // Every step of the run as JSON, written as it happens so a running task can be watched.
     @Column({ type: 'text', default: '[]' })
     log: string;
 }

@@ -56,8 +56,6 @@ export class TelegramUserDocument {
     @Column({ type: 'int' })
     user_id: number;
 
-    // The agent that keeps this file: each agent keeps its own notes on a person. 0 marks a
-    // file from before that, which no agent owns.
     @Index()
     @Column({ type: 'int', default: 0 })
     agent_id: number;

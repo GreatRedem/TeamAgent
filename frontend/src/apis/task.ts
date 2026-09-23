@@ -4,8 +4,6 @@ export type TaskRepeat = 'none' | 'daily' | 'weekly';
 
 export type TaskStatus = 'scheduled' | 'running' | 'done' | 'failed' | 'cancelled';
 
-// Work an agent carries out at a set time. `profile_id` 0 keeps the result on the page; any
-// other is the person it is sent to on Telegram. `start_at` is when it next runs.
 export interface TeamTask {
     id: number;
     title: string;
@@ -22,7 +20,6 @@ export interface TeamTask {
     run_count: number;
     ok_count: number;
     error_count: number;
-    // How the latest run ended: ok, error, running, or empty before the first.
     last_outcome: string;
     created_at: string;
 }
@@ -37,7 +34,6 @@ export interface TaskDraft {
     repeat: TaskRepeat;
 }
 
-// One step of a run, in the order it happened.
 export type TaskRunEvent = { at: string } & (
     | { kind: 'start'; agent: string; model: string }
     | { kind: 'recipient'; name: string }
@@ -66,8 +62,6 @@ export type TaskRunEvent = { at: string } & (
     | { kind: 'end'; outcome: 'ok' | 'error'; delivered: boolean; reason: string }
 );
 
-// One time a task ran: what the agent produced, whether it reached its person, what it cost and
-// every step on the way. While it runs, the log and output fill in as it goes.
 export interface TaskRun {
     id: number;
     started_at: string;

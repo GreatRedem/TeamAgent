@@ -121,7 +121,6 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
     const selected = rows.find((entry) => entry.id === selectedId) ?? rows[0] ?? null;
     const trip = selected === null ? null : roundTrip(selected);
 
-    // Over the past year: what finished (including skips) and what failed, per day.
     const succeededTotal = heatmap?.days.reduce((sum, day) => sum + day.total - day.errors, 0) ?? 0;
     const failedTotal = heatmap?.days.reduce((sum, day) => sum + day.errors, 0) ?? 0;
 

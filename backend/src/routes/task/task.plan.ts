@@ -34,8 +34,6 @@ export interface TaskBody {
     repeat: TaskRepeat;
 }
 
-// Reads and checks a task from the page. Everything a task needs is required except the
-// description, the goal and the person to send to (0 keeps the result on the page).
 export function readTaskBody(body: unknown): TaskBody {
     const source = (typeof body === 'object' && body !== null ? body : {}) as Record<
         string,
@@ -85,9 +83,6 @@ export function readTaskBody(body: unknown): TaskBody {
     };
 }
 
-// When a repeating task runs next: its time moved on by whole periods until it is after `now`,
-// so a task missed while the server was down runs once, not once per missed period. A slot still
-// ahead, as when it was run early by hand, is kept.
 export function nextStart(startAt: Date, repeat: TaskRepeat, now: Date): Date | null {
     const period = PERIOD[repeat];
 
@@ -105,8 +100,6 @@ export function nextStart(startAt: Date, repeat: TaskRepeat, now: Date): Date | 
     return new Date(startAt.getTime() + steps * period);
 }
 
-// What the agent is given for one run: its own instructions, then the task. `recipient` is the
-// name of the person the result goes to, or empty when it is only kept on the page.
 export function taskMessages(
     instructions: string,
     task: { title: string; description: string; goal: string },
@@ -140,7 +133,6 @@ export function taskMessages(
     ];
 }
 
-// A person as a task names them: their full name, else their username.
 export function profileLabel(person: {
     first_name: string;
     last_name: string;

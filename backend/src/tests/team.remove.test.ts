@@ -4,13 +4,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { teamRemove } from '../routes/team/team.service.js';
 
-// Self-check for deleting a project, the one path here that loses data for good. Run with:
-// npx tsx --tsconfig backend/tsconfig.json backend/src/tests/team.remove.test.ts
-
 const OWNER = 7;
 const TEAM = 42;
 
-// Every table a project owns. A new one must be added here and to teamRemove together.
 const OWNED = [
     'TeamAgentDocument',
     'TelegramUserDocument',
@@ -63,7 +59,6 @@ function call(fastify: FastifyInstance) {
     return { run: () => teamRemove(fastify).handler(request, reply), sent };
 }
 
-// A project that is not archived is refused, and nothing is touched.
 {
     const { fastify, deleted, transactions } = fakeFastify(null);
     const { run, sent } = call(fastify);
@@ -74,7 +69,6 @@ function call(fastify: FastifyInstance) {
     assert.equal(sent.length, 0);
 }
 
-// An archived project goes with everything it owns, in one transaction, the project row last.
 {
     const { fastify, deleted, transactions } = fakeFastify(new Date());
     const { run, sent } = call(fastify);

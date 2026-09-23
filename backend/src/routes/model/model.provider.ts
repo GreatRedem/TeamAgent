@@ -60,7 +60,6 @@ export interface CatalogModel {
     context: number;
     prompt: number;
     completion: number;
-    // Whether the model accepts tool definitions, which an agent needs to use its tools.
     tools: boolean;
 }
 

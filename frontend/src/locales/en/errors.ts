@@ -1,5 +1,3 @@
-// What the server's refusal codes mean, in English. The Persian file beside it must hold every key
-// here. Read through apiError(); a code not listed shows as the code itself.
 const messages = {
     'errors.AGENT_ID_INVALID': 'That agent address is not valid.',
     'errors.AGENT_NOT_FOUND': 'That agent is no longer in this project.',

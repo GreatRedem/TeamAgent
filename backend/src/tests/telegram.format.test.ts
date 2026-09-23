@@ -2,10 +2,6 @@ import assert from 'node:assert/strict';
 
 import { telegramHtml } from '../routes/telegram/telegram.format.js';
 
-// Self-check for the Markdown to Telegram HTML conversion. Run with:
-// npx tsx --tsconfig backend/tsconfig.json backend/src/tests/telegram.format.test.ts
-
-// Inline emphasis, code and links.
 assert.equal(
     telegramHtml('**bold** and *italic* and _also_'),
     '<b>bold</b> and <i>italic</i> and <i>also</i>',
@@ -25,11 +21,9 @@ assert.equal(
     'unsafe link',
 );
 
-// Things that only look like emphasis stay as they are.
 assert.equal(telegramHtml('snake_case_name and 2 * 3 * 4'), 'snake_case_name and 2 * 3 * 4');
 assert.equal(telegramHtml('a <tag> & more'), 'a &lt;tag&gt; &amp; more');
 
-// Blocks.
 assert.equal(telegramHtml('## Title'), '<b>Title</b>');
 assert.equal(telegramHtml('# **Loud** title #'), '<b>Loud title</b>');
 assert.equal(telegramHtml('- one\n* two\n  + three'), '• one\n• two\n  • three');
@@ -47,15 +41,12 @@ assert.equal(
 );
 assert.equal(telegramHtml('| not a table |'), '| not a table |');
 
-// Streaming: an unclosed fence is code to the end, an unclosed marker stays literal.
 assert.equal(
     telegramHtml('text\n```py\nprint(1)'),
     'text\n<pre><code class="language-py">print(1)</code></pre>',
 );
 assert.equal(telegramHtml('half **bold'), 'half **bold');
 
-// Every prefix of a long reply, as a stream sends it, parses balanced and is never longer to
-// read than the Markdown it came from.
 {
     const reply = [
         '# Plan',

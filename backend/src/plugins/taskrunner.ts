@@ -13,8 +13,6 @@ const TICK = 30_000;
 
 const BATCH = 5;
 
-// Runs tasks when their time comes. Every tick it takes the tasks that are due, oldest first, and
-// runs them one after another; a tick that finds the last one still busy waits for the next.
 export default fastifyPlugin(async (fastify: FastifyInstance) => {
     let timer: ReturnType<typeof setInterval> | undefined;
     let busy = false;
@@ -45,8 +43,6 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
     };
 
     fastify.addHook('onReady', async () => {
-        // A run a restart cut short is closed, not retried: its agent may already have sent
-        // something. A repeating task goes on to its next time; any other is marked failed.
         const now = new Date();
         const stuck = await fastify.db.getRepository(TeamTask).findBy({ status: 'running' });
 

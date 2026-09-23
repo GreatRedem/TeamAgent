@@ -4,9 +4,6 @@ import { useId } from 'react';
 
 import { cn } from '@/libs/cn';
 
-// Tabs on the WAI-ARIA pattern: the list is one tab stop, and the arrow keys, Home and End move
-// between tabs and choose as they go. Every panel stays mounted and only the chosen one shows,
-// so a half-edited form survives a look at another tab.
 function Tabs<T extends string>({
     label,
     tabs,

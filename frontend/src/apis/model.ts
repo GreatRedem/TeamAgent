@@ -9,7 +9,6 @@ export interface TeamModel {
     key_hint: string;
     context_tokens: number;
     created_at: string;
-    // Only the list carries it; a model just created or saved has none yet.
     usage?: ExchangeUsage;
 }
 
@@ -41,7 +40,6 @@ export interface ProviderPreset {
     hint: string;
 }
 
-// `modelId` lets an edit form with a blank key test with the stored one, as with listing.
 export function modelProbe(
     teamId: number,
     baseUrl: string,
@@ -57,7 +55,6 @@ export function modelProbe(
     });
 }
 
-// Whether an endpoint is OpenRouter, whose catalog lists every model with its price.
 export function isOpenRouterUrl(url: string): boolean {
     try {
         const host = new URL(url).hostname.toLowerCase();
@@ -68,8 +65,6 @@ export function isOpenRouterUrl(url: string): boolean {
     }
 }
 
-// The model ids an endpoint offers, for the form. Editing with the key left blank passes
-// `modelId`, and the server lists with the stored key if the address is still its own.
 export function modelListIds(teamId: number, baseUrl: string, apiKey: string, modelId?: number) {
     return request<{ ok: boolean; ids: string[]; reason?: string }>(
         'POST',

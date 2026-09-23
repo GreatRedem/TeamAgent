@@ -44,9 +44,6 @@ function level(value: number, busiest: number): number {
     return Math.min(4, Math.ceil((value / Math.max(1, busiest)) * 4));
 }
 
-// A calendar, one cell a day and one column a week, shaded by `count` on `scale` (five steps,
-// empty to busiest). The busiest day sets the top of the scale. The weeks share the width
-// between them; on a screen too narrow for that they scroll, starting at the latest week.
 export function Heatmap({
     days,
     count,
@@ -63,7 +60,6 @@ export function Heatmap({
 
     return (
         <Stack direction="Vertical" className="gap-3">
-            {/* Reversed, so an overflowing calendar opens scrolled to its latest week. */}
             <Stack direction="Horizontal" className="flex-row-reverse overflow-x-auto pb-1">
                 <Stack
                     direction="Vertical"

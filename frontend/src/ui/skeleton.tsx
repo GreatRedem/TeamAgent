@@ -4,7 +4,6 @@ import { cn } from '@/libs/cn';
 
 const skeletonRadius = { md: 'rounded-md', lg: 'rounded-lg', xl: 'rounded-xl' };
 
-// `radius` matches the thing it stands in for: `xl` for a card, `lg` for a stat.
 function Skeleton({
     className,
     radius = 'md',

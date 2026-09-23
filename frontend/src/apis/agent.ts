@@ -1,7 +1,5 @@
 import { type Paged, pageQuery, request } from './client';
 
-// What a model or an agent has done over every round-trip on record. A reply is an answer it
-// finished; a round-trip is every call, tool rounds and failures included.
 export interface ExchangeUsage {
     replies: number;
     round_trips: number;
@@ -22,7 +20,6 @@ export interface TeamAgent {
     document_count: number;
     permissions: string[];
     created_at: string;
-    // Only the list carries it; the agent page gets it beside the agent.
     usage?: ExchangeUsage;
 }
 
@@ -33,9 +30,6 @@ export interface AgentDocument {
     updated_at: string;
 }
 
-// One model round-trip. `agent_name` is empty for an agent since removed. The token counts are
-// the provider's own; `tokens_estimated` marks a call it gave none for, counted from the text.
-// A failed call with no count has 0.
 export interface AgentExchange {
     id: number;
     agent_id: number;

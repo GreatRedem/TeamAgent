@@ -18,9 +18,6 @@ import { Stack } from '@/ui/stack';
 import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
 
-// Every tool an agent can call, grouped by the capability that unlocks it, with the agents that
-// hold that capability. Turning a switch grants or takes back the capability, and with it every
-// tool in the group.
 export function ToolsPanel({ teamId }: { teamId: number }) {
     const [tools, setTools] = useState<McpTool[] | null>(null);
     const [capabilities, setCapabilities] = useState<Permission[]>([]);
@@ -87,7 +84,6 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
         [teamId],
     );
 
-    // Only capabilities that unlock at least one tool; the rest have nothing to show here.
     const groups = capabilities
         .map((capability) => ({
             capability,

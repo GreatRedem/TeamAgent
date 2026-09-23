@@ -28,8 +28,6 @@ import faTeam from './fa/team';
 import faTools from './fa/tools';
 import type { Messages } from './types';
 
-// Every message, keyed by area and name. English is the source; each other language is typed
-// against it, so the two cannot drift apart.
 const en = {
     ...enCommon,
     ...enAuth,

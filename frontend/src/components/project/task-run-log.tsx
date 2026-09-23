@@ -4,7 +4,6 @@ import { durationLabel } from '@/libs/format';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
-// One step in words: what happened, and whether it went well.
 function describe(event: TaskRunEvent): { line: string; ok: boolean } {
     switch (event.kind) {
         case 'start':
@@ -45,8 +44,6 @@ function describe(event: TaskRunEvent): { line: string; ok: boolean } {
     }
 }
 
-// A run's steps in order, each with the time since the run began. A tool step shows what it was
-// asked and what it gave back.
 export function TaskRunLog({ startedAt, events }: { startedAt: string; events: TaskRunEvent[] }) {
     const origin = new Date(startedAt).getTime();
 

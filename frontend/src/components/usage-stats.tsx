@@ -3,8 +3,6 @@ import { Stat } from '@/components/stat';
 import { compactCount, durationLabel } from '@/libs/format';
 import { Stack } from '@/ui/stack';
 
-// The totals for a model or an agent: replies, tokens in and out, failures, answer time, tool
-// calls and when it last worked. `who` names what is being counted, for the empty cases.
 export function UsageStats({ usage, who }: { usage: ExchangeUsage; who: string }) {
     return (
         <Stack direction="Vertical" className="gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">

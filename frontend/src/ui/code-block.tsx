@@ -2,8 +2,6 @@ import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
 
-// Preformatted machine text such as a request body or a stored note. Like Text, it takes a
-// `message` and never children.
 function CodeBlock({
     className,
     message,

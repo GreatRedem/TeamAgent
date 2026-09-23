@@ -23,7 +23,6 @@ export class Team {
     @Column({ type: 'int' })
     account_id: number;
 
-    // Set while the project is archived: it leaves the project list until it is restored.
     @Column({ type: 'timestamp', nullable: true, default: null })
     archived_at: Date | null;
 

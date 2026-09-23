@@ -47,7 +47,6 @@ function TableRow({
     hoverable = true,
     ...props
 }: React.ComponentProps<'tr'> & {
-    // Off for a header row, which should not light up under the pointer.
     hoverable?: boolean;
 }) {
     return (

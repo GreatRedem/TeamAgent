@@ -33,9 +33,6 @@ interface SocialRow {
     handle: string;
 }
 
-// Adds or edits one person in team.json. A member can be picked from the project's profiles,
-// which fills their name and Telegram handle and links them to that profile. `member` is null to
-// add someone new; `previousName` is who an existing member was saved as.
 export function MemberDialog({
     open,
     teamId,
@@ -61,7 +58,6 @@ export function MemberDialog({
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Each opening starts from the member being edited, or from nothing.
     useEffect(() => {
         if (!open) {
             return;
@@ -78,7 +74,6 @@ export function MemberDialog({
         setError(null);
     }, [open, member]);
 
-    // A linked member is shown by their profile's name rather than its number.
     useEffect(() => {
         if (!open || member?.profile_id === undefined) {
             return;
@@ -99,7 +94,6 @@ export function MemberDialog({
         };
     }, [open, member, teamId]);
 
-    // A profile picked fills the name if it is empty and records their Telegram handle.
     const pick = (profile: TelegramProfile) => {
         setProfileId(profile.id);
         setLinked(

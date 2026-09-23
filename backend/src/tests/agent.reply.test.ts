@@ -478,7 +478,6 @@ const tests: Array<[string, () => void]> = [
                 { prompt: 120, completion: 20, estimated: false },
             );
 
-            // 400/4 + 4 and 40/4 + 4 for the messages, 80/4 for the answer.
             assert.deepEqual(countTokens(answer, sent, true), {
                 prompt: 118,
                 completion: 20,

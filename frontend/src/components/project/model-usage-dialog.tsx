@@ -9,8 +9,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Skeleton } from '@/ui/skeleton';
 
-// Everything one model has done: its totals, then every round-trip any agent made through it,
-// newest first, each one opening to what was sent and what came back.
 export function ModelUsageDialog({
     teamId,
     model,

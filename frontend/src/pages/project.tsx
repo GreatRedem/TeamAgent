@@ -116,7 +116,6 @@ export function Project() {
         [teamId, name, description],
     );
 
-    // Archiving is reversible; deleting is only offered once the project is archived.
     const archive = useCallback(
         async (archived: boolean) => {
             setError(null);

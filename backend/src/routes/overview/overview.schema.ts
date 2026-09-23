@@ -7,8 +7,6 @@ const counts = (...keys: string[]) =>
         properties: Object.fromEntries(keys.map((key) => [key, integer])),
     }) as const;
 
-// A project at a glance: its people, what they wrote, what the agents asked of their models,
-// and what that cost, over the last day, the last week and all time.
 export const schemaOverview = {
     response: {
         200: {

@@ -198,8 +198,6 @@ const rosterMembers = {
     },
 } as const;
 
-// Saves one member of team.json from the Team page. `previous_name` is who they were saved as,
-// so a save can rename them; leave it out to add someone new.
 export const schemaRosterMemberSave = {
     body: {
         type: 'object',

@@ -328,9 +328,6 @@ export function readAssistantTurn(payload: unknown): unknown {
         : undefined;
 }
 
-// The tokens a model reports for one call: what it read and what it wrote. Providers name them
-// prompt/completion (OpenAI), promptTokens/completionTokens (the OpenRouter SDK) or input/output;
-// one that reports nothing, or nonsense, counts 0.
 export function readUsage(payload: unknown): { prompt: number; completion: number } {
     const usage =
         typeof payload === 'object' && payload !== null
@@ -360,10 +357,6 @@ export function readUsage(payload: unknown): { prompt: number; completion: numbe
     };
 }
 
-// What one call cost in tokens. The provider's own count is used whenever it gives one. A call
-// that answered but was not counted, as some local and self-hosted endpoints do, is estimated
-// from what was sent (the messages and any tool definitions) and what came back, and marked so;
-// a failed call with no count costs 0.
 export function countTokens(
     payload: unknown,
     sent: { messages: ChatMessage[]; tools?: unknown[] },

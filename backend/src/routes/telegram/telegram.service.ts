@@ -283,7 +283,6 @@ export async function ingestUpdate(
     return 'stored';
 }
 
-// The token columns of an exchange record, from countTokens.
 const tokenColumns = (count: { prompt: number; completion: number; estimated: boolean }) => ({
     prompt_tokens: count.prompt,
     completion_tokens: count.completion,
@@ -356,9 +355,6 @@ async function telegramCall(
     }
 }
 
-// Sends or edits a reply with its Markdown rendered the way Telegram formats text. If Telegram
-// cannot parse what came out, the reply goes plain rather than not at all; an edit that changes
-// nothing Telegram shows counts as done.
 export async function telegramText(
     token: string,
     method: 'sendMessage' | 'editMessageText',
@@ -573,7 +569,6 @@ async function supersededBy(
     return newer > 0;
 }
 
-// One step of an agent's work, for a run's log: a call to the model, or a tool it used.
 export type AgentEvent =
     | {
           kind: 'model';
@@ -599,7 +594,6 @@ export type AgentEvent =
           duration_ms: number;
       };
 
-// What a log keeps of a tool's arguments and result.
 const TRACE_TEXT_MAX = 400;
 
 interface AgentRun {
@@ -608,13 +602,9 @@ interface AgentRun {
     lastStatus: number;
     served: string;
     toolRuns: number;
-    // The model could not be reached at all, as opposed to answering badly.
     unreachable: boolean;
 }
 
-// One agent at work: each round asks the model, runs the tools it calls and records the
-// round-trip, until it answers or runs out of rounds. Replies to a message and scheduled tasks
-// both run through here. `onText` receives the answer as it streams; `trace` each step taken.
 export async function runAgent(
     fastify: FastifyInstance,
     log: FastifyBaseLogger,
@@ -654,9 +644,6 @@ export async function runAgent(
             duration_ms: Date.now() - startedAt,
         });
 
-    // Auto-free: the free models this reply may use, tool-capable ones first when the agent has
-    // tools. `chosen` is the model in use: fixed for an ordinary model; for auto-free, the
-    // first free model that answers, kept for the rest of the reply until it fails.
     const auto = isAutoFree(model.model);
     const catalog = auto ? (await fetchCatalog()).models : [];
     const toolReady = freeCandidates(catalog, tools.length > 0);
@@ -680,12 +667,8 @@ export async function runAgent(
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
             const roundStartedAt = Date.now();
 
-            // One call to the model. An auto-free reply tries free models in turn: a model
-            // that fails for its own reasons is rested and the next one asked, at most
-            // AUTO_ATTEMPTS per round; a failure every model would share ends the round.
             const ask = async (withTools: boolean) => {
                 const tried = new Set<string>();
-                // The tool definitions sent, kept so the call's tokens can be counted against them.
                 const offered = withTools ? toOpenAITools(tools) : undefined;
 
                 for (let attempt = 1; ; attempt += 1) {
@@ -843,7 +826,6 @@ export async function runAgent(
                 ...tokenColumns(spent),
                 duration_ms: Date.now() - roundStartedAt,
                 outcome: ok ? 'ok' : 'error',
-                // For auto-free, name the free model that served this round.
                 reason: auto ? [served, status].filter((part) => part !== '').join(' - ') : status,
             });
 
@@ -870,7 +852,6 @@ export async function runAgent(
             for (const call of calls) {
                 const toolStartedAt = Date.now();
 
-                // Only a tool this run was given; a model naming any other is refused.
                 const result = tools.some((tool) => tool.name === call.name)
                     ? await runTool(fastify, agent, user, call.name, call.arguments)
                     : {
@@ -1002,8 +983,6 @@ async function deliverAgentReply(
 
     const lazyDocuments = tools.some((tool) => tool.name === 'document_read');
 
-    // An agent allowed to read team.json has it in its instructions, so it can answer about the
-    // team even on a model that cannot call tools.
     const roster = agentHasPermission(agent.permissions, 'roster.read')
         ? rosterPrompt(
               (
@@ -1220,7 +1199,6 @@ export function conversationList(fastify: FastifyInstance) {
 
         const { limit, offset } = readPage(request, CONVERSATION_PAGE);
 
-        // `q` narrows the list to names and usernames containing it, for picking a person.
         const raw = (request.query as Record<string, string | undefined>)['q']?.trim() ?? '';
         const like = ILike(`%${raw.slice(0, 64).replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
 

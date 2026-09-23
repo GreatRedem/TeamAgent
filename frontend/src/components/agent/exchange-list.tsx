@@ -9,9 +9,6 @@ import { Pressable } from '@/ui/pressable';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
-// Model round-trips, newest first: when, which round, what it cost in tokens and time, and how
-// it ended. A row opens to show exactly what was sent and what came back. `showAgent` names the
-// agent that asked, for a list that mixes agents.
 export function ExchangeList({
     exchanges,
     empty,
@@ -30,7 +27,6 @@ export function ExchangeList({
     return (
         <Stack direction="Vertical" as="ul" className="m-0 list-none p-0">
             {exchanges.map((exchange) => {
-                // ~ marks a count estimated because the provider gave none.
                 const about = exchange.tokens_estimated ? '~' : '';
                 const tokens =
                     exchange.prompt_tokens + exchange.completion_tokens > 0

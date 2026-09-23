@@ -28,8 +28,6 @@ import { Text } from '@/ui/text';
 import { TaskDialog } from './task-dialog';
 import { TaskRunsDialog } from './task-runs-dialog';
 
-// The work agents carry out at a set time: what each task is, when it runs, who it is for, how
-// its last run went, and every run before that.
 export function TasksPanel({ teamId }: { teamId: number }) {
     const [tasks, setTasks] = useState<TeamTask[] | null>(null);
     const [page, setPage] = useState<Paged | null>(null);
@@ -38,10 +36,8 @@ export function TasksPanel({ teamId }: { teamId: number }) {
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
 
-    // null: closed. 'new': creating. A task: editing it.
     const [editing, setEditing] = useState<TeamTask | 'new' | null>(null);
     const [viewing, setViewing] = useState<TeamTask | null>(null);
-    // When "Run now" was pressed, so the history dialog follows that run as it happens.
     const [liveSince, setLiveSince] = useState<number | null>(null);
 
     const load = useCallback(

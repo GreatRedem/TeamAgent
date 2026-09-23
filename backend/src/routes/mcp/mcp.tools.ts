@@ -42,8 +42,6 @@ What this person wants remembered between conversations.
 - (nothing recorded yet)
 `;
 
-// Tools that act on the person the agent is talking to. A task with nobody to send to has no
-// such person, so it is not given them.
 export const PERSONAL_TOOLS = [
     'preferences_list',
     'preferences_read',
@@ -334,8 +332,6 @@ async function writeRosterContent(
         : repository.save({ team_id: teamId, name: ROSTER_FILE, content }));
 }
 
-// Gives an agent its own preferences.md for a person the first time it looks; each agent keeps
-// its own notes, so one agent never reads or overwrites another's.
 async function ensureSeeded(
     fastify: FastifyInstance,
     userId: number,
@@ -422,7 +418,6 @@ export async function runTool(
             return refuse('name is required');
         }
 
-        // Only the fields the agent passed; the rest of the member is left as it is.
         const fields = {
             ...(typeof args['rank'] === 'string' && { rank: args['rank'] }),
             ...(typeof args['description'] === 'string' && { description: args['description'] }),

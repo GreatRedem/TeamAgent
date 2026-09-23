@@ -8,7 +8,6 @@ import { TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
 import { schemaOverview } from './overview.schema.js';
 
-// Windows are worked out by the database against its own clock, the one that stamped the rows.
 const DAY = "now() - interval '1 day'";
 const WEEK = "now() - interval '7 days'";
 
@@ -19,9 +18,6 @@ const number = (row: Row | undefined, key: string) => Number(row?.[key] ?? 0);
 const spent = (model: { prompt_tokens: number; completion_tokens: number }) =>
     model.prompt_tokens + model.completion_tokens;
 
-// A project at a glance. A chat is new when its person wrote for the first time, which is when
-// their profile was made; a request is one round-trip to a model, tool rounds and failures
-// included; a reply is a round-trip that answered without asking for tools.
 export function overview(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
@@ -107,7 +103,6 @@ export function overview(fastify: FastifyInstance) {
                 prompt_total: number(requests, 'prompt_total'),
                 completion_total: number(requests, 'completion_total'),
             },
-            // Busiest first, by tokens.
             models: models
                 .map((model) => {
                     const used = usage.get(model.id);

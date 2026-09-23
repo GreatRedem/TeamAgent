@@ -44,15 +44,12 @@ function buttonVariants({ variant = 'default', size = 'default', className }: Bu
 
 type ButtonProps = Omit<React.ComponentProps<'button'>, 'children'> &
     ButtonVariants & {
-        // A route to go to: the button renders as a router link.
         link?: string;
         icon?: React.ReactElement<{ 'aria-hidden'?: boolean }>;
         iconPosition?: 'start' | 'end';
         message?: string;
     };
 
-// Buttons take a `message` and an `icon`, never children. `link` turns one into navigation.
-// A button is `type="button"` unless it says otherwise, so only an explicit submit sends a form.
 function Button({
     className,
     variant = 'default',

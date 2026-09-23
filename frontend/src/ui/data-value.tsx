@@ -2,7 +2,6 @@ import type { ComponentProps } from 'react';
 import { cn } from '@/libs/cn';
 import { Text } from '@/ui/text';
 
-// Label and value pairs in two columns. `dense` tightens the rows for a list inside a card.
 export function DataList({
     className,
     dense = false,

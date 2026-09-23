@@ -176,8 +176,6 @@ export const schemaModelProbe = {
     },
 } as const;
 
-// Lists an endpoint's models for the form. `model_id` lets an edit form list with the stored
-// key when it leaves the key blank.
 export const schemaModelListIds = {
     body: {
         type: 'object',
@@ -201,5 +199,4 @@ export const schemaModelListIds = {
     },
 } as const;
 
-// A model's round-trips, newest first, in the same shape as an agent's.
 export { schemaAgentExchanges as schemaModelExchanges } from '../agent/agent.schema.js';
