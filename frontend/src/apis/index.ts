@@ -50,6 +50,7 @@ export {
     type TeamModel,
     type TeamModelProbe,
 } from './model';
+export { type ProjectOverview, projectOverview } from './overview';
 export {
     agentPermissionCatalog,
     agentPermissionUpdate,

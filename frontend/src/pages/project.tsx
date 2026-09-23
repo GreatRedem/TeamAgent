@@ -10,6 +10,7 @@ import { AgentsPanel } from '@/components/project/agents-panel';
 import { BotsPanel } from '@/components/project/bots-panel';
 import { MachinePanel } from '@/components/project/machine-panel';
 import { ModelsPanel } from '@/components/project/models-panel';
+import { OverviewPanel } from '@/components/project/overview-panel';
 import { PeoplePanel } from '@/components/project/people-panel';
 import { TEAM_NAMES, TEAM_TITLES } from '@/libs/constant';
 import { teamPath } from '@/libs/navigation';
@@ -192,6 +193,7 @@ export function Project() {
 
             {team !== null && (tab === '' || tab === 'overview') && (
                 <>
+                    <OverviewPanel teamId={teamId} />
                     <MachinePanel />
                     <ActivityPanel teamId={teamId} />
                 </>
