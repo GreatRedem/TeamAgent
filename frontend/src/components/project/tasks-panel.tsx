@@ -262,7 +262,11 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                             <Text
                                                 type="Data"
                                                 as="dd"
-                                                message={`${new Date(task.start_at).toLocaleString()} · ${TASK_REPEAT_LABELS[task.repeat] ?? task.repeat}`}
+                                                message={
+                                                    task.retry_at !== null
+                                                        ? `Retry ${task.retry_count} at ${new Date(task.retry_at).toLocaleString()}`
+                                                        : `${new Date(task.start_at).toLocaleString()} · ${TASK_REPEAT_LABELS[task.repeat] ?? task.repeat}`
+                                                }
                                             />
 
                                             <Text
@@ -314,7 +318,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                     setViewing({ ...task, status: 'running' });
                                                 })
                                             }
-                                            message="Run now"
+                                            message={task.status === 'failed' ? 'Retry' : 'Run now'}
                                         />
 
                                         <Button

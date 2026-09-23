@@ -4,6 +4,8 @@ import {
     nextStart,
     profileLabel,
     readTaskBody,
+    retryAt,
+    sendRetryable,
     TaskError,
     taskMessages,
 } from '../routes/task/task.plan.js';
@@ -119,6 +121,21 @@ function main() {
         profileLabel({ first_name: '', last_name: '', username: 'alexk', telegram_id: '1' }),
         '@alexk',
     );
+
+    {
+        const now = new Date('2026-09-23T09:00:00.000Z');
+
+        assert.equal(retryAt(0, now)?.toISOString(), '2026-09-23T09:01:00.000Z');
+        assert.equal(retryAt(1, now)?.toISOString(), '2026-09-23T09:05:00.000Z');
+        assert.equal(retryAt(2, now)?.toISOString(), '2026-09-23T09:15:00.000Z');
+        assert.equal(retryAt(3, now), null);
+
+        assert.equal(sendRetryable(0), true);
+        assert.equal(sendRetryable(429), true);
+        assert.equal(sendRetryable(502), true);
+        assert.equal(sendRetryable(403), false);
+        assert.equal(sendRetryable(400), false);
+    }
 
     console.log('task.plan: ok');
 }

@@ -36,6 +36,16 @@ function describe(event: TaskRunEvent): { line: string; ok: boolean } {
                       : `Telegram would not take it for ${event.to} through ${event.bot}`,
                 ok: event.ok,
             };
+        case 'switch':
+            return {
+                line: `Rested ${event.model}; the next try uses another free model`,
+                ok: true,
+            };
+        case 'retry':
+            return {
+                line: `Will try again at ${new Date(event.next_at).toLocaleTimeString()} (retry ${event.attempt} of ${event.of})`,
+                ok: true,
+            };
         case 'end':
             return {
                 line: `Finished: ${event.outcome === 'ok' ? 'done' : 'failed'}${event.reason === '' ? '' : `, ${event.reason}`}`,

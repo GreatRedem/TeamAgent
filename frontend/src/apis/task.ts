@@ -18,6 +18,8 @@ export interface TeamTask {
     status: TaskStatus;
     last_run_at: string | null;
     run_count: number;
+    retry_count: number;
+    retry_at: string | null;
     ok_count: number;
     error_count: number;
     last_outcome: string;
@@ -60,6 +62,8 @@ export type TaskRunEvent = { at: string } & (
       }
     | { kind: 'send'; ok: boolean; to: string; bot: string }
     | { kind: 'end'; outcome: 'ok' | 'error'; delivered: boolean; reason: string }
+    | { kind: 'retry'; attempt: number; of: number; next_at: string }
+    | { kind: 'switch'; model: string }
 );
 
 export interface TaskRun {

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
-import { LessThanOrEqual } from 'typeorm';
+import { IsNull, LessThanOrEqual } from 'typeorm';
 import { BATCH, LOGGER, TICK } from '../constant.js';
 
 import { TeamTask, TeamTaskRun } from '../routes/task/task.entity.js';
@@ -22,7 +22,14 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
 
         try {
             const due = await fastify.db.getRepository(TeamTask).find({
-                where: { status: 'scheduled', start_at: LessThanOrEqual(new Date()) },
+                where: [
+                    { status: 'scheduled', retry_at: LessThanOrEqual(new Date()) },
+                    {
+                        status: 'scheduled',
+                        retry_at: IsNull(),
+                        start_at: LessThanOrEqual(new Date()),
+                    },
+                ],
                 order: { start_at: 'ASC' },
                 take: BATCH,
                 select: { id: true },

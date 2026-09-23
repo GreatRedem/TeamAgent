@@ -117,6 +117,8 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
         status: task.status,
         last_run_at: task.last_run_at?.toISOString() ?? null,
         run_count: task.run_count,
+        retry_count: task.retry_count,
+        retry_at: task.retry_at?.toISOString() ?? null,
         ok_count: tallies.get(task.id)?.ok ?? 0,
         error_count: tallies.get(task.id)?.error ?? 0,
         last_outcome: lastRuns.get(task.id) ?? '',
@@ -227,7 +229,9 @@ export function taskUpdate(fastify: FastifyInstance) {
 
         const status = task.status === 'cancelled' ? 'cancelled' : 'scheduled';
 
-        await fastify.db.getRepository(TeamTask).update({ id: task.id }, { ...body, status });
+        await fastify.db
+            .getRepository(TeamTask)
+            .update({ id: task.id }, { ...body, status, retry_count: 0, retry_at: null });
 
         await audit(fastify, request.log, {
             teamId,
@@ -258,7 +262,9 @@ export function taskStatus(fastify: FastifyInstance) {
             throw new BadRequestResponse('TASK_RUNNING');
         }
 
-        await fastify.db.getRepository(TeamTask).update({ id: task.id }, { status });
+        await fastify.db
+            .getRepository(TeamTask)
+            .update({ id: task.id }, { status, retry_count: 0, retry_at: null });
 
         await audit(fastify, request.log, {
             teamId,
@@ -268,7 +274,9 @@ export function taskStatus(fastify: FastifyInstance) {
             detail: task.title,
         });
 
-        const [view] = await taskViews(fastify, teamId, [{ ...task, status }]);
+        const [view] = await taskViews(fastify, teamId, [
+            { ...task, status, retry_count: 0, retry_at: null },
+        ]);
 
         reply.send(view);
     };
@@ -311,11 +319,12 @@ export function taskRunNow(fastify: FastifyInstance) {
             throw new BadRequestResponse('TASK_CANCELLED');
         }
 
-        if (task.status !== 'scheduled') {
-            await fastify.db
-                .getRepository(TeamTask)
-                .update({ id: task.id, status: task.status }, { status: 'scheduled' });
-        }
+        await fastify.db
+            .getRepository(TeamTask)
+            .update(
+                { id: task.id, status: task.status },
+                { status: 'scheduled', retry_count: 0, retry_at: null },
+            );
 
         await audit(fastify, request.log, {
             teamId,

@@ -738,3 +738,7 @@ export const STATUS_FORBIDDEN = 403;
 export const STATUS_TOO_MANY_REQUEST = 429;
 
 export const STATUS_INTERNAL_ERROR = 500;
+
+export const TASK_RETRY_DELAYS = [60_000, 300_000, 900_000];
+
+export const TASK_MODEL_REST = 1_200_000;

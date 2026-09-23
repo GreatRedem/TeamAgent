@@ -1,17 +1,32 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
-import { DRAFT_INTERVAL, PERSONAL_TOOLS, ROSTER_FILE, TELEGRAM_TEXT_MAX } from '../../constant.js';
+import {
+    DRAFT_INTERVAL,
+    PERSONAL_TOOLS,
+    ROSTER_FILE,
+    TASK_MODEL_REST,
+    TASK_RETRY_DELAYS,
+    TELEGRAM_TEXT_MAX,
+} from '../../constant.js';
 
 import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
 import { buildSystemPrompt } from '../agent/agent.reply.js';
 import { audit } from '../audit/audit.log.js';
 import { allowedTools } from '../mcp/mcp.tools.js';
+import { isAutoFree, rest } from '../model/model.auto.js';
 import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
 import { rosterPrompt } from '../team/team.roster.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
 import { runAgent, telegramText } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
-import { nextStart, profileLabel, type TaskRepeat, taskMessages } from './task.plan.js';
+import {
+    nextStart,
+    profileLabel,
+    retryAt,
+    sendRetryable,
+    type TaskRepeat,
+    taskMessages,
+} from './task.plan.js';
 
 export async function runTask(
     fastify: FastifyInstance,
@@ -56,11 +71,23 @@ export async function runTask(
         output: string,
         delivered: boolean,
         reason: string,
+        retryable = false,
     ) => {
         const now = new Date();
         const next = nextStart(task.start_at, task.repeat as TaskRepeat, now);
+        const retry = outcome === 'error' && retryable ? retryAt(task.retry_count, now) : null;
 
         events.push({ at: now.toISOString(), kind: 'end', outcome, delivered, reason });
+
+        if (retry !== null) {
+            events.push({
+                at: now.toISOString(),
+                kind: 'retry',
+                attempt: task.retry_count + 1,
+                of: TASK_RETRY_DELAYS.length,
+                next_at: retry.toISOString(),
+            });
+        }
 
         await written;
 
@@ -95,9 +122,15 @@ export async function runTask(
             {
                 last_run_at: startedAt,
                 run_count: task.run_count + 1,
-                ...(next === null
-                    ? { status: outcome === 'ok' ? 'done' : 'failed' }
-                    : { status: 'scheduled', start_at: next }),
+                ...(retry !== null
+                    ? { status: 'scheduled', retry_count: task.retry_count + 1, retry_at: retry }
+                    : {
+                          retry_count: 0,
+                          retry_at: null,
+                          ...(next === null
+                              ? { status: outcome === 'ok' ? 'done' : 'failed' }
+                              : { status: 'scheduled', start_at: next }),
+                      }),
             },
         );
 
@@ -231,6 +264,11 @@ export async function runTask(
         });
 
         if (result.unreachable || result.text === undefined) {
+            if (isAutoFree(model.model) && !isAutoFree(result.served)) {
+                rest(result.served, TASK_MODEL_REST);
+                note({ kind: 'switch', model: result.served });
+            }
+
             await finish(
                 'error',
                 '',
@@ -240,6 +278,7 @@ export async function runTask(
                     : result.failure === ''
                       ? 'the model returned no text'
                       : result.failure,
+                true,
             );
 
             return true;
@@ -286,7 +325,13 @@ export async function runTask(
         note({ kind: 'send', ok: sent.ok, to: profileLabel(recipient), bot: bot.name });
 
         if (!sent.ok) {
-            await finish('error', text, false, `done, but Telegram refused it (${sent.status})`);
+            await finish(
+                'error',
+                text,
+                false,
+                `done, but Telegram refused it (${sent.status})`,
+                sendRetryable(sent.status),
+            );
 
             return true;
         }
@@ -306,7 +351,7 @@ export async function runTask(
     } catch (cause) {
         log.error({ module: 'task', taskId: task.id, err: cause }, 'task run crashed');
 
-        await finish('error', '', false, 'the run stopped on an unexpected error');
+        await finish('error', '', false, 'the run stopped on an unexpected error', true);
     }
 
     return true;

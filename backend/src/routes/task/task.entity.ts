@@ -48,6 +48,12 @@ export class TeamTask {
     @Column({ type: 'int', default: 0 })
     run_count: number;
 
+    @Column({ type: 'int', default: 0 })
+    retry_count: number;
+
+    @Column({ type: 'timestamptz', nullable: true, default: null })
+    retry_at: Date | null;
+
     @CreateDateColumn()
     created_at: Date;
 

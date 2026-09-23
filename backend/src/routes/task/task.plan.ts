@@ -1,4 +1,11 @@
-import { GOAL_MAX, PERIOD, TASK_DESCRIPTION_MAX, TASK_REPEATS, TITLE_MAX } from '../../constant.js';
+import {
+    GOAL_MAX,
+    PERIOD,
+    TASK_DESCRIPTION_MAX,
+    TASK_REPEATS,
+    TASK_RETRY_DELAYS,
+    TITLE_MAX,
+} from '../../constant.js';
 import type { ChatMessage } from '../agent/agent.reply.js';
 
 export type TaskRepeat = (typeof TASK_REPEATS)[number];
@@ -135,4 +142,14 @@ export function profileLabel(person: {
     }
 
     return person.username !== '' ? `@${person.username}` : `Telegram ${person.telegram_id}`;
+}
+
+export function retryAt(retries: number, now: Date): Date | null {
+    const delay = TASK_RETRY_DELAYS[retries];
+
+    return delay === undefined ? null : new Date(now.getTime() + delay);
+}
+
+export function sendRetryable(status: number): boolean {
+    return status === 0 || status === 429 || status >= 500;
 }
