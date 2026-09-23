@@ -1,7 +1,13 @@
 import { Plus, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
-import { ApiError, type RosterMember, rosterMemberSave, type TelegramProfile } from '@/apis';
+import {
+    ApiError,
+    profileDetails,
+    type RosterMember,
+    rosterMemberSave,
+    type TelegramProfile,
+} from '@/apis';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
 import { ROSTER_ERRORS, SOCIAL_NETWORKS } from '@/libs/constant';
@@ -68,9 +74,30 @@ export function MemberDialog({
             Object.entries(member?.social ?? {}).map(([network, handle]) => ({ network, handle })),
         );
         setProfileId(member?.profile_id);
-        setLinked(member?.profile_id === undefined ? '' : `profile #${member.profile_id}`);
+        setLinked(member?.profile_id === undefined ? '' : 'their Telegram profile');
         setError(null);
     }, [open, member]);
+
+    // A linked member is shown by their profile's name rather than its number.
+    useEffect(() => {
+        if (!open || member?.profile_id === undefined) {
+            return;
+        }
+
+        let active = true;
+
+        profileDetails(teamId, member.profile_id)
+            .then((details) => {
+                if (active) {
+                    setLinked(profileName(details.profile));
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            active = false;
+        };
+    }, [open, member, teamId]);
 
     // A profile picked fills the name if it is empty and records their Telegram handle.
     const pick = (profile: TelegramProfile) => {
@@ -129,7 +156,7 @@ export function MemberDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85dvh] overflow-y-auto">
+            <DialogContent size="lg" className="max-h-[85dvh] overflow-y-auto">
                 <Stack
                     direction="Vertical"
                     as="form"
@@ -172,30 +199,32 @@ export function MemberDialog({
                         )}
                     </Field>
 
-                    <Field label="Name" hint="How the agents will refer to them.">
-                        {(id) => (
-                            <Input
-                                id={id}
-                                value={name}
-                                onChange={(event) => setName(event.target.value)}
-                                maxLength={120}
-                                required
-                            />
-                        )}
-                    </Field>
+                    <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
+                        <Field label="Name" hint="How the agents will refer to them.">
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    value={name}
+                                    onChange={(event) => setName(event.target.value)}
+                                    maxLength={120}
+                                    required
+                                />
+                            )}
+                        </Field>
 
-                    <Field
-                        label="Rank"
-                        hint="Their role on the team, such as founder or support lead.">
-                        {(id) => (
-                            <Input
-                                id={id}
-                                value={rank}
-                                onChange={(event) => setRank(event.target.value)}
-                                maxLength={200}
-                            />
-                        )}
-                    </Field>
+                        <Field
+                            label="Rank"
+                            hint="Their role on the team, such as founder or support lead.">
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    value={rank}
+                                    onChange={(event) => setRank(event.target.value)}
+                                    maxLength={200}
+                                />
+                            )}
+                        </Field>
+                    </Stack>
 
                     <Field label="Description" hint="What they do, and what to ask them about.">
                         {(id) => (
@@ -204,7 +233,6 @@ export function MemberDialog({
                                 value={description}
                                 onChange={(event) => setDescription(event.target.value)}
                                 maxLength={2000}
-                                className="min-h-24"
                             />
                         )}
                     </Field>
@@ -227,38 +255,41 @@ export function MemberDialog({
                                 className="items-center gap-2"
                                 // biome-ignore lint/suspicious/noArrayIndexKey: rows are edited in place and only ever removed by this index, so it is their identity
                                 key={index}>
-                                <Input
-                                    aria-label="Network"
-                                    className="w-36 shrink-0"
-                                    list={`${listId}-networks`}
-                                    value={row.network}
-                                    onChange={(event) =>
-                                        setSocial((rows) =>
-                                            rows.map((item, at) =>
-                                                at === index
-                                                    ? { ...item, network: event.target.value }
-                                                    : item,
-                                            ),
-                                        )
-                                    }
-                                    maxLength={32}
-                                    placeholder="network"
-                                />
-                                <Input
-                                    aria-label="Handle or address"
-                                    value={row.handle}
-                                    onChange={(event) =>
-                                        setSocial((rows) =>
-                                            rows.map((item, at) =>
-                                                at === index
-                                                    ? { ...item, handle: event.target.value }
-                                                    : item,
-                                            ),
-                                        )
-                                    }
-                                    maxLength={300}
-                                    placeholder="@handle or link"
-                                />
+                                <Stack direction="Vertical" className="w-36 shrink-0">
+                                    <Input
+                                        aria-label="Network"
+                                        list={`${listId}-networks`}
+                                        value={row.network}
+                                        onChange={(event) =>
+                                            setSocial((rows) =>
+                                                rows.map((item, at) =>
+                                                    at === index
+                                                        ? { ...item, network: event.target.value }
+                                                        : item,
+                                                ),
+                                            )
+                                        }
+                                        maxLength={32}
+                                        placeholder="network"
+                                    />
+                                </Stack>
+                                <Stack direction="Vertical" className="min-w-0 grow">
+                                    <Input
+                                        aria-label="Handle or address"
+                                        value={row.handle}
+                                        onChange={(event) =>
+                                            setSocial((rows) =>
+                                                rows.map((item, at) =>
+                                                    at === index
+                                                        ? { ...item, handle: event.target.value }
+                                                        : item,
+                                                ),
+                                            )
+                                        }
+                                        maxLength={300}
+                                        placeholder="@handle or link"
+                                    />
+                                </Stack>
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
