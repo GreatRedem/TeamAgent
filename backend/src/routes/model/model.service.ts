@@ -23,7 +23,7 @@ import { TeamAgent, TeamAgentExchange } from '../agent/agent.entity.js';
 import { exchangeView } from '../agent/agent.service.js';
 import { isOpenRouter } from '../agent/agent.transport.js';
 import { exchangeUsage } from '../agent/agent.usage.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamModel } from '../team/team.entity.js';
 import { freeCandidates, isAutoFree } from './model.auto.js';
@@ -318,6 +318,13 @@ export function modelCreate(fastify: FastifyInstance) {
             action: 'model.create',
             target: `model:${saved.id}`,
             detail: `${name} - ${model}`,
+            changes: {
+                name,
+                model,
+                base_url: baseUrl,
+                api_key: apiKey,
+                context_tokens: detected,
+            },
         });
 
         reply.send(toModelView(saved));
@@ -418,6 +425,13 @@ export function modelUpdate(fastify: FastifyInstance) {
         const apiKey = readApiKey(request);
 
         const existing = await findOwnedModel(fastify, teamId, modelId, request.account_id);
+        const diff = changed(existing, {
+            name,
+            model,
+            base_url: baseUrl,
+            context_tokens: contextTokens,
+            ...(apiKey !== '' && { api_key: apiKey }),
+        });
 
         await fastify.db.getRepository(TeamModel).update(
             { id: existing.id, team_id: teamId },
@@ -446,7 +460,8 @@ export function modelUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'model.update',
             target: `model:${existing.id}`,
-            detail: apiKey !== '' ? `${name} - key rotated` : name,
+            detail: `${name} - changed ${Object.keys(diff).join(', ') || 'nothing'}`,
+            changes: diff,
         });
 
         reply.send(
@@ -470,6 +485,10 @@ export function modelRemove(fastify: FastifyInstance) {
         const modelId = readModelId(request);
 
         await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const gone = await fastify.db
+            .getRepository(TeamModel)
+            .findOneBy({ id: modelId, team_id: teamId });
 
         const removed = await fastify.db
             .getRepository(TeamModel)
@@ -499,7 +518,8 @@ export function modelRemove(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'model.remove',
             target: `model:${modelId}`,
-            detail: `${detached.affected ?? 0} agent(s) detached`,
+            detail: `${gone?.name ?? modelId} - ${detached.affected ?? 0} agent(s) detached`,
+            changes: { model: gone, agents_detached: detached.affected ?? 0 },
         });
 
         reply.send({ result: 'OK' });
@@ -552,6 +572,14 @@ export function modelTest(fastify: FastifyInstance) {
             detail: probe.ok
                 ? `${probe.models ?? 0} models listed${(probe.context ?? 0) > 0 ? ` - ${probe.context} token window` : ''}`
                 : (probe.reason ?? 'failed'),
+            changes: {
+                probe,
+                ...(!isAutoFree(model.model) &&
+                    (probe.context ?? 0) > 0 &&
+                    probe.context !== model.context_tokens && {
+                        context_tokens: { from: model.context_tokens, to: probe.context },
+                    }),
+            },
         });
 
         reply.send(probe);

@@ -16,7 +16,7 @@ import {
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { TeamTask } from '../task/task.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
@@ -182,6 +182,13 @@ export function agentCreate(fastify: FastifyInstance) {
             action: 'agent.create',
             target: `agent:${agent.id}`,
             detail: `${name} - model ${modelId} - ${files.length} files seeded`,
+            changes: {
+                name,
+                description,
+                model_id: modelId,
+                permissions: agent.permissions,
+                files,
+            },
         });
 
         const names = await modelNames(fastify, teamId);
@@ -291,6 +298,8 @@ export function agentUpdate(fastify: FastifyInstance) {
         const { name, description } = readAgentBody(request);
         const modelId = await readModelId(fastify, request, teamId);
 
+        const diff = changed(agent, { name, description, model_id: modelId });
+
         await fastify.db
             .getRepository(TeamAgent)
             .update({ id: agent.id, team_id: teamId }, { name, description, model_id: modelId });
@@ -310,7 +319,8 @@ export function agentUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'agent.update',
             target: `agent:${agent.id}`,
-            detail: `${name} - model ${modelId}`,
+            detail: `${name} - changed ${Object.keys(diff).join(', ') || 'nothing'}`,
+            changes: diff,
         });
 
         reply.send(
@@ -332,6 +342,13 @@ export function agentRemove(fastify: FastifyInstance) {
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
+        const gone = await fastify.db
+            .getRepository(TeamAgent)
+            .findOneBy({ id: agentId, team_id: teamId });
+        const files = await fastify.db
+            .getRepository(TeamAgentDocument)
+            .findBy({ agent_id: agentId });
+
         const removed = await fastify.db
             .getRepository(TeamAgent)
             .delete({ id: agentId, team_id: teamId });
@@ -342,9 +359,11 @@ export function agentRemove(fastify: FastifyInstance) {
 
         await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
 
-        await fastify.db.getRepository(TelegramUserDocument).delete({ agent_id: agentId });
+        const personal = await fastify.db
+            .getRepository(TelegramUserDocument)
+            .delete({ agent_id: agentId });
 
-        await fastify.db
+        const cancelled = await fastify.db
             .getRepository(TeamTask)
             .update(
                 { team_id: teamId, agent_id: agentId, status: 'scheduled' },
@@ -371,7 +390,14 @@ export function agentRemove(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'agent.remove',
             target: `agent:${agentId}`,
-            detail: `${detached.affected ?? 0} bot(s) detached`,
+            detail: `${gone?.name ?? agentId} - ${detached.affected ?? 0} bot(s) detached, ${cancelled.affected ?? 0} task(s) cancelled`,
+            changes: {
+                agent: gone,
+                files: files.map((file) => ({ name: file.name, content: file.content })),
+                personal_files_removed: personal.affected ?? 0,
+                tasks_cancelled: cancelled.affected ?? 0,
+                bots_detached: detached.affected ?? 0,
+            },
         });
 
         reply.send({ result: 'OK' });
@@ -416,7 +442,8 @@ export function agentDocumentCreate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'agent.document.create',
             target: `agent:${agent.id}`,
-            detail: name,
+            detail: `${agent.name} - ${name} - ${content.length} chars`,
+            changes: { name, content },
         });
 
         reply.send(toDocumentView(document));
@@ -470,7 +497,8 @@ export function agentDocumentUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'agent.document.update',
             target: `agent:${agent.id}`,
-            detail: `${name} - ${content.length} chars`,
+            detail: `${agent.name} - ${name} - ${content.length} chars`,
+            changes: changed(document, { name, content }),
         });
 
         reply.send(toDocumentView({ ...document, name, content, updated_at: new Date() }));
@@ -489,6 +517,10 @@ export function agentDocumentRemove(fastify: FastifyInstance) {
             request.account_id,
         );
         const documentId = readDocumentId(request);
+
+        const gone = await fastify.db
+            .getRepository(TeamAgentDocument)
+            .findOneBy({ id: documentId, agent_id: agent.id });
 
         const removed = await fastify.db
             .getRepository(TeamAgentDocument)
@@ -514,7 +546,8 @@ export function agentDocumentRemove(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'agent.document.remove',
             target: `agent:${agent.id}`,
-            detail: `document ${documentId}`,
+            detail: `${agent.name} - ${gone?.name ?? `document ${documentId}`}`,
+            changes: { name: gone?.name, content: gone?.content },
         });
 
         reply.send({ result: 'OK' });
@@ -583,6 +616,10 @@ export function agentPermissionUpdate(fastify: FastifyInstance) {
             action: 'agent.permissions',
             target: `agent:${agent.id}`,
             detail: `${agent.name} -> ${permissions === '' ? 'none' : permissions}`,
+            changes: changed(
+                { permissions: parseAgentPermissions(agent.permissions) },
+                { permissions: parseAgentPermissions(permissions) },
+            ),
         });
 
         reply.send(

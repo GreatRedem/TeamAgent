@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { In, IsNull, Not } from 'typeorm';
+import { type EntityTarget, In, IsNull, Not, type ObjectLiteral } from 'typeorm';
 import {
     BOT_PROFILES_MAX,
     BOT_TOKEN_MAX,
@@ -21,7 +21,7 @@ import { idList } from '../../utils/ids.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { AuditLog } from '../audit/audit.entity.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { TeamTask, TeamTaskRun } from '../task/task.entity.js';
 import { profileLabel } from '../task/task.plan.js';
 import {
@@ -239,6 +239,7 @@ export function teamCreate(fastify: FastifyInstance) {
             action: 'team.create',
             target: `team:${team.id}`,
             detail: name,
+            changes: { name, description },
         });
 
         reply.send(team);
@@ -292,7 +293,7 @@ export function teamUpdate(fastify: FastifyInstance) {
             throw new BadRequestResponse('ERROR_MIN_LENGTH');
         }
 
-        await findOwnedTeam(fastify, id, request.account_id);
+        const before = await findOwnedTeam(fastify, id, request.account_id);
 
         await fastify.db
             .getRepository(Team)
@@ -311,6 +312,7 @@ export function teamUpdate(fastify: FastifyInstance) {
             action: 'team.update',
             target: `team:${id}`,
             detail: name,
+            changes: changed(before, { name, description }),
         });
 
         reply.send(team);
@@ -324,7 +326,7 @@ export function teamArchive(fastify: FastifyInstance) {
         const id = readTeamId(request);
         const { archived } = request.body as { archived: boolean };
 
-        await findOwnedTeam(fastify, id, request.account_id);
+        const before = await findOwnedTeam(fastify, id, request.account_id);
 
         await fastify.db
             .getRepository(Team)
@@ -345,6 +347,8 @@ export function teamArchive(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: archived ? 'team.archive' : 'team.unarchive',
             target: `team:${id}`,
+            detail: team.name,
+            changes: changed(before, { archived_at: team.archived_at }),
         });
 
         reply.send(team);
@@ -363,7 +367,15 @@ export function teamRemove(fastify: FastifyInstance) {
             throw new BadRequestResponse('TEAM_NOT_ARCHIVED');
         }
 
+        const removed: Record<string, number> = {};
+
         await fastify.db.transaction(async (db) => {
+            const wipe = async (entity: EntityTarget<ObjectLiteral>, where: object) => {
+                const result = await db.delete(entity, where);
+                const name = typeof entity === 'function' ? entity.name : String(entity);
+
+                removed[name] = (removed[name] ?? 0) + (result?.affected ?? 0);
+            };
             const agents = await db.find(TeamAgent, {
                 where: { team_id: id },
                 select: { id: true },
@@ -374,30 +386,39 @@ export function teamRemove(fastify: FastifyInstance) {
             });
 
             if (agents.length > 0) {
-                await db.delete(TeamAgentDocument, { agent_id: In(agents.map((a) => a.id)) });
+                await wipe(TeamAgentDocument, { agent_id: In(agents.map((a) => a.id)) });
             }
 
             if (users.length > 0) {
-                await db.delete(TelegramUserDocument, { user_id: In(users.map((u) => u.id)) });
+                await wipe(TelegramUserDocument, { user_id: In(users.map((u) => u.id)) });
             }
 
-            await db.delete(TeamAgentExchange, { team_id: id });
-            await db.delete(TeamAgent, { team_id: id });
-            await db.delete(TelegramMessage, { team_id: id });
-            await db.delete(TelegramUser, { team_id: id });
-            await db.delete(TeamBot, { team_id: id });
-            await db.delete(TeamModel, { team_id: id });
-            await db.delete(TeamDocument, { team_id: id });
-            await db.delete(TeamTaskRun, { team_id: id });
-            await db.delete(TeamTask, { team_id: id });
-            await db.delete(AuditLog, { team_id: id });
-            await db.delete(Team, { id, account_id: request.account_id });
+            await wipe(TeamAgentExchange, { team_id: id });
+            await wipe(TeamAgent, { team_id: id });
+            await wipe(TelegramMessage, { team_id: id });
+            await wipe(TelegramUser, { team_id: id });
+            await wipe(TeamBot, { team_id: id });
+            await wipe(TeamModel, { team_id: id });
+            await wipe(TeamDocument, { team_id: id });
+            await wipe(TeamTaskRun, { team_id: id });
+            await wipe(TeamTask, { team_id: id });
+            await wipe(AuditLog, { team_id: id });
+            await wipe(Team, { id, account_id: request.account_id });
         });
 
         request.log.info(
             { module: 'team', teamId: id, accountId: request.account_id },
             'team deleted',
         );
+
+        await audit(fastify, request.log, {
+            teamId: id,
+            accountId: request.account_id,
+            action: 'team.remove',
+            target: `team:${id}`,
+            detail: `${team.name} deleted for good`,
+            changes: { team, removed },
+        });
 
         reply.send({ result: 'OK' });
     };
@@ -452,6 +473,7 @@ export function teamBotCreate(fastify: FastifyInstance) {
             action: 'bot.create',
             target: `bot:${bot.id}`,
             detail: name,
+            changes: { name, token, public_url: bot.public_url },
         });
 
         reply.send(toBotView(bot));
@@ -536,7 +558,8 @@ export function teamBotTest(fastify: FastifyInstance) {
             action: 'bot.test',
             target: `bot:${botId}`,
             outcome: probe.ok ? 'ok' : 'error',
-            detail: probe.reason ?? 'connected',
+            detail: `${bot.name} · ${probe.reason ?? 'connected'}`,
+            changes: probe,
         });
 
         reply.send(probe);
@@ -551,6 +574,10 @@ export function teamBotRemove(fastify: FastifyInstance) {
         const botId = readBotId(request);
 
         await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const gone = await fastify.db
+            .getRepository(TeamBot)
+            .findOneBy({ id: botId, team_id: teamId });
 
         const removed = await fastify.db
             .getRepository(TeamBot)
@@ -570,6 +597,8 @@ export function teamBotRemove(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'bot.remove',
             target: `bot:${botId}`,
+            detail: gone?.name ?? '',
+            changes: { bot: gone },
         });
 
         reply.send({ result: 'OK' });
@@ -601,6 +630,8 @@ export function teamBotUpdate(fastify: FastifyInstance) {
                 : (await readBotProfiles(fastify, teamId, body.profiles)).join(',');
         const changes = { name, public_url: publicUrl, agent_id: agentId, groups, profiles };
 
+        const diff = changed(bot, changes);
+
         await fastify.db.getRepository(TeamBot).update({ id: bot.id, team_id: teamId }, changes);
 
         request.log.info(
@@ -618,7 +649,8 @@ export function teamBotUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'bot.update',
             target: `bot:${bot.id}`,
-            detail: `${publicUrl === '' ? 'polling' : 'webhook'} - agent ${agentId === 0 ? 'none' : agentId}`,
+            detail: `${bot.name} - changed ${Object.keys(diff).join(', ') || 'nothing'}`,
+            changes: diff,
         });
 
         const names = await agentNames(fastify, teamId);
@@ -711,6 +743,7 @@ export function teamRosterWrite(fastify: FastifyInstance) {
             action: 'roster.write',
             target: `team:${teamId}`,
             detail: `${roster.members.length} members`,
+            changes: { from: row?.content ?? '', to: content },
         });
 
         reply.send({ members: roster.members, count: roster.members.length });
@@ -754,9 +787,13 @@ export function teamRosterMemberSave(fastify: FastifyInstance) {
         const previous = body.previous_name?.trim() || undefined;
         const name = typeof body.member.name === 'string' ? body.member.name.trim() : '';
 
-        const roster = await editRoster(fastify, teamId, (current) =>
-            replaceMember(current, previous, body.member),
-        );
+        let before: unknown;
+
+        const roster = await editRoster(fastify, teamId, (current) => {
+            before = current.members.find((member) => member.name === (previous ?? name));
+
+            return replaceMember(current, previous, body.member);
+        });
 
         request.log.info(
             {
@@ -777,6 +814,10 @@ export function teamRosterMemberSave(fastify: FastifyInstance) {
                 previous !== undefined && previous !== name
                     ? `${previous} saved as ${name}`
                     : `${name} saved`,
+            changes: {
+                from: before ?? null,
+                to: roster.members.find((member) => member.name === name) ?? body.member,
+            },
         });
 
         reply.send({ members: roster.members, count: roster.members.length });
@@ -797,7 +838,11 @@ export function teamRosterMemberRemove(fastify: FastifyInstance) {
             throw new BadRequestResponse('ROSTER_MEMBER_NOT_FOUND');
         }
 
+        let before: unknown;
+
         const roster = await editRoster(fastify, teamId, (current) => {
+            before = current.members.find((member) => member.name === name);
+
             const result = removeMember(current, name);
 
             if (!result.removed) {
@@ -813,6 +858,7 @@ export function teamRosterMemberRemove(fastify: FastifyInstance) {
             action: 'roster.member',
             target: `team:${teamId}`,
             detail: `${name} removed`,
+            changes: { removed: before ?? null },
         });
 
         reply.send({ members: roster.members, count: roster.members.length });

@@ -276,6 +276,16 @@ export const schemaUsage = {
 
 export const DETAIL_MAX = 512;
 
+export const AUDIT_CHANGES_MAX = 65536;
+
+export const AUDIT_HIDDEN = new Set([
+    ...LOG_REDACTED,
+    'secrets',
+    'webhook_secret',
+    'hook_secret',
+    'nonce',
+]);
+
 export const HEATMAP_DAYS = 364;
 
 export const LIST_LIMIT = 60;

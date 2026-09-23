@@ -249,10 +249,13 @@ export async function runTool(
 
         let next: Roster;
         let outcome: string;
+        let before: unknown = null;
 
         try {
             const roster = parseRoster(await readRosterContent(fastify, agent.team_id));
             const stored = findMember(roster, name);
+
+            before = stored ?? null;
 
             if (tool.name === 'roster_member_delete') {
                 const removed = removeMember(roster, name);
@@ -303,6 +306,19 @@ export async function runTool(
             action: 'agent.roster',
             target: `team:${agent.team_id}`,
             detail: `${outcome} ${name} · agent ${agent.id} (${agent.name}) · ${next.members.length} members`,
+            changes: {
+                agent_id: agent.id,
+                asked_by: user.id,
+                from: before,
+                to:
+                    outcome === 'removed'
+                        ? null
+                        : (findMember(
+                              next,
+                              (typeof args['new_name'] === 'string' && args['new_name'].trim()) ||
+                                  name,
+                          ) ?? null),
+            },
         });
 
         return {
@@ -533,6 +549,13 @@ export async function runTool(
             target: `profile:${member.id}`,
             actor: 'agent',
             detail: `${agent.name} appended to ${noteName}, now ${merged.length} chars`,
+            changes: {
+                agent_id: agent.id,
+                asked_by: user.id,
+                name: noteName,
+                from: stored?.content ?? null,
+                to: merged,
+            },
         });
 
         return {
@@ -611,6 +634,20 @@ export async function runTool(
         agent_id: agent.id,
         name: fileName,
     });
+    const record = (content: string) =>
+        audit(fastify, fastify.log, {
+            teamId: agent.team_id,
+            action: tool.name === 'preferences_append' ? 'agent.file.append' : 'agent.file.write',
+            target: `profile:${user.id}`,
+            actor: 'agent',
+            detail: `${agent.name} ${existing ? 'changed' : 'created'} ${fileName}, now ${content.length} chars`,
+            changes: {
+                agent_id: agent.id,
+                name: fileName,
+                from: existing?.content ?? null,
+                to: content,
+            },
+        });
 
     if (tool.name === 'preferences_append') {
         const merged = existing
@@ -632,6 +669,8 @@ export async function runTool(
             });
         }
 
+        await record(merged);
+
         return { ok: true, content: JSON.stringify({ name: fileName, chars: merged.length }) };
     }
 
@@ -645,6 +684,8 @@ export async function runTool(
             content: body,
         });
     }
+
+    await record(body);
 
     return { ok: true, content: JSON.stringify({ name: fileName, chars: body.length }) };
 }

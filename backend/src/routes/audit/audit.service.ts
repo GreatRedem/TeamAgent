@@ -38,6 +38,7 @@ export function auditList(fastify: FastifyInstance) {
                 target: entry.target,
                 outcome: entry.outcome,
                 detail: entry.detail,
+                changes: entry.changes,
                 duration_ms: entry.duration_ms,
                 actor: entry.actor,
                 created_at: entry.created_at,

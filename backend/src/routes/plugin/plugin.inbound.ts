@@ -45,6 +45,15 @@ export async function receiveInbound(
 
     forwardEvent(fastify, log, plugin, 'message.received', { ...event });
 
+    await audit(fastify, log, {
+        teamId: plugin.team_id,
+        actor: 'system',
+        action: 'plugin.inbound',
+        target: `plugin:${plugin.id}`,
+        detail: `${event.author} · ${event.kind} on ${plugin.name} · ${event.text.length} chars${plugin.hook_agent_id === 0 ? ' · nobody answers it' : ''}`,
+        changes: { ...event },
+    });
+
     if (plugin.hook_agent_id === 0) {
         return { answered: false, text: '', error: '' };
     }
@@ -167,6 +176,13 @@ export async function receiveInbound(
         outcome: sent.ok ? 'ok' : 'error',
         durationMs: Date.now() - startedAt,
         detail: `${agent.name} answered ${event.author} on ${plugin.name} · ${run.toolRuns} tool call(s) · ${text.length} chars${sent.ok ? '' : ` · ${sent.error ?? ''}`}`,
+        changes: {
+            agent_id: agent.id,
+            from: { author: event.author, author_id: event.author_id, where: event.where },
+            received: event.text,
+            answered: text,
+            sent: sent.ok ? (sent.data ?? null) : { error: sent.error ?? '', status: sent.status },
+        },
     });
 
     return { answered: sent.ok, text, error: sent.error ?? '' };

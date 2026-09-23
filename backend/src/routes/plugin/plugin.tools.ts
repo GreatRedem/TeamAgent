@@ -9,6 +9,7 @@ import {
 
 import { idList } from '../../utils/ids.js';
 import type { TeamAgent } from '../agent/agent.entity.js';
+import { audit } from '../audit/audit.log.js';
 import type { ToolDefinition, ToolResult } from '../mcp/mcp.tools.js';
 import { browserAct, browserProbe } from './plugin.browser.js';
 import { argText, failed, type PluginOutcome, postSigned, settingsOf } from './plugin.common.js';
@@ -284,6 +285,24 @@ export async function runPluginTool(
         durationMs: Date.now() - startedAt,
         agentId: agent.id,
         request: JSON.stringify(args),
+    });
+
+    await audit(fastify, fastify.log, {
+        teamId: plugin.team_id,
+        actor: 'agent',
+        action: 'plugin.action',
+        target: `plugin:${plugin.id}`,
+        outcome: outcome.ok ? 'ok' : 'error',
+        durationMs: Date.now() - startedAt,
+        detail: `${agent.name} used ${name} on ${plugin.name}${outcome.ok ? '' : ` · ${outcome.error ?? 'failed'}`}`,
+        changes: {
+            agent_id: agent.id,
+            tool: name,
+            args,
+            result: outcome.ok
+                ? (outcome.data ?? null)
+                : { error: outcome.error, status: outcome.status },
+        },
     });
 
     forwardEvent(fastify, fastify.log, plugin, outcome.ok ? 'agent.action' : 'agent.failed', {

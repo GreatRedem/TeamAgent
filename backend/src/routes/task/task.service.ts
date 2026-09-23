@@ -5,7 +5,7 @@ import { LIST_PAGE, RUN_PAGE } from '../../constant.js';
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent } from '../agent/agent.entity.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TelegramUser } from '../telegram/telegram.entity.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
@@ -206,6 +206,7 @@ export function taskCreate(fastify: FastifyInstance) {
             action: 'task.create',
             target: `task:${saved.id}`,
             detail: `${saved.title} · agent ${saved.agent_id} · ${saved.repeat}`,
+            changes: { ...body, status: 'scheduled' },
         });
 
         const [view] = await taskViews(fastify, teamId, [saved]);
@@ -228,6 +229,7 @@ export function taskUpdate(fastify: FastifyInstance) {
         const body = await readCheckedBody(fastify, request, teamId);
 
         const status = task.status === 'cancelled' ? 'cancelled' : 'scheduled';
+        const diff = changed(task, { ...body, status, retry_count: 0, retry_at: null });
 
         await fastify.db
             .getRepository(TeamTask)
@@ -238,7 +240,8 @@ export function taskUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'task.update',
             target: `task:${task.id}`,
-            detail: body.title,
+            detail: `${body.title} · changed ${Object.keys(diff).join(', ') || 'nothing'}`,
+            changes: diff,
         });
 
         const saved = (await fastify.db
@@ -271,7 +274,8 @@ export function taskStatus(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: status === 'cancelled' ? 'task.cancel' : 'task.schedule',
             target: `task:${task.id}`,
-            detail: task.title,
+            detail: `${task.title} · ${task.status} -> ${status}`,
+            changes: changed(task, { status, retry_count: 0, retry_at: null }),
         });
 
         const [view] = await taskViews(fastify, teamId, [
@@ -289,7 +293,7 @@ export function taskRemove(fastify: FastifyInstance) {
         const teamId = readTeamId(request);
         const task = await findOwnedTask(fastify, teamId, readTaskId(request), request.account_id);
 
-        await fastify.db.getRepository(TeamTaskRun).delete({ task_id: task.id });
+        const runs = await fastify.db.getRepository(TeamTaskRun).delete({ task_id: task.id });
         await fastify.db.getRepository(TeamTask).delete({ id: task.id });
 
         await audit(fastify, request.log, {
@@ -297,7 +301,8 @@ export function taskRemove(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'task.remove',
             target: `task:${task.id}`,
-            detail: task.title,
+            detail: `${task.title} · ${runs.affected ?? 0} run records removed`,
+            changes: { task, runs_removed: runs.affected ?? 0 },
         });
 
         reply.send({ result: 'removed' });
@@ -331,7 +336,8 @@ export function taskRunNow(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'task.run_now',
             target: `task:${task.id}`,
-            detail: task.title,
+            detail: `${task.title} · ${task.status} -> scheduled now`,
+            changes: changed(task, { status: 'scheduled', retry_count: 0, retry_at: null }),
         });
 
         void runTask(fastify, request.log, task.id).catch((cause: unknown) =>

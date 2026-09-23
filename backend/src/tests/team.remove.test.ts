@@ -26,6 +26,7 @@ async function main() {
 
     function fakeFastify(archivedAt: Date | null) {
         const deleted: { entity: string; where: Record<string, unknown> }[] = [];
+        const audited: Record<string, unknown>[] = [];
         let transactions = 0;
 
         const fastify = {
@@ -34,8 +35,14 @@ async function main() {
                     findOneBy: async () => ({
                         id: TEAM,
                         account_id: OWNER,
+                        name: 'Old project',
                         archived_at: archivedAt,
                     }),
+                    save: async (row: Record<string, unknown>) => {
+                        audited.push(row);
+
+                        return row;
+                    },
                 }),
                 transaction: async (run: (db: unknown) => Promise<void>) => {
                     transactions++;
@@ -52,7 +59,7 @@ async function main() {
             },
         } as unknown as FastifyInstance;
 
-        return { fastify, deleted, transactions: () => transactions };
+        return { fastify, deleted, audited, transactions: () => transactions };
     }
 
     function call(fastify: FastifyInstance) {
@@ -60,7 +67,7 @@ async function main() {
         const request = {
             params: { id: String(TEAM) },
             account_id: OWNER,
-            log: { info: () => {} },
+            log: { info: () => {}, error: () => {} },
         } as unknown as FastifyRequest;
         const reply = { send: (body: unknown) => sent.push(body) } as unknown as FastifyReply;
 
@@ -81,7 +88,7 @@ async function main() {
     }
 
     {
-        const { fastify, deleted, transactions } = fakeFastify(new Date());
+        const { fastify, deleted, audited, transactions } = fakeFastify(new Date());
         const { run, sent } = call(fastify);
 
         await run();
@@ -96,6 +103,10 @@ async function main() {
             assert.deepEqual(where, { team_id: TEAM }, `${entity} is scoped to the project`);
         }
         assert.deepEqual(sent, [{ result: 'OK' }]);
+        assert.equal(audited.length, 1);
+        assert.equal(audited[0]?.['action'], 'team.remove');
+        assert.equal(audited[0]?.['team_id'], TEAM);
+        assert.match(String(audited[0]?.['changes']), /"removed":\{"TeamAgentDocument":0/);
     }
 
     console.log('team.remove: ok');

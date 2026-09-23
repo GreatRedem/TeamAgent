@@ -9,7 +9,7 @@ import {
 } from '../../constant.js';
 
 import { TeamAgent } from '../agent/agent.entity.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { agentTools } from '../mcp/mcp.tools.js';
 import { isAutoFree, rest } from '../model/model.auto.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
@@ -137,22 +137,21 @@ export async function runTask(
             'task run finished',
         );
 
-        await tasks.update(
-            { id: task.id },
-            {
-                last_run_at: startedAt,
-                run_count: task.run_count + 1,
-                ...(retry !== null
-                    ? { status: 'scheduled', retry_count: task.retry_count + 1, retry_at: retry }
-                    : {
-                          retry_count: 0,
-                          retry_at: null,
-                          ...(next === null
-                              ? { status: outcome === 'ok' ? 'done' : 'failed' }
-                              : { status: 'scheduled', start_at: next }),
-                      }),
-            },
-        );
+        const progress = {
+            last_run_at: startedAt,
+            run_count: task.run_count + 1,
+            ...(retry !== null
+                ? { status: 'scheduled', retry_count: task.retry_count + 1, retry_at: retry }
+                : {
+                      retry_count: 0,
+                      retry_at: null,
+                      ...(next === null
+                          ? { status: outcome === 'ok' ? 'done' : 'failed' }
+                          : { status: 'scheduled', start_at: next }),
+                  }),
+        };
+
+        await tasks.update({ id: task.id }, progress);
 
         await audit(fastify, log, {
             teamId: task.team_id,
@@ -162,6 +161,14 @@ export async function runTask(
             outcome: outcome === 'ok' ? 'ok' : 'error',
             durationMs: now.getTime() - startedAt.getTime(),
             detail: `${task.title} · agent ${task.agent_id}${delivered ? ' · sent' : ''}${reason === '' ? '' : ` · ${reason}`}`,
+            changes: {
+                run_id: run.id,
+                output,
+                delivered,
+                reason,
+                ...spent,
+                task: changed(task, progress),
+            },
         });
     };
 

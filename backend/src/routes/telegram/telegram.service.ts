@@ -43,7 +43,7 @@ import {
     toolGuidance,
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import {
     agentTools,
     readRosterContent,
@@ -319,6 +319,14 @@ export async function ingestUpdate(
         action: 'telegram.message',
         target: `profile:${user.id}`,
         detail: `bot ${bot.id} (${bot.name}) - ${inbound.text.length} chars - update ${inbound.updateId}`,
+        changes: {
+            message_id: stored.id,
+            bot_id: bot.id,
+            chat_id: inbound.chatId,
+            group: inbound.group,
+            update_id: inbound.updateId,
+            text: inbound.text,
+        },
     });
 
     void deliverAgentReply(fastify, bot, user, inbound, stored.id, log).catch((error: unknown) =>
@@ -1046,6 +1054,13 @@ async function callAgent(
         outcome: answer === '' ? 'error' : 'ok',
         durationMs: Date.now() - startedAt,
         detail: `${caller.name} asked ${target.name} for ${person} (profile ${user.id}) · ${run.toolRuns} tool call(s)${answer === '' ? ` · ${runFailure(run)}` : ''}`,
+        changes: {
+            caller_id: caller.id,
+            profile_id: user.id,
+            request,
+            answer: answer === '' ? null : answer,
+            failure: answer === '' ? runFailure(run) : null,
+        },
     });
 
     if (answer === '') {
@@ -1328,7 +1343,7 @@ async function deliverAgentReply(
         }
     }
 
-    await fastify.db.getRepository(TelegramMessage).save({
+    const reply = await fastify.db.getRepository(TelegramMessage).save({
         team_id: bot.team_id,
         user_id: user.id,
         bot_id: bot.id,
@@ -1352,6 +1367,13 @@ async function deliverAgentReply(
         durationMs: Date.now() - startedAt,
         actor: 'agent',
         detail: `agent ${agent.id} (${agent.name}) · model ${model.id} (${served}) · profile ${user.id} · ${messages.length} messages in · ${text.length} chars out · ${toolRuns} tool call(s)`,
+        changes: {
+            message_id: reply.id,
+            answering: messageId,
+            bot_id: bot.id,
+            chat_id: chatId,
+            text,
+        },
     });
 }
 
@@ -1582,7 +1604,11 @@ export function profilePermissionUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'profile.permissions',
             target: `profile:${user.id}`,
-            detail: permissions === '' ? 'all revoked' : permissions,
+            detail: `${profileLabel(user)} -> ${permissions === '' ? 'all revoked' : permissions}`,
+            changes: changed(
+                { permissions: parsePermissions(user.permissions) },
+                { permissions: parsePermissions(permissions) },
+            ),
         });
 
         reply.send(toProfile({ ...user, permissions }));
@@ -1612,13 +1638,25 @@ export function telegramWebhookRegister(fastify: FastifyInstance) {
             return;
         }
 
-        if (bot.webhook_secret === '') {
+        const minted = bot.webhook_secret === '';
+
+        if (minted) {
             bot.webhook_secret = createWebhookSecret();
 
             await bots.update({ id: bot.id }, { webhook_secret: bot.webhook_secret });
         }
 
         const url = `${bot.public_url.replace(/\/+$/, '')}/api/telegram/webhook/${bot.id}`;
+        const record = (outcome: 'ok' | 'error', detail: string) =>
+            audit(fastify, request.log, {
+                teamId,
+                accountId: request.account_id,
+                action: 'bot.webhook',
+                target: `bot:${bot.id}`,
+                outcome,
+                detail: `${bot.name} · ${detail}`,
+                changes: { url, ...(minted && { webhook_secret: bot.webhook_secret }) },
+            });
 
         let ok = false;
 
@@ -1640,6 +1678,8 @@ export function telegramWebhookRegister(fastify: FastifyInstance) {
 
             ok = response.ok && payload?.ok === true;
         } catch {
+            await record('error', 'Telegram could not be reached');
+
             reply.send({ ok: false, reason: 'BOT_UNREACHABLE' });
 
             return;
@@ -1648,6 +1688,11 @@ export function telegramWebhookRegister(fastify: FastifyInstance) {
         request.log.info(
             { module: 'telegram', teamId, botId: bot.id, ok },
             'telegram webhook registered',
+        );
+
+        await record(
+            ok ? 'ok' : 'error',
+            ok ? `webhook set to ${url}` : 'Telegram refused the token',
         );
 
         reply.send(ok ? { ok, url } : { ok, reason: 'BOT_TOKEN_REJECTED' });

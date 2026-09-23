@@ -25,6 +25,9 @@ export class AuditLog {
     @Column({ type: 'varchar', length: 512, default: '' })
     detail: string;
 
+    @Column({ type: 'text', default: '' })
+    changes: string;
+
     @Column({ type: 'int', default: 0 })
     duration_ms: number;
 

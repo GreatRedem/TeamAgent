@@ -41,3 +41,11 @@ export function durationLabel(ms: number): string {
 export function localInputValue(date: Date): string {
     return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
+
+export function prettyJson(text: string): string {
+    try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+        return text;
+    }
+}

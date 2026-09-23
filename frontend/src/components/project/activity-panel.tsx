@@ -13,9 +13,11 @@ import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { cn } from '@/libs/cn';
 import { AUDIT_RESULT, HEAT_SCALE, HEAT_SCALE_FAILED } from '@/libs/constant';
+import { prettyJson } from '@/libs/format';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { CodeBlock } from '@/ui/code-block';
 import { DataList, DataRow } from '@/ui/data-value';
 import { Pressable } from '@/ui/pressable';
 import { Skeleton } from '@/ui/skeleton';
@@ -429,6 +431,18 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                         }
                                     />
                                 </Stack>
+
+                                {selected.changes !== '' && (
+                                    <Stack direction="Vertical" className="gap-2">
+                                        <Text type="BodyMuted" message="What changed" />
+
+                                        <Stack
+                                            direction="Vertical"
+                                            className="max-h-96 overflow-y-auto">
+                                            <CodeBlock message={prettyJson(selected.changes)} />
+                                        </Stack>
+                                    </Stack>
+                                )}
                             </>
                         )}
                     </CardContent>

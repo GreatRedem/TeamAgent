@@ -14,7 +14,7 @@ import {
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent } from '../agent/agent.entity.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { type PluginBody, PluginError, readPluginBody } from './plugin.body.js';
 import { type PluginKind, settingsOf } from './plugin.common.js';
@@ -297,6 +297,7 @@ export function pluginCreate(fastify: FastifyInstance) {
             action: 'plugin.create',
             target: `plugin:${saved.id}`,
             detail: `${kind.label} · ${saved.name} · ${body.agents.length} agent(s)`,
+            changes: { kind: kind.key, ...columns(body), account: saved.account },
         });
 
         const [view] = await pluginViews(fastify, [saved]);
@@ -317,13 +318,14 @@ export function pluginUpdate(fastify: FastifyInstance) {
             kindOf(plugin.kind),
             plugin,
         );
-        const changed = columns(body);
+        const next = columns(body);
+        const diff = changed(plugin, next);
 
-        await fastify.db.getRepository(TeamPlugin).update({ id: plugin.id }, changed);
+        await fastify.db.getRepository(TeamPlugin).update({ id: plugin.id }, next);
 
-        const saved = { ...plugin, ...changed } as TeamPlugin;
+        const saved = { ...plugin, ...next } as TeamPlugin;
 
-        if (changed.secrets !== plugin.secrets || changed.config !== plugin.config) {
+        if (next.secrets !== plugin.secrets || next.config !== plugin.config) {
             await probeAndRecord(fastify, request, saved);
         }
 
@@ -332,7 +334,8 @@ export function pluginUpdate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'plugin.update',
             target: `plugin:${plugin.id}`,
-            detail: `${saved.name} · ${saved.enabled ? 'on' : 'off'} · ${body.agents.length} agent(s)`,
+            detail: `${saved.name} · changed ${Object.keys(diff).join(', ') || 'nothing'}`,
+            changes: diff,
         });
 
         const [view] = await pluginViews(fastify, [saved]);
@@ -347,7 +350,9 @@ export function pluginRemove(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const plugin = await findOwnedPlugin(fastify, request);
 
-        await fastify.db.getRepository(TeamPluginCall).delete({ plugin_id: plugin.id });
+        const calls = await fastify.db
+            .getRepository(TeamPluginCall)
+            .delete({ plugin_id: plugin.id });
         await fastify.db.getRepository(TeamPlugin).delete({ id: plugin.id });
 
         PLUGIN_STATUS.delete(plugin.id);
@@ -357,7 +362,8 @@ export function pluginRemove(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'plugin.remove',
             target: `plugin:${plugin.id}`,
-            detail: `${plugin.kind} · ${plugin.name}`,
+            detail: `${plugin.kind} · ${plugin.name} · ${calls.affected ?? 0} request records removed`,
+            changes: { plugin, requests_removed: calls.affected ?? 0 },
         });
 
         reply.send({ result: 'removed' });
@@ -369,8 +375,25 @@ export function pluginRemove(fastify: FastifyInstance) {
 export function pluginTest(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const plugin = await findOwnedPlugin(fastify, request);
+        const account = plugin.account;
         const probe = await probeAndRecord(fastify, request, plugin);
         const [view] = await pluginViews(fastify, [plugin]);
+
+        await audit(fastify, request.log, {
+            teamId: plugin.team_id,
+            accountId: request.account_id,
+            action: 'plugin.test',
+            target: `plugin:${plugin.id}`,
+            outcome: probe.ok ? 'ok' : 'error',
+            detail: `${plugin.name} · ${probe.ok ? `works as ${plugin.account}` : (probe.error ?? 'failed')}`,
+            changes: {
+                status: probe.status,
+                error: probe.error,
+                ...(account !== plugin.account && {
+                    account: { from: account, to: plugin.account },
+                }),
+            },
+        });
 
         reply.send({
             ok: probe.ok,

@@ -6,6 +6,7 @@ export interface AuditEntry {
     target: string;
     outcome: 'ok' | 'error' | 'skipped';
     detail: string;
+    changes: string;
     duration_ms: number;
     actor: string;
     created_at: string;

@@ -7,6 +7,7 @@ import { APP_NAME, SESSION_REFRESH_TIME, WALLET_NONCE_TIME } from '../../constan
 import { createAccessToken, createRefreshToken } from '../../plugins/authentication.js';
 import { rateLimit } from '../../plugins/ratelimit.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
+import { audit } from '../audit/audit.log.js';
 import { Account, AccountNonce, AccountSession } from './account.entity.js';
 import { schemaAccountWalletNonce, schemaAccountWalletSignIn } from './account.schema.js';
 
@@ -143,6 +144,7 @@ export function walletSignIn(fastify: FastifyInstance) {
         }
 
         let account = await fastify.db.getRepository(Account).findOneBy({ wallet: address });
+        const created = !account;
 
         if (!account) {
             account = await fastify.db.getRepository(Account).save({ wallet: address });
@@ -154,6 +156,18 @@ export function walletSignIn(fastify: FastifyInstance) {
         }
 
         const accessToken = await startSession(fastify, request, reply, account);
+
+        await audit(fastify, request.log, {
+            accountId: account.id,
+            action: created ? 'account.create' : 'account.sign_in',
+            target: `account:${account.id}`,
+            detail: `${address}${created ? ' · new account' : ''}`,
+            changes: {
+                wallet: address,
+                ip: request.ip,
+                agent: request.headers['user-agent'] ?? '',
+            },
+        });
 
         request.log.info(
             { module: 'account', accountId: account.id, address },
