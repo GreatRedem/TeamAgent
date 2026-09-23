@@ -193,7 +193,8 @@ export function teamList(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const { limit, offset } = readPage(request, LIST_PAGE);
 
-        const archived = (request.query as { archived?: boolean }).archived === true;
+        const flag = (request.query as Record<string, unknown>)['archived'];
+        const archived = flag === true || flag === 'true';
 
         const [rows, total] = await fastify.db.getRepository(Team).findAndCount({
             where: {
@@ -727,7 +728,11 @@ export function teamRosterMemberRemove(fastify: FastifyInstance) {
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const name = (request.query as { name: string }).name.trim();
+        const name = String((request.query as Record<string, unknown>)['name'] ?? '').trim();
+
+        if (name === '') {
+            throw new BadRequestResponse('ROSTER_MEMBER_NOT_FOUND');
+        }
 
         const roster = await editRoster(fastify, teamId, (current) => {
             const result = removeMember(current, name);
