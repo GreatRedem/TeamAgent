@@ -11,6 +11,7 @@ import fastify from 'fastify';
 
 import authenticationPlugin from './plugins/authentication.js';
 import ratelimitPlugin from './plugins/ratelimit.js';
+import taskRunnerPlugin from './plugins/taskrunner.js';
 import telegramPollPlugin from './plugins/telegrampoll.js';
 import typeormPlugin from './plugins/typeorm.js';
 import validatorPlugin from './plugins/validator.js';
@@ -87,6 +88,8 @@ const main = async () => {
     });
 
     await app.register(telegramPollPlugin);
+
+    await app.register(taskRunnerPlugin);
 
     await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });
 

@@ -12,6 +12,7 @@ import { MachinePanel } from '@/components/project/machine-panel';
 import { ModelsPanel } from '@/components/project/models-panel';
 import { OverviewPanel } from '@/components/project/overview-panel';
 import { PeoplePanel } from '@/components/project/people-panel';
+import { TasksPanel } from '@/components/project/tasks-panel';
 import { TeamPanel } from '@/components/project/team-panel';
 import { ToolsPanel } from '@/components/project/tools-panel';
 import { TEAM_NAMES, TEAM_TITLES } from '@/libs/constant';
@@ -211,6 +212,8 @@ export function Project() {
             )}
 
             {team !== null && tab === 'models' && <ModelsPanel teamId={teamId} />}
+
+            {team !== null && tab === 'tasks' && <TasksPanel teamId={teamId} />}
 
             {team !== null && tab === 'team' && <TeamPanel teamId={teamId} />}
 

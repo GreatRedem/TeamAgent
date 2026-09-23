@@ -26,7 +26,7 @@ import {
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
-import { allowedTools, runTool, toOpenAITools } from '../mcp/mcp.tools.js';
+import { allowedTools, runTool, type ToolDefinition, toOpenAITools } from '../mcp/mcp.tools.js';
 import {
     AUTO_ATTEMPTS,
     freeCandidates,
@@ -359,7 +359,7 @@ async function telegramCall(
 // Sends or edits a reply with its Markdown rendered the way Telegram formats text. If Telegram
 // cannot parse what came out, the reply goes plain rather than not at all; an edit that changes
 // nothing Telegram shows counts as done.
-async function telegramText(
+export async function telegramText(
     token: string,
     method: 'sendMessage' | 'editMessageText',
     payload: Record<string, unknown>,
@@ -573,6 +573,255 @@ async function supersededBy(
     return newer > 0;
 }
 
+interface AgentRun {
+    text: string | undefined;
+    failure: string;
+    lastStatus: number;
+    served: string;
+    toolRuns: number;
+    // The model could not be reached at all, as opposed to answering badly.
+    unreachable: boolean;
+}
+
+// One agent at work: each round asks the model, runs the tools it calls and records the
+// round-trip, until it answers or runs out of rounds. Replies to a message and scheduled tasks
+// both run through here. `onText` receives the answer as it streams.
+export async function runAgent(
+    fastify: FastifyInstance,
+    log: FastifyBaseLogger,
+    job: {
+        teamId: number;
+        agent: TeamAgent;
+        model: TeamModel;
+        user: TelegramUser;
+        messages: ChatMessage[];
+        tools: ToolDefinition[];
+        onText?: (text: string) => void;
+    },
+): Promise<AgentRun> {
+    const { teamId, agent, model, user, messages, tools, onText } = job;
+
+    // Auto-free: the free models this reply may use, tool-capable ones first when the agent has
+    // tools. `chosen` is the model in use: fixed for an ordinary model; for auto-free, the
+    // first free model that answers, kept for the rest of the reply until it fails.
+    const auto = isAutoFree(model.model);
+    const catalog = auto ? (await fetchCatalog()).models : [];
+    const toolReady = freeCandidates(catalog, tools.length > 0);
+    const pool = toolReady.length > 0 ? toolReady : freeCandidates(catalog, false);
+
+    let chosen: { id: string; context: number } | null = auto
+        ? null
+        : { id: model.model, context: model.context_tokens };
+    let served = model.model;
+
+    let text: string | undefined;
+    let toolRuns = 0;
+
+    let toolsUsable = true;
+
+    let failure = '';
+
+    let lastStatus = 0;
+
+    try {
+        for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+            const roundStartedAt = Date.now();
+
+            // One call to the model. An auto-free reply tries free models in turn: a model
+            // that fails for its own reasons is rested and the next one asked, at most
+            // AUTO_ATTEMPTS per round; a failure every model would share ends the round.
+            const ask = async (withTools: boolean) => {
+                const tried = new Set<string>();
+                // The tool definitions sent, kept so the call's tokens can be counted against them.
+                const offered = withTools ? toOpenAITools(tools) : undefined;
+
+                for (let attempt = 1; ; attempt += 1) {
+                    const target = chosen ?? pickFree(pool, tried);
+
+                    if (target === null) {
+                        return {
+                            ok: false,
+                            status: 0,
+                            payload: { error: { message: 'no free model is available' } },
+                            sending: messages,
+                            offered,
+                        };
+                    }
+
+                    const sending = fitToContext(messages, target.context);
+                    const result = await sendCompletion({
+                        baseUrl: model.base_url,
+                        apiKey: model.api_key,
+                        model: target.id,
+                        messages: sending,
+                        maxTokens: completionCap(target.context),
+                        ...(offered !== undefined && { tools: offered }),
+                        timeoutMs: AGENT_TIMEOUT,
+                        ...(!withTools && onText !== undefined && { onText }),
+                    });
+
+                    served = target.id;
+
+                    if (!auto) {
+                        return { ...result, sending, offered };
+                    }
+
+                    tried.add(target.id);
+
+                    const restMs = result.ok
+                        ? null
+                        : restFor(
+                              result.status,
+                              readError(result.payload),
+                              withTools && isToolRefusal(result.payload),
+                          );
+
+                    if (result.ok || restMs === null || attempt >= AUTO_ATTEMPTS) {
+                        chosen = result.ok ? target : null;
+
+                        return { ...result, sending, offered };
+                    }
+
+                    rest(target.id, restMs);
+                    chosen = null;
+
+                    log.warn(
+                        {
+                            module: 'agent',
+                            agentId: agent.id,
+                            modelId: model.id,
+                            free: target.id,
+                            status: result.status,
+                            restMs,
+                        },
+                        'free model failed: switching to the next',
+                    );
+
+                    await recordExchange(fastify, log, {
+                        team_id: teamId,
+                        agent_id: agent.id,
+                        model_id: model.id,
+                        user_id: user.id,
+                        round,
+                        request: JSON.stringify(sending),
+                        response: JSON.stringify(result.payload ?? null),
+                        tool_calls: 0,
+                        ...tokenColumns(
+                            countTokens(
+                                result.payload,
+                                { messages: sending, tools: offered },
+                                false,
+                            ),
+                        ),
+                        duration_ms: Date.now() - roundStartedAt,
+                        outcome: 'error',
+                        reason: `${target.id} - ${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`,
+                    });
+                }
+            };
+
+            const offering = toolsUsable && tools.length > 0 && round < MAX_TOOL_ROUNDS;
+
+            let { ok, status: code, payload, sending, offered } = await ask(offering);
+
+            if (!ok && offering && isToolRefusal(payload)) {
+                log.warn(
+                    {
+                        module: 'agent',
+                        agentId: agent.id,
+                        modelId: model.id,
+                        reason: readError(payload).slice(0, ERROR_TEXT_MAX),
+                    },
+                    'model refused tools: retrying without them',
+                );
+
+                await recordExchange(fastify, log, {
+                    team_id: teamId,
+                    agent_id: agent.id,
+                    model_id: model.id,
+                    user_id: user.id,
+                    round,
+                    request: JSON.stringify(sending),
+                    response: JSON.stringify(payload ?? null),
+                    tool_calls: 0,
+                    ...tokenColumns(
+                        countTokens(payload, { messages: sending, tools: offered }, false),
+                    ),
+                    duration_ms: Date.now() - roundStartedAt,
+                    outcome: 'error',
+                    reason: `tools refused - http ${code}`,
+                });
+
+                toolsUsable = false;
+
+                ({ ok, status: code, payload, sending, offered } = await ask(false));
+            }
+
+            const status = ok ? '' : code === 0 ? 'no response' : `http ${code}`;
+
+            lastStatus = ok ? 0 : code;
+
+            const calls = readToolCalls(payload);
+
+            await recordExchange(fastify, log, {
+                team_id: teamId,
+                agent_id: agent.id,
+                model_id: model.id,
+                user_id: user.id,
+                round,
+                request: JSON.stringify(sending),
+                response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
+                tool_calls: calls.length,
+                ...tokenColumns(countTokens(payload, { messages: sending, tools: offered }, ok)),
+                duration_ms: Date.now() - roundStartedAt,
+                outcome: ok ? 'ok' : 'error',
+                // For auto-free, name the free model that served this round.
+                reason: auto ? [served, status].filter((part) => part !== '').join(' - ') : status,
+            });
+
+            if (calls.length === 0 || round === MAX_TOOL_ROUNDS) {
+                text = readCompletion(payload);
+
+                failure = [status, readError(payload)].filter((part) => part !== '').join(' - ');
+
+                break;
+            }
+
+            messages.push(readAssistantTurn(payload) as ChatMessage);
+
+            for (const call of calls) {
+                const toolStartedAt = Date.now();
+
+                // Only a tool this run was given; a model naming any other is refused.
+                const result = tools.some((tool) => tool.name === call.name)
+                    ? await runTool(fastify, agent, user, call.name, call.arguments)
+                    : {
+                          ok: false,
+                          content: JSON.stringify({ error: `${call.name} is not available here` }),
+                      };
+
+                toolRuns += 1;
+
+                await audit(fastify, log, {
+                    teamId: teamId,
+                    actor: 'agent',
+                    action: 'agent.tool',
+                    target: `profile:${user.id}`,
+                    outcome: result.ok ? 'ok' : 'error',
+                    durationMs: Date.now() - toolStartedAt,
+                    detail: `${call.name} · agent ${agent.id} (${agent.name}) · round ${round} · args ${Object.keys(call.arguments).join(',') || 'none'}${result.ok ? '' : ` · ${result.content.slice(0, 90)}`}`,
+                });
+
+                messages.push({ role: 'tool', tool_call_id: call.id, content: result.content });
+            }
+        }
+    } catch {
+        return { text: undefined, failure, lastStatus, served, toolRuns, unreachable: true };
+    }
+
+    return { text, failure, lastStatus, served, toolRuns, unreachable: false };
+}
+
 async function deliverAgentReply(
     fastify: FastifyInstance,
     bot: TeamBot,
@@ -702,223 +951,31 @@ async function deliverAgentReply(
         return;
     }
 
-    // Auto-free: the free models this reply may use, tool-capable ones first when the agent has
-    // tools. `chosen` is the model in use: fixed for an ordinary model; for auto-free, the
-    // first free model that answers, kept for the rest of the reply until it fails.
-    const auto = isAutoFree(model.model);
-    const catalog = auto ? (await fetchCatalog()).models : [];
-    const toolReady = freeCandidates(catalog, tools.length > 0);
-    const pool = toolReady.length > 0 ? toolReady : freeCandidates(catalog, false);
-
-    let chosen: { id: string; context: number } | null = auto
-        ? null
-        : { id: model.model, context: model.context_tokens };
-    let served = model.model;
-
     const stopTyping = startTyping(bot.token, chatId, log);
 
     const streamer = createStreamer(bot.token, chatId, log);
 
     const startedAt = Date.now();
 
-    let text: string | undefined;
-    let toolRuns = 0;
-
-    let toolsUsable = true;
-
-    let failure = '';
-
-    let lastStatus = 0;
+    let run: AgentRun;
 
     try {
-        for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
-            const roundStartedAt = Date.now();
+        run = await runAgent(fastify, log.child({ botId: bot.id }), {
+            teamId: bot.team_id,
+            agent,
+            model,
+            user,
+            messages,
+            tools,
+            onText: (partial) => streamer.push(partial),
+        });
+    } finally {
+        stopTyping();
+    }
 
-            // One call to the model. An auto-free reply tries free models in turn: a model
-            // that fails for its own reasons is rested and the next one asked, at most
-            // AUTO_ATTEMPTS per round; a failure every model would share ends the round.
-            const ask = async (withTools: boolean) => {
-                const tried = new Set<string>();
-                // The tool definitions sent, kept so the call's tokens can be counted against them.
-                const offered = withTools ? toOpenAITools(tools) : undefined;
+    const { text, failure, lastStatus, served, toolRuns } = run;
 
-                for (let attempt = 1; ; attempt += 1) {
-                    const target = chosen ?? pickFree(pool, tried);
-
-                    if (target === null) {
-                        return {
-                            ok: false,
-                            status: 0,
-                            payload: { error: { message: 'no free model is available' } },
-                            sending: messages,
-                            offered,
-                        };
-                    }
-
-                    const sending = fitToContext(messages, target.context);
-                    const result = await sendCompletion({
-                        baseUrl: model.base_url,
-                        apiKey: model.api_key,
-                        model: target.id,
-                        messages: sending,
-                        maxTokens: completionCap(target.context),
-                        ...(offered !== undefined && { tools: offered }),
-                        timeoutMs: AGENT_TIMEOUT,
-                        ...(!withTools && { onText: (partial: string) => streamer.push(partial) }),
-                    });
-
-                    served = target.id;
-
-                    if (!auto) {
-                        return { ...result, sending, offered };
-                    }
-
-                    tried.add(target.id);
-
-                    const restMs = result.ok
-                        ? null
-                        : restFor(
-                              result.status,
-                              readError(result.payload),
-                              withTools && isToolRefusal(result.payload),
-                          );
-
-                    if (result.ok || restMs === null || attempt >= AUTO_ATTEMPTS) {
-                        chosen = result.ok ? target : null;
-
-                        return { ...result, sending, offered };
-                    }
-
-                    rest(target.id, restMs);
-                    chosen = null;
-
-                    log.warn(
-                        {
-                            module: 'agent',
-                            botId: bot.id,
-                            agentId: agent.id,
-                            modelId: model.id,
-                            free: target.id,
-                            status: result.status,
-                            restMs,
-                        },
-                        'free model failed: switching to the next',
-                    );
-
-                    await recordExchange(fastify, log, {
-                        team_id: bot.team_id,
-                        agent_id: agent.id,
-                        model_id: model.id,
-                        user_id: user.id,
-                        round,
-                        request: JSON.stringify(sending),
-                        response: JSON.stringify(result.payload ?? null),
-                        tool_calls: 0,
-                        ...tokenColumns(
-                            countTokens(
-                                result.payload,
-                                { messages: sending, tools: offered },
-                                false,
-                            ),
-                        ),
-                        duration_ms: Date.now() - roundStartedAt,
-                        outcome: 'error',
-                        reason: `${target.id} - ${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`,
-                    });
-                }
-            };
-
-            const offering = toolsUsable && tools.length > 0 && round < MAX_TOOL_ROUNDS;
-
-            let { ok, status: code, payload, sending, offered } = await ask(offering);
-
-            if (!ok && offering && isToolRefusal(payload)) {
-                log.warn(
-                    {
-                        module: 'agent',
-                        botId: bot.id,
-                        agentId: agent.id,
-                        modelId: model.id,
-                        reason: readError(payload).slice(0, ERROR_TEXT_MAX),
-                    },
-                    'model refused tools: retrying without them',
-                );
-
-                await recordExchange(fastify, log, {
-                    team_id: bot.team_id,
-                    agent_id: agent.id,
-                    model_id: model.id,
-                    user_id: user.id,
-                    round,
-                    request: JSON.stringify(sending),
-                    response: JSON.stringify(payload ?? null),
-                    tool_calls: 0,
-                    ...tokenColumns(
-                        countTokens(payload, { messages: sending, tools: offered }, false),
-                    ),
-                    duration_ms: Date.now() - roundStartedAt,
-                    outcome: 'error',
-                    reason: `tools refused - http ${code}`,
-                });
-
-                toolsUsable = false;
-
-                ({ ok, status: code, payload, sending, offered } = await ask(false));
-            }
-
-            const status = ok ? '' : code === 0 ? 'no response' : `http ${code}`;
-
-            lastStatus = ok ? 0 : code;
-
-            const calls = readToolCalls(payload);
-
-            await recordExchange(fastify, log, {
-                team_id: bot.team_id,
-                agent_id: agent.id,
-                model_id: model.id,
-                user_id: user.id,
-                round,
-                request: JSON.stringify(sending),
-                response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
-                tool_calls: calls.length,
-                ...tokenColumns(countTokens(payload, { messages: sending, tools: offered }, ok)),
-                duration_ms: Date.now() - roundStartedAt,
-                outcome: ok ? 'ok' : 'error',
-                // For auto-free, name the free model that served this round.
-                reason: auto ? [served, status].filter((part) => part !== '').join(' - ') : status,
-            });
-
-            if (calls.length === 0 || round === MAX_TOOL_ROUNDS) {
-                text = readCompletion(payload);
-
-                failure = [status, readError(payload)].filter((part) => part !== '').join(' - ');
-
-                break;
-            }
-
-            messages.push(readAssistantTurn(payload) as ChatMessage);
-
-            for (const call of calls) {
-                const toolStartedAt = Date.now();
-
-                const result = await runTool(fastify, agent, user, call.name, call.arguments);
-
-                toolRuns += 1;
-
-                await audit(fastify, log, {
-                    teamId: bot.team_id,
-                    actor: 'agent',
-                    action: 'agent.tool',
-                    target: `profile:${user.id}`,
-                    outcome: result.ok ? 'ok' : 'error',
-                    durationMs: Date.now() - toolStartedAt,
-                    detail: `${call.name} · agent ${agent.id} (${agent.name}) · round ${round} · args ${Object.keys(call.arguments).join(',') || 'none'}${result.ok ? '' : ` · ${result.content.slice(0, 90)}`}`,
-                });
-
-                messages.push({ role: 'tool', tool_call_id: call.id, content: result.content });
-            }
-        }
-    } catch {
+    if (run.unreachable) {
         log.warn(
             { module: 'agent', botId: bot.id, agentId: agent.id },
             'agent reply failed: model unreachable',
@@ -939,8 +996,6 @@ async function deliverAgentReply(
         await notifyFailure(bot, chatId, 0, log);
 
         return;
-    } finally {
-        stopTyping();
     }
 
     if (text === undefined) {

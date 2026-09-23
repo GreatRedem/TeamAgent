@@ -4,6 +4,7 @@ import {
     Cpu,
     FileText,
     LayoutGrid,
+    ListChecks,
     MessageSquare,
     Settings2,
     ShieldCheck,
@@ -43,6 +44,7 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'agents', label: 'Agents', icon: Bot },
     { id: 'bots', label: 'Bots', icon: MessageSquare },
     { id: 'models', label: 'Models', icon: Cpu },
+    { id: 'tasks', label: 'Tasks', icon: ListChecks },
     { id: 'team', label: 'Team', icon: Users },
     { id: 'tools', label: 'MCP', icon: Wrench },
     { id: 'settings', label: 'Settings', icon: Settings2 },
@@ -77,6 +79,36 @@ export const ROSTER_ERRORS: Record<string, string> = {
     ROSTER_MALFORMED: 'team.json is damaged and cannot be read.',
 };
 
+// How often a task repeats, as the task form and cards name it.
+export const TASK_REPEAT_LABELS: Record<string, string> = {
+    none: 'Once',
+    daily: 'Every day',
+    weekly: 'Every week',
+};
+
+// A task's state as its card shows it: the words, and the badge that carries them.
+export const TASK_STATUS: Record<
+    string,
+    { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
+> = {
+    scheduled: { label: 'Scheduled', variant: 'secondary' },
+    running: { label: 'Running', variant: 'default' },
+    done: { label: 'Done', variant: 'outline' },
+    failed: { label: 'Failed', variant: 'destructive' },
+    cancelled: { label: 'Cancelled', variant: 'outline' },
+};
+
+// What the Tasks page says for each refusal the task endpoints can give.
+export const TASK_ERRORS: Record<string, string> = {
+    TASK_TITLE_REQUIRED: 'Give the task a title.',
+    TASK_AGENT_REQUIRED: 'Pick the agent that carries it out.',
+    TASK_AGENT_NOT_FOUND: 'That agent is no longer in this project.',
+    TASK_PROFILE_NOT_FOUND: 'That person is no longer in this project.',
+    TASK_START_INVALID: 'Pick when it should run.',
+    TASK_RUNNING: 'It is running right now. Try again when it finishes.',
+    TASK_CANCELLED: 'It is cancelled. Schedule it again to run it.',
+};
+
 // How long the person picker waits after typing stops before it searches.
 export const PROFILE_SEARCH_DELAY = 300;
 
@@ -95,6 +127,10 @@ export const TEAM_TITLES: Record<string, { title: string; description: string }>
     agents: { title: 'Agents', description: 'The roles that answer, and the models behind them.' },
     bots: { title: 'Bots', description: 'The bots people message, and who has messaged them.' },
     models: { title: 'Models', description: 'The endpoints this project can call.' },
+    tasks: {
+        title: 'Tasks',
+        description: 'Work the agents carry out at a set time, and what came of each run.',
+    },
     team: {
         title: 'Team',
         description: 'The people on this team, kept in team.json for the agents to answer from.',

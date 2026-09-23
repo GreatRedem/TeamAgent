@@ -21,6 +21,8 @@ const OWNED = [
     'TeamBot',
     'TeamModel',
     'TeamDocument',
+    'TeamTaskRun',
+    'TeamTask',
     'AuditLog',
     'Team',
 ];

@@ -42,6 +42,17 @@ What this person wants remembered between conversations.
 - (nothing recorded yet)
 `;
 
+// Tools that act on the person the agent is talking to. A task with nobody to send to has no
+// such person, so it is not given them.
+export const PERSONAL_TOOLS = [
+    'preferences_list',
+    'preferences_read',
+    'preferences_write',
+    'preferences_append',
+    'profile_get',
+    'conversation_search',
+];
+
 export const TOOLS: ToolDefinition[] = [
     {
         name: 'preferences_list',

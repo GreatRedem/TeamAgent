@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { audit } from '../audit/audit.log.js';
+import { TeamTask } from '../task/task.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramUserDocument } from '../telegram/telegram.entity.js';
@@ -335,6 +336,14 @@ export function agentRemove(fastify: FastifyInstance) {
 
         // The notes it kept on people go with it; no other agent could read them.
         await fastify.db.getRepository(TelegramUserDocument).delete({ agent_id: agentId });
+
+        // Its waiting tasks are cancelled rather than left to fail each time they come round.
+        await fastify.db
+            .getRepository(TeamTask)
+            .update(
+                { team_id: teamId, agent_id: agentId, status: 'scheduled' },
+                { status: 'cancelled' },
+            );
 
         const detached = await fastify.db
             .getRepository(TeamBot)

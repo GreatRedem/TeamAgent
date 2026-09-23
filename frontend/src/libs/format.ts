@@ -39,3 +39,8 @@ export function compactCount(value: number): string {
 export function durationLabel(ms: number): string {
     return ms < 1000 ? `${ms.toLocaleString()} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
+
+// A moment as a datetime-local input shows it: local time, to the minute.
+export function localInputValue(date: Date): string {
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}

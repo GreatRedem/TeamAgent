@@ -6,6 +6,7 @@ import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { AuditLog } from '../audit/audit.entity.js';
 import { audit } from '../audit/audit.log.js';
+import { TeamTask, TeamTaskRun } from '../task/task.entity.js';
 import {
     TelegramMessage,
     TelegramUser,
@@ -335,6 +336,8 @@ export function teamRemove(fastify: FastifyInstance) {
             await db.delete(TeamBot, { team_id: id });
             await db.delete(TeamModel, { team_id: id });
             await db.delete(TeamDocument, { team_id: id });
+            await db.delete(TeamTaskRun, { team_id: id });
+            await db.delete(TeamTask, { team_id: id });
             await db.delete(AuditLog, { team_id: id });
             await db.delete(Team, { id, account_id: request.account_id });
         });
