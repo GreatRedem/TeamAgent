@@ -53,6 +53,7 @@ export function PluginDialog({
     const [enabled, setEnabled] = useState(true);
     const [fields, setFields] = useState<Record<string, string>>({});
     const [clear, setClear] = useState<string[]>([]);
+    const [revealed, setRevealed] = useState<string[]>([]);
     const [access, setAccess] = useState<number[]>([]);
     const [hookAgent, setHookAgent] = useState('0');
     const [hookUrl, setHookUrl] = useState('');
@@ -73,6 +74,7 @@ export function PluginDialog({
         setEnabled(plugin?.enabled ?? true);
         setFields({ ...plugin?.config });
         setClear([]);
+        setRevealed([]);
         setAccess(plugin?.agents ?? []);
         setHookAgent(String(plugin?.hook_agent_id ?? 0));
         setHookUrl(plugin?.hook_url ?? '');
@@ -120,14 +122,6 @@ export function PluginDialog({
             setBusy(false);
         }
     };
-
-    const missing =
-        kind?.fields.some(
-            (field) =>
-                field.required &&
-                (fields[field.key] ?? '').trim() === '' &&
-                plugin?.secrets[field.key] === undefined,
-        ) ?? true;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -178,6 +172,7 @@ export function PluginDialog({
                                     value={name}
                                     onChange={(event) => setName(event.target.value)}
                                     maxLength={64}
+                                    autoComplete="off"
                                     required
                                     placeholder={`${kind?.label ?? 'Plugin'} main`}
                                 />
@@ -204,8 +199,20 @@ export function PluginDialog({
                                     <Stack direction="Horizontal" className="items-center gap-2">
                                         <Input
                                             id={id}
-                                            type={field.secret ? 'password' : 'text'}
+                                            name={field.key}
+                                            type={
+                                                field.secret && !revealed.includes(field.key)
+                                                    ? 'password'
+                                                    : field.format === 'url'
+                                                      ? 'url'
+                                                      : 'text'
+                                            }
+                                            inputMode={
+                                                field.format === 'numeric' ? 'numeric' : undefined
+                                            }
                                             autoComplete="off"
+                                            spellCheck={false}
+                                            required={field.required && saved === undefined}
                                             value={fields[field.key] ?? ''}
                                             disabled={removing}
                                             onChange={(event) =>
@@ -219,6 +226,20 @@ export function PluginDialog({
                                                 saved !== undefined ? saved : field.placeholder
                                             }
                                         />
+                                        {field.secret && (
+                                            <Button
+                                                variant="outline"
+                                                disabled={removing}
+                                                onClick={() =>
+                                                    setRevealed((current) =>
+                                                        toggle(current, field.key),
+                                                    )
+                                                }
+                                                message={
+                                                    revealed.includes(field.key) ? 'Hide' : 'Show'
+                                                }
+                                            />
+                                        )}
                                         {field.secret && !field.required && saved !== undefined && (
                                             <Button
                                                 variant="outline"
@@ -357,6 +378,7 @@ export function PluginDialog({
                                 <Input
                                     id={id}
                                     type="url"
+                                    autoComplete="off"
                                     value={hookUrl}
                                     onChange={(event) => setHookUrl(event.target.value)}
                                     maxLength={512}
@@ -411,7 +433,7 @@ export function PluginDialog({
                         />
                         <Button
                             type="submit"
-                            disabled={busy || name.trim() === '' || missing}
+                            disabled={busy}
                             message={
                                 busy
                                     ? 'Saving and testing…'

@@ -9,6 +9,7 @@ export interface PluginField {
     required: boolean;
     hint: string;
     placeholder: string;
+    format?: 'url' | 'numeric';
 }
 
 export interface PluginKind {

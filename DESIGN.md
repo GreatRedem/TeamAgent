@@ -185,6 +185,8 @@ rule. They sit on native elements: `dialog` is a
 native `<select>`, `tabs` keyboard-driven buttons with every panel kept
 mounted. `card` is customised to a 20px rhythm for
 console density, and its spacing and surface are props (`gap`, `flush`, `variant`).
+Its `signal` prop draws a 2px left rail in a status colour, for cards whose first
+answer is whether the thing they show is working.
 
 This project's own primitives sit beside them and compose those:
 
@@ -247,6 +249,14 @@ guessing a number. Test, Edit, and a Remove that arms before it fires.
 **Bots.** Card per bot: connection mode, token hint, which agent answers, the
 public address. Underneath, the people who have messaged them, each expanding
 into their thread.
+
+**Plugins.** Card per connection, led by its health: a signal rail on the card's
+edge and one plain sentence beside a status dot, saying who it is connected as,
+who answers for it, or what broke. Under it four readings (this week, failed,
+received, last used), the agents allowed to use it as chips, and where it forwards
+events. Test, Activity, Modify and an arming Remove; the on/off switch sits in the
+header because it is a state, not an action. Activity opens every request with a
+breakdown by action.
 
 **Agent detail.** Instructions on the left as editable files, round-trips
 underneath. Identity and capabilities on the right, sticky.

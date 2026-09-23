@@ -182,6 +182,13 @@ export const AUDIT_RESULT: Record<AuditEntry['outcome'], { label: string; classN
     skipped: { label: 'Skipped', className: 'text-warning' },
 };
 
+export const HEALTH_TONE: Record<'live' | 'degraded' | 'off' | 'failed', string> = {
+    live: 'text-primary',
+    degraded: 'text-warning',
+    off: 'text-muted-foreground',
+    failed: 'text-destructive',
+};
+
 export const PROBE_TONE: Record<string, string> = {
     ok: 'text-primary',
     pending: 'text-warning',

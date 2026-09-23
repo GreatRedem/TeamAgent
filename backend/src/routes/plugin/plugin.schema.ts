@@ -114,6 +114,7 @@ export function schemaPluginCatalog() {
                                             required: { type: 'boolean' },
                                             hint: { type: 'string' },
                                             placeholder: { type: 'string' },
+                                            format: { type: 'string' },
                                         },
                                     },
                                 },

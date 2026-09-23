@@ -15,23 +15,73 @@ import {
 } from '@/apis';
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
-import { Stat } from '@/components/stat';
-import { PLUGIN_ERRORS, PLUGIN_ICONS } from '@/libs/constant';
-import { compactCount, durationLabel } from '@/libs/format';
+import { HEALTH_TONE, PLUGIN_ERRORS, PLUGIN_ICONS } from '@/libs/constant';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
-import { DataList } from '@/ui/data-value';
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from '@/ui/card';
 import { ItemMedia } from '@/ui/item';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
-import { StatusDot } from '@/ui/status-dot';
+import type { Status } from '@/ui/status-dot';
 import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
 
 import { PluginCallsDialog } from './plugin-calls-dialog';
 import { PluginDialog } from './plugin-dialog';
+
+function health(
+    plugin: TeamPlugin,
+    answering: string | undefined,
+): { status: Status; line: string } {
+    if (!plugin.enabled) {
+        return { status: 'off', line: 'Off. Agents cannot use it, and it answers nobody.' };
+    }
+
+    if (plugin.listen_error !== '') {
+        return { status: 'failed', line: plugin.listen_error };
+    }
+
+    if (plugin.account === '') {
+        return { status: 'degraded', line: 'Not connected yet. Run Test to check its keys.' };
+    }
+
+    const by = answering === undefined ? '' : `, answered by ${answering}`;
+
+    return {
+        status: 'live',
+        line: `${plugin.listening ? 'Listening' : 'Connected'} as ${plugin.account}${by}.`,
+    };
+}
+
+function Reading({
+    label,
+    value,
+    failed = false,
+}: {
+    label: string;
+    value: string;
+    failed?: boolean;
+}) {
+    return (
+        <Stack direction="Vertical" className="gap-1">
+            <Text type="Caption" message={label} />
+            <Text
+                type="DataStrong"
+                className={failed ? HEALTH_TONE.failed : undefined}
+                message={value}
+            />
+        </Stack>
+    );
+}
 
 export function PluginsPanel({ teamId }: { teamId: number }) {
     const [plugins, setPlugins] = useState<TeamPlugin[] | null>(null);
@@ -96,18 +146,6 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
 
     const agentName = (id: number) => agents.find((agent) => agent.id === id)?.name;
 
-    const total = (plugins ?? []).reduce(
-        (sum, plugin) => ({
-            requests: sum.requests + plugin.stats.requests,
-            failures: sum.failures + plugin.stats.failures,
-            inbound: sum.inbound + plugin.stats.inbound,
-            replies: sum.replies + plugin.stats.replies,
-            day: sum.day + plugin.stats.day,
-            week: sum.week + plugin.stats.week,
-        }),
-        { requests: 0, failures: 0, inbound: 0, replies: 0, day: 0, week: 0 },
-    );
-
     const addButton = (
         <Button
             onClick={() => setEditing('new')}
@@ -151,37 +189,6 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                 }}
             />
 
-            {plugins !== null && plugins.length > 0 && (
-                <Stack direction="Vertical" className="gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
-                    <Stat
-                        label="Requests"
-                        value={compactCount(total.requests)}
-                        note={`${total.day.toLocaleString()} today · ${total.week.toLocaleString()} this week`}
-                    />
-                    <Stat
-                        label="Failed"
-                        value={compactCount(total.failures)}
-                        tone="destructive"
-                        meter={total.requests === 0 ? 0 : (total.failures / total.requests) * 100}
-                        note={
-                            total.requests === 0
-                                ? 'Nothing sent yet'
-                                : `${Math.round((total.failures / total.requests) * 100)}% of requests`
-                        }
-                    />
-                    <Stat
-                        label="Received"
-                        value={compactCount(total.inbound)}
-                        note="Messages and comments that came in"
-                    />
-                    <Stat
-                        label="Answered"
-                        value={compactCount(total.replies)}
-                        note="Replied to by an agent"
-                    />
-                </Stack>
-            )}
-
             <Stack direction="Horizontal" className="flex-wrap items-center justify-between gap-3">
                 <Text
                     type="BodyMuted"
@@ -218,7 +225,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
             {plugins === null && (
                 <Stack direction="Vertical" className="gap-3 sm:grid sm:grid-cols-2">
                     {[0, 1].map((i) => (
-                        <Skeleton radius="xl" className="h-64" key={i} />
+                        <Skeleton radius="xl" className="h-56" key={i} />
                     ))}
                 </Stack>
             )}
@@ -227,7 +234,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                 <EmptyState
                     icon={Plug}
                     title="No plugins yet"
-                    description="Connect Telegram, Discord, Instagram, a web browser or a webhook, and let your agents post, reply and look things up there."
+                    description="Connect Telegram, X, Discord, Instagram, a web browser or a webhook, and let your agents post, reply, like and look things up there."
                     action={addButton}
                 />
             )}
@@ -243,21 +250,18 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                         const users = plugin.agents
                             .map(agentName)
                             .filter((name): name is string => name !== undefined);
-                        const answering =
+                        const state = health(
+                            plugin,
                             plugin.hook_agent_id === 0
                                 ? undefined
-                                : agentName(plugin.hook_agent_id);
-                        const status = !plugin.enabled
-                            ? { label: 'Off', variant: 'outline' as const }
-                            : plugin.listen_error !== ''
-                              ? { label: 'Needs attention', variant: 'destructive' as const }
-                              : plugin.listening
-                                ? { label: 'Listening', variant: 'default' as const }
-                                : { label: 'On', variant: 'secondary' as const };
+                                : agentName(plugin.hook_agent_id),
+                        );
+                        const switchId = `plugin-on-${plugin.id}`;
+                        const { stats } = plugin;
 
                         return (
                             <Stack direction="Vertical" as="li" key={plugin.id}>
-                                <Card gap={3} className="h-full">
+                                <Card gap={4} signal={state.status} className="h-full">
                                     <CardHeader>
                                         <CardTitle className="flex min-w-0 items-center gap-3">
                                             <ItemMedia variant="icon">
@@ -266,143 +270,125 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                             <Text
                                                 type="Foreground"
                                                 as="span"
-                                                className="min-w-0 grow truncate"
+                                                className="min-w-0 truncate"
                                                 message={plugin.name}
                                             />
-                                            <Badge variant={status.variant} className="gap-1.5">
-                                                {plugin.listening && plugin.enabled && (
-                                                    <StatusDot status="live" />
-                                                )}
-                                                {status.label}
-                                            </Badge>
                                         </CardTitle>
                                         <CardDescription>
-                                            {plugin.account === ''
-                                                ? `${kind?.label ?? plugin.kind} · not connected yet; run Test`
-                                                : `${kind?.label ?? plugin.kind} · ${plugin.account}`}
+                                            {kind?.label ?? plugin.kind}
                                         </CardDescription>
-                                    </CardHeader>
-
-                                    <CardContent className="grid gap-3">
-                                        {plugin.listen_error !== '' && (
+                                        <CardAction className="flex items-center gap-2">
+                                            <Switch
+                                                id={switchId}
+                                                checked={plugin.enabled}
+                                                disabled={busy === plugin.id}
+                                                onCheckedChange={(enabled) =>
+                                                    void act(plugin.id, async () =>
+                                                        replace(
+                                                            await pluginUpdate(teamId, plugin.id, {
+                                                                name: plugin.name,
+                                                                enabled,
+                                                                fields: plugin.config,
+                                                                clear: [],
+                                                                agents: plugin.agents,
+                                                                hook_agent_id: plugin.hook_agent_id,
+                                                                hook_url: plugin.hook_url,
+                                                                hook_events: plugin.hook_events,
+                                                            }),
+                                                        ),
+                                                    )
+                                                }
+                                            />
                                             <Text
                                                 type="Body"
-                                                className="text-destructive"
-                                                message={plugin.listen_error}
+                                                as="label"
+                                                htmlFor={switchId}
+                                                message={plugin.enabled ? 'On' : 'Off'}
                                             />
+                                        </CardAction>
+                                    </CardHeader>
+
+                                    <CardContent className="grid gap-4">
+                                        <Text
+                                            type="Body"
+                                            className={HEALTH_TONE[state.status]}
+                                            message={state.line}
+                                        />
+
+                                        <Stack
+                                            direction="Horizontal"
+                                            className="flex-wrap gap-x-8 gap-y-3">
+                                            <Reading
+                                                label="This week"
+                                                value={stats.week.toLocaleString()}
+                                            />
+                                            <Reading
+                                                label="Failed"
+                                                value={
+                                                    stats.failures === 0
+                                                        ? '0'
+                                                        : `${stats.failures.toLocaleString()} of ${stats.requests.toLocaleString()}`
+                                                }
+                                                failed={stats.failures > 0}
+                                            />
+                                            {kind !== undefined && kind.inbound !== 'none' && (
+                                                <Reading
+                                                    label="Received"
+                                                    value={stats.inbound.toLocaleString()}
+                                                />
+                                            )}
+                                            <Reading
+                                                label="Last used"
+                                                value={
+                                                    stats.last_at === null
+                                                        ? 'Never'
+                                                        : new Date(stats.last_at).toLocaleString(
+                                                              undefined,
+                                                              {
+                                                                  dateStyle: 'short',
+                                                                  timeStyle: 'short',
+                                                              },
+                                                          )
+                                                }
+                                            />
+                                        </Stack>
+
+                                        {users.length === 0 ? (
+                                            <Text
+                                                type="BodyMuted"
+                                                message="No agent may use it yet. Choose who under Modify."
+                                            />
+                                        ) : (
+                                            <Stack
+                                                direction="Horizontal"
+                                                as="ul"
+                                                className="m-0 list-none flex-wrap gap-1.5 p-0">
+                                                {users.map((name) => (
+                                                    <Stack direction="Vertical" as="li" key={name}>
+                                                        <Badge variant="secondary">{name}</Badge>
+                                                    </Stack>
+                                                ))}
+                                            </Stack>
                                         )}
 
-                                        <DataList dense>
-                                            <Text
-                                                type="ForegroundMuted"
-                                                as="dt"
-                                                message="Used by"
-                                            />
-                                            <Text
-                                                type="Data"
-                                                as="dd"
-                                                className="truncate"
-                                                message={
-                                                    users.length === 0
-                                                        ? 'No agent yet'
-                                                        : users.join(', ')
-                                                }
-                                            />
-
-                                            {kind !== undefined && kind.inbound !== 'none' && (
-                                                <>
-                                                    <Text
-                                                        type="ForegroundMuted"
-                                                        as="dt"
-                                                        message="Answers"
-                                                    />
-                                                    <Text
-                                                        type="Data"
-                                                        as="dd"
-                                                        className="truncate"
-                                                        message={
-                                                            answering === undefined
-                                                                ? 'Nobody'
-                                                                : `${answering}, ${plugin.stats.replies.toLocaleString()} of ${plugin.stats.inbound.toLocaleString()} received`
-                                                        }
-                                                    />
-                                                </>
-                                            )}
-
-                                            {plugin.hook_url !== '' && (
-                                                <>
-                                                    <Text
-                                                        type="ForegroundMuted"
-                                                        as="dt"
-                                                        message="Forwards to"
-                                                    />
-                                                    <Text
-                                                        type="Data"
-                                                        as="dd"
-                                                        className="truncate"
-                                                        message={`${plugin.hook_url} · ${plugin.hook_events.length} event${plugin.hook_events.length === 1 ? '' : 's'}`}
-                                                    />
-                                                </>
-                                            )}
-
-                                            <Text
-                                                type="ForegroundMuted"
-                                                as="dt"
-                                                message="Requests"
-                                            />
-                                            <Text
-                                                type="Data"
-                                                as="dd"
-                                                message={`${plugin.stats.requests.toLocaleString()} · ${plugin.stats.day.toLocaleString()} today · ${plugin.stats.week.toLocaleString()} this week`}
-                                            />
-
-                                            <Text type="ForegroundMuted" as="dt" message="Failed" />
-                                            <Text
-                                                type={
-                                                    plugin.stats.failures > 0
-                                                        ? 'DataDestructive'
-                                                        : 'Data'
-                                                }
-                                                as="dd"
-                                                message={
-                                                    plugin.stats.requests === 0
-                                                        ? 'None yet'
-                                                        : `${plugin.stats.failures.toLocaleString()} (${Math.round((plugin.stats.failures / plugin.stats.requests) * 100)}%)`
-                                                }
-                                            />
-
-                                            <Text
-                                                type="ForegroundMuted"
-                                                as="dt"
-                                                message="Average"
-                                            />
-                                            <Text
-                                                type="Data"
-                                                as="dd"
-                                                message={
-                                                    plugin.stats.average_ms === 0
-                                                        ? '–'
-                                                        : durationLabel(plugin.stats.average_ms)
-                                                }
-                                            />
-
-                                            <Text
-                                                type="ForegroundMuted"
-                                                as="dt"
-                                                message="Last used"
-                                            />
-                                            <Text
-                                                type="Data"
-                                                as="dd"
-                                                message={
-                                                    plugin.stats.last_at === null
-                                                        ? 'Never'
-                                                        : new Date(
-                                                              plugin.stats.last_at,
-                                                          ).toLocaleString()
-                                                }
-                                            />
-                                        </DataList>
+                                        {plugin.hook_url !== '' && (
+                                            <Stack
+                                                direction="Horizontal"
+                                                className="min-w-0 items-baseline gap-1.5">
+                                                <Text
+                                                    type="Caption"
+                                                    as="span"
+                                                    className="shrink-0"
+                                                    message="Sends events to"
+                                                />
+                                                <Text
+                                                    type="DataMuted"
+                                                    as="span"
+                                                    className="truncate"
+                                                    message={plugin.hook_url}
+                                                />
+                                            </Stack>
+                                        )}
                                     </CardContent>
 
                                     <CardFooter className="mt-auto flex-wrap items-center gap-2">
@@ -447,34 +433,6 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             onClick={() => setEditing(plugin)}
                                             message="Modify"
-                                        />
-
-                                        <Switch
-                                            id={`plugin-on-${plugin.id}`}
-                                            checked={plugin.enabled}
-                                            disabled={busy === plugin.id}
-                                            onCheckedChange={(enabled) =>
-                                                void act(plugin.id, async () =>
-                                                    replace(
-                                                        await pluginUpdate(teamId, plugin.id, {
-                                                            name: plugin.name,
-                                                            enabled,
-                                                            fields: plugin.config,
-                                                            clear: [],
-                                                            agents: plugin.agents,
-                                                            hook_agent_id: plugin.hook_agent_id,
-                                                            hook_url: plugin.hook_url,
-                                                            hook_events: plugin.hook_events,
-                                                        }),
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                        <Text
-                                            type="Body"
-                                            as="label"
-                                            htmlFor={`plugin-on-${plugin.id}`}
-                                            message={plugin.enabled ? 'On' : 'Off'}
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />

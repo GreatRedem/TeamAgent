@@ -9,16 +9,25 @@ const cardVariant = {
 
 const cardGap = { 0: 'gap-0', 2: 'gap-2', 3: 'gap-3', 4: 'gap-4', 5: 'gap-5' };
 
+const cardSignal = {
+    live: 'border-l-2 border-l-primary',
+    degraded: 'border-l-2 border-l-warning',
+    off: 'border-l-2 border-l-neutral',
+    failed: 'border-l-2 border-l-destructive',
+};
+
 function Card({
     className,
     variant = 'raised',
     gap = 5,
     flush = false,
+    signal,
     ...props
 }: React.ComponentProps<'div'> & {
     variant?: keyof typeof cardVariant;
     gap?: keyof typeof cardGap;
     flush?: boolean;
+    signal?: keyof typeof cardSignal;
 }) {
     return (
         <div
@@ -29,6 +38,7 @@ function Card({
                 cardVariant[variant].surface,
                 flush ? 'py-0' : cardVariant[variant].inset,
                 cardGap[gap],
+                signal !== undefined && cardSignal[signal],
                 className,
             )}
             {...props}
