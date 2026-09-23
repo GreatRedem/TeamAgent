@@ -64,6 +64,7 @@ export {
     type TaskDraft,
     type TaskRepeat,
     type TaskRun,
+    type TaskRunEvent,
     type TaskStatus,
     type TeamTask,
     taskCreate,

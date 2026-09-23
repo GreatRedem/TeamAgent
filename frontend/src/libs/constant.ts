@@ -97,6 +97,9 @@ export const TASK_STATUS: Record<
     cancelled: { label: 'Cancelled', variant: 'outline' },
 };
 
+// How often an open run log asks for news while a task is running.
+export const TASK_LIVE_POLL = 1500;
+
 // What the Tasks page says for each refusal the task endpoints can give.
 export const TASK_ERRORS: Record<string, string> = {
     TASK_TITLE_REQUIRED: 'Give the task a title.',

@@ -12,6 +12,9 @@ import { runAgent, telegramText } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import { nextStart, profileLabel, type TaskRepeat, taskMessages } from './task.plan.js';
 
+// How often a running task's answer is saved while the agent is still writing it.
+const DRAFT_INTERVAL = 1000;
+
 // Runs one task now, if it is still waiting: claims it so it runs once even when the scheduler
 // and a "Run now" meet, runs its agent, sends the result to its person, records the run and
 // schedules the next one for a repeating task. Returns false when someone else had claimed it.
@@ -38,6 +41,23 @@ export async function runTask(
         outcome: 'running',
     });
 
+    log.info({ module: 'task', taskId: task.id, runId: run.id }, 'task run started');
+
+    // The run's log, written to its row as each step happens so the page can follow along. Writes
+    // go one after another, so a step never lands before the one it follows.
+    const events: Record<string, unknown>[] = [];
+    const spent = { model: '', prompt_tokens: 0, completion_tokens: 0, tool_calls: 0 };
+    let written: Promise<unknown> = Promise.resolve();
+
+    const write = (fields: Parameters<typeof runs.update>[1]) => {
+        written = written.then(() => runs.update({ id: run.id }, fields)).catch(() => undefined);
+    };
+
+    const note = (event: Record<string, unknown>) => {
+        events.push({ at: new Date().toISOString(), ...event });
+        write({ log: JSON.stringify(events), ...spent });
+    };
+
     const finish = async (
         outcome: 'ok' | 'error',
         output: string,
@@ -47,9 +67,34 @@ export async function runTask(
         const now = new Date();
         const next = nextStart(task.start_at, task.repeat as TaskRepeat, now);
 
+        events.push({ at: now.toISOString(), kind: 'end', outcome, delivered, reason });
+
+        await written;
+
         await runs.update(
             { id: run.id },
-            { finished_at: now, outcome, output, delivered, reason: reason.slice(0, 240) },
+            {
+                finished_at: now,
+                outcome,
+                output,
+                delivered,
+                reason: reason.slice(0, 240),
+                log: JSON.stringify(events),
+                ...spent,
+            },
+        );
+
+        log.info(
+            {
+                module: 'task',
+                taskId: task.id,
+                runId: run.id,
+                outcome,
+                delivered,
+                durationMs: now.getTime() - startedAt.getTime(),
+                ...spent,
+            },
+            'task run finished',
         );
 
         await tasks.update(
@@ -95,12 +140,18 @@ export async function runTask(
             return true;
         }
 
+        note({ kind: 'start', agent: agent.name, model: model.name });
+
         const recipient =
             task.profile_id === 0
                 ? null
                 : await fastify.db
                       .getRepository(TelegramUser)
                       .findOneBy({ id: task.profile_id, team_id: task.team_id });
+
+        if (recipient) {
+            note({ kind: 'recipient', name: profileLabel(recipient) });
+        }
 
         if (task.profile_id !== 0 && !recipient) {
             await finish('error', '', false, 'the person it was for is no longer in this project');
@@ -155,6 +206,8 @@ export async function runTask(
                 created_at: startedAt,
             });
 
+        let draftAt = 0;
+
         const result = await runAgent(fastify, log.child({ taskId: task.id }), {
             teamId: task.team_id,
             agent,
@@ -167,6 +220,24 @@ export async function runTask(
                 startedAt,
             ),
             tools,
+            trace: (event) => {
+                if (event.kind === 'model') {
+                    spent.model = event.model;
+                    spent.prompt_tokens += event.prompt_tokens;
+                    spent.completion_tokens += event.completion_tokens;
+                } else {
+                    spent.tool_calls += 1;
+                }
+
+                note(event);
+            },
+            // The answer as it is written, kept on the run about once a second.
+            onText: (partial) => {
+                if (Date.now() - draftAt >= DRAFT_INTERVAL) {
+                    draftAt = Date.now();
+                    write({ output: partial });
+                }
+            },
         });
 
         if (result.unreachable || result.text === undefined) {
@@ -205,6 +276,8 @@ export async function runTask(
             : null;
 
         if (!last || !bot) {
+            note({ kind: 'send', ok: false, to: profileLabel(recipient), bot: '' });
+
             await finish(
                 'error',
                 text,
@@ -221,6 +294,8 @@ export async function runTask(
             { chat_id: last.chat_id },
             text.slice(0, TELEGRAM_TEXT_MAX),
         );
+
+        note({ kind: 'send', ok: sent.ok, to: profileLabel(recipient), bot: bot.name });
 
         if (!sent.ok) {
             await finish('error', text, false, `done, but Telegram refused it (${sent.status})`);

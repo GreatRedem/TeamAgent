@@ -41,6 +41,8 @@ export function TasksPanel({ teamId }: { teamId: number }) {
     // null: closed. 'new': creating. A task: editing it.
     const [editing, setEditing] = useState<TeamTask | 'new' | null>(null);
     const [viewing, setViewing] = useState<TeamTask | null>(null);
+    // When "Run now" was pressed, so the history dialog follows that run as it happens.
+    const [liveSince, setLiveSince] = useState<number | null>(null);
 
     const load = useCallback(
         async (offset = 0) => {
@@ -128,9 +130,12 @@ export function TasksPanel({ teamId }: { teamId: number }) {
             <TaskRunsDialog
                 teamId={teamId}
                 task={viewing}
+                liveSince={liveSince}
                 onOpenChange={(next) => {
                     if (!next) {
                         setViewing(null);
+                        setLiveSince(null);
+                        void load(page?.offset ?? 0);
                     }
                 }}
             />
@@ -275,7 +280,22 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 message={
                                                     task.last_run_at === null
                                                         ? 'Not yet'
-                                                        : `${new Date(task.last_run_at).toLocaleString()} · ${task.last_outcome === 'ok' ? 'done' : task.last_outcome === 'error' ? 'failed' : task.last_outcome}`
+                                                        : `${new Date(task.last_run_at).toLocaleString()} · ${task.last_outcome === 'ok' ? 'succeeded' : task.last_outcome === 'error' ? 'failed' : task.last_outcome}`
+                                                }
+                                            />
+
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message="Success"
+                                            />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                message={
+                                                    task.ok_count + task.error_count === 0
+                                                        ? 'No finished runs yet'
+                                                        : `${task.ok_count} of ${task.ok_count + task.error_count} runs (${Math.round((task.ok_count / (task.ok_count + task.error_count)) * 100)}%)`
                                                 }
                                             />
                                         </DataList>
@@ -294,7 +314,9 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 void act(async () => {
                                                     await taskRunNow(teamId, task.id);
                                                     replace({ ...task, status: 'running' });
-                                                }, `${task.title} is running. Refresh in a moment to see how it went.`)
+                                                    setLiveSince(Date.now());
+                                                    setViewing({ ...task, status: 'running' });
+                                                })
                                             }
                                             message="Run now"
                                         />
@@ -302,8 +324,11 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => setViewing(task)}
-                                            message={`Runs (${task.run_count})`}
+                                            onClick={() => {
+                                                setLiveSince(null);
+                                                setViewing(task);
+                                            }}
+                                            message={`History (${task.run_count})`}
                                         />
 
                                         <Button

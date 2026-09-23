@@ -14,6 +14,8 @@ const task = {
         'status',
         'last_run_at',
         'run_count',
+        'ok_count',
+        'error_count',
         'last_outcome',
         'created_at',
     ],
@@ -31,6 +33,8 @@ const task = {
         status: { type: 'string' },
         last_run_at: { type: ['string', 'null'] },
         run_count: { type: 'integer' },
+        ok_count: { type: 'integer' },
+        error_count: { type: 'integer' },
         last_outcome: { type: 'string' },
         created_at: { type: 'string' },
     },
@@ -88,7 +92,20 @@ export const schemaTaskResult = {
 export const schemaTaskRuns = {
     response: paged('runs', {
         type: 'object',
-        required: ['id', 'started_at', 'finished_at', 'outcome', 'output', 'delivered', 'reason'],
+        required: [
+            'id',
+            'started_at',
+            'finished_at',
+            'outcome',
+            'output',
+            'delivered',
+            'reason',
+            'model',
+            'prompt_tokens',
+            'completion_tokens',
+            'tool_calls',
+            'log',
+        ],
         properties: {
             id: { type: 'integer' },
             started_at: { type: 'string' },
@@ -97,6 +114,12 @@ export const schemaTaskRuns = {
             output: { type: 'string' },
             delivered: { type: 'boolean' },
             reason: { type: 'string' },
+            model: { type: 'string' },
+            prompt_tokens: { type: 'integer' },
+            completion_tokens: { type: 'integer' },
+            tool_calls: { type: 'integer' },
+            // Each step as it happened: start, the model's rounds, tools, the send, the end.
+            log: { type: 'array', items: { type: 'object', additionalProperties: true } },
         },
     }),
 } as const;

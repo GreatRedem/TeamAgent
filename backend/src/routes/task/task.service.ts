@@ -22,6 +22,17 @@ const LIST_PAGE = 50;
 
 const RUN_PAGE = 20;
 
+// A run's stored log; one that cannot be read shows as empty rather than failing the list.
+function readLog(stored: string): unknown[] {
+    try {
+        const parsed: unknown = JSON.parse(stored);
+
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
 const readTaskId = (request: FastifyRequest) => readParamId(request, 'taskId', 'TASK_ID_INVALID');
 
 async function findOwnedTask(
@@ -67,6 +78,21 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
         ).map((person) => [person.id, profileLabel(person)]),
     );
 
+    // How many runs of each ended well and how many failed.
+    const tallies = new Map(
+        (
+            await fastify.db
+                .getRepository(TeamTaskRun)
+                .createQueryBuilder('r')
+                .select('r.task_id', 'task_id')
+                .addSelect("COUNT(*) FILTER (WHERE r.outcome = 'ok')", 'ok')
+                .addSelect("COUNT(*) FILTER (WHERE r.outcome = 'error')", 'error')
+                .where('r.task_id IN (:...ids)', { ids: tasks.map((task) => task.id) })
+                .groupBy('r.task_id')
+                .getRawMany<{ task_id: number; ok: string; error: string }>()
+        ).map((row) => [Number(row.task_id), { ok: Number(row.ok), error: Number(row.error) }]),
+    );
+
     const lastRuns = new Map(
         (
             await fastify.db
@@ -95,6 +121,8 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
         status: task.status,
         last_run_at: task.last_run_at?.toISOString() ?? null,
         run_count: task.run_count,
+        ok_count: tallies.get(task.id)?.ok ?? 0,
+        error_count: tallies.get(task.id)?.error ?? 0,
         last_outcome: lastRuns.get(task.id) ?? '',
         created_at: task.created_at.toISOString(),
     }));
@@ -345,6 +373,11 @@ export function taskRuns(fastify: FastifyInstance) {
                 output: run.output,
                 delivered: run.delivered,
                 reason: run.reason,
+                model: run.model,
+                prompt_tokens: run.prompt_tokens,
+                completion_tokens: run.completion_tokens,
+                tool_calls: run.tool_calls,
+                log: readLog(run.log),
             })),
         });
     };

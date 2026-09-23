@@ -20,6 +20,8 @@ export interface TeamTask {
     status: TaskStatus;
     last_run_at: string | null;
     run_count: number;
+    ok_count: number;
+    error_count: number;
     // How the latest run ended: ok, error, running, or empty before the first.
     last_outcome: string;
     created_at: string;
@@ -35,7 +37,37 @@ export interface TaskDraft {
     repeat: TaskRepeat;
 }
 
-// One time a task ran: what the agent produced, and whether it reached its person.
+// One step of a run, in the order it happened.
+export type TaskRunEvent = { at: string } & (
+    | { kind: 'start'; agent: string; model: string }
+    | { kind: 'recipient'; name: string }
+    | {
+          kind: 'model';
+          round: number;
+          model: string;
+          ok: boolean;
+          reason: string;
+          prompt_tokens: number;
+          completion_tokens: number;
+          estimated: boolean;
+          tool_calls: number;
+          duration_ms: number;
+      }
+    | {
+          kind: 'tool';
+          round: number;
+          name: string;
+          ok: boolean;
+          args: string;
+          result: string;
+          duration_ms: number;
+      }
+    | { kind: 'send'; ok: boolean; to: string; bot: string }
+    | { kind: 'end'; outcome: 'ok' | 'error'; delivered: boolean; reason: string }
+);
+
+// One time a task ran: what the agent produced, whether it reached its person, what it cost and
+// every step on the way. While it runs, the log and output fill in as it goes.
 export interface TaskRun {
     id: number;
     started_at: string;
@@ -44,6 +76,11 @@ export interface TaskRun {
     output: string;
     delivered: boolean;
     reason: string;
+    model: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    tool_calls: number;
+    log: TaskRunEvent[];
 }
 
 export function taskList(teamId: number, page?: Partial<Paged>) {

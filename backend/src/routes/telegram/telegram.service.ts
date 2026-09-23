@@ -573,6 +573,35 @@ async function supersededBy(
     return newer > 0;
 }
 
+// One step of an agent's work, for a run's log: a call to the model, or a tool it used.
+export type AgentEvent =
+    | {
+          kind: 'model';
+          at: string;
+          round: number;
+          model: string;
+          ok: boolean;
+          reason: string;
+          prompt_tokens: number;
+          completion_tokens: number;
+          estimated: boolean;
+          tool_calls: number;
+          duration_ms: number;
+      }
+    | {
+          kind: 'tool';
+          at: string;
+          round: number;
+          name: string;
+          ok: boolean;
+          args: string;
+          result: string;
+          duration_ms: number;
+      };
+
+// What a log keeps of a tool's arguments and result.
+const TRACE_TEXT_MAX = 400;
+
 interface AgentRun {
     text: string | undefined;
     failure: string;
@@ -585,7 +614,7 @@ interface AgentRun {
 
 // One agent at work: each round asks the model, runs the tools it calls and records the
 // round-trip, until it answers or runs out of rounds. Replies to a message and scheduled tasks
-// both run through here. `onText` receives the answer as it streams.
+// both run through here. `onText` receives the answer as it streams; `trace` each step taken.
 export async function runAgent(
     fastify: FastifyInstance,
     log: FastifyBaseLogger,
@@ -597,9 +626,33 @@ export async function runAgent(
         messages: ChatMessage[];
         tools: ToolDefinition[];
         onText?: (text: string) => void;
+        trace?: (event: AgentEvent) => void;
     },
 ): Promise<AgentRun> {
-    const { teamId, agent, model, user, messages, tools, onText } = job;
+    const { teamId, agent, model, user, messages, tools, onText, trace } = job;
+
+    const traceModel = (
+        round: number,
+        modelId: string,
+        ok: boolean,
+        reason: string,
+        spent: { prompt: number; completion: number; estimated: boolean },
+        toolCalls: number,
+        startedAt: number,
+    ) =>
+        trace?.({
+            kind: 'model',
+            at: new Date().toISOString(),
+            round,
+            model: modelId,
+            ok,
+            reason,
+            prompt_tokens: spent.prompt,
+            completion_tokens: spent.completion,
+            estimated: spent.estimated,
+            tool_calls: toolCalls,
+            duration_ms: Date.now() - startedAt,
+        });
 
     // Auto-free: the free models this reply may use, tool-capable ones first when the agent has
     // tools. `chosen` is the model in use: fixed for an ordinary model; for auto-free, the
@@ -697,6 +750,13 @@ export async function runAgent(
                         'free model failed: switching to the next',
                     );
 
+                    const spent = countTokens(
+                        result.payload,
+                        { messages: sending, tools: offered },
+                        false,
+                    );
+                    const reason = `${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`;
+
                     await recordExchange(fastify, log, {
                         team_id: teamId,
                         agent_id: agent.id,
@@ -706,17 +766,13 @@ export async function runAgent(
                         request: JSON.stringify(sending),
                         response: JSON.stringify(result.payload ?? null),
                         tool_calls: 0,
-                        ...tokenColumns(
-                            countTokens(
-                                result.payload,
-                                { messages: sending, tools: offered },
-                                false,
-                            ),
-                        ),
+                        ...tokenColumns(spent),
                         duration_ms: Date.now() - roundStartedAt,
                         outcome: 'error',
-                        reason: `${target.id} - ${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`,
+                        reason: `${target.id} - ${reason}`,
                     });
+
+                    traceModel(round, target.id, false, reason, spent, 0, roundStartedAt);
                 }
             };
 
@@ -735,6 +791,8 @@ export async function runAgent(
                     'model refused tools: retrying without them',
                 );
 
+                const refused = countTokens(payload, { messages: sending, tools: offered }, false);
+
                 await recordExchange(fastify, log, {
                     team_id: teamId,
                     agent_id: agent.id,
@@ -744,13 +802,21 @@ export async function runAgent(
                     request: JSON.stringify(sending),
                     response: JSON.stringify(payload ?? null),
                     tool_calls: 0,
-                    ...tokenColumns(
-                        countTokens(payload, { messages: sending, tools: offered }, false),
-                    ),
+                    ...tokenColumns(refused),
                     duration_ms: Date.now() - roundStartedAt,
                     outcome: 'error',
                     reason: `tools refused - http ${code}`,
                 });
+
+                traceModel(
+                    round,
+                    served,
+                    false,
+                    `refused tools (http ${code}) - asking again without them`,
+                    refused,
+                    0,
+                    roundStartedAt,
+                );
 
                 toolsUsable = false;
 
@@ -763,6 +829,8 @@ export async function runAgent(
 
             const calls = readToolCalls(payload);
 
+            const spent = countTokens(payload, { messages: sending, tools: offered }, ok);
+
             await recordExchange(fastify, log, {
                 team_id: teamId,
                 agent_id: agent.id,
@@ -772,12 +840,22 @@ export async function runAgent(
                 request: JSON.stringify(sending),
                 response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
                 tool_calls: calls.length,
-                ...tokenColumns(countTokens(payload, { messages: sending, tools: offered }, ok)),
+                ...tokenColumns(spent),
                 duration_ms: Date.now() - roundStartedAt,
                 outcome: ok ? 'ok' : 'error',
                 // For auto-free, name the free model that served this round.
                 reason: auto ? [served, status].filter((part) => part !== '').join(' - ') : status,
             });
+
+            traceModel(
+                round,
+                served,
+                ok,
+                [status, ok ? '' : readError(payload)].filter((part) => part !== '').join(' - '),
+                spent,
+                calls.length,
+                roundStartedAt,
+            );
 
             if (calls.length === 0 || round === MAX_TOOL_ROUNDS) {
                 text = readCompletion(payload);
@@ -810,6 +888,17 @@ export async function runAgent(
                     outcome: result.ok ? 'ok' : 'error',
                     durationMs: Date.now() - toolStartedAt,
                     detail: `${call.name} · agent ${agent.id} (${agent.name}) · round ${round} · args ${Object.keys(call.arguments).join(',') || 'none'}${result.ok ? '' : ` · ${result.content.slice(0, 90)}`}`,
+                });
+
+                trace?.({
+                    kind: 'tool',
+                    at: new Date().toISOString(),
+                    round,
+                    name: call.name,
+                    ok: result.ok,
+                    args: JSON.stringify(call.arguments).slice(0, TRACE_TEXT_MAX),
+                    result: result.content.slice(0, TRACE_TEXT_MAX),
+                    duration_ms: Date.now() - toolStartedAt,
                 });
 
                 messages.push({ role: 'tool', tool_call_id: call.id, content: result.content });

@@ -93,4 +93,21 @@ export class TeamTaskRun {
 
     @Column({ type: 'varchar', length: 240, default: '' })
     reason: string;
+
+    // The model that answered, what it cost, and how many tools it used.
+    @Column({ type: 'varchar', length: 128, default: '' })
+    model: string;
+
+    @Column({ type: 'int', default: 0 })
+    prompt_tokens: number;
+
+    @Column({ type: 'int', default: 0 })
+    completion_tokens: number;
+
+    @Column({ type: 'int', default: 0 })
+    tool_calls: number;
+
+    // Every step of the run as JSON, written as it happens so a running task can be watched.
+    @Column({ type: 'text', default: '[]' })
+    log: string;
 }
