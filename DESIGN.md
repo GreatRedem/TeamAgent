@@ -182,7 +182,7 @@ all copy and every layout box, and `pressable`, `code-block`, `image`,
 Nothing outside `src/ui` writes raw HTML or SVG; `AGENTS.md` section 2 has the
 rule. They sit on native elements: `dialog` is a
 `<dialog>`, `dropdown-menu` a popover placed by CSS anchor positioning, `select` a
-native `<select>`, `tabs` buttons on the WAI-ARIA tab pattern with every panel kept
+native `<select>`, `tabs` keyboard-driven buttons with every panel kept
 mounted. `card` is customised to a 20px rhythm for
 console density, and its spacing and surface are props (`gap`, `flush`, `variant`).
 

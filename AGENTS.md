@@ -9,6 +9,7 @@
 - Make the smallest correct change.
 - Do not add unnecessary dependencies.
 - Verify the implementation after changes.
+- Do not write comments unless a tool needs one to work (`biome-ignore`, `@ts-` directives).
 
 ## Code Quality
 
@@ -115,9 +116,7 @@ A spacer or swatch inside inline content is `as="span"`.
 ### Button
 
 Actions are `<Button message="…" icon={<Icon />} />`, never children. `link="/path"`
-makes it navigation, `iconPosition="end"` puts the icon after the label, and the
-icon is hidden from screen readers for you. An icon-only button needs
-`aria-label`.
+makes it navigation and `iconPosition="end"` puts the icon after the label.
 
 A row that is pressed as a whole and holds more than a label, such as a person or
 a wallet in a list, is a `Pressable` with its content inside.
@@ -143,7 +142,7 @@ Installed and ready to import from `@/ui`:
 - Skeleton
 - Switch
 - Table
-- Tabs (native, on the WAI-ARIA tab pattern)
+- Tabs (native, keyboard-driven)
 - Text
 - Textarea
 
@@ -396,7 +395,8 @@ Prefer semantic form structure and existing form components.
 
 ## 13. Accessibility
 
-UI must remain accessible.
+No `aria-*` attributes and no `role` attributes until the owner asks for them
+back. Everything else here still holds.
 
 Always consider:
 

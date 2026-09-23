@@ -18,6 +18,7 @@ Do not restate UI rules here. One rulebook, one design system.
 
 ```
 backend/src/routes/<area>/   entity, schema, service, route per area
+backend/src/constant.ts      every module-level value the backend needs, and the logger
 backend/src/plugins/         auth, rate limit, typeorm, telegram polling
 backend/src/tests/           self-checks, one standalone script each
 frontend/src/apis/           one module per backend area, re-exported from index
@@ -91,6 +92,15 @@ npx tsx --tsconfig backend/tsconfig.json backend/src/tests/<name>.test.ts
   instead.
 - **Placeholder data is placeholder.** Wire real data; do not ship the sample
   names, handles or addresses.
+- **No comments.** Write none unless a tool needs one to work (`biome-ignore`,
+  `@ts-` directives). Names and structure carry the meaning.
+- **No ARIA.** No `aria-*` attributes and no `role` attributes, anywhere, until
+  the owner asks for them back.
+- **Primitives in `src/ui` take no `className`.** Each has its own defaults;
+  what varies is a prop or a variant on the primitive.
+- **Backend module scope.** Outside `backend/src/main.ts` and
+  `backend/src/constant.ts`, no file declares a variable at module level. A value
+  that has to live there goes in `constant.ts`.
 
 ## Before you say you're done
 
