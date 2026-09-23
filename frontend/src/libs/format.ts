@@ -26,3 +26,16 @@ export function uptimeLabel(seconds: number): string {
 
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
+
+// A count as it reads at a glance: 950, 12K, 3.4M.
+export function compactCount(value: number): string {
+    return new Intl.NumberFormat(undefined, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(value);
+}
+
+// A duration in the unit that reads best: 850 ms, 2.4 s.
+export function durationLabel(ms: number): string {
+    return ms < 1000 ? `${ms.toLocaleString()} ms` : `${(ms / 1000).toFixed(1)} s`;
+}

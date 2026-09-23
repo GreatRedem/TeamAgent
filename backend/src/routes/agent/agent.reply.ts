@@ -327,3 +327,66 @@ export function readAssistantTurn(payload: unknown): unknown {
         ? (choices[0] as { message?: unknown }).message
         : undefined;
 }
+
+// The tokens a model reports for one call: what it read and what it wrote. Providers name them
+// prompt/completion (OpenAI), promptTokens/completionTokens (the OpenRouter SDK) or input/output;
+// one that reports nothing, or nonsense, counts 0.
+export function readUsage(payload: unknown): { prompt: number; completion: number } {
+    const usage =
+        typeof payload === 'object' && payload !== null
+            ? (payload as { usage?: unknown }).usage
+            : undefined;
+
+    if (typeof usage !== 'object' || usage === null) {
+        return { prompt: 0, completion: 0 };
+    }
+
+    const count = (value: unknown) =>
+        typeof value === 'number' && Number.isFinite(value) && value > 0
+            ? Math.min(Math.round(value), 2_000_000_000)
+            : 0;
+
+    const reported = usage as Record<string, unknown>;
+
+    return {
+        prompt: count(
+            reported['prompt_tokens'] ?? reported['promptTokens'] ?? reported['input_tokens'],
+        ),
+        completion: count(
+            reported['completion_tokens'] ??
+                reported['completionTokens'] ??
+                reported['output_tokens'],
+        ),
+    };
+}
+
+// What one call cost in tokens. The provider's own count is used whenever it gives one. A call
+// that answered but was not counted, as some local and self-hosted endpoints do, is estimated
+// from what was sent (the messages and any tool definitions) and what came back, and marked so;
+// a failed call with no count costs 0.
+export function countTokens(
+    payload: unknown,
+    sent: { messages: ChatMessage[]; tools?: unknown[] },
+    ok: boolean,
+): { prompt: number; completion: number; estimated: boolean } {
+    const reported = readUsage(payload);
+
+    if (reported.prompt + reported.completion > 0 || !ok) {
+        return { ...reported, estimated: false };
+    }
+
+    const turn = readAssistantTurn(payload) as
+        | { content?: unknown; tool_calls?: unknown; toolCalls?: unknown }
+        | undefined;
+    const calls = turn?.tool_calls ?? turn?.toolCalls;
+
+    return {
+        prompt:
+            sent.messages.reduce((sum, message) => sum + messageTokens(message), 0) +
+            (sent.tools === undefined ? 0 : estimateTokens(JSON.stringify(sent.tools))),
+        completion:
+            (typeof turn?.content === 'string' ? estimateTokens(turn.content) : 0) +
+            (calls === undefined ? 0 : estimateTokens(JSON.stringify(calls))),
+        estimated: true,
+    };
+}

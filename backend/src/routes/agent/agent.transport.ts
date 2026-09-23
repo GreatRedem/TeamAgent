@@ -337,6 +337,8 @@ async function viaSdkStream(request: CompletionRequest): Promise<CompletionResul
                 messages: request.messages as never,
                 maxTokens: request.maxTokens,
                 stream: true,
+                // The last chunk then carries the token count, as a plain call's body does.
+                streamOptions: { includeUsage: true },
                 ...(request.tools !== undefined && { tools: request.tools as never }),
             },
         },

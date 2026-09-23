@@ -33,6 +33,7 @@ import {
     DOCUMENT_NAME_MAX,
     DOCUMENT_NAME_PATTERN,
 } from './agent.template.js';
+import { exchangeUsage, NO_USAGE } from './agent.usage.js';
 
 const NAME_MIN = 2;
 const NAME_MAX = 64;
@@ -218,14 +219,22 @@ export function agentList(fastify: FastifyInstance) {
             }
         }
 
+        const usage = await exchangeUsage(
+            fastify,
+            teamId,
+            'agent_id',
+            agents.map((agent) => agent.id),
+        );
+
         reply.send({
             limit,
             offset,
             has_more,
             total,
-            agents: agents.map((agent) =>
-                toAgentView(agent, names.get(agent.model_id) ?? '', counts.get(agent.id) ?? 0),
-            ),
+            agents: agents.map((agent) => ({
+                ...toAgentView(agent, names.get(agent.model_id) ?? '', counts.get(agent.id) ?? 0),
+                usage: usage.get(agent.id) ?? NO_USAGE,
+            })),
         });
     };
 
@@ -251,6 +260,9 @@ export function agentDetails(fastify: FastifyInstance) {
         reply.send({
             agent: toAgentView(agent, names.get(agent.model_id) ?? '', documents.length),
             documents: documents.map(toDocumentView),
+            usage:
+                (await exchangeUsage(fastify, teamId, 'agent_id', [agent.id])).get(agent.id) ??
+                NO_USAGE,
         });
     };
 
@@ -566,6 +578,28 @@ export function agentPermissionUpdate(fastify: FastifyInstance) {
     return { schema: schemaAgentPermissionUpdate, config: { ...authGuard() }, handler };
 }
 
+// One model round-trip as the agent and model pages show it. `agentName` is empty for an agent
+// since removed.
+export function exchangeView(exchange: TeamAgentExchange, agentName: string) {
+    return {
+        id: exchange.id,
+        agent_id: exchange.agent_id,
+        agent_name: agentName,
+        user_id: exchange.user_id,
+        round: exchange.round,
+        request: exchange.request,
+        response: exchange.response,
+        tool_calls: exchange.tool_calls,
+        prompt_tokens: exchange.prompt_tokens,
+        completion_tokens: exchange.completion_tokens,
+        tokens_estimated: exchange.tokens_estimated,
+        duration_ms: exchange.duration_ms,
+        outcome: exchange.outcome,
+        reason: exchange.reason,
+        created_at: exchange.created_at,
+    };
+}
+
 export function agentExchanges(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
@@ -592,18 +626,7 @@ export function agentExchanges(fastify: FastifyInstance) {
             offset,
             has_more,
             total,
-            exchanges: items.map((exchange) => ({
-                id: exchange.id,
-                user_id: exchange.user_id,
-                round: exchange.round,
-                request: exchange.request,
-                response: exchange.response,
-                tool_calls: exchange.tool_calls,
-                duration_ms: exchange.duration_ms,
-                outcome: exchange.outcome,
-                reason: exchange.reason,
-                created_at: exchange.created_at,
-            })),
+            exchanges: items.map((exchange) => exchangeView(exchange, agent.name)),
         });
     };
 

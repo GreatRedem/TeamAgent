@@ -2,8 +2,10 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
-import { TeamAgent } from '../agent/agent.entity.js';
+import { TeamAgent, TeamAgentExchange } from '../agent/agent.entity.js';
+import { exchangeView } from '../agent/agent.service.js';
 import { isOpenRouter } from '../agent/agent.transport.js';
+import { exchangeUsage, NO_USAGE } from '../agent/agent.usage.js';
 import { audit } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamModel } from '../team/team.entity.js';
@@ -12,6 +14,7 @@ import { fetchCatalog, OPENROUTER_URL, PROVIDERS, readContextLength } from './mo
 import {
     schemaModelCatalog,
     schemaModelCreate,
+    schemaModelExchanges,
     schemaModelList,
     schemaModelListIds,
     schemaModelProbe,
@@ -21,6 +24,8 @@ import {
 } from './model.schema.js';
 
 const LIST_PAGE = 50;
+
+const EXCHANGE_PAGE = 20;
 
 const NAME_MIN = 2;
 const NAME_MAX = 64;
@@ -347,10 +352,70 @@ export function modelList(fastify: FastifyInstance) {
 
         const { items, has_more } = takePage(rows, limit);
 
-        reply.send({ limit, offset, has_more, total, models: items.map(toModelView) });
+        const usage = await exchangeUsage(
+            fastify,
+            teamId,
+            'model_id',
+            items.map((item) => item.id),
+        );
+
+        reply.send({
+            limit,
+            offset,
+            has_more,
+            total,
+            models: items.map((item) => ({
+                ...toModelView(item),
+                usage: usage.get(item.id) ?? NO_USAGE,
+            })),
+        });
     };
 
     return { schema: schemaModelList, config: { ...authGuard() }, handler };
+}
+
+// Every round-trip one model has made, newest first, whichever agent asked.
+export function modelExchanges(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const teamId = readTeamId(request);
+        const model = await findOwnedModel(
+            fastify,
+            teamId,
+            readModelId(request),
+            request.account_id,
+        );
+
+        const { limit, offset } = readPage(request, EXCHANGE_PAGE);
+
+        const [rows, total] = await fastify.db.getRepository(TeamAgentExchange).findAndCount({
+            where: { team_id: teamId, model_id: model.id },
+            order: { id: 'DESC' },
+            skip: offset,
+            take: limit + 1,
+        });
+
+        const { items, has_more } = takePage(rows, limit);
+
+        const agents = new Map(
+            (
+                await fastify.db
+                    .getRepository(TeamAgent)
+                    .find({ where: { team_id: teamId }, select: { id: true, name: true } })
+            ).map((agent) => [agent.id, agent.name]),
+        );
+
+        reply.send({
+            limit,
+            offset,
+            has_more,
+            total,
+            exchanges: items.map((exchange) =>
+                exchangeView(exchange, agents.get(exchange.agent_id) ?? ''),
+            ),
+        });
+    };
+
+    return { schema: schemaModelExchanges, config: { ...authGuard() }, handler };
 }
 
 export function modelUpdate(fastify: FastifyInstance) {

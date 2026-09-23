@@ -19,6 +19,7 @@ import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { BLANK_MODEL, MODEL_AUTO_FREE, PROBE_TONE, PROVIDER_FALLBACK } from '@/libs/constant';
+import { compactCount } from '@/libs/format';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -29,6 +30,7 @@ import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
 import { ModelDialog, type ModelDraft } from './model-dialog';
+import { ModelUsageDialog } from './model-usage-dialog';
 
 function probeState(probe: TeamModelProbe | 'testing'): string {
     if (probe === 'testing') {
@@ -60,6 +62,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
 
     const [creating, setCreating] = useState(false);
     const [editing, setEditing] = useState<number | null>(null);
+    const [viewing, setViewing] = useState<number | null>(null);
     const [draft, setDraft] = useState<ModelDraft>(BLANK_MODEL);
 
     const [busy, setBusy] = useState(false);
@@ -166,7 +169,9 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
 
                 setModels(
                     (current) =>
-                        current?.map((item) => (item.id === updated.id ? updated : item)) ?? null,
+                        current?.map((item) =>
+                            item.id === updated.id ? { ...updated, usage: item.usage } : item,
+                        ) ?? null,
                 );
                 setProbes((current) => {
                     const { [editing]: _stale, ...rest } = current;
@@ -415,6 +420,49 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                 className="truncate"
                                                 message={item.key_hint}
                                             />
+
+                                            {item.usage !== undefined && (
+                                                <>
+                                                    <Text
+                                                        type="ForegroundMuted"
+                                                        as="dt"
+                                                        message="Replies"
+                                                    />
+                                                    <Text
+                                                        type="Data"
+                                                        as="dd"
+                                                        message={`${item.usage.replies.toLocaleString()} · ${item.usage.failures.toLocaleString()} failed`}
+                                                    />
+
+                                                    <Text
+                                                        type="ForegroundMuted"
+                                                        as="dt"
+                                                        message="Tokens"
+                                                    />
+                                                    <Text
+                                                        type="Data"
+                                                        as="dd"
+                                                        message={`${compactCount(item.usage.prompt_tokens)} in · ${compactCount(item.usage.completion_tokens)} out`}
+                                                    />
+
+                                                    <Text
+                                                        type="ForegroundMuted"
+                                                        as="dt"
+                                                        message="Last used"
+                                                    />
+                                                    <Text
+                                                        type="Data"
+                                                        as="dd"
+                                                        message={
+                                                            item.usage.last_used_at === null
+                                                                ? 'Never'
+                                                                : new Date(
+                                                                      item.usage.last_used_at,
+                                                                  ).toLocaleString()
+                                                        }
+                                                    />
+                                                </>
+                                            )}
                                         </DataList>
 
                                         <Stack
@@ -469,8 +517,15 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            onClick={() => setViewing(item.id)}
+                                            message="Details"
+                                        />
+
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => openEdit(item)}
-                                            message="Edit"
+                                            message="Modify"
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />
@@ -489,6 +544,16 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                     })}
                 </Stack>
             )}
+
+            <ModelUsageDialog
+                teamId={teamId}
+                model={models?.find((item) => item.id === viewing) ?? null}
+                onOpenChange={(next) => {
+                    if (!next) {
+                        setViewing(null);
+                    }
+                }}
+            />
 
             {page !== null && models !== null && models.length > 0 && (
                 <Pager

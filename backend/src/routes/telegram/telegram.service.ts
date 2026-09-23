@@ -10,6 +10,7 @@ import {
     buildSystemPrompt,
     type ChatMessage,
     completionCap,
+    countTokens,
     ERROR_TEXT_MAX,
     earlierTurns,
     fitToContext,
@@ -280,6 +281,13 @@ export async function ingestUpdate(
     return 'stored';
 }
 
+// The token columns of an exchange record, from countTokens.
+const tokenColumns = (count: { prompt: number; completion: number; estimated: boolean }) => ({
+    prompt_tokens: count.prompt,
+    completion_tokens: count.completion,
+    tokens_estimated: count.estimated,
+});
+
 async function recordExchange(
     fastify: FastifyInstance,
     log: FastifyBaseLogger,
@@ -292,6 +300,9 @@ async function recordExchange(
         request: string;
         response: string;
         tool_calls: number;
+        prompt_tokens: number;
+        completion_tokens: number;
+        tokens_estimated: boolean;
         duration_ms: number;
         outcome: string;
         reason: string;
@@ -712,6 +723,8 @@ async function deliverAgentReply(
             // AUTO_ATTEMPTS per round; a failure every model would share ends the round.
             const ask = async (withTools: boolean) => {
                 const tried = new Set<string>();
+                // The tool definitions sent, kept so the call's tokens can be counted against them.
+                const offered = withTools ? toOpenAITools(tools) : undefined;
 
                 for (let attempt = 1; ; attempt += 1) {
                     const target = chosen ?? pickFree(pool, tried);
@@ -722,6 +735,7 @@ async function deliverAgentReply(
                             status: 0,
                             payload: { error: { message: 'no free model is available' } },
                             sending: messages,
+                            offered,
                         };
                     }
 
@@ -732,7 +746,7 @@ async function deliverAgentReply(
                         model: target.id,
                         messages: sending,
                         maxTokens: completionCap(target.context),
-                        ...(withTools && { tools: toOpenAITools(tools) }),
+                        ...(offered !== undefined && { tools: offered }),
                         timeoutMs: AGENT_TIMEOUT,
                         ...(!withTools && { onText: (partial: string) => streamer.push(partial) }),
                     });
@@ -740,7 +754,7 @@ async function deliverAgentReply(
                     served = target.id;
 
                     if (!auto) {
-                        return { ...result, sending };
+                        return { ...result, sending, offered };
                     }
 
                     tried.add(target.id);
@@ -756,7 +770,7 @@ async function deliverAgentReply(
                     if (result.ok || restMs === null || attempt >= AUTO_ATTEMPTS) {
                         chosen = result.ok ? target : null;
 
-                        return { ...result, sending };
+                        return { ...result, sending, offered };
                     }
 
                     rest(target.id, restMs);
@@ -784,6 +798,13 @@ async function deliverAgentReply(
                         request: JSON.stringify(sending),
                         response: JSON.stringify(result.payload ?? null),
                         tool_calls: 0,
+                        ...tokenColumns(
+                            countTokens(
+                                result.payload,
+                                { messages: sending, tools: offered },
+                                false,
+                            ),
+                        ),
                         duration_ms: Date.now() - roundStartedAt,
                         outcome: 'error',
                         reason: `${target.id} - ${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`,
@@ -793,7 +814,7 @@ async function deliverAgentReply(
 
             const offering = toolsUsable && tools.length > 0 && round < MAX_TOOL_ROUNDS;
 
-            let { ok, status: code, payload, sending } = await ask(offering);
+            let { ok, status: code, payload, sending, offered } = await ask(offering);
 
             if (!ok && offering && isToolRefusal(payload)) {
                 log.warn(
@@ -816,6 +837,9 @@ async function deliverAgentReply(
                     request: JSON.stringify(sending),
                     response: JSON.stringify(payload ?? null),
                     tool_calls: 0,
+                    ...tokenColumns(
+                        countTokens(payload, { messages: sending, tools: offered }, false),
+                    ),
                     duration_ms: Date.now() - roundStartedAt,
                     outcome: 'error',
                     reason: `tools refused - http ${code}`,
@@ -823,7 +847,7 @@ async function deliverAgentReply(
 
                 toolsUsable = false;
 
-                ({ ok, status: code, payload, sending } = await ask(false));
+                ({ ok, status: code, payload, sending, offered } = await ask(false));
             }
 
             const status = ok ? '' : code === 0 ? 'no response' : `http ${code}`;
@@ -841,6 +865,7 @@ async function deliverAgentReply(
                 request: JSON.stringify(sending),
                 response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
                 tool_calls: calls.length,
+                ...tokenColumns(countTokens(payload, { messages: sending, tools: offered }, ok)),
                 duration_ms: Date.now() - roundStartedAt,
                 outcome: ok ? 'ok' : 'error',
                 // For auto-free, name the free model that served this round.

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import {
     modelCatalog,
     modelCreate,
+    modelExchanges,
     modelList,
     modelListIds,
     modelProbe,
@@ -19,6 +20,7 @@ export default async function (fastify: FastifyInstance) {
     fastify.patch('/team/:id/model/:modelId', modelUpdate(fastify));
     fastify.delete('/team/:id/model/:modelId', modelRemove(fastify));
     fastify.post('/team/:id/model/:modelId/test', modelTest(fastify));
+    fastify.get('/team/:id/model/:modelId/exchange', modelExchanges(fastify));
 
     fastify.post('/team/:id/model/probe', modelProbe(fastify));
     fastify.post('/team/:id/model/list', modelListIds(fastify));

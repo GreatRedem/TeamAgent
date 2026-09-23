@@ -1,3 +1,5 @@
+import { schemaUsage } from '../agent/agent.usage.js';
+
 const model = {
     type: 'object',
     required: ['id', 'name', 'model', 'base_url', 'key_hint', 'context_tokens', 'created_at'],
@@ -39,7 +41,14 @@ export const schemaModelList = {
                 offset: { type: 'integer' },
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
-                models: { type: 'array', items: model },
+                models: {
+                    type: 'array',
+                    items: {
+                        ...model,
+                        required: [...model.required, 'usage'],
+                        properties: { ...model.properties, usage: schemaUsage },
+                    },
+                },
             },
         },
     },
@@ -191,3 +200,6 @@ export const schemaModelListIds = {
         },
     },
 } as const;
+
+// A model's round-trips, newest first, in the same shape as an agent's.
+export { schemaAgentExchanges as schemaModelExchanges } from '../agent/agent.schema.js';

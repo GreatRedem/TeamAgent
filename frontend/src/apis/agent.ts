@@ -1,5 +1,18 @@
 import { type Paged, pageQuery, request } from './client';
 
+// What a model or an agent has done over every round-trip on record. A reply is an answer it
+// finished; a round-trip is every call, tool rounds and failures included.
+export interface ExchangeUsage {
+    replies: number;
+    round_trips: number;
+    failures: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    tool_calls: number;
+    average_ms: number;
+    last_used_at: string | null;
+}
+
 export interface TeamAgent {
     id: number;
     name: string;
@@ -9,6 +22,8 @@ export interface TeamAgent {
     document_count: number;
     permissions: string[];
     created_at: string;
+    // Only the list carries it; the agent page gets it beside the agent.
+    usage?: ExchangeUsage;
 }
 
 export interface AgentDocument {
@@ -18,13 +33,21 @@ export interface AgentDocument {
     updated_at: string;
 }
 
+// One model round-trip. `agent_name` is empty for an agent since removed. The token counts are
+// the provider's own; `tokens_estimated` marks a call it gave none for, counted from the text.
+// A failed call with no count has 0.
 export interface AgentExchange {
     id: number;
+    agent_id: number;
+    agent_name: string;
     user_id: number;
     round: number;
     request: string;
     response: string;
     tool_calls: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    tokens_estimated: boolean;
     duration_ms: number;
     outcome: string;
     reason: string;
@@ -53,7 +76,7 @@ export function agentCreate(teamId: number, name: string, description: string, m
 }
 
 export function agentDetails(teamId: number, agentId: number) {
-    return request<{ agent: TeamAgent; documents: AgentDocument[] }>(
+    return request<{ agent: TeamAgent; documents: AgentDocument[]; usage: ExchangeUsage }>(
         'GET',
         `/team/${teamId}/agent/${agentId}`,
     );

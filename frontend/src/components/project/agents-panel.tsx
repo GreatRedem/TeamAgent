@@ -13,10 +13,12 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
+import { compactCount } from '@/libs/format';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { DataList } from '@/ui/data-value';
 import {
     Dialog,
     DialogContent,
@@ -315,6 +317,45 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                             {agent.document_count}
                                         </Badge>
                                     </Stack>
+
+                                    {agent.usage !== undefined && (
+                                        <DataList dense>
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message="Replies"
+                                            />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                message={`${agent.usage.replies.toLocaleString()} · ${agent.usage.failures.toLocaleString()} failed`}
+                                            />
+
+                                            <Text type="ForegroundMuted" as="dt" message="Tokens" />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                message={`${compactCount(agent.usage.prompt_tokens)} in · ${compactCount(agent.usage.completion_tokens)} out`}
+                                            />
+
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message="Last used"
+                                            />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                message={
+                                                    agent.usage.last_used_at === null
+                                                        ? 'Never'
+                                                        : new Date(
+                                                              agent.usage.last_used_at,
+                                                          ).toLocaleString()
+                                                }
+                                            />
+                                        </DataList>
+                                    )}
                                 </CardContent>
 
                                 <CardFooter>

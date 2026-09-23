@@ -1,3 +1,5 @@
+import { schemaUsage } from './agent.usage.js';
+
 const agent = {
     type: 'object',
     required: [
@@ -56,7 +58,14 @@ export const schemaAgentList = {
                 offset: { type: 'integer' },
                 has_more: { type: 'boolean' },
                 total: { type: 'integer' },
-                agents: { type: 'array', items: agent },
+                agents: {
+                    type: 'array',
+                    items: {
+                        ...agent,
+                        required: [...agent.required, 'usage'],
+                        properties: { ...agent.properties, usage: schemaUsage },
+                    },
+                },
             },
         },
     },
@@ -66,10 +75,11 @@ export const schemaAgentDetails = {
     response: {
         200: {
             type: 'object',
-            required: ['agent', 'documents'],
+            required: ['agent', 'documents', 'usage'],
             properties: {
                 agent,
                 documents: { type: 'array', items: document },
+                usage: schemaUsage,
             },
         },
     },
@@ -174,10 +184,15 @@ export const schemaAgentExchanges = {
                         type: 'object',
                         required: [
                             'id',
+                            'agent_id',
+                            'agent_name',
                             'round',
                             'request',
                             'response',
                             'tool_calls',
+                            'prompt_tokens',
+                            'completion_tokens',
+                            'tokens_estimated',
                             'duration_ms',
                             'outcome',
                             'reason',
@@ -185,11 +200,16 @@ export const schemaAgentExchanges = {
                         ],
                         properties: {
                             id: { type: 'integer' },
+                            agent_id: { type: 'integer' },
+                            agent_name: { type: 'string' },
                             user_id: { type: 'integer' },
                             round: { type: 'integer' },
                             request: { type: 'string' },
                             response: { type: 'string' },
                             tool_calls: { type: 'integer' },
+                            prompt_tokens: { type: 'integer' },
+                            completion_tokens: { type: 'integer' },
+                            tokens_estimated: { type: 'boolean' },
                             duration_ms: { type: 'integer' },
                             outcome: { type: 'string' },
                             reason: { type: 'string' },

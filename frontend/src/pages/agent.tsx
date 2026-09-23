@@ -12,6 +12,7 @@ import {
     agentPermissionCatalog,
     agentPermissionUpdate,
     agentUpdate,
+    type ExchangeUsage,
     modelList,
     type Paged,
     type Permission,
@@ -19,21 +20,20 @@ import {
     type TeamModel,
 } from '@/apis';
 import { DocumentEditor } from '@/components/agent/document-editor';
+import { ExchangeList } from '@/components/agent/exchange-list';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
-import { cn } from '@/libs/cn';
-import { AGENT_TABS, type AgentTab, PROBE_TONE } from '@/libs/constant';
+import { UsageStats } from '@/components/usage-stats';
+import { AGENT_TABS, type AgentTab } from '@/libs/constant';
 import { teamPath } from '@/libs/navigation';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
-import { CodeBlock } from '@/ui/code-block';
 import { Input } from '@/ui/input';
-import { Pressable } from '@/ui/pressable';
 import { Select, SelectItem } from '@/ui/select';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
@@ -53,6 +53,7 @@ export function Agent() {
 
     const [agent, setAgent] = useState<TeamAgent | null>(null);
     const [documents, setDocuments] = useState<AgentDocument[]>([]);
+    const [usage, setUsage] = useState<ExchangeUsage | null>(null);
     const [models, setModels] = useState<TeamModel[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [tab, setTab] = useState<AgentTab>(AGENT_TABS[0].value);
@@ -71,7 +72,6 @@ export function Agent() {
     const [exchanges, setExchanges] = useState<AgentExchange[]>([]);
     const [exchangePage, setExchangePage] = useState<Paged | null>(null);
     const [paging, setPaging] = useState(false);
-    const [openExchange, setOpenExchange] = useState<number | null>(null);
 
     useEffect(() => {
         if (readAccessToken() === null) {
@@ -99,6 +99,7 @@ export function Agent() {
 
                 setAgent(details.agent);
                 setDocuments(details.documents);
+                setUsage(details.usage);
                 setModels(modelPayload.models);
                 setCapabilities(catalog.permissions);
                 setExchanges(exchangePayload.exchanges);
@@ -169,7 +170,6 @@ export function Agent() {
 
                 setExchanges(next.exchanges);
                 setExchangePage(next);
-                setOpenExchange(null);
             } catch (cause) {
                 setError(
                     cause instanceof ApiError
@@ -383,6 +383,23 @@ export function Agent() {
                                     </CardContent>
                                 </Card>
 
+                                {usage !== null && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Usage</CardTitle>
+                                            <CardDescription>
+                                                What this agent has answered and what it cost, over
+                                                every round-trip on record. Open one below to see
+                                                what was sent and what came back.
+                                            </CardDescription>
+                                        </CardHeader>
+
+                                        <CardContent>
+                                            <UsageStats usage={usage} who="This agent" />
+                                        </CardContent>
+                                    </Card>
+                                )}
+
                                 <Card gap={0} flush>
                                     <CardHeader className="border-b py-5">
                                         <CardTitle>Recent round-trips</CardTitle>
@@ -393,110 +410,11 @@ export function Agent() {
                                     </CardHeader>
 
                                     <CardContent padding="none">
-                                        {exchanges.length === 0 && (
-                                            <Text
-                                                type="BodyMuted"
-                                                className="px-5 py-5"
-                                                message="This agent has not answered anything yet."
-                                            />
-                                        )}
-
-                                        <Stack
-                                            direction="Vertical"
-                                            as="ul"
-                                            className="m-0 list-none p-0">
-                                            {exchanges.map((exchange) => (
-                                                <Stack
-                                                    direction="Vertical"
-                                                    as="li"
-                                                    className="border-b last:border-b-0"
-                                                    key={exchange.id}>
-                                                    <Pressable
-                                                        className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                                                        aria-expanded={openExchange === exchange.id}
-                                                        onClick={() =>
-                                                            setOpenExchange((current) =>
-                                                                current === exchange.id
-                                                                    ? null
-                                                                    : exchange.id,
-                                                            )
-                                                        }>
-                                                        <Text
-                                                            type="DataMuted"
-                                                            as="time"
-                                                            className="shrink-0"
-                                                            dateTime={exchange.created_at}
-                                                            message={new Date(
-                                                                exchange.created_at,
-                                                            ).toLocaleTimeString(undefined, {
-                                                                hour: '2-digit',
-                                                                minute: '2-digit',
-                                                            })}
-                                                        />
-
-                                                        <Text
-                                                            type="Body"
-                                                            as="span"
-                                                            className="min-w-0 grow truncate"
-                                                            message={`Round ${exchange.round}, ${exchange.tool_calls} tool call${exchange.tool_calls === 1 ? '' : 's'}`}
-                                                        />
-
-                                                        <Text
-                                                            type="DataMuted"
-                                                            as="span"
-                                                            className="shrink-0"
-                                                            message={`${exchange.duration_ms.toLocaleString()} ms`}
-                                                        />
-
-                                                        <Text
-                                                            type="BodyStrong"
-                                                            as="span"
-                                                            className={cn(
-                                                                'shrink-0',
-                                                                PROBE_TONE[
-                                                                    exchange.outcome === 'ok'
-                                                                        ? 'ok'
-                                                                        : 'error'
-                                                                ],
-                                                            )}
-                                                            message={`${exchange.outcome === 'ok' ? 'OK' : 'Failed'}${exchange.reason === '' ? '' : ` · ${exchange.reason}`}`}
-                                                        />
-                                                    </Pressable>
-
-                                                    {openExchange === exchange.id && (
-                                                        <Stack
-                                                            direction="Vertical"
-                                                            className="gap-3 bg-muted/30 px-5 py-4">
-                                                            <Stack
-                                                                direction="Vertical"
-                                                                className="gap-1.5">
-                                                                <Text
-                                                                    type="BodyMuted"
-                                                                    message="Sent"
-                                                                />
-                                                                <CodeBlock
-                                                                    className="max-h-64"
-                                                                    message={exchange.request}
-                                                                />
-                                                            </Stack>
-
-                                                            <Stack
-                                                                direction="Vertical"
-                                                                className="gap-1.5">
-                                                                <Text
-                                                                    type="BodyMuted"
-                                                                    message="Came back"
-                                                                />
-                                                                <CodeBlock
-                                                                    className="max-h-64"
-                                                                    message={exchange.response}
-                                                                />
-                                                            </Stack>
-                                                        </Stack>
-                                                    )}
-                                                </Stack>
-                                            ))}
-                                        </Stack>
+                                        <ExchangeList
+                                            key={exchangePage?.offset ?? 0}
+                                            exchanges={exchanges}
+                                            empty="This agent has not answered anything yet."
+                                        />
                                     </CardContent>
 
                                     {exchangePage !== null && exchanges.length > 0 && (

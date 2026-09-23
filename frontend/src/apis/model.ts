@@ -1,3 +1,4 @@
+import type { AgentExchange, ExchangeUsage } from './agent';
 import { type Paged, pageQuery, request } from './client';
 
 export interface TeamModel {
@@ -8,6 +9,8 @@ export interface TeamModel {
     key_hint: string;
     context_tokens: number;
     created_at: string;
+    // Only the list carries it; a model just created or saved has none yet.
+    usage?: ExchangeUsage;
 }
 
 export interface TeamModelProbe {
@@ -119,6 +122,13 @@ export function modelUpdate(
 
 export function modelRemove(teamId: number, modelId: number) {
     return request<{ result: string }>('DELETE', `/team/${teamId}/model/${modelId}`);
+}
+
+export function modelExchanges(teamId: number, modelId: number, page?: Partial<Paged>) {
+    return request<{ exchanges: AgentExchange[] } & Paged>(
+        'GET',
+        `/team/${teamId}/model/${modelId}/exchange${pageQuery(page)}`,
+    );
 }
 
 export function modelTest(teamId: number, modelId: number) {

@@ -6,6 +6,7 @@ import {
     buildSystemPrompt,
     completionCap,
     contextBudget,
+    countTokens,
     DEFAULT_CONTEXT_TOKENS,
     DOCUMENT_INLINE_MAX,
     ERROR_TEXT_MAX,
@@ -16,6 +17,7 @@ import {
     MAX_COMPLETION_TOKENS,
     readCompletion,
     readError,
+    readUsage,
     TELEGRAM_TEXT_MAX,
 } from '../routes/agent/agent.reply.js';
 
@@ -426,6 +428,86 @@ const tests: Array<[string, () => void]> = [
                     `accepted ${JSON.stringify(payload)}`,
                 );
             }
+        },
+    ],
+
+    [
+        'token usage is read in either naming, and nothing reported counts zero',
+        () => {
+            assert.deepEqual(readUsage({ usage: { prompt_tokens: 1200, completion_tokens: 85 } }), {
+                prompt: 1200,
+                completion: 85,
+            });
+            assert.deepEqual(readUsage({ usage: { input_tokens: 40, output_tokens: 7 } }), {
+                prompt: 40,
+                completion: 7,
+            });
+            assert.deepEqual(readUsage({ choices: [] }), { prompt: 0, completion: 0 });
+            assert.deepEqual(readUsage({ usage: { prompt_tokens: -3, completion_tokens: 'x' } }), {
+                prompt: 0,
+                completion: 0,
+            });
+            assert.deepEqual(readUsage(null), { prompt: 0, completion: 0 });
+            assert.deepEqual(
+                readUsage({ usage: { promptTokens: 310, completionTokens: 22, totalTokens: 332 } }),
+                { prompt: 310, completion: 22 },
+                'the OpenRouter SDK names them in camelCase',
+            );
+        },
+    ],
+
+    [
+        'a call is counted as the provider reports it, estimated only when it reports nothing',
+        () => {
+            const sent = {
+                messages: [
+                    { role: 'system' as const, content: 's'.repeat(400) },
+                    { role: 'user' as const, content: 'u'.repeat(40) },
+                ],
+            };
+            const answer = {
+                choices: [{ message: { role: 'assistant', content: 'a'.repeat(80) } }],
+            };
+
+            assert.deepEqual(
+                countTokens(
+                    { ...answer, usage: { prompt_tokens: 120, completion_tokens: 20 } },
+                    sent,
+                    true,
+                ),
+                { prompt: 120, completion: 20, estimated: false },
+            );
+
+            // 400/4 + 4 and 40/4 + 4 for the messages, 80/4 for the answer.
+            assert.deepEqual(countTokens(answer, sent, true), {
+                prompt: 118,
+                completion: 20,
+                estimated: true,
+            });
+
+            const tools = [{ type: 'function', function: { name: 'x', parameters: {} } }];
+            const withTools = countTokens(answer, { ...sent, tools }, true);
+
+            assert.ok(withTools.prompt > 118, 'tool definitions count as input');
+
+            const call = {
+                choices: [
+                    {
+                        message: {
+                            role: 'assistant',
+                            content: '',
+                            tool_calls: [{ id: '1', function: { name: 'x', arguments: '{}' } }],
+                        },
+                    },
+                ],
+            };
+
+            assert.ok(countTokens(call, sent, true).completion > 0, 'a tool call counts as output');
+            assert.deepEqual(countTokens({ error: { message: 'down' } }, sent, false), {
+                prompt: 0,
+                completion: 0,
+                estimated: false,
+            });
         },
     ],
 
