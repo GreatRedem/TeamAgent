@@ -232,6 +232,8 @@ async function main() {
                         prompt: 3,
                         completion: 15,
                         tools: true,
+                        text: true,
+                        rank: 0,
                     },
                 ]);
             },
@@ -245,6 +247,30 @@ async function main() {
                 });
 
                 assert.equal(model.tools, false);
+            },
+        ],
+
+        [
+            'only a model that takes and gives text alone counts as text generation',
+            async () => {
+                const text = (architecture: object) =>
+                    readCatalog({ data: [{ id: 'm', architecture }] })[0]?.text;
+
+                assert.equal(
+                    text({ input_modalities: ['text', 'image'], output_modalities: ['text'] }),
+                    true,
+                );
+                assert.equal(
+                    text({ input_modalities: ['text'], output_modalities: ['text', 'image'] }),
+                    false,
+                );
+                assert.equal(
+                    text({ input_modalities: ['audio'], output_modalities: ['text'] }),
+                    false,
+                );
+                assert.equal(text({ modality: 'text+image->text' }), true);
+                assert.equal(text({ modality: 'text->image' }), false);
+                assert.equal(text({}), true);
             },
         ],
 

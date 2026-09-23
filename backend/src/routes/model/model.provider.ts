@@ -22,6 +22,33 @@ export interface CatalogModel {
     prompt: number;
     completion: number;
     tools: boolean;
+    text: boolean;
+    rank: number;
+}
+
+function generatesText(
+    architecture:
+        | { input_modalities?: unknown; output_modalities?: unknown; modality?: unknown }
+        | undefined,
+): boolean {
+    const inputs = architecture?.input_modalities;
+    const outputs = architecture?.output_modalities;
+
+    if (Array.isArray(outputs)) {
+        return (
+            outputs.length > 0 &&
+            outputs.every((kind) => kind === 'text') &&
+            (!Array.isArray(inputs) || inputs.includes('text'))
+        );
+    }
+
+    if (typeof architecture?.modality === 'string') {
+        const [input = '', output = ''] = architecture.modality.split('->');
+
+        return output.trim() === 'text' && input.split('+').includes('text');
+    }
+
+    return true;
 }
 
 function toMillion(value: unknown): number {
@@ -80,7 +107,11 @@ export function readCatalog(payload: unknown): CatalogModel[] {
             name?: unknown;
             context_length?: unknown;
             pricing?: { prompt?: unknown; completion?: unknown };
-            architecture?: { output_modalities?: unknown };
+            architecture?: {
+                input_modalities?: unknown;
+                output_modalities?: unknown;
+                modality?: unknown;
+            };
             supported_parameters?: unknown;
         };
 
@@ -105,6 +136,8 @@ export function readCatalog(payload: unknown): CatalogModel[] {
             tools:
                 Array.isArray(entry.supported_parameters) &&
                 entry.supported_parameters.includes('tools'),
+            text: generatesText(entry.architecture),
+            rank: models.length,
         });
     }
 

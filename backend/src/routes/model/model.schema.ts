@@ -148,7 +148,16 @@ export function schemaModelCatalog() {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['id', 'name', 'context', 'prompt', 'completion', 'tools'],
+                            required: [
+                                'id',
+                                'name',
+                                'context',
+                                'prompt',
+                                'completion',
+                                'tools',
+                                'text',
+                                'rank',
+                            ],
                             properties: {
                                 id: { type: 'string' },
                                 name: { type: 'string' },
@@ -156,6 +165,8 @@ export function schemaModelCatalog() {
                                 prompt: { type: 'number' },
                                 completion: { type: 'number' },
                                 tools: { type: 'boolean' },
+                                text: { type: 'boolean' },
+                                rank: { type: 'integer' },
                             },
                         },
                     },

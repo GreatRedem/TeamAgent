@@ -44,7 +44,14 @@ import {
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
 import { allowedTools, runTool, type ToolDefinition, toOpenAITools } from '../mcp/mcp.tools.js';
-import { freeCandidates, isAutoFree, pickFree, rest, restFor } from '../model/model.auto.js';
+import {
+    freeCandidates,
+    freeQuotaUntil,
+    isAutoFree,
+    judge,
+    pickFree,
+    setAside,
+} from '../model/model.auto.js';
 import { fetchCatalog } from '../model/model.provider.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
@@ -664,10 +671,19 @@ export async function runAgent(
                     const target = chosen ?? pickFree(pool, tried);
 
                     if (target === null) {
+                        const until = freeQuotaUntil();
+
                         return {
                             ok: false,
                             status: 0,
-                            payload: { error: { message: 'no free model is available' } },
+                            payload: {
+                                error: {
+                                    message:
+                                        until === null
+                                            ? 'no free model is available'
+                                            : `the free models are used up until ${new Date(until).toISOString()}`,
+                                },
+                            },
                             sending: messages,
                             offered,
                         };
@@ -693,21 +709,29 @@ export async function runAgent(
 
                     tried.add(target.id);
 
-                    const restMs = result.ok
+                    const verdict = result.ok
                         ? null
-                        : restFor(
+                        : judge(
                               result.status,
-                              readError(result.payload),
+                              result.payload,
                               withTools && isToolRefusal(result.payload),
                           );
 
-                    if (result.ok || restMs === null || attempt >= AUTO_ATTEMPTS) {
+                    if (verdict !== null) {
+                        setAside(target.id, verdict);
+                    }
+
+                    if (
+                        result.ok ||
+                        verdict === null ||
+                        verdict.kind === 'quota' ||
+                        attempt >= AUTO_ATTEMPTS
+                    ) {
                         chosen = result.ok ? target : null;
 
                         return { ...result, sending, offered };
                     }
 
-                    rest(target.id, restMs);
                     chosen = null;
 
                     log.warn(
@@ -717,7 +741,8 @@ export async function runAgent(
                             modelId: model.id,
                             free: target.id,
                             status: result.status,
-                            restMs,
+                            setAside: verdict.kind,
+                            until: new Date(verdict.until).toISOString(),
                         },
                         'free model failed: switching to the next',
                     );
@@ -727,7 +752,7 @@ export async function runAgent(
                         { messages: sending, tools: offered },
                         false,
                     );
-                    const reason = `${result.status === 0 ? 'no response' : `http ${result.status}`} - switching`;
+                    const reason = `${result.status === 0 ? 'no response' : `http ${result.status}`} - ${verdict.kind === 'hide' ? 'hidden until' : 'resting until'} ${new Date(verdict.until).toISOString()}, switching`;
 
                     await recordExchange(fastify, log, {
                         team_id: teamId,

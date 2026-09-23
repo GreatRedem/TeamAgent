@@ -1,34 +1,54 @@
 import assert from 'node:assert/strict';
 import { REST_BUSY, REST_DOWN, REST_GONE } from '../constant.js';
 
-import { freeCandidates, pickFree, rest, restFor, wake } from '../routes/model/model.auto.js';
+import {
+    freeCandidates,
+    freeQuotaUntil,
+    judge,
+    pickFree,
+    rest,
+    setAside,
+    wake,
+} from '../routes/model/model.auto.js';
 import type { CatalogModel } from '../routes/model/model.provider.js';
 import { listingKey } from '../routes/model/model.service.js';
 
 function main() {
-    const model = (id: string, context: number, price: number, tools = true): CatalogModel => ({
+    const model = (
+        id: string,
+        rank: number,
+        context: number,
+        price: number,
+        tools = true,
+        text = true,
+    ): CatalogModel => ({
         id,
         name: id,
         context,
         prompt: price,
         completion: price,
         tools,
+        text,
+        rank,
     });
 
     const catalog = [
-        model('paid/large', 1_000_000, 3),
-        model('free/small', 32_000, 0),
-        model('free/large', 128_000, 0),
-        model('free/no-tools', 256_000, 0, false),
+        model('paid/large', 0, 1_000_000, 3),
+        model('free/small', 1, 32_000, 0),
+        model('free/large', 4, 128_000, 0),
+        model('free/no-tools', 2, 256_000, 0, false),
+        model('free/image-maker', 3, 512_000, 0, true, false),
     ];
 
     assert.deepEqual(
         freeCandidates(catalog, true).map((m) => m.id),
-        ['free/large', 'free/small'],
+        ['free/small', 'free/large'],
+        'the most used free model first, tool-capable when tools are needed',
     );
     assert.deepEqual(
         freeCandidates(catalog, false).map((m) => m.id),
-        ['free/no-tools', 'free/large', 'free/small'],
+        ['free/small', 'free/no-tools', 'free/large'],
+        'text generation only: the image model never comes back',
     );
 
     {
@@ -36,37 +56,84 @@ function main() {
         const pool = freeCandidates(catalog, true);
         const now = 1_000_000;
 
-        assert.equal(pickFree(pool, new Set(), now)?.id, 'free/large');
-        assert.equal(pickFree(pool, new Set(['free/large']), now)?.id, 'free/small');
+        assert.equal(pickFree(pool, new Set(), now)?.id, 'free/small');
+        assert.equal(pickFree(pool, new Set(['free/small']), now)?.id, 'free/large');
 
-        rest('free/large', REST_BUSY, now);
+        rest('free/small', REST_BUSY, now);
+        assert.equal(pickFree(pool, new Set(), now)?.id, 'free/large', 'a resting model waits');
+        assert.equal(
+            pickFree(pool, new Set(), now + REST_BUSY)?.id,
+            'free/small',
+            'it is back once its rest is over',
+        );
+
+        rest('free/large', REST_GONE, now);
         assert.equal(
             pickFree(pool, new Set(), now)?.id,
             'free/small',
-            'a resting model is skipped',
+            'when all rest, the one that wakes first is still tried',
         );
+
+        wake();
+        setAside('free/small', { kind: 'hide', until: now + 60_000 });
+        assert.equal(pickFree(pool, new Set(), now)?.id, 'free/large', 'a hidden model is gone');
+        setAside('free/large', { kind: 'hide', until: now + 60_000 });
+        assert.equal(pickFree(pool, new Set(), now), null, 'hidden models are never a last resort');
+        assert.equal(pickFree(pool, new Set(), now + 60_000)?.id, 'free/small', 'back after reset');
+
+        wake();
+        setAside('free/small', { kind: 'quota', until: now + 3_600_000 });
         assert.equal(
-            pickFree(pool, new Set(), now + REST_BUSY)?.id,
-            'free/large',
-            'a model is back once its rest is over',
+            pickFree(pool, new Set(), now),
+            null,
+            'no free model while the quota is spent',
         );
-
-        rest('free/small', REST_GONE, now);
-        assert.equal(pickFree(pool, new Set(), now)?.id, 'free/large');
-
-        assert.equal(pickFree(pool, new Set(['free/large', 'free/small']), now), null);
+        assert.equal(freeQuotaUntil(now), now + 3_600_000);
+        assert.equal(pickFree(pool, new Set(), now + 3_600_000)?.id, 'free/small');
         wake();
     }
 
-    assert.equal(restFor(429, '', false), REST_BUSY, 'rate limited');
-    assert.equal(restFor(0, '', false), REST_DOWN, 'unreachable');
-    assert.equal(restFor(503, '', false), REST_DOWN, 'provider down');
-    assert.equal(restFor(404, '', false), REST_GONE, 'model gone');
-    assert.equal(restFor(400, 'No endpoints found for free/x', false), REST_GONE, 'no endpoint');
-    assert.equal(restFor(400, 'tools not supported', true), REST_GONE, 'refuses tools');
-    assert.equal(restFor(401, '', false), null, 'a rejected key is the same for every model');
-    assert.equal(restFor(402, '', false), null, 'no credit is the same for every model');
-    assert.equal(restFor(400, 'messages must not be empty', false), null, 'a bad request is ours');
+    {
+        const now = Date.parse('2026-09-23T10:00:00.000Z');
+        const perDay = (headers: object) => ({
+            error: {
+                message: 'Rate limit exceeded: free-models-per-day.',
+                metadata: { headers },
+            },
+        });
+
+        assert.deepEqual(judge(429, perDay({ 'X-RateLimit-Reset': '1790208000000' }), false, now), {
+            kind: 'quota',
+            until: 1790208000000,
+        });
+        assert.deepEqual(judge(429, perDay({}), false, now), {
+            kind: 'quota',
+            until: Date.parse('2026-09-24T00:00:00.000Z'),
+        });
+        assert.deepEqual(judge(429, { error: { message: 'rate limited upstream' } }, false, now), {
+            kind: 'rest',
+            until: now + REST_BUSY,
+        });
+        assert.deepEqual(judge(402, {}, false, now), { kind: 'hide', until: now + REST_GONE });
+        assert.deepEqual(judge(404, {}, false, now), { kind: 'hide', until: now + REST_GONE });
+        assert.deepEqual(
+            judge(400, { error: { message: 'No endpoints found for free/x' } }, false, now),
+            { kind: 'hide', until: now + REST_GONE },
+        );
+        assert.deepEqual(judge(400, {}, true, now), { kind: 'hide', until: now + REST_GONE });
+        assert.deepEqual(judge(503, {}, false, now), { kind: 'rest', until: now + REST_DOWN });
+        assert.deepEqual(judge(0, {}, false, now), { kind: 'rest', until: now + REST_DOWN });
+        assert.equal(
+            judge(401, {}, false, now),
+            null,
+            'a rejected key is the same for every model',
+        );
+        assert.equal(
+            judge(400, { error: { message: 'messages must not be empty' } }, false, now),
+            null,
+            'a bad request is ours',
+        );
+    }
 
     {
         const stored = { base_url: 'https://api.example.com/v1', api_key: 'sk-stored' };

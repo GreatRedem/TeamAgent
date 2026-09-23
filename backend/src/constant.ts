@@ -554,6 +554,10 @@ export const REST_GONE = 3_600_000;
 
 export const resting = new Map<string, number>();
 
+export const hidden = new Map<string, number>();
+
+export const FREE_QUOTA = { until: 0 };
+
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1';
 
 export const AGENTROUTER_URL = 'https://agentrouter.org/v1';
@@ -591,7 +595,7 @@ export const PROVIDERS: ProviderPreset[] = [
     },
 ];
 
-export const CATALOG_URL = `${OPENROUTER_URL}/models`;
+export const CATALOG_URL = `${OPENROUTER_URL}/models?sort=top-weekly`;
 
 export const CATALOG_TTL = 3600000;
 

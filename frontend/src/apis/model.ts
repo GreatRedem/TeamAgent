@@ -28,6 +28,8 @@ export interface CatalogModel {
     prompt: number;
     completion: number;
     tools: boolean;
+    text: boolean;
+    rank: number;
 }
 
 export interface ProviderPreset {
