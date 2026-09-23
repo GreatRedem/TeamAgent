@@ -61,6 +61,10 @@ export {
 export { type ProfileFile, profileDetails, profileFiles, type TelegramProfileBot } from './profile';
 export { type SystemMetrics, systemMetrics } from './system';
 export {
+    type RosterMember,
+    rosterMemberRemove,
+    rosterMemberSave,
+    rosterRead,
     type Team,
     teamArchive,
     teamCreate,

@@ -41,10 +41,22 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
             'Lets this agent read team.json: who is on the team, what they do, their rank and their public handles.',
     },
     {
-        key: 'roster.write',
-        label: 'May edit the team file',
+        key: 'roster.create',
+        label: 'May add team members',
         description:
-            'Lets this agent record and remove people in team.json. It edits one member at a time and cannot replace the whole file, so a single bad turn cannot empty it.',
+            'Lets this agent add a new person to team.json. It cannot change or remove anyone already there.',
+    },
+    {
+        key: 'roster.update',
+        label: 'May update team members',
+        description:
+            'Lets this agent change what team.json says about someone already on it: their rank, description, handles or name. Only the fields it passes change.',
+    },
+    {
+        key: 'roster.delete',
+        label: 'May remove team members',
+        description:
+            'Lets this agent take a person out of team.json. The one team.json action that loses information, so grant it sparingly.',
     },
     {
         key: 'web.fetch',
@@ -62,19 +74,28 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
 
 const KNOWN = new Set(AGENT_PERMISSIONS.map((permission) => permission.key));
 
+// Keys since split into finer ones. An agent that held the old key holds every one it became,
+// so a stored agent keeps what it could do; the next save writes the new keys.
+const SPLIT: Record<string, string[]> = {
+    'roster.write': ['roster.create', 'roster.update', 'roster.delete'],
+};
+
+const expand = (keys: string[]) => keys.flatMap((key) => SPLIT[key] ?? [key]);
+
 export const DEFAULT_AGENT_PERMISSIONS: string[] = ['basics'];
 
 export const AGENT_PERMISSIONS_MAX = 256;
 
 export function parseAgentPermissions(stored: string): string[] {
-    return stored
-        .split(',')
-        .map((key) => key.trim())
-        .filter((key) => KNOWN.has(key));
+    return [...new Set(expand(stored.split(',').map((key) => key.trim())))].filter((key) =>
+        KNOWN.has(key),
+    );
 }
 
 export function serializeAgentPermissions(keys: string[]): string {
-    return AGENT_PERMISSIONS.filter((permission) => keys.includes(permission.key))
+    const held = expand(keys);
+
+    return AGENT_PERMISSIONS.filter((permission) => held.includes(permission.key))
         .map((permission) => permission.key)
         .join(',');
 }

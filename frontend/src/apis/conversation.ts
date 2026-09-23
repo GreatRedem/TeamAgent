@@ -21,10 +21,14 @@ export interface TelegramMessage {
     sent_at: string;
 }
 
-export function conversationList(teamId: number, page?: Partial<Paged>) {
+// `query` narrows the list to names and usernames containing it.
+export function conversationList(teamId: number, page?: Partial<Paged>, query = '') {
+    const search = query.trim() === '' ? '' : `q=${encodeURIComponent(query.trim())}`;
+    const paging = pageQuery(page);
+
     return request<{ conversations: TelegramProfile[] } & Paged>(
         'GET',
-        `/team/${teamId}/conversation${pageQuery(page)}`,
+        `/team/${teamId}/conversation${paging}${search === '' ? '' : `${paging === '' ? '?' : '&'}${search}`}`,
     );
 }
 

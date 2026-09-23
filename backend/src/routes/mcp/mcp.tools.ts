@@ -11,8 +11,8 @@ import {
     type Roster,
     RosterError,
     removeMember,
+    replaceMember,
     serializeRoster,
-    upsertMember,
 } from '../team/team.roster.js';
 import {
     TelegramMessage,
@@ -198,10 +198,10 @@ export const TOOLS: ToolDefinition[] = [
         },
     },
     {
-        name: 'roster_member_set',
+        name: 'roster_member_create',
         description:
-            'Record a person in team.json, creating them or updating what is already there. Only the fields you pass are changed, so you can add a rank without touching a description. Use roster_read first when you need to know what is already recorded.',
-        permission: 'roster.write',
+            'Add a new person to team.json. Refused if someone of that name is already on the team; use roster_member_update to change them instead.',
+        permission: 'roster.create',
         inputSchema: {
             type: 'object',
             properties: {
@@ -219,18 +219,38 @@ export const TOOLS: ToolDefinition[] = [
                 },
                 social: {
                     type: 'object',
-                    description:
-                        'Handles per network, e.g. {"x":"@alex","github":"alexk"}. Merged with any already recorded.',
+                    description: 'Handles per network, e.g. {"x":"@alex","github":"alexk"}',
                 },
             },
             required: ['name'],
         },
     },
     {
-        name: 'roster_member_remove',
+        name: 'roster_member_update',
         description:
-            'Remove a person from team.json. Use this only when asked to; it is the one roster action that loses information.',
-        permission: 'roster.write',
+            'Change what team.json says about someone already on it. Only the fields you pass change, so you can set a rank without touching a description; handles are merged with those recorded. Pass new_name to rename them. Use roster_read first when you need to know what is there.',
+        permission: 'roster.update',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string', description: 'Who to update, by their current name' },
+                new_name: { type: 'string', description: 'Optional: a new name for them' },
+                rank: { type: 'string', description: 'Their role or rank on the team' },
+                description: { type: 'string', description: 'What they do' },
+                social: {
+                    type: 'object',
+                    description:
+                        'Handles per network, e.g. {"x":"@alex"}. Merged with any already recorded.',
+                },
+            },
+            required: ['name'],
+        },
+    },
+    {
+        name: 'roster_member_delete',
+        description:
+            'Remove a person from team.json. Use this only when asked to; it is the one team.json action that loses information.',
+        permission: 'roster.delete',
         inputSchema: {
             type: 'object',
             properties: {
@@ -380,20 +400,36 @@ export async function runTool(
         };
     }
 
-    if (tool.name === 'roster_member_set' || tool.name === 'roster_member_remove') {
+    if (
+        tool.name === 'roster_member_create' ||
+        tool.name === 'roster_member_update' ||
+        tool.name === 'roster_member_delete'
+    ) {
         const name = typeof args['name'] === 'string' ? args['name'].trim() : '';
 
         if (name === '') {
             return refuse('name is required');
         }
 
+        // Only the fields the agent passed; the rest of the member is left as it is.
+        const fields = {
+            ...(typeof args['rank'] === 'string' && { rank: args['rank'] }),
+            ...(typeof args['description'] === 'string' && { description: args['description'] }),
+            ...(typeof args['social'] === 'object' &&
+                args['social'] !== null &&
+                !Array.isArray(args['social']) && {
+                    social: args['social'] as Record<string, string>,
+                }),
+        };
+
         let next: Roster;
         let outcome: string;
 
         try {
             const roster = parseRoster(await readRosterContent(fastify, agent.team_id));
+            const stored = findMember(roster, name);
 
-            if (tool.name === 'roster_member_remove') {
+            if (tool.name === 'roster_member_delete') {
                 const removed = removeMember(roster, name);
 
                 if (!removed.removed) {
@@ -402,22 +438,31 @@ export async function runTool(
 
                 next = removed.roster;
                 outcome = 'removed';
+            } else if (tool.name === 'roster_member_create') {
+                if (stored) {
+                    return refuse(
+                        `${stored.name} is already on the team; use roster_member_update to change them`,
+                    );
+                }
+
+                next = replaceMember(roster, undefined, { name, ...fields });
+                outcome = 'added';
             } else {
-                const existed = findMember(roster, name) !== undefined;
+                if (!stored) {
+                    return refuse(
+                        `no member named ${name}; use roster_member_create to add someone`,
+                    );
+                }
 
-                next = upsertMember(roster, {
-                    name,
-                    ...(typeof args['rank'] === 'string' && { rank: args['rank'] }),
-                    ...(typeof args['description'] === 'string' && {
-                        description: args['description'],
-                    }),
-                    ...(typeof args['social'] === 'object' &&
-                        args['social'] !== null && {
-                            social: args['social'] as Record<string, string>,
-                        }),
+                const renamed = typeof args['new_name'] === 'string' ? args['new_name'].trim() : '';
+
+                next = replaceMember(roster, stored.name, {
+                    ...stored,
+                    ...fields,
+                    name: renamed === '' ? stored.name : renamed,
+                    ...(fields.social && { social: { ...stored.social, ...fields.social } }),
                 });
-
-                outcome = existed ? 'updated' : 'added';
+                outcome = 'updated';
             }
 
             await writeRosterContent(fastify, agent.team_id, serializeRoster(next));

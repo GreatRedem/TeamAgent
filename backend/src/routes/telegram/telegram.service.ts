@@ -1,10 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { ILike } from 'typeorm';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
+import { agentHasPermission } from '../agent/agent.permission.js';
 import {
     buildMessages,
     buildSystemPrompt,
@@ -36,7 +37,8 @@ import {
 } from '../model/model.auto.js';
 import { fetchCatalog } from '../model/model.provider.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
-import { TeamBot, TeamModel } from '../team/team.entity.js';
+import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
+import { ROSTER_FILE, rosterPrompt } from '../team/team.roster.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { telegramHtml } from './telegram.format.js';
 import {
@@ -662,8 +664,22 @@ async function deliverAgentReply(
 
     const lazyDocuments = tools.some((tool) => tool.name === 'document_read');
 
+    // An agent allowed to read team.json has it in its instructions, so it can answer about the
+    // team even on a model that cannot call tools.
+    const roster = agentHasPermission(agent.permissions, 'roster.read')
+        ? rosterPrompt(
+              (
+                  await fastify.db
+                      .getRepository(TeamDocument)
+                      .findOneBy({ team_id: bot.team_id, name: ROSTER_FILE })
+              )?.content ?? '',
+          )
+        : '';
+
     const messages: ChatMessage[] = buildMessages(
-        buildSystemPrompt(documents, lazyDocuments),
+        [buildSystemPrompt(documents, lazyDocuments), roster]
+            .filter((section) => section !== '')
+            .join('\n\n---\n\n'),
         earlier,
         incoming,
     );
@@ -1060,8 +1076,19 @@ export function conversationList(fastify: FastifyInstance) {
 
         const { limit, offset } = readPage(request, CONVERSATION_PAGE);
 
+        // `q` narrows the list to names and usernames containing it, for picking a person.
+        const raw = (request.query as Record<string, string | undefined>)['q']?.trim() ?? '';
+        const like = ILike(`%${raw.slice(0, 64).replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+
         const [rows, total] = await fastify.db.getRepository(TelegramUser).findAndCount({
-            where: { team_id: teamId },
+            where:
+                raw === ''
+                    ? { team_id: teamId }
+                    : [
+                          { team_id: teamId, first_name: like },
+                          { team_id: teamId, last_name: like },
+                          { team_id: teamId, username: like },
+                      ],
             order: { last_seen_at: 'DESC' },
             skip: offset,
             take: limit + 1,

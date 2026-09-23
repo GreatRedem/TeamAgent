@@ -11,6 +11,8 @@ import {
     teamDetails,
     teamList,
     teamRemove,
+    teamRosterMemberRemove,
+    teamRosterMemberSave,
     teamRosterRead,
     teamRosterWrite,
     teamUpdate,
@@ -26,6 +28,8 @@ export default async function (fastify: FastifyInstance) {
 
     fastify.get('/team/:id/roster', teamRosterRead(fastify));
     fastify.put('/team/:id/roster', teamRosterWrite(fastify));
+    fastify.put('/team/:id/roster/member', teamRosterMemberSave(fastify));
+    fastify.delete('/team/:id/roster/member', teamRosterMemberRemove(fastify));
 
     fastify.post('/team/:id/bot', teamBotCreate(fastify));
     fastify.get('/team/:id/bot', teamBotList(fastify));

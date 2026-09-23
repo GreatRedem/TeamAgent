@@ -14,8 +14,18 @@ import {
 import { createWebhookSecret } from '../telegram/telegram.service.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from './team.access.js';
 import { Team, TeamBot, TeamDocument, TeamModel } from './team.entity.js';
-import { parseRoster, ROSTER_FILE, type Roster, serializeRoster } from './team.roster.js';
 import {
+    parseRoster,
+    ROSTER_FILE,
+    type Roster,
+    RosterError,
+    removeMember,
+    replaceMember,
+    serializeRoster,
+} from './team.roster.js';
+import {
+    schemaRosterMemberRemove,
+    schemaRosterMemberSave,
     schemaTeamArchive,
     schemaTeamBotCreate,
     schemaTeamBotList,
@@ -647,4 +657,104 @@ export function teamRosterWrite(fastify: FastifyInstance) {
     };
 
     return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
+}
+
+// Applies one change to team.json against what is stored now, not what the page loaded, so a
+// save from the page never undoes a member an agent recorded a moment before.
+async function editRoster(
+    fastify: FastifyInstance,
+    teamId: number,
+    change: (roster: Roster) => Roster,
+): Promise<Roster> {
+    const repository = fastify.db.getRepository(TeamDocument);
+    const row = await repository.findOneBy({ team_id: teamId, name: ROSTER_FILE });
+
+    let roster: Roster;
+    let content: string;
+
+    try {
+        roster = change(parseRoster(row?.content ?? ''));
+        content = serializeRoster(roster);
+    } catch (cause) {
+        throw new BadRequestResponse(cause instanceof RosterError ? cause.code : 'ROSTER_INVALID');
+    }
+
+    await (row
+        ? repository.update({ id: row.id }, { content })
+        : repository.save({ team_id: teamId, name: ROSTER_FILE, content }));
+
+    return roster;
+}
+
+export function teamRosterMemberSave(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const body = request.body as { previous_name?: string; member: { name?: unknown } };
+        const previous = body.previous_name?.trim() || undefined;
+        const name = typeof body.member.name === 'string' ? body.member.name.trim() : '';
+
+        const roster = await editRoster(fastify, teamId, (current) =>
+            replaceMember(current, previous, body.member),
+        );
+
+        request.log.info(
+            {
+                module: 'team',
+                teamId,
+                accountId: request.account_id,
+                members: roster.members.length,
+            },
+            'team roster member saved',
+        );
+
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'roster.member',
+            target: `team:${teamId}`,
+            detail:
+                previous !== undefined && previous !== name
+                    ? `${previous} saved as ${name}`
+                    : `${name} saved`,
+        });
+
+        reply.send({ members: roster.members, count: roster.members.length });
+    };
+
+    return { schema: schemaRosterMemberSave, config: { ...authGuard() }, handler };
+}
+
+export function teamRosterMemberRemove(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const teamId = readTeamId(request);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const name = (request.query as { name: string }).name.trim();
+
+        const roster = await editRoster(fastify, teamId, (current) => {
+            const result = removeMember(current, name);
+
+            if (!result.removed) {
+                throw new RosterError(`${name} is not on the team`, 'ROSTER_MEMBER_NOT_FOUND');
+            }
+
+            return result.roster;
+        });
+
+        await audit(fastify, request.log, {
+            teamId,
+            accountId: request.account_id,
+            action: 'roster.member',
+            target: `team:${teamId}`,
+            detail: `${name} removed`,
+        });
+
+        reply.send({ members: roster.members, count: roster.members.length });
+    };
+
+    return { schema: schemaRosterMemberRemove, config: { ...authGuard() }, handler };
 }

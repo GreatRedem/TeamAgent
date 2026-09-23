@@ -7,6 +7,7 @@ import {
     MessageSquare,
     Settings2,
     ShieldCheck,
+    Users,
 } from 'lucide-react';
 
 import type { AuditEntry } from '@/apis/audit';
@@ -41,8 +42,41 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'agents', label: 'Agents', icon: Bot },
     { id: 'bots', label: 'Bots', icon: MessageSquare },
     { id: 'models', label: 'Models', icon: Cpu },
+    { id: 'team', label: 'Team', icon: Users },
     { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
+
+// The team.json capabilities the Team page offers per agent, one per tool.
+export const ROSTER_ACCESS = [
+    { key: 'roster.read', label: 'Reads it' },
+    { key: 'roster.create', label: 'Adds members' },
+    { key: 'roster.update', label: 'Updates members' },
+    { key: 'roster.delete', label: 'Removes members' },
+];
+
+// Networks offered when recording where a team member can be found; any other name works too.
+export const SOCIAL_NETWORKS = [
+    'telegram',
+    'x',
+    'instagram',
+    'linkedin',
+    'github',
+    'website',
+    'email',
+];
+
+// What the Team page says for each refusal the roster endpoints can give.
+export const ROSTER_ERRORS: Record<string, string> = {
+    ROSTER_MEMBER_TAKEN: 'Someone with that name is already on the team.',
+    ROSTER_MEMBER_NOT_FOUND: 'That person is no longer on the team.',
+    ROSTER_FULL: 'team.json already holds as many people as it can.',
+    ROSTER_TOO_LARGE: 'team.json would grow past its size limit. Shorten a description.',
+    ROSTER_INVALID: 'That member could not be saved. Check the name.',
+    ROSTER_MALFORMED: 'team.json is damaged and cannot be read.',
+};
+
+// How long the person picker waits after typing stops before it searches.
+export const PROFILE_SEARCH_DELAY = 300;
 
 // The agent page's tabs, in order; the first is the one it opens on.
 export const AGENT_TABS = [
@@ -59,6 +93,10 @@ export const TEAM_TITLES: Record<string, { title: string; description: string }>
     agents: { title: 'Agents', description: 'The roles that answer, and the models behind them.' },
     bots: { title: 'Bots', description: 'The bots people message, and who has messaged them.' },
     models: { title: 'Models', description: 'The endpoints this project can call.' },
+    team: {
+        title: 'Team',
+        description: 'The people on this team, kept in team.json for the agents to answer from.',
+    },
     settings: { title: 'Settings', description: 'What this project is called.' },
 };
 

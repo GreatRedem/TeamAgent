@@ -187,6 +187,40 @@ export const schemaTeamBotTest = {
     },
 } as const;
 
+const rosterMembers = {
+    200: {
+        type: 'object',
+        required: ['members', 'count'],
+        properties: {
+            members: { type: 'array', items: { type: 'object', additionalProperties: true } },
+            count: { type: 'integer' },
+        },
+    },
+} as const;
+
+// Saves one member of team.json from the Team page. `previous_name` is who they were saved as,
+// so a save can rename them; leave it out to add someone new.
+export const schemaRosterMemberSave = {
+    body: {
+        type: 'object',
+        required: ['member'],
+        properties: {
+            previous_name: { type: 'string' },
+            member: { type: 'object', additionalProperties: true },
+        },
+    },
+    response: rosterMembers,
+} as const;
+
+export const schemaRosterMemberRemove = {
+    querystring: {
+        type: 'object',
+        required: ['name'],
+        properties: { name: { type: 'string' } },
+    },
+    response: rosterMembers,
+} as const;
+
 export const schemaTeamRoster = {
     response: {
         200: {

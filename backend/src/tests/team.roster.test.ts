@@ -6,8 +6,11 @@ import {
     MEMBERS_MAX,
     parseRoster,
     ROSTER_CONTENT_MAX,
+    ROSTER_INLINE_MAX,
     RosterError,
     removeMember,
+    replaceMember,
+    rosterPrompt,
     serializeRoster,
     upsertMember,
 } from '../routes/team/team.roster.js';
@@ -25,6 +28,85 @@ const sample = serializeRoster({
 });
 
 const tests: Array<[string, () => void]> = [
+    [
+        'the form saves a whole member: emptied fields go, extra fields an agent kept stay',
+        () => {
+            const roster = parseRoster(sample);
+            const withExtra = upsertMember(roster, { name: 'Alex', email: 'alex@example.com' });
+            const saved = replaceMember(withExtra, 'Alex', {
+                name: 'Alex',
+                rank: 'founder',
+                description: '',
+                social: { telegram: '@alexk' },
+                profile_id: 12,
+            });
+            const alex = findMember(saved, 'alex');
+
+            assert.equal(alex?.description, undefined, 'a cleared field is removed');
+            assert.deepEqual(
+                alex?.social,
+                { telegram: '@alexk' },
+                'social is replaced, not merged',
+            );
+            assert.equal(alex?.['profile_id'], 12);
+            assert.equal(
+                alex?.['email'],
+                'alex@example.com',
+                'a field the form does not own is kept',
+            );
+        },
+    ],
+
+    [
+        'a save can rename a member, but never onto someone else',
+        () => {
+            const roster = parseRoster(sample);
+            const renamed = replaceMember(roster, 'Sam', { name: 'Samantha', rank: 'lead' });
+
+            assert.equal(findMember(renamed, 'Sam'), undefined);
+            assert.equal(findMember(renamed, 'Samantha')?.rank, 'lead');
+            assert.equal(renamed.members.length, 2);
+            assert.throws(() => replaceMember(roster, 'Sam', { name: 'alex' }), RosterError);
+            assert.throws(() => replaceMember(roster, undefined, { name: 'ALEX' }), RosterError);
+            assert.throws(() => replaceMember(roster, undefined, { rank: 'x' }), RosterError);
+
+            const added = replaceMember(roster, undefined, { name: 'Kim', profile_id: -4 });
+
+            assert.equal(added.members.length, 3);
+            assert.equal(
+                findMember(added, 'Kim')?.['profile_id'],
+                undefined,
+                'a bad profile id is dropped',
+            );
+        },
+    ],
+
+    [
+        'team.json goes into the instructions whole, or as a pointer when it is too big',
+        () => {
+            assert.equal(rosterPrompt(''), '');
+            assert.equal(rosterPrompt('{oops'), '');
+
+            const small = rosterPrompt(sample);
+
+            assert.ok(small.includes('"rank": "founder"'));
+            assert.ok(small.includes('```json'));
+
+            const big = serializeRoster({
+                members: Array.from({ length: 60 }, (_, i) => ({
+                    name: `Person ${i}`,
+                    description: 'x'.repeat(200),
+                })),
+            });
+            const pointer = rosterPrompt(big);
+
+            assert.ok(big.length > ROSTER_INLINE_MAX);
+            assert.ok(pointer.includes('roster_read'));
+            assert.ok(pointer.includes('60 people'));
+            assert.ok(!pointer.includes('```json'));
+        },
+    ],
+
     [
         'an empty file reads as a roster with nobody in it',
         () => {

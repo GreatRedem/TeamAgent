@@ -10,6 +10,14 @@ export const MEMBER_TEXT_MAX = 2000;
 
 export const SOCIAL_MAX = 20;
 
+// Up to this size team.json goes into an agent's instructions whole; past it the agent is told
+// to read it with roster_read, so a large team cannot crowd out the conversation.
+export const ROSTER_INLINE_MAX = 8000;
+
+// The fields the member form owns. Anything else on a member, recorded by an agent or written
+// into the file by hand, is kept when the form saves.
+const FORM_FIELDS = ['name', 'rank', 'description', 'social', 'profile_id'];
+
 export interface RosterMember {
     name: string;
     rank?: string;
@@ -23,7 +31,16 @@ export interface Roster {
     [key: string]: unknown;
 }
 
-export class RosterError extends Error {}
+// `code` is what the API answers with, so the page can say what went wrong.
+export class RosterError extends Error {
+    readonly code: string;
+
+    constructor(message: string, code = 'ROSTER_INVALID') {
+        super(message);
+
+        this.code = code;
+    }
+}
 
 export function emptyRoster(): Roster {
     return { members: [] };
@@ -121,7 +138,10 @@ export function serializeRoster(roster: Roster): string {
     const content = `${JSON.stringify(roster, null, 2)}\n`;
 
     if (content.length > ROSTER_CONTENT_MAX) {
-        throw new RosterError(`${ROSTER_FILE} would exceed ${ROSTER_CONTENT_MAX} characters`);
+        throw new RosterError(
+            `${ROSTER_FILE} would exceed ${ROSTER_CONTENT_MAX} characters`,
+            'ROSTER_TOO_LARGE',
+        );
     }
 
     return content;
@@ -172,4 +192,102 @@ export function removeMember(roster: Roster, name: string): { roster: Roster; re
     const members = roster.members.filter((member) => memberKey(member.name) !== key);
 
     return { roster: { ...roster, members }, removed: members.length !== roster.members.length };
+}
+
+// Saves one member as the form describes them: the whole member, not a merge, so a field left
+// empty is removed. `previous` is the name they were saved under, which lets a save rename them.
+// A new name that belongs to someone else is refused rather than merging two people.
+export function replaceMember(
+    roster: Roster,
+    previous: string | undefined,
+    entry: unknown,
+): Roster {
+    const member = readMember(entry);
+
+    if (!member) {
+        throw new RosterError('a member needs a name');
+    }
+
+    for (const field of ['rank', 'description']) {
+        if (typeof member[field] !== 'string' || (member[field] as string).trim() === '') {
+            delete member[field];
+        }
+    }
+
+    const profile = member['profile_id'];
+
+    if (!(typeof profile === 'number' && Number.isInteger(profile) && profile > 0)) {
+        delete member['profile_id'];
+    }
+
+    // Adding (no previous name) never lands on an existing member; it clashes instead.
+    const at =
+        previous === undefined
+            ? -1
+            : roster.members.findIndex(
+                  (candidate) => memberKey(candidate.name) === memberKey(previous),
+              );
+    const clash = roster.members.findIndex(
+        (candidate, index) => index !== at && memberKey(candidate.name) === memberKey(member.name),
+    );
+
+    if (clash !== -1) {
+        throw new RosterError(
+            `someone called ${member.name} is already on the team`,
+            'ROSTER_MEMBER_TAKEN',
+        );
+    }
+
+    if (at === -1) {
+        if (roster.members.length >= MEMBERS_MAX) {
+            throw new RosterError(
+                `${ROSTER_FILE} already holds ${MEMBERS_MAX} members`,
+                'ROSTER_FULL',
+            );
+        }
+
+        return { ...roster, members: [...roster.members, member] };
+    }
+
+    const kept = Object.fromEntries(
+        Object.entries(roster.members[at]).filter(([field]) => !FORM_FIELDS.includes(field)),
+    );
+    const members = [...roster.members];
+
+    members[at] = { ...kept, ...member };
+
+    return { ...roster, members };
+}
+
+// The part of an agent's instructions that carries team.json, for an agent allowed to read it.
+// Empty when nobody is on the team or the file cannot be read.
+export function rosterPrompt(content: string): string {
+    let roster: Roster;
+
+    try {
+        roster = parseRoster(content);
+    } catch {
+        return '';
+    }
+
+    if (roster.members.length === 0) {
+        return '';
+    }
+
+    const heading = [
+        `# Your team (${ROSTER_FILE})`,
+        '',
+        'The people on this team: their rank, what they do and where to find them. Use it to answer questions about who someone is, what they do, who to ask about something and how to reach them. Do not invent members, ranks or handles that are not in it.',
+    ];
+    const json = JSON.stringify({ members: roster.members }, null, 1);
+
+    if (json.length > ROSTER_INLINE_MAX) {
+        return [
+            ...heading,
+            '',
+            `${ROSTER_FILE} holds ${roster.members.length} people, too many to include here. Call \`roster_read\`, with a name to read one person, before answering a question about the team.`,
+        ].join('\n');
+    }
+
+    return [...heading, '', '```json', json, '```'].join('\n');
 }

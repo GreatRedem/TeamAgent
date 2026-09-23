@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     AGENT_PERMISSIONS,
     DEFAULT_AGENT_PERMISSIONS,
+    parseAgentPermissions,
     serializeAgentPermissions,
 } from '../routes/agent/agent.permission.js';
 import { readToolCalls } from '../routes/agent/agent.reply.js';
@@ -133,7 +134,12 @@ const tests: Array<[string, () => void]> = [
                 (t) => t.name,
             );
             const roster = allowedTools(
-                serializeAgentPermissions(['roster.read', 'roster.write']),
+                serializeAgentPermissions([
+                    'roster.read',
+                    'roster.create',
+                    'roster.update',
+                    'roster.delete',
+                ]),
             ).map((t) => t.name);
 
             assert.equal(
@@ -161,13 +167,31 @@ const tests: Array<[string, () => void]> = [
     ],
 
     [
-        'editing the team file cannot replace the whole of it',
+        'each team file action is its own permission, and none replaces the whole file',
         () => {
-            const names = allowedTools(serializeAgentPermissions(['roster.write']))
-                .map((t) => t.name)
-                .sort();
+            const only = (key: string) =>
+                allowedTools(serializeAgentPermissions([key])).map((t) => t.name);
 
-            assert.deepEqual(names, ['roster_member_remove', 'roster_member_set']);
+            assert.deepEqual(only('roster.create'), ['roster_member_create']);
+            assert.deepEqual(only('roster.update'), ['roster_member_update']);
+            assert.deepEqual(only('roster.delete'), ['roster_member_delete']);
+        },
+    ],
+
+    [
+        'an agent that could edit the team file before the split keeps every action',
+        () => {
+            assert.deepEqual(parseAgentPermissions('basics,roster.read,roster.write'), [
+                'basics',
+                'roster.read',
+                'roster.create',
+                'roster.update',
+                'roster.delete',
+            ]);
+            assert.equal(
+                serializeAgentPermissions(['roster.write']),
+                'roster.create,roster.update,roster.delete',
+            );
         },
     ],
 

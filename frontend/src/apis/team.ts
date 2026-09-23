@@ -37,3 +37,38 @@ export function teamRemove(id: number) {
 export function teamUpdate(id: number, name: string, description: string) {
     return request<Team>('PATCH', `/team/${id}`, { name, description });
 }
+
+// One person in team.json. The form owns these fields; anything else an agent recorded is kept
+// by the server when the form saves.
+export interface RosterMember {
+    name: string;
+    rank?: string;
+    description?: string;
+    social?: Record<string, string>;
+    // The Telegram profile this member is, when they were added from one.
+    profile_id?: number;
+    [field: string]: unknown;
+}
+
+export function rosterRead(teamId: number) {
+    return request<{ members: RosterMember[]; total: number; updated_at?: string } & Paged>(
+        'GET',
+        `/team/${teamId}/roster?limit=500`,
+    );
+}
+
+// Saves one member. `previousName` is who they were saved as; leave it out to add someone.
+export function rosterMemberSave(teamId: number, member: RosterMember, previousName?: string) {
+    return request<{ members: RosterMember[]; count: number }>(
+        'PUT',
+        `/team/${teamId}/roster/member`,
+        { member, ...(previousName !== undefined && { previous_name: previousName }) },
+    );
+}
+
+export function rosterMemberRemove(teamId: number, name: string) {
+    return request<{ members: RosterMember[]; count: number }>(
+        'DELETE',
+        `/team/${teamId}/roster/member?name=${encodeURIComponent(name)}`,
+    );
+}
