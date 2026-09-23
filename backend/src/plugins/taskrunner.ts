@@ -1,19 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
+import { LOGGER } from '../constant.js';
 import { LessThanOrEqual } from 'typeorm';
 
 import { TeamTask, TeamTaskRun } from '../routes/task/task.entity.js';
 import { nextStart, type TaskRepeat } from '../routes/task/task.plan.js';
 import { runTask } from '../routes/task/task.run.js';
-import { createLogger } from '../utils/logger.js';
-
-const log = createLogger('task-runner');
 
 const TICK = 30_000;
 
 const BATCH = 5;
 
 export default fastifyPlugin(async (fastify: FastifyInstance) => {
+    const log = LOGGER.child({ module: 'task-runner' });
+
     let timer: ReturnType<typeof setInterval> | undefined;
     let busy = false;
 

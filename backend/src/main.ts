@@ -15,8 +15,7 @@ import taskRunnerPlugin from './plugins/taskrunner.js';
 import telegramPollPlugin from './plugins/telegrampoll.js';
 import typeormPlugin from './plugins/typeorm.js';
 import validatorPlugin from './plugins/validator.js';
-import config from './utils/config.js';
-import { createLogger, logger } from './utils/logger.js';
+import { CONFIG, IS_DEVELOPMENT, LOGGER } from './constant.js';
 import {
     STATUS_BAD_REQUEST,
     STATUS_FORBIDDEN,
@@ -25,15 +24,13 @@ import {
     STATUS_UNAUTHORIZED,
 } from './utils/status.js';
 
-const isDevelopment = config.NODE_ENV === 'development';
-
-const log = createLogger('server');
+const log = LOGGER.child({ module: 'server' });
 
 const dirName = path.dirname(fileURLToPath(import.meta.url));
 
 const main = async () => {
     const app = fastify({
-        loggerInstance: logger,
+        loggerInstance: LOGGER,
         trustProxy: '127.0.0.1',
         pluginTimeout: 30000,
     });
@@ -57,7 +54,7 @@ const main = async () => {
 
         reply
             .status(STATUS_INTERNAL_ERROR)
-            .send({ result: 'INTERNAL_ERROR', ...(isDevelopment && { message: error.message }) });
+            .send({ result: 'INTERNAL_ERROR', ...(IS_DEVELOPMENT && { message: error.message }) });
     });
 
     app.setValidatorCompiler(() => {
@@ -76,7 +73,7 @@ const main = async () => {
     await app.register(validatorPlugin);
 
     await app.register(cookiePlugin, {
-        secret: config.NODE_COOKIE,
+        secret: CONFIG.NODE_COOKIE,
         hook: 'onRequest',
         parseOptions: { secure: true, httpOnly: true, sameSite: 'strict' },
     });
@@ -91,10 +88,10 @@ const main = async () => {
 
     await app.register(taskRunnerPlugin);
 
-    await app.listen({ port: config.NODE_PORT, host: '127.0.0.1' });
+    await app.listen({ port: CONFIG.NODE_PORT, host: '127.0.0.1' });
 
     log.info(
-        { port: config.NODE_PORT, host: '127.0.0.1', env: config.NODE_ENV },
+        { port: CONFIG.NODE_PORT, host: '127.0.0.1', env: CONFIG.NODE_ENV },
         'server listening',
     );
 

@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import config from '../utils/config.js';
+import { CONFIG } from '../constant.js';
 import { touchAccount } from '../utils/presence.js';
 import { STATUS_FORBIDDEN, STATUS_UNAUTHORIZED } from '../utils/status.js';
 
@@ -20,7 +20,7 @@ export function verifyAccessToken(token: string) {
     const payload = Buffer.from(accessToken[0], 'base64url');
     const signature = Buffer.from(accessToken[1], 'base64url');
 
-    const signatureServer = createHmac('sha512', config.SESSION_ACCESS_SECRET)
+    const signatureServer = createHmac('sha512', CONFIG.SESSION_ACCESS_SECRET)
         .update(accessToken[0])
         .digest();
 
@@ -65,7 +65,7 @@ export function createAccessToken(id: number, role: number, sessionId: number): 
         }),
     ).toString('base64url');
 
-    const signature = createHmac('sha512', config.SESSION_ACCESS_SECRET)
+    const signature = createHmac('sha512', CONFIG.SESSION_ACCESS_SECRET)
         .update(payload)
         .digest('base64url');
 
@@ -81,7 +81,7 @@ export function createRefreshToken(id: number, role: number): string {
         }),
     ).toString('base64url');
 
-    const signature = createHmac('sha512', config.SESSION_REFRESH_SECRET)
+    const signature = createHmac('sha512', CONFIG.SESSION_REFRESH_SECRET)
         .update(payload)
         .digest('base64url');
 

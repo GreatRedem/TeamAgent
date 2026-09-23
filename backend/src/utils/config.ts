@@ -23,71 +23,54 @@ function findEnvFile(from: string): string | undefined {
     }
 }
 
-const envFile = findEnvFile(import.meta.dirname);
-
-loadEnv({ path: envFile });
-
-const builder = (name: string) => {
+function readString(name: string): string {
     const value = process.env[name];
 
     if (value === undefined) {
         throw new TypeError(`Missing required environment variable: ${name}`);
     }
 
-    const asNumber = () => {
-        const result = Number.parseInt(value, 10);
+    return value;
+}
 
-        if (Number.isNaN(result)) {
-            throw new TypeError(
-                `Invalid value for environment variable: ${name} - ${typeof value} - ${value}`,
-            );
-        }
+function readNumber(name: string): number {
+    const value = readString(name);
+    const result = Number.parseInt(value, 10);
 
-        return result;
-    };
+    if (Number.isNaN(result)) {
+        throw new TypeError(
+            `Invalid value for environment variable: ${name} - ${typeof value} - ${value}`,
+        );
+    }
 
-    const asString = () => {
-        return value;
-    };
+    return result;
+}
 
-    return { asNumber, asString };
-};
+function readEnvironment(): 'development' | 'production' {
+    const value = readString('NODE_ENV');
 
-const NODE_PORT = builder('NODE_PORT').asNumber();
-
-const NODE_ENV = (() => {
-    const value = builder('NODE_ENV').asString();
-
-    if (!['development', 'production'].includes(value)) {
+    if (value !== 'development' && value !== 'production') {
         throw new TypeError(`Invalid format type for environment variable: NODE_ENV - ${value}`);
     }
 
-    return value as 'development' | 'production';
-})();
+    return value;
+}
 
-const NODE_DB = builder('NODE_DB').asString();
+export function readConfig() {
+    const envFile = findEnvFile(import.meta.dirname);
 
-const NODE_DB_CA = (() => {
-    const value = process.env['NODE_DB_CA'];
+    loadEnv({ path: envFile });
 
-    if (!value) {
-        return undefined;
-    }
+    const ca = process.env['NODE_DB_CA'];
 
-    return envFile ? resolve(dirname(envFile), value) : resolve(value);
-})();
-const NODE_COOKIE = builder('NODE_COOKIE').asString();
+    return {
+        NODE_PORT: readNumber('NODE_PORT'),
+        NODE_ENV: readEnvironment(),
+        NODE_DB: readString('NODE_DB'),
+        NODE_DB_CA: ca ? (envFile ? resolve(dirname(envFile), ca) : resolve(ca)) : undefined,
+        NODE_COOKIE: readString('NODE_COOKIE'),
 
-const SESSION_ACCESS_SECRET = builder('SESSION_ACCESS_SECRET').asString();
-const SESSION_REFRESH_SECRET = builder('SESSION_REFRESH_SECRET').asString();
-
-export default {
-    NODE_PORT,
-    NODE_ENV,
-    NODE_DB,
-    NODE_DB_CA,
-    NODE_COOKIE,
-
-    SESSION_ACCESS_SECRET,
-    SESSION_REFRESH_SECRET,
-};
+        SESSION_ACCESS_SECRET: readString('SESSION_ACCESS_SECRET'),
+        SESSION_REFRESH_SECRET: readString('SESSION_REFRESH_SECRET'),
+    };
+}

@@ -4,23 +4,20 @@ import path from 'node:path';
 import fastifyPlugin from 'fastify-plugin';
 import { DataSource } from 'typeorm';
 
-import config from '../utils/config.js';
-import { createLogger } from '../utils/logger.js';
-
-const log = createLogger('database');
+import { CONFIG, IS_DEVELOPMENT, LOGGER } from '../constant.js';
 
 export default fastifyPlugin(async (fastify, options: { dir: string; matchFilter: string }) => {
-    const isDevelopment = config.NODE_ENV === 'development';
+    const log = LOGGER.child({ module: 'database' });
 
-    const url = config.NODE_DB_CA
-        ? config.NODE_DB.replace(/[?&]sslmode=[^&]*/, '')
-        : config.NODE_DB;
+    const url = CONFIG.NODE_DB_CA
+        ? CONFIG.NODE_DB.replace(/[?&]sslmode=[^&]*/, '')
+        : CONFIG.NODE_DB;
 
     const connection = new DataSource({
         type: 'postgres',
         url,
-        ssl: config.NODE_DB_CA ? { ca: readFileSync(config.NODE_DB_CA, 'utf8') } : undefined,
-        synchronize: isDevelopment,
+        ssl: CONFIG.NODE_DB_CA ? { ca: readFileSync(CONFIG.NODE_DB_CA, 'utf8') } : undefined,
+        synchronize: IS_DEVELOPMENT,
         logging: false,
         entities: [path.join(options.dir, options.matchFilter)],
     });
@@ -28,7 +25,7 @@ export default fastifyPlugin(async (fastify, options: { dir: string; matchFilter
     await connection.initialize();
 
     log.info(
-        { synchronize: isDevelopment, entities: connection.entityMetadatas.length },
+        { synchronize: IS_DEVELOPMENT, entities: connection.entityMetadatas.length },
         'database connected',
     );
 

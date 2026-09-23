@@ -1,11 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
+import { LOGGER } from '../constant.js';
 import { TeamBot } from '../routes/team/team.entity.js';
 import { ingestUpdate } from '../routes/telegram/telegram.service.js';
-import { createLogger } from '../utils/logger.js';
-
-const log = createLogger('telegram-poll');
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -63,6 +61,8 @@ async function call(
 }
 
 export default fastifyPlugin(async (fastify: FastifyInstance) => {
+    const log = LOGGER.child({ module: 'telegram-poll' });
+
     const running = new Map<number, AbortController>();
 
     const supervisor = new AbortController();
