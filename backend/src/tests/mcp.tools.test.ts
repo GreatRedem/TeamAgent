@@ -238,15 +238,13 @@ function main() {
         ],
 
         [
-            'the team capabilities are off for a new agent',
+            'every capability is off for a new agent',
             () => {
-                for (const key of ['team.read', 'team.write']) {
-                    assert.equal(
-                        DEFAULT_AGENT_PERMISSIONS.includes(key),
-                        false,
-                        `${key} is on by default`,
-                    );
-                }
+                assert.deepEqual(DEFAULT_AGENT_PERMISSIONS, []);
+                assert.deepEqual(
+                    allowedTools(serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS)),
+                    [],
+                );
             },
         ],
 

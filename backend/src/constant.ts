@@ -139,8 +139,7 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
     {
         key: 'basics',
         label: 'May read the clock',
-        description:
-            'Lets this agent know the current date and time. Harmless, and on by default for new agents.',
+        description: 'Lets this agent know the current date and time. Harmless.',
     },
 ];
 
@@ -150,7 +149,7 @@ export const SPLIT: Record<string, string[]> = {
     'roster.write': ['roster.create', 'roster.update', 'roster.delete'],
 };
 
-export const DEFAULT_AGENT_PERMISSIONS: string[] = ['basics'];
+export const DEFAULT_AGENT_PERMISSIONS: string[] = [];
 
 export const AGENT_PERMISSIONS_MAX = 256;
 
