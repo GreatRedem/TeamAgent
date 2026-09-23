@@ -96,7 +96,6 @@ export function DocumentEditor({
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
                     spellCheck={false}
-                    aria-label={`Contents of ${document.name}`}
                 />
 
                 <Text

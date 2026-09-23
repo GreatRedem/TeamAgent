@@ -25,7 +25,7 @@ export function EmptyState({
         <Empty className="rounded-lg border border-dashed">
             <EmptyHeader>
                 <EmptyMedia variant="icon">
-                    <Icon aria-hidden="true" />
+                    <Icon />
                 </EmptyMedia>
 
                 <EmptyTitle>{title}</EmptyTitle>

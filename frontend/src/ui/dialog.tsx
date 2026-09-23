@@ -7,8 +7,6 @@ import { Slot } from '@/ui/slot';
 type DialogState = {
     open: boolean;
     setOpen: (open: boolean) => void;
-    titleId: string;
-    descriptionId: string;
 };
 
 const DialogContext = React.createContext<DialogState | null>(null);
@@ -35,8 +33,6 @@ function Dialog({
     children?: React.ReactNode;
 }) {
     const [inner, setInner] = React.useState(defaultOpen);
-    const titleId = React.useId();
-    const descriptionId = React.useId();
     const isOpen = open ?? inner;
 
     const setOpen = React.useCallback(
@@ -50,11 +46,7 @@ function Dialog({
         [open, onOpenChange],
     );
 
-    return (
-        <DialogContext value={{ open: isOpen, setOpen, titleId, descriptionId }}>
-            {children}
-        </DialogContext>
-    );
+    return <DialogContext value={{ open: isOpen, setOpen }}>{children}</DialogContext>;
 }
 
 function DialogTrigger({
@@ -107,14 +99,13 @@ function DialogContent({
     showCloseButton = true,
     dismissible = true,
     size = 'default',
-    role,
     ...props
 }: React.ComponentProps<'dialog'> & {
     showCloseButton?: boolean;
     dismissible?: boolean;
     size?: keyof typeof dialogSize;
 }) {
-    const { open, setOpen, titleId, descriptionId } = useDialog();
+    const { open, setOpen } = useDialog();
     const ref = React.useRef<HTMLDialogElement>(null);
 
     React.useEffect(() => {
@@ -130,10 +121,7 @@ function DialogContent({
     return (
         <dialog
             ref={ref}
-            role={role}
             data-slot="dialog-content"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
             onCancel={(event) => {
                 event.preventDefault();
 
@@ -166,7 +154,6 @@ function DialogContent({
                         variant="ghost"
                         size="icon-sm"
                         className="absolute top-3 right-3"
-                        aria-label="Close"
                         icon={<XIcon />}
                     />
                 </DialogClose>
@@ -217,11 +204,8 @@ function DialogFooter({
 }
 
 function DialogTitle({ className, children, ...props }: React.ComponentProps<'h2'>) {
-    const { titleId } = useDialog();
-
     return (
         <h2
-            id={titleId}
             data-slot="dialog-title"
             className={cn('text-lg font-semibold leading-heading', className)}
             {...props}>
@@ -231,11 +215,8 @@ function DialogTitle({ className, children, ...props }: React.ComponentProps<'h2
 }
 
 function DialogDescription({ className, ...props }: React.ComponentProps<'p'>) {
-    const { descriptionId } = useDialog();
-
     return (
         <p
-            id={descriptionId}
             data-slot="dialog-description"
             className={cn('text-sm leading-body text-muted-foreground', className)}
             {...props}

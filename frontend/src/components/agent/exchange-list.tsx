@@ -42,7 +42,6 @@ export function ExchangeList({
                         key={exchange.id}>
                         <Pressable
                             className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                            aria-expanded={open === exchange.id}
                             onClick={() =>
                                 setOpen((current) => (current === exchange.id ? null : exchange.id))
                             }>

@@ -90,10 +90,7 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
                 {teams?.map((team) => (
                     <DropdownMenuItem key={team.id} asChild>
                         <Link to={teamPath(team.id)}>
-                            <Check
-                                className={team.id === teamId ? 'opacity-100' : 'opacity-0'}
-                                aria-hidden="true"
-                            />
+                            <Check className={team.id === teamId ? 'opacity-100' : 'opacity-0'} />
                             <Text
                                 type="Foreground"
                                 as="span"
@@ -108,7 +105,7 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
 
                 <DropdownMenuItem asChild>
                     <Link to="/dashboard">
-                        <LayoutGrid aria-hidden="true" />
+                        <LayoutGrid />
                         All projects
                     </Link>
                 </DropdownMenuItem>

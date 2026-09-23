@@ -72,7 +72,6 @@ export function Heatmap({
                             type="Caption"
                             as="span"
                             className="flex items-center pr-1"
-                            aria-hidden="true"
                             key={label}
                             message={i % 2 === 1 ? label : ''}
                         />

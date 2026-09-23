@@ -146,7 +146,6 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
                                     value={allTokens === 0 ? 0 : (used / allTokens) * 100}
                                     size="thin"
                                     track="well"
-                                    aria-label={`${model.name}: share of all tokens`}
                                 />
                             </Stack>
                         );

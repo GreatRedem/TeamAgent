@@ -4,14 +4,7 @@ import { cn } from '@/libs/cn';
 import { type Button, buttonVariants } from '@/ui/button';
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
-    return (
-        <nav
-            aria-label="pagination"
-            data-slot="pagination"
-            className={cn('flex', className)}
-            {...props}
-        />
-    );
+    return <nav data-slot="pagination" className={cn('flex', className)} {...props} />;
 }
 
 function PaginationContent({ className, ...props }: React.ComponentProps<'ul'>) {
@@ -36,7 +29,6 @@ type PaginationLinkProps = {
 function PaginationLink({ className, isActive, size = 'icon', ...props }: PaginationLinkProps) {
     return (
         <a
-            aria-current={isActive ? 'page' : undefined}
             data-slot="pagination-link"
             data-active={isActive}
             className={cn(
@@ -54,7 +46,6 @@ function PaginationLink({ className, isActive, size = 'icon', ...props }: Pagina
 function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
     return (
         <PaginationLink
-            aria-label="Go to previous page"
             size="default"
             className={cn('gap-1 px-2.5 sm:pl-2.5', className)}
             {...props}>
@@ -67,7 +58,6 @@ function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof
 function PaginationNext({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
     return (
         <PaginationLink
-            aria-label="Go to next page"
             size="default"
             className={cn('gap-1 px-2.5 sm:pr-2.5', className)}
             {...props}>
@@ -80,7 +70,6 @@ function PaginationNext({ className, ...props }: React.ComponentProps<typeof Pag
 function PaginationEllipsis({ className, ...props }: React.ComponentProps<'span'>) {
     return (
         <span
-            aria-hidden
             data-slot="pagination-ellipsis"
             className={cn('flex size-9 items-center justify-center', className)}
             {...props}>

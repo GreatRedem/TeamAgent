@@ -198,7 +198,6 @@ function FieldError({
 
     return (
         <div
-            role="alert"
             data-slot="field-error"
             className={cn('text-sm leading-body font-normal text-destructive', className)}
             {...props}>

@@ -58,15 +58,13 @@ function DropdownMenuTrigger({
     style,
     ...props
 }: React.ComponentProps<'button'> & { asChild?: boolean }) {
-    const { open, id, anchor } = useMenu();
+    const { id, anchor } = useMenu();
     const Comp = asChild ? Slot : 'button';
 
     return (
         <Comp
             data-slot="dropdown-menu-trigger"
             popoverTarget={id}
-            aria-haspopup="menu"
-            aria-expanded={open}
             style={{ anchorName: anchor, ...style } as React.CSSProperties}
             {...props}
         />
@@ -108,7 +106,6 @@ function DropdownMenuContent({
             ref={ref}
             id={id}
             popover="auto"
-            role="menu"
             tabIndex={-1}
             data-slot="dropdown-menu-content"
             onToggle={(event) => setOpen(event.newState === 'open')}
@@ -121,7 +118,9 @@ function DropdownMenuContent({
 
                 event.preventDefault();
                 const items = [
-                    ...event.currentTarget.querySelectorAll<HTMLElement>('[role=menuitem]'),
+                    ...event.currentTarget.querySelectorAll<HTMLElement>(
+                        '[data-slot=dropdown-menu-item]',
+                    ),
                 ];
                 const at = items.indexOf(document.activeElement as HTMLElement);
                 const next =
@@ -165,7 +164,6 @@ function DropdownMenuItem({
 
     return (
         <Comp
-            role="menuitem"
             data-slot="dropdown-menu-item"
             data-inset={inset}
             data-variant={variant}

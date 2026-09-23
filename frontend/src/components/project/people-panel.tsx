@@ -185,7 +185,6 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                         className="relative items-center gap-3 px-5 py-3 hover:bg-accent/40">
                                         <Pressable
                                             className="min-w-0 grow border-0 bg-transparent p-0 outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
-                                            aria-expanded={open}
                                             onClick={() => setSelected(open ? null : profile.id)}>
                                             <Stack
                                                 direction="Vertical"
@@ -225,7 +224,6 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             className="relative z-10 [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
                                             link={`/dashboard/team/${teamId}/profile/${profile.id}`}
-                                            aria-label="Open full profile"
                                             icon={<ArrowUpRight />}
                                             message="Open full profile"
                                         />
@@ -246,7 +244,6 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                 'shrink-0 text-muted-foreground transition-transform',
                                                 open && 'rotate-180',
                                             )}
-                                            aria-hidden="true"
                                         />
                                     </Stack>
 

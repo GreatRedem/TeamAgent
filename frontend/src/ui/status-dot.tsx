@@ -15,8 +15,8 @@ export function StatusDot({
     const dot = cn('inline-block size-1.5 shrink-0 rounded-full', STATUS_FILL[status], className);
 
     if (label === undefined) {
-        return <span className={dot} aria-hidden="true" />;
+        return <span className={dot} />;
     }
 
-    return <span className={dot} role="img" aria-label={label} />;
+    return <span className={dot} />;
 }

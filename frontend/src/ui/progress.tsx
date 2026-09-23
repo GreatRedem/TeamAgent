@@ -27,10 +27,6 @@ function Progress({
 }) {
     return (
         <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={value ?? undefined}
             data-slot="progress"
             className={cn(
                 'relative w-full overflow-hidden rounded-full',

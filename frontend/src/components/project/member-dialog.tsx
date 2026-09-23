@@ -251,7 +251,6 @@ export function MemberDialog({
                                 key={index}>
                                 <Stack direction="Vertical" className="w-36 shrink-0">
                                     <Input
-                                        aria-label="Network"
                                         list={`${listId}-networks`}
                                         value={row.network}
                                         onChange={(event) =>
@@ -269,7 +268,6 @@ export function MemberDialog({
                                 </Stack>
                                 <Stack direction="Vertical" className="min-w-0 grow">
                                     <Input
-                                        aria-label="Handle or address"
                                         value={row.handle}
                                         onChange={(event) =>
                                             setSocial((rows) =>
@@ -287,7 +285,6 @@ export function MemberDialog({
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    aria-label="Remove this network"
                                     icon={<X />}
                                     onClick={() =>
                                         setSocial((rows) => rows.filter((_, at) => at !== index))

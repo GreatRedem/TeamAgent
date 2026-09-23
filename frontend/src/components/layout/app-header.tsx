@@ -45,7 +45,6 @@ export function AppHeader() {
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
-                        aria-label="Sign out"
                         onClick={signOut}
                         icon={<LogOut />}
                         message="Sign out"
@@ -56,8 +55,7 @@ export function AppHeader() {
                     <Stack
                         direction="Horizontal"
                         as="nav"
-                        className="[scrollbar-width:none] gap-1 overflow-x-auto border-t px-2 py-1.5 [&::-webkit-scrollbar]:hidden"
-                        aria-label="Project sections">
+                        className="[scrollbar-width:none] gap-1 overflow-x-auto border-t px-2 py-1.5 [&::-webkit-scrollbar]:hidden">
                         {DESTINATIONS.map(({ id, label, icon: Icon }) => (
                             <NavLink
                                 key={id}
@@ -77,7 +75,6 @@ export function AppHeader() {
                                         <Icon
                                             size={16}
                                             className={isActive ? 'text-primary' : undefined}
-                                            aria-hidden="true"
                                         />
                                         {label}
                                     </>

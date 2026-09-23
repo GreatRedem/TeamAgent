@@ -169,7 +169,6 @@ export function WalletSignIn() {
                                                 <Wallet
                                                     size={16}
                                                     className="text-muted-foreground"
-                                                    aria-hidden="true"
                                                 />
                                             ) : (
                                                 <Image
@@ -214,14 +213,9 @@ export function WalletSignIn() {
                                                 <LoaderCircle
                                                     size={16}
                                                     className="animate-spin text-primary"
-                                                    aria-hidden="true"
                                                 />
                                             ) : provider === undefined ? null : (
-                                                <Check
-                                                    size={16}
-                                                    className="text-primary"
-                                                    aria-hidden="true"
-                                                />
+                                                <Check size={16} className="text-primary" />
                                             )}
                                         </Stack>
                                     </Pressable>

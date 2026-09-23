@@ -27,7 +27,6 @@ function AlertDialogContent({
 }) {
     return (
         <DialogContent
-            role="alertdialog"
             data-slot="alert-dialog-content"
             data-size={size}
             showCloseButton={false}

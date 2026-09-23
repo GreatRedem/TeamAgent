@@ -19,8 +19,6 @@ function Switch({
     return (
         <button
             type="button"
-            role="switch"
-            aria-checked={checked}
             data-slot="switch"
             data-size={size}
             data-state={state}

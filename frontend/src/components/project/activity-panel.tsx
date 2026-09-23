@@ -137,9 +137,8 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                 return (
                     <Stack direction="Vertical" as="li" key={entry.id}>
                         <Pressable
-                            aria-pressed={open}
-                            aria-label={`Show the entry from ${clock(entry.created_at)}`}
-                            className="flex h-full w-full flex-col gap-1.5 rounded-lg border bg-card p-3 transition-colors hover:border-input hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary/60 aria-pressed:bg-accent/40"
+                            data-pressed={open ? '' : undefined}
+                            className="flex h-full w-full flex-col gap-1.5 rounded-lg border bg-card p-3 transition-colors hover:border-input hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-pressed:border-primary/60 data-pressed:bg-accent/40"
                             onClick={() => setSelectedId(entry.id)}>
                             <Stack
                                 direction="Horizontal"
@@ -283,7 +282,6 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             <Button
                                 size="sm"
                                 variant={failuresOnly ? 'ghost' : 'secondary'}
-                                aria-pressed={!failuresOnly}
                                 onClick={() => setFailuresOnly(false)}
                                 message="All"
                             />
@@ -291,7 +289,6 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             <Button
                                 size="sm"
                                 variant={failuresOnly ? 'secondary-destructive' : 'ghost'}
-                                aria-pressed={failuresOnly}
                                 className={failuresOnly ? undefined : 'text-muted-foreground'}
                                 onClick={() => setFailuresOnly(true)}
                                 message="Failures"

@@ -284,7 +284,7 @@ export function ProfilePage() {
                                                 direction="Horizontal"
                                                 className="min-w-0 flex-wrap items-center gap-2">
                                                 <Badge variant="secondary">
-                                                    <Bot aria-hidden="true" />
+                                                    <Bot />
                                                     {file.agent_id === 0
                                                         ? 'Before per-agent notes'
                                                         : file.agent_name === ''

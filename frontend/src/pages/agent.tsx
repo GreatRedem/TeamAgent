@@ -285,7 +285,6 @@ export function Agent() {
 
             {agent !== null && (
                 <Tabs
-                    label="Agent"
                     tabs={AGENT_TABS}
                     value={tab}
                     onValueChange={setTab}

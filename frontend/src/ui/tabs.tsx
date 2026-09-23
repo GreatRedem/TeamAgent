@@ -5,14 +5,12 @@ import { useId } from 'react';
 import { cn } from '@/libs/cn';
 
 function Tabs<T extends string>({
-    label,
     tabs,
     value,
     onValueChange,
     panels,
     className,
 }: {
-    label: string;
     tabs: readonly { value: T; label: string; icon?: LucideIcon }[];
     value: T;
     onValueChange: (value: T) => void;
@@ -49,10 +47,7 @@ function Tabs<T extends string>({
 
     return (
         <div data-slot="tabs" className={cn('flex flex-col gap-6', className)}>
-            <div
-                role="tablist"
-                aria-label={label}
-                className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {tabs.map((tab, index) => {
                     const chosen = tab.value === value;
                     const Icon = tab.icon;
@@ -61,10 +56,7 @@ function Tabs<T extends string>({
                         <button
                             key={tab.value}
                             type="button"
-                            role="tab"
                             id={`${id}-${tab.value}`}
-                            aria-selected={chosen}
-                            aria-controls={`${id}-${tab.value}-panel`}
                             tabIndex={chosen ? 0 : -1}
                             onClick={() => onValueChange(tab.value)}
                             onKeyDown={(event) => step(event, index)}
@@ -76,11 +68,7 @@ function Tabs<T extends string>({
                                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                             )}>
                             {Icon !== undefined && (
-                                <Icon
-                                    size={16}
-                                    className={chosen ? 'text-primary' : undefined}
-                                    aria-hidden="true"
-                                />
+                                <Icon size={16} className={chosen ? 'text-primary' : undefined} />
                             )}
                             {tab.label}
                         </button>
@@ -89,12 +77,7 @@ function Tabs<T extends string>({
             </div>
 
             {tabs.map((tab) => (
-                <div
-                    key={tab.value}
-                    role="tabpanel"
-                    id={`${id}-${tab.value}-panel`}
-                    aria-labelledby={`${id}-${tab.value}`}
-                    hidden={tab.value !== value}>
+                <div key={tab.value} id={`${id}-${tab.value}-panel`} hidden={tab.value !== value}>
                     {panels[tab.value]}
                 </div>
             ))}

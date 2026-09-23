@@ -274,11 +274,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                             <Card gap={3} className="h-full transition-colors hover:border-input">
                                 <CardHeader>
                                     <CardTitle className="flex min-w-0 items-center gap-2">
-                                        <Bot
-                                            size={16}
-                                            className="shrink-0 text-primary"
-                                            aria-hidden="true"
-                                        />
+                                        <Bot size={16} className="shrink-0 text-primary" />
                                         <Text
                                             type="Foreground"
                                             as="span"
@@ -313,7 +309,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                         </Badge>
 
                                         <Badge variant="outline" className="gap-1 font-mono">
-                                            <FileText size={11} aria-hidden="true" />
+                                            <FileText size={11} />
                                             {agent.document_count}
                                         </Badge>
                                     </Stack>

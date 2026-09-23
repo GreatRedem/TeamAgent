@@ -36,7 +36,7 @@ export function Pager({
                 'w-full items-center justify-between gap-4',
                 framed && 'rounded-lg border bg-card/90 px-4 py-2.5 shadow-raised backdrop-blur-xl',
             )}>
-            <Stack direction="Horizontal" className="items-baseline gap-1" aria-live="polite">
+            <Stack direction="Horizontal" className="items-baseline gap-1">
                 <Text
                     type="DataMuted"
                     as="span"
@@ -54,7 +54,6 @@ export function Pager({
                             type="button"
                             variant="outline"
                             size="icon-sm"
-                            aria-label={`Previous ${noun}`}
                             disabled={busy || page.offset === 0}
                             onClick={() => onPage(Math.max(0, page.offset - page.limit))}
                             icon={<ChevronLeft />}
@@ -66,7 +65,6 @@ export function Pager({
                             type="button"
                             variant="outline"
                             size="icon-sm"
-                            aria-label={`Next ${noun}`}
                             disabled={busy || !page.has_more}
                             onClick={() => onPage(page.offset + page.limit)}
                             icon={<ChevronRight />}

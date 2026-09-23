@@ -373,11 +373,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                 <Card gap={3} className="h-full">
                                     <CardHeader>
                                         <CardTitle className="flex min-w-0 items-center gap-2">
-                                            <Cpu
-                                                size={16}
-                                                className="shrink-0 text-primary"
-                                                aria-hidden="true"
-                                            />
+                                            <Cpu size={16} className="shrink-0 text-primary" />
                                             <Text
                                                 type="Foreground"
                                                 as="span"
