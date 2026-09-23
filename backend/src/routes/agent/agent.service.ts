@@ -146,6 +146,10 @@ export function agentCreate(fastify: FastifyInstance) {
 
         const { name, description } = readAgentBody(request);
         const modelId = await readModelId(fastify, request, teamId);
+        const instructions =
+            (request.body as { instructions?: unknown } | undefined)?.instructions === undefined
+                ? ''
+                : request.getBody('instructions').max(AGENT_DOCUMENT_CONTENT_MAX).asString().trim();
 
         const agent = await fastify.db.getRepository(TeamAgent).save({
             team_id: teamId,
@@ -155,13 +159,17 @@ export function agentCreate(fastify: FastifyInstance) {
             permissions: serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS),
         });
 
-        await fastify.db.getRepository(TeamAgentDocument).save(
-            DEFAULT_DOCUMENTS.map((document) => ({
-                agent_id: agent.id,
-                name: document.name,
-                content: document.content,
-            })),
-        );
+        const files = DEFAULT_DOCUMENTS.map((document) => ({
+            name: document.name,
+            content:
+                document.name === 'instructions.md' && instructions !== ''
+                    ? `${instructions}\n`
+                    : document.content,
+        }));
+
+        await fastify.db
+            .getRepository(TeamAgentDocument)
+            .save(files.map((file) => ({ agent_id: agent.id, ...file })));
 
         request.log.info(
             { module: 'agent', teamId, agentId: agent.id, modelId, accountId: request.account_id },
@@ -173,7 +181,7 @@ export function agentCreate(fastify: FastifyInstance) {
             accountId: request.account_id,
             action: 'agent.create',
             target: `agent:${agent.id}`,
-            detail: `${name} - model ${modelId} - ${DEFAULT_DOCUMENTS.length} files seeded`,
+            detail: `${name} - model ${modelId} - ${files.length} files seeded`,
         });
 
         const names = await modelNames(fastify, teamId);

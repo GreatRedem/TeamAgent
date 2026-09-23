@@ -48,6 +48,7 @@ export function schemaAgentCreate() {
                 name: { type: 'string' },
                 description: { type: 'string' },
                 model_id: { type: 'integer' },
+                instructions: { type: 'string' },
             },
         },
         response: { 200: agent() },

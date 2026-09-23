@@ -61,11 +61,18 @@ export function agentList(teamId: number, page?: Partial<Paged>) {
     );
 }
 
-export function agentCreate(teamId: number, name: string, description: string, modelId: number) {
+export function agentCreate(
+    teamId: number,
+    name: string,
+    description: string,
+    modelId: number,
+    instructions: string,
+) {
     return request<TeamAgent>('POST', `/team/${teamId}/agent`, {
         name,
         description,
         model_id: modelId,
+        instructions,
     });
 }
 

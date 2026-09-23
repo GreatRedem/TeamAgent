@@ -13,6 +13,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
+import { AGENT_ROLES } from '@/libs/constant';
 import { compactCount } from '@/libs/format';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
@@ -41,6 +42,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
     const [models, setModels] = useState<TeamModel[] | null>(null);
 
     const [creating, setCreating] = useState(false);
+    const [role, setRole] = useState('empty');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [modelId, setModelId] = useState('');
@@ -96,10 +98,12 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                     name.trim(),
                     description.trim(),
                     Number(modelId),
+                    AGENT_ROLES.find((item) => item.key === role)?.instructions ?? '',
                 );
 
                 setAgents((current) => [agent, ...(current ?? [])]);
                 setPage((current) => current && { ...current, total: current.total + 1 });
+                setRole('empty');
                 setName('');
                 setDescription('');
                 setCreating(false);
@@ -111,7 +115,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                 setBusy(false);
             }
         },
-        [teamId, name, description, modelId],
+        [teamId, role, name, description, modelId],
     );
 
     const goTo = useCallback(
@@ -151,6 +155,30 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                             your models.
                         </DialogDescription>
                     </DialogHeader>
+
+                    <Field
+                        label="Role"
+                        hint="Starts the agent with instructions written for that role. Empty starts from a blank template.">
+                        {(id) => (
+                            <Select
+                                value={role}
+                                onValueChange={(key) => {
+                                    const picked = AGENT_ROLES.find((item) => item.key === key);
+
+                                    setRole(key);
+                                    setName(picked?.name ?? '');
+                                    setDescription(picked?.description ?? '');
+                                }}
+                                id={id}>
+                                <SelectItem value="empty">Empty</SelectItem>
+                                {AGENT_ROLES.map((item) => (
+                                    <SelectItem key={item.key} value={item.key}>
+                                        {item.name}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        )}
+                    </Field>
 
                     <Field label="Name">
                         {(id) => (
