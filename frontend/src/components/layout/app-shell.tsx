@@ -2,7 +2,6 @@ import { Outlet, useLocation } from 'react-router';
 import { PAGE_WIDTH } from '@/libs/constant';
 import { activeTeamId } from '@/libs/navigation';
 import { readAccessToken } from '@/libs/session';
-import { Scene } from '@/ui/scene/scene';
 import { Stack } from '@/ui/stack';
 import { AppHeader } from './app-header';
 
@@ -11,9 +10,7 @@ export function AppShell() {
 
     if (readAccessToken() === null) {
         return (
-            <Stack direction="Vertical" className="relative isolate min-h-dvh">
-                <Scene />
-
+            <Stack direction="Vertical" className="min-h-dvh">
                 <Stack
                     direction="Vertical"
                     as="main"
@@ -25,15 +22,13 @@ export function AppShell() {
     }
 
     return (
-        <Stack direction="Vertical" className="relative isolate min-h-dvh">
-            <Scene />
-
+        <Stack direction="Vertical" className="min-h-dvh">
             <AppHeader />
 
             <Stack
                 direction="Vertical"
                 as="main"
-                className={`${PAGE_WIDTH} min-w-0 grow gap-6 bg-background/75 px-4 pb-16 sm:px-6 ${activeTeamId(pathname) === 0 ? 'pt-24' : 'pt-32'}`}>
+                className={`${PAGE_WIDTH} min-w-0 grow gap-6 px-4 pb-16 sm:px-6 ${activeTeamId(pathname) === 0 ? 'pt-24' : 'pt-32'}`}>
                 <Outlet />
             </Stack>
         </Stack>

@@ -74,8 +74,8 @@ Signals carry one meaning each and always pair with a foreground:
 `scale-0` through `scale-4` is the heatmap ramp. `chart-1` through `chart-5` is
 reserved for future charts.
 
-No gradients anywhere except the sign-in scene, which is the one place the
-interface is allowed to be decorative.
+No gradients and no decorative background anywhere. Every page sits on the solid
+`background` colour.
 
 ---
 
@@ -178,7 +178,7 @@ shadcn primitives in `src/ui`: `button`, `input`, `label`, `textarea`,
 `select`, `card`, `dialog`, `dropdown-menu`, `badge`, `separator`, `skeleton`,
 `table`, `switch`, `alert`, plus this project's `text` and `stack`, which carry
 all copy and every layout box, and `pressable`, `code-block`, `image`,
-`suggestions`, `data-value`, `brand`, `status-dot`, `tabs` and the `scene` background.
+`suggestions`, `data-value`, `brand`, `status-dot` and `tabs`.
 Nothing outside `src/ui` writes raw HTML or SVG; `AGENTS.md` section 2 has the
 rule. They sit on native elements: `dialog` is a
 `<dialog>`, `dropdown-menu` a popover placed by CSS anchor positioning, `select` a
@@ -224,8 +224,7 @@ no screen scrolls sideways.
 
 ## 8. Screens
 
-**Sign in.** No header. The crystal scene fills the viewport and one card sits on
-it. The button opens a wallet picker rather than connecting straight away, so
+**Sign in.** No header. One card sits centred on the solid background. The button opens a wallet picker rather than connecting straight away, so
 the person chooses between Nura Wallet and MetaMask. Wallets are discovered over
 EIP-6963, so a row shows the wallet's own icon when it is installed and reads
 "Not installed in this browser" when it is not. Failures appear in the picker,

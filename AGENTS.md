@@ -70,8 +70,7 @@ Feature / Page / Layout  →  components from @/ui  →  native HTML
   an existing component is inconvenient.
 - No workarounds: no `createElement`, no `dangerouslySetInnerHTML`, no member tags
   such as `motion.div` that render a raw element.
-- Custom SVG, such as the background scene, lives in `src/ui` too
-  (`src/ui/scene`).
+- Custom SVG lives in `src/ui` too.
 - Nothing checks it automatically, so check it in review: search a change for
   lowercase JSX tags outside `src/ui`.
 

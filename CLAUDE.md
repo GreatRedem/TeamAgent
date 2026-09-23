@@ -22,7 +22,7 @@ backend/src/plugins/         auth, rate limit, typeorm, telegram polling
 backend/src/tests/           self-checks, one standalone script each
 frontend/src/apis/           one module per backend area, re-exported from index
 frontend/src/ui/             shadcn primitives plus this project's own
-frontend/src/components/     layout, project panels, agent, scene
+frontend/src/components/     layout, project panels, agent
 frontend/src/pages/          one file per route
 frontend/src/libs/constant.ts every constant the frontend reads
 frontend/src/styles/         index.css: tokens and the Tailwind theme over them
