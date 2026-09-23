@@ -9,6 +9,7 @@ anyone cloning the repo gets it without installing plugins.
 | `frontend-design` | `frontend-design@claude-plugins-official` | `3deb821cb71c` |
 | `modern-web-guidance` | `modern-web-guidance@claude-plugins-official` | `0.0.189` |
 | `superdesign` | `superdesign@claude-plugins-official` | `0.6.0` |
+| `run-nuraai` | written for this repo, not vendored | - |
 
 The same three plugins are switched off in `.claude/settings.json`, so each
 skill exists once rather than twice.
