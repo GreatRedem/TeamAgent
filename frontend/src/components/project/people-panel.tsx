@@ -1,4 +1,4 @@
-import { ChevronDown, UserRound } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -180,43 +180,56 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                     as="li"
                                     className="border-b last:border-b-0"
                                     key={profile.id}>
-                                    <Pressable
-                                        className="flex w-full items-center gap-3 border-0 bg-transparent px-5 py-3 text-start hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                                        aria-expanded={open}
-                                        onClick={() => setSelected(open ? null : profile.id)}>
-                                        <Stack
-                                            direction="Vertical"
-                                            as="span"
-                                            className="min-w-0 gap-0.5">
-                                            <Text
-                                                type="Strong"
-                                                as="span"
-                                                className="truncate"
-                                                message={profileName(profile)}
-                                            />
-
+                                    {/* The toggle stretches over the whole row; the profile link sits above it. */}
+                                    <Stack
+                                        direction="Horizontal"
+                                        className="relative items-center gap-3 px-5 py-3 hover:bg-accent/40">
+                                        <Pressable
+                                            className="min-w-0 grow border-0 bg-transparent p-0 outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+                                            aria-expanded={open}
+                                            onClick={() => setSelected(open ? null : profile.id)}>
                                             <Stack
-                                                direction="Horizontal"
+                                                direction="Vertical"
                                                 as="span"
-                                                className="min-w-0 items-baseline gap-1">
-                                                {profile.username !== '' && (
-                                                    <Text
-                                                        type="Data"
-                                                        as="span"
-                                                        className="truncate"
-                                                        message={`@${profile.username},`}
-                                                    />
-                                                )}
+                                                className="min-w-0 gap-0.5">
                                                 <Text
-                                                    type="BodyMuted"
+                                                    type="Strong"
                                                     as="span"
-                                                    className="shrink-0"
-                                                    message={`${profile.message_count} message${profile.message_count === 1 ? '' : 's'}`}
+                                                    className="truncate"
+                                                    message={profileName(profile)}
                                                 />
-                                            </Stack>
-                                        </Stack>
 
-                                        <Stack direction="Horizontal" as="span" className="grow" />
+                                                <Stack
+                                                    direction="Horizontal"
+                                                    as="span"
+                                                    className="min-w-0 items-baseline gap-1">
+                                                    {profile.username !== '' && (
+                                                        <Text
+                                                            type="Data"
+                                                            as="span"
+                                                            className="truncate"
+                                                            message={`@${profile.username},`}
+                                                        />
+                                                    )}
+                                                    <Text
+                                                        type="BodyMuted"
+                                                        as="span"
+                                                        className="shrink-0"
+                                                        message={`${profile.message_count} message${profile.message_count === 1 ? '' : 's'}`}
+                                                    />
+                                                </Stack>
+                                            </Stack>
+                                        </Pressable>
+
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="relative z-10 [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
+                                            link={`/dashboard/team/${teamId}/profile/${profile.id}`}
+                                            aria-label="Open full profile"
+                                            icon={<ArrowUpRight />}
+                                            message="Open full profile"
+                                        />
 
                                         <Text
                                             type="DataMuted"
@@ -236,7 +249,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                             )}
                                             aria-hidden="true"
                                         />
-                                    </Pressable>
+                                    </Stack>
 
                                     {open && (
                                         <Stack
@@ -293,14 +306,6 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                     />
                                                 )}
                                             </Stack>
-
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="self-start"
-                                                link={`/dashboard/team/${teamId}/profile/${profile.id}`}
-                                                message="Open full profile"
-                                            />
                                         </Stack>
                                     )}
                                 </Stack>
