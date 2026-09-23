@@ -58,6 +58,24 @@ export {
     permissionCatalog,
     profilePermissionUpdate,
 } from './permission';
+export {
+    type PluginActionStats,
+    type PluginCall,
+    type PluginDirection,
+    type PluginDraft,
+    type PluginField,
+    type PluginKind,
+    type PluginKindKey,
+    type PluginStats,
+    pluginCalls,
+    pluginCatalog,
+    pluginCreate,
+    pluginList,
+    pluginRemove,
+    pluginTest,
+    pluginUpdate,
+    type TeamPlugin,
+} from './plugin';
 export { type ProfileFile, profileDetails, profileFiles, type TelegramProfileBot } from './profile';
 export { type SystemMetrics, systemMetrics } from './system';
 export {

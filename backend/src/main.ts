@@ -19,6 +19,7 @@ import {
     STATUS_UNAUTHORIZED,
 } from './constant.js';
 import authenticationPlugin from './plugins/authentication.js';
+import pluginListenPlugin from './plugins/pluginlisten.js';
 import ratelimitPlugin from './plugins/ratelimit.js';
 import taskRunnerPlugin from './plugins/taskrunner.js';
 import telegramPollPlugin from './plugins/telegrampoll.js';
@@ -88,6 +89,8 @@ const main = async () => {
     await app.register(telegramPollPlugin);
 
     await app.register(taskRunnerPlugin);
+
+    await app.register(pluginListenPlugin);
 
     await app.listen({ port: CONFIG.NODE_PORT, host: '127.0.0.1' });
 

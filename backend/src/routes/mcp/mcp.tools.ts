@@ -13,6 +13,7 @@ import {
 import { type TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
 import { audit } from '../audit/audit.log.js';
+import { isPluginTool, pluginTools, runPluginTool } from '../plugin/plugin.tools.js';
 import { TeamDocument } from '../team/team.entity.js';
 import {
     findMember,
@@ -38,7 +39,7 @@ export interface ToolDefinition {
     permission: string;
     inputSchema: {
         type: 'object';
-        properties: Record<string, { type: string; description: string }>;
+        properties: Record<string, { type: string; description: string; items?: { type: string } }>;
         required: string[];
     };
 }
@@ -51,6 +52,13 @@ function readOffset(args: Record<string, unknown>): number {
 
 export function allowedTools(agentPermissions: string): ToolDefinition[] {
     return TOOLS.filter((tool) => agentHasPermission(agentPermissions, tool.permission));
+}
+
+export async function agentTools(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+): Promise<ToolDefinition[]> {
+    return [...allowedTools(agent.permissions), ...(await pluginTools(fastify, agent))];
 }
 
 export function toOpenAITools(tools: ToolDefinition[]) {
@@ -116,6 +124,10 @@ export async function runTool(
     name: string,
     args: Record<string, unknown>,
 ): Promise<ToolResult> {
+    if (isPluginTool(name)) {
+        return runPluginTool(fastify, agent, name, args);
+    }
+
     const tool = TOOLS.find((candidate) => candidate.name === name);
 
     if (!tool) {

@@ -1,19 +1,26 @@
 import type { LucideIcon } from 'lucide-react';
 import {
     Bot,
+    Camera,
     Cpu,
     FileText,
+    Globe,
     LayoutGrid,
     ListChecks,
     MessageSquare,
+    MessagesSquare,
+    Plug,
+    Send,
     Settings2,
     ShieldCheck,
     Users,
+    Webhook,
     Wrench,
 } from 'lucide-react';
 
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
+import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
 
 export const API_BASE_URL = '/api';
 
@@ -52,6 +59,7 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'tasks', label: 'Tasks', icon: ListChecks },
     { id: 'team', label: 'Team', icon: Users },
     { id: 'tools', label: 'MCP', icon: Wrench },
+    { id: 'plugins', label: 'Plugins', icon: Plug },
     { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
 
@@ -139,6 +147,11 @@ export const TEAM_TITLES: Record<string, { title: string; description: string }>
         description:
             'The tools agents can call, such as managing team.json, and which agents may call them.',
     },
+    plugins: {
+        title: 'Plugins',
+        description:
+            'Apps the agents can post to, reply on and read from, what each one is used for, and every request it made.',
+    },
     settings: { title: 'Settings', description: 'What this project is called.' },
 };
 
@@ -212,4 +225,40 @@ export const LOGO_SRC = '/logo.png';
 export const BRAND_SIZES: Record<'sm' | 'lg', string> = {
     sm: 'size-8 rounded-md',
     lg: 'size-12 rounded-lg',
+};
+
+export const PLUGIN_ICONS: Record<PluginKindKey, LucideIcon> = {
+    telegram: Send,
+    discord: MessagesSquare,
+    instagram: Camera,
+    browser: Globe,
+    webhook: Webhook,
+};
+
+export const PLUGIN_DIRECTIONS: Record<PluginDirection, string> = {
+    tool: 'Agent call',
+    in: 'Received',
+    reply: 'Auto-reply',
+    out: 'Hook sent',
+    test: 'Test',
+};
+
+export const PLUGIN_EVENT_LABELS: Record<string, string> = {
+    'message.received': 'A message or comment arrives',
+    'agent.replied': 'An agent answers it',
+    'agent.action': 'An agent uses the plugin',
+    'agent.failed': 'Something fails',
+};
+
+export const PLUGIN_ERRORS: Record<string, string> = {
+    PLUGIN_NAME_REQUIRED: 'Give the plugin a name.',
+    PLUGIN_NAME_TAKEN: 'Another plugin in this project already has that name.',
+    PLUGIN_FIELD_REQUIRED: 'Fill in every required field.',
+    PLUGIN_TOKEN_INVALID: 'That does not look like a bot token from @BotFather.',
+    PLUGIN_CHANNEL_INVALID: 'A channel id is a long number.',
+    PLUGIN_URL_INVALID: 'Enter a full http or https address.',
+    PLUGIN_HOOK_URL_INVALID: 'The forwarding address must be a full http or https address.',
+    PLUGIN_AGENT_NOT_FOUND: 'That agent is no longer in this project.',
+    PLUGIN_KIND_INVALID: 'Pick what kind of plugin it is.',
+    PLUGIN_NOT_FOUND: 'That plugin is no longer in this project.',
 };

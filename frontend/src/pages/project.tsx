@@ -12,6 +12,7 @@ import { MachinePanel } from '@/components/project/machine-panel';
 import { ModelsPanel } from '@/components/project/models-panel';
 import { OverviewPanel } from '@/components/project/overview-panel';
 import { PeoplePanel } from '@/components/project/people-panel';
+import { PluginsPanel } from '@/components/project/plugins-panel';
 import { TasksPanel } from '@/components/project/tasks-panel';
 import { TeamPanel } from '@/components/project/team-panel';
 import { ToolsPanel } from '@/components/project/tools-panel';
@@ -217,6 +218,8 @@ export function Project() {
             {team !== null && tab === 'team' && <TeamPanel teamId={teamId} />}
 
             {team !== null && tab === 'tools' && <ToolsPanel teamId={teamId} />}
+
+            {team !== null && tab === 'plugins' && <PluginsPanel teamId={teamId} />}
 
             {team !== null && tab === 'settings' && (
                 <Card className="max-w-xl">

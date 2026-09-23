@@ -12,12 +12,12 @@ import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
 import { buildSystemPrompt, toolGuidance } from '../agent/agent.reply.js';
 import { audit } from '../audit/audit.log.js';
-import { allowedTools } from '../mcp/mcp.tools.js';
+import { agentTools } from '../mcp/mcp.tools.js';
 import { isAutoFree, rest } from '../model/model.auto.js';
 import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
 import { rosterPrompt } from '../team/team.roster.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
-import { runAgent, telegramText } from '../telegram/telegram.service.js';
+import { placeholderUser, runAgent, telegramText } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import {
     nextStart,
@@ -189,7 +189,7 @@ export async function runTask(
             .getRepository(TeamAgentDocument)
             .find({ where: { agent_id: agent.id } });
 
-        const allowed = allowedTools(agent.permissions);
+        const allowed = await agentTools(fastify, agent);
         const tools = recipient
             ? allowed
             : allowed.filter((tool) => !PERSONAL_TOOLS.includes(tool.name));
@@ -215,21 +215,7 @@ export async function runTask(
             .filter((part) => part !== '')
             .join('\n\n---\n\n');
 
-        const person =
-            recipient ??
-            Object.assign(new TelegramUser(), {
-                id: 0,
-                team_id: task.team_id,
-                telegram_id: '0',
-                username: '',
-                first_name: '',
-                last_name: '',
-                language_code: '',
-                message_count: 0,
-                permissions: '',
-                last_seen_at: startedAt,
-                created_at: startedAt,
-            });
+        const person = recipient ?? placeholderUser(task.team_id, startedAt);
 
         let draftAt = 0;
 

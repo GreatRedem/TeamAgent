@@ -5,6 +5,7 @@ import {
     FETCH_REDIRECTS_MAX,
     FETCH_TEXT_MAX,
     FETCH_TIMEOUT,
+    PLUGIN_LINKS_MAX,
 } from '../../constant.js';
 
 export function decodeEntities(text: string): string {
@@ -47,6 +48,42 @@ export function htmlToText(html: string): string {
     const heading = decodeEntities(title).replace(/\s+/g, ' ').trim();
 
     return heading === '' ? text : `${heading}\n\n${text}`;
+}
+
+export function pageLinks(html: string, base: URL): { text: string; url: string }[] {
+    const links = new Map<string, string>();
+
+    for (const [, href, inner] of html.matchAll(
+        /<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    )) {
+        let url: URL;
+
+        try {
+            url = new URL(decodeEntities(href), base);
+        } catch {
+            continue;
+        }
+
+        url.hash = '';
+
+        const text = decodeEntities(inner.replace(/<[^>]+>/g, ' '))
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if ((url.protocol !== 'http:' && url.protocol !== 'https:') || text === '') {
+            continue;
+        }
+
+        if (!links.has(url.href)) {
+            links.set(url.href, text.slice(0, 120));
+        }
+
+        if (links.size >= PLUGIN_LINKS_MAX) {
+            break;
+        }
+    }
+
+    return [...links].map(([url, text]) => ({ text, url }));
 }
 
 export function isPrivateAddress(ip: string): boolean {
@@ -150,9 +187,11 @@ export interface FetchResult {
     text?: string;
     truncated?: boolean;
     finalUrl?: string;
+    length?: number;
+    links?: { text: string; url: string }[];
 }
 
-export async function fetchPublicUrl(raw: string): Promise<FetchResult> {
+export async function fetchPublicUrl(raw: string, offset = 0): Promise<FetchResult> {
     let target = raw;
 
     for (let hop = 0; hop <= FETCH_REDIRECTS_MAX; hop += 1) {
@@ -200,19 +239,21 @@ export async function fetchPublicUrl(raw: string): Promise<FetchResult> {
         }
 
         const body = await response.text().catch(() => '');
-        const readable =
+        const html =
             contentType === 'text/html' ||
-            (contentType === '' && /^\s*<(!doctype|html)/i.test(body))
-                ? htmlToText(body)
-                : body;
+            (contentType === '' && /^\s*<(!doctype|html)/i.test(body));
+        const readable = html ? htmlToText(body) : body;
+        const start = Math.min(Math.max(0, offset), readable.length);
 
         return {
             ok: response.ok,
             status: response.status,
             contentType,
-            text: readable.slice(0, FETCH_TEXT_MAX),
-            truncated: readable.length > FETCH_TEXT_MAX,
+            text: readable.slice(start, start + FETCH_TEXT_MAX),
+            truncated: readable.length > start + FETCH_TEXT_MAX,
             finalUrl: check.url.toString(),
+            length: readable.length,
+            links: html ? pageLinks(body, check.url) : [],
             ...(response.ok ? {} : { reason: `http ${response.status}` }),
         };
     }

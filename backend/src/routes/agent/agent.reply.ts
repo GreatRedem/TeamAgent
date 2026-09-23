@@ -8,6 +8,7 @@ import {
     MAX_COMPLETION_TOKENS,
     MESSAGE_OVERHEAD,
     MIN_INPUT_BUDGET,
+    PLUGIN_TOOLS,
     TELEGRAM_TEXT_MAX,
 } from '../../constant.js';
 export interface AgentDocumentLike {
@@ -376,14 +377,28 @@ export function countTokens(
 
 export function toolGuidance(tools: readonly string[]): string {
     const web = ['web_search', 'weather', 'web_fetch'].filter((name) => tools.includes(name));
+    const apps = tools.filter((name) => PLUGIN_TOOLS.some((tool) => tool.name === name));
+    const sections: string[] = [];
 
-    if (web.length === 0) {
-        return '';
+    if (web.length > 0) {
+        sections.push(
+            [
+                '# Looking things up',
+                '',
+                `You can use ${web.join(', ')}. For anything current or that you do not know for certain, such as news, weather, prices or facts about the world, call these tools before you answer. Never say you cannot look something up while you have them: search first, then read a page if the snippets are not enough.`,
+            ].join('\n'),
+        );
     }
 
-    return [
-        '# Looking things up',
-        '',
-        `You can use ${web.join(', ')}. For anything current or that you do not know for certain, such as news, weather, prices or facts about the world, call these tools before you answer. Never say you cannot look something up while you have them: search first, then read a page if the snippets are not enough.`,
-    ].join('\n');
+    if (apps.length > 0) {
+        sections.push(
+            [
+                '# Connected apps',
+                '',
+                `You can act on connected apps with ${apps.join(', ')}. When you are asked to post, reply, send, publish or read something there, call the tool to do it, then say in a sentence what you did. Do not only write the post out in your answer.`,
+            ].join('\n'),
+        );
+    }
+
+    return sections.join('\n\n');
 }

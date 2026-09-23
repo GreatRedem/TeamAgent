@@ -44,7 +44,7 @@ import {
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
-import { allowedTools, runTool, type ToolDefinition, toOpenAITools } from '../mcp/mcp.tools.js';
+import { agentTools, runTool, type ToolDefinition, toOpenAITools } from '../mcp/mcp.tools.js';
 import {
     freeCandidates,
     freeQuotaUntil,
@@ -79,7 +79,7 @@ export function createWebhookSecret(): string {
     return randomBytes(32).toString('hex');
 }
 
-function secretMatches(expected: string, received: unknown): boolean {
+export function secretMatches(expected: string, received: unknown): boolean {
     if (expected === '' || typeof received !== 'string') {
         return false;
     }
@@ -568,6 +568,22 @@ async function supersededBy(
     return newer > 0;
 }
 
+export function placeholderUser(teamId: number, at: Date): TelegramUser {
+    return Object.assign(new TelegramUser(), {
+        id: 0,
+        team_id: teamId,
+        telegram_id: '0',
+        username: '',
+        first_name: '',
+        last_name: '',
+        language_code: '',
+        message_count: 0,
+        permissions: '',
+        last_seen_at: at,
+        created_at: at,
+    });
+}
+
 export type AgentEvent =
     | {
           kind: 'model';
@@ -994,7 +1010,7 @@ async function deliverAgentReply(
 
     const earlier = earlierTurns(history, messageId);
 
-    const tools = allowedTools(agent.permissions);
+    const tools = await agentTools(fastify, agent);
 
     const lazyDocuments = tools.some((tool) => tool.name === 'document_read');
 

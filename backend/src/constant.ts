@@ -3,6 +3,7 @@ import type { AgentDocumentTemplate } from './routes/agent/agent.template.js';
 import type { ExchangeUsage } from './routes/agent/agent.usage.js';
 import type { ToolDefinition } from './routes/mcp/mcp.tools.js';
 import type { CatalogModel, ProviderPreset } from './routes/model/model.provider.js';
+import type { PluginKind } from './routes/plugin/plugin.common.js';
 import type { TaskRepeat } from './routes/task/task.plan.js';
 import type { Permission } from './routes/telegram/telegram.permission.js';
 import { readConfig } from './utils/config.js';
@@ -834,3 +835,535 @@ export const WEATHER_CODES: Record<number, string> = {
     96: 'thunderstorm with light hail',
     99: 'thunderstorm with hail',
 };
+
+export const PLUGIN_EVENTS = ['message.received', 'agent.replied', 'agent.action', 'agent.failed'];
+
+export const PLUGIN_STATUS = new Map<number, { listening: boolean; error: string }>();
+
+export const PLUGIN_NAME_MAX = 64;
+
+export const PLUGIN_FIELD_MAX = 512;
+
+export const PLUGIN_URL_MAX = 512;
+
+export const PLUGIN_TEXT_MAX = 4000;
+
+export const PLUGIN_ERROR_MAX = 240;
+
+export const PLUGIN_CALL_PAGE = 30;
+
+export const PLUGIN_TIMEOUT = 15_000;
+
+export const PLUGIN_HISTORY = 10;
+
+export const PLUGIN_LINKS_MAX = 40;
+
+export const PLUGIN_PUBLISH_WAIT = 5_000;
+
+export const PLUGIN_PUBLISH_TRIES = 12;
+
+export const PLUGIN_READ_MAX = 50;
+
+export const PLUGIN_HOOK_RATE = 120;
+
+export const PLUGIN_HOOK_WINDOW = 60_000;
+
+export const DISCORD_API = 'https://discord.com/api/v10';
+
+export const DISCORD_GATEWAY = 'wss://gateway.discord.gg/?v=10&encoding=json';
+
+export const DISCORD_INTENTS = (1 << 0) | (1 << 9) | (1 << 12);
+
+export const DISCORD_TEXT_MAX = 2000;
+
+export const DISCORD_HEARTBEAT = 41_250;
+
+export const DISCORD_FATAL_CLOSE = [4004, 4010, 4011, 4012, 4013, 4014];
+
+export const INSTAGRAM_API = 'https://graph.instagram.com/v25.0';
+
+export const INSTAGRAM_CAPTION_MAX = 2200;
+
+export const INSTAGRAM_MESSAGE_MAX = 1000;
+
+export const TELEGRAM_CHAT_FIELD = {
+    type: 'string',
+    description: '@channelname or a numeric chat id; defaults to the plugin default chat',
+};
+
+export const DISCORD_CHANNEL_FIELD = {
+    type: 'string',
+    description: 'Channel id; defaults to the plugin default channel',
+};
+
+export const PLUGIN_TOOLS: ToolDefinition[] = [
+    {
+        name: 'telegram_send_message',
+        description:
+            'Send a message through a connected Telegram bot: a post to a channel, a message to a group, or to a person who has written to the bot. Markdown is converted. Pass reply_to to answer a particular message.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                text: { type: 'string', description: 'The message; markdown is fine' },
+                reply_to: { type: 'integer', description: 'Optional message_id to reply to' },
+                silent: { type: 'boolean', description: 'Send without a notification sound' },
+            },
+            required: ['text'],
+        },
+    },
+    {
+        name: 'telegram_send_photo',
+        description:
+            'Post a picture with an optional caption through a connected Telegram bot. The picture must be at a public https address.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                photo_url: { type: 'string', description: 'Public https address of the picture' },
+                caption: { type: 'string', description: 'Optional caption; markdown is fine' },
+            },
+            required: ['photo_url'],
+        },
+    },
+    {
+        name: 'telegram_send_poll',
+        description: 'Post a poll through a connected Telegram bot.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                question: { type: 'string', description: 'The question' },
+                options: {
+                    type: 'array',
+                    description: 'Between 2 and 10 answers',
+                    items: { type: 'string' },
+                },
+                anonymous: { type: 'boolean', description: 'Hide who voted; defaults to true' },
+            },
+            required: ['question', 'options'],
+        },
+    },
+    {
+        name: 'telegram_edit_message',
+        description: 'Change the text of a message the Telegram bot sent earlier.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                message_id: { type: 'integer', description: 'The message to change' },
+                text: { type: 'string', description: 'The new text; markdown is fine' },
+            },
+            required: ['message_id', 'text'],
+        },
+    },
+    {
+        name: 'telegram_delete_message',
+        description: 'Delete a message in a chat where the Telegram bot may delete it.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                message_id: { type: 'integer', description: 'The message to delete' },
+            },
+            required: ['message_id'],
+        },
+    },
+    {
+        name: 'telegram_pin_message',
+        description: 'Pin a message in a chat where the Telegram bot is an admin.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                message_id: { type: 'integer', description: 'The message to pin' },
+            },
+            required: ['message_id'],
+        },
+    },
+    {
+        name: 'telegram_chat_info',
+        description: 'Read the title, type, description and member count of a Telegram chat.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: { chat: TELEGRAM_CHAT_FIELD },
+            required: [],
+        },
+    },
+    {
+        name: 'discord_send_message',
+        description:
+            'Send a message to a Discord channel through a connected bot. Pass reply_to to reply to a particular message.',
+        permission: 'plugin:discord',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                channel_id: DISCORD_CHANNEL_FIELD,
+                content: { type: 'string', description: 'The message; Discord markdown is fine' },
+                reply_to: { type: 'string', description: 'Optional id of the message to reply to' },
+            },
+            required: ['content'],
+        },
+    },
+    {
+        name: 'discord_edit_message',
+        description: 'Change a message the Discord bot sent earlier.',
+        permission: 'plugin:discord',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                channel_id: DISCORD_CHANNEL_FIELD,
+                message_id: { type: 'string', description: 'The message to change' },
+                content: { type: 'string', description: 'The new text' },
+            },
+            required: ['message_id', 'content'],
+        },
+    },
+    {
+        name: 'discord_delete_message',
+        description: 'Delete a message in a Discord channel the bot may manage.',
+        permission: 'plugin:discord',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                channel_id: DISCORD_CHANNEL_FIELD,
+                message_id: { type: 'string', description: 'The message to delete' },
+            },
+            required: ['message_id'],
+        },
+    },
+    {
+        name: 'discord_react',
+        description: 'Add an emoji reaction to a Discord message.',
+        permission: 'plugin:discord',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                channel_id: DISCORD_CHANNEL_FIELD,
+                message_id: { type: 'string', description: 'The message to react to' },
+                emoji: { type: 'string', description: 'A unicode emoji' },
+            },
+            required: ['message_id', 'emoji'],
+        },
+    },
+    {
+        name: 'discord_create_thread',
+        description:
+            'Start a thread in a Discord channel, from a message when message_id is given.',
+        permission: 'plugin:discord',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                channel_id: DISCORD_CHANNEL_FIELD,
+                name: { type: 'string', description: 'The thread title' },
+                message_id: { type: 'string', description: 'Optional message to start it from' },
+            },
+            required: ['name'],
+        },
+    },
+    {
+        name: 'discord_read_messages',
+        description:
+            'Read the latest messages in a Discord channel, newest first. Message text needs the Message Content intent turned on for the bot.',
+        permission: 'plugin:discord',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                channel_id: DISCORD_CHANNEL_FIELD,
+                limit: { type: 'integer', description: 'How many, up to 50; defaults to 20' },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'discord_list_channels',
+        description:
+            'List the servers the Discord bot is in and their text channels, with ids to use in the other discord tools.',
+        permission: 'plugin:discord',
+        inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+        name: 'instagram_publish',
+        description:
+            'Publish a post on the connected Instagram account: one picture (image_url), a reel (video_url) or a carousel (image_urls, 2 to 10). Media must be at public https addresses; pictures must be JPEG.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                caption: { type: 'string', description: 'The caption, hashtags included' },
+                image_url: { type: 'string', description: 'A single JPEG picture' },
+                video_url: { type: 'string', description: 'A video, published as a reel' },
+                image_urls: {
+                    type: 'array',
+                    description: 'Pictures for a carousel',
+                    items: { type: 'string' },
+                },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'instagram_list_media',
+        description:
+            'List the latest posts on the connected Instagram account with their ids, captions, likes and comment counts.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                limit: { type: 'integer', description: 'How many, up to 50; defaults to 10' },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'instagram_list_comments',
+        description:
+            'Read the comments on one Instagram post. Get media_id from instagram_list_media.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                media_id: { type: 'string', description: 'The post id' },
+                limit: { type: 'integer', description: 'How many, up to 50; defaults to 20' },
+            },
+            required: ['media_id'],
+        },
+    },
+    {
+        name: 'instagram_reply_comment',
+        description: 'Reply publicly to a comment on one of the account posts.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                comment_id: { type: 'string', description: 'The comment to reply to' },
+                message: { type: 'string', description: 'The reply' },
+            },
+            required: ['comment_id', 'message'],
+        },
+    },
+    {
+        name: 'instagram_hide_comment',
+        description: 'Hide a comment on one of the account posts, or show it again.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                comment_id: { type: 'string', description: 'The comment' },
+                hide: { type: 'boolean', description: 'false shows it again; defaults to true' },
+            },
+            required: ['comment_id'],
+        },
+    },
+    {
+        name: 'instagram_send_message',
+        description:
+            'Send a direct message to someone who has messaged the Instagram account in the last 24 hours.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                recipient_id: { type: 'string', description: 'Their Instagram-scoped id' },
+                text: { type: 'string', description: 'The message' },
+            },
+            required: ['recipient_id', 'text'],
+        },
+    },
+    {
+        name: 'instagram_profile',
+        description:
+            'Read the connected Instagram account: username, followers, following and number of posts.',
+        permission: 'plugin:instagram',
+        inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+        name: 'browser_search',
+        description:
+            'Search the web with the project browser. Returns titles, links and snippets; open a result with browser_open.',
+        permission: 'plugin:browser',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'What to search for, in plain words' },
+                topic: {
+                    type: 'string',
+                    description: 'news for recent events, general otherwise; defaults to general',
+                },
+            },
+            required: ['query'],
+        },
+    },
+    {
+        name: 'browser_open',
+        description:
+            'Open a public web page and read it as text, with the links on it. Long pages come in parts: pass next_offset from the last call to read on.',
+        permission: 'plugin:browser',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                url: { type: 'string', description: 'Full http or https address' },
+                offset: { type: 'integer', description: 'Where to continue reading' },
+            },
+            required: ['url'],
+        },
+    },
+    {
+        name: 'webhook_send',
+        description:
+            'Send an event to the address the webhook plugin points at, such as an automation in n8n, Zapier or Make.',
+        permission: 'plugin:webhook',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                event: { type: 'string', description: 'A short event name, e.g. lead.created' },
+                text: { type: 'string', description: 'A human-readable summary' },
+                data: { type: 'object', description: 'Any structured details to include' },
+            },
+            required: [],
+        },
+    },
+];
+
+export const PLUGIN_KINDS: PluginKind[] = [
+    {
+        key: 'telegram',
+        label: 'Telegram',
+        description:
+            'Post to channels and groups, send photos and polls, reply to, edit, pin and delete messages through a bot. It can also answer people who write to the bot.',
+        inbound: 'listen',
+        inbound_hint:
+            'Answers private messages, and in groups messages that mention the bot or reply to it. A bot already added under Bots answers from there instead.',
+        fields: [
+            {
+                key: 'token',
+                label: 'Bot token',
+                secret: true,
+                required: true,
+                hint: 'From @BotFather. Make the bot an admin of a channel for it to post there.',
+                placeholder: '123456789:AA...',
+            },
+            {
+                key: 'default_chat',
+                label: 'Default chat',
+                secret: false,
+                required: false,
+                hint: 'Used when the agent does not name one: @channelname or a chat id.',
+                placeholder: '@mychannel',
+            },
+        ],
+    },
+    {
+        key: 'discord',
+        label: 'Discord',
+        description:
+            'Post, reply, react, edit, delete and start threads in Discord channels, and read what was said there. It can also answer mentions and direct messages.',
+        inbound: 'listen',
+        inbound_hint:
+            'Answers direct messages and messages that mention the bot. Reading channel history needs the Message Content intent on in the Discord developer portal.',
+        fields: [
+            {
+                key: 'token',
+                label: 'Bot token',
+                secret: true,
+                required: true,
+                hint: 'Discord developer portal, Bot, Reset Token. Invite the bot with the Send Messages permission.',
+                placeholder: 'MTE...',
+            },
+            {
+                key: 'default_channel',
+                label: 'Default channel id',
+                secret: false,
+                required: false,
+                hint: 'Used when the agent does not name one. With developer mode on, right-click a channel and Copy ID.',
+                placeholder: '112233445566778899',
+            },
+        ],
+    },
+    {
+        key: 'instagram',
+        label: 'Instagram',
+        description:
+            'Publish pictures, reels and carousels, read, answer and hide comments, and reply to direct messages on a professional account.',
+        inbound: 'webhook',
+        inbound_hint:
+            'In the Meta app dashboard, point the Instagram webhook at the address below with the verify token, and subscribe to comments and messages. The app secret is required to trust what arrives.',
+        fields: [
+            {
+                key: 'token',
+                label: 'Access token',
+                secret: true,
+                required: true,
+                hint: 'An Instagram user access token from the Meta app dashboard, with content publishing, comments and messages permissions.',
+                placeholder: 'IGAA...',
+            },
+            {
+                key: 'app_secret',
+                label: 'App secret',
+                secret: true,
+                required: false,
+                hint: 'Needed only to answer comments and messages: it proves a webhook call came from Meta.',
+                placeholder: '',
+            },
+        ],
+    },
+    {
+        key: 'browser',
+        label: 'Web browser',
+        description:
+            'Search the web and read pages in parts with their links, from the server. Private and internal addresses are always refused.',
+        inbound: 'none',
+        inbound_hint: '',
+        fields: [
+            {
+                key: 'tavily_key',
+                label: 'Tavily API key',
+                secret: true,
+                required: false,
+                hint: 'Optional, free at tavily.com. Without one, search falls back to Bing, DuckDuckGo and Wikipedia, which are less reliable.',
+                placeholder: 'tvly-...',
+            },
+            {
+                key: 'blocked_domains',
+                label: 'Blocked sites',
+                secret: false,
+                required: false,
+                hint: 'Comma separated. These and their subdomains are never searched or opened.',
+                placeholder: 'example.com, ads.example.net',
+            },
+        ],
+    },
+    {
+        key: 'webhook',
+        label: 'Webhook',
+        description:
+            'Send events to any address, such as n8n, Zapier or Make, and let other systems ask an agent something by calling this project.',
+        inbound: 'webhook',
+        inbound_hint:
+            'POST JSON with a text field to the address below, with the secret in an x-nura-secret header. The reply comes back in the response.',
+        fields: [
+            {
+                key: 'url',
+                label: 'Send to',
+                secret: false,
+                required: true,
+                hint: 'Where webhook_send posts. Each request is signed with the secret below in x-nura-signature.',
+                placeholder: 'https://hooks.example.com/nura',
+            },
+            {
+                key: 'authorization',
+                label: 'Authorization header',
+                secret: true,
+                required: false,
+                hint: 'Optional, sent as-is with every request, e.g. Bearer abc123.',
+                placeholder: 'Bearer ...',
+            },
+        ],
+    },
+];

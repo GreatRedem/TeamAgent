@@ -141,12 +141,12 @@ async function page(url: string, init?: RequestInit): Promise<string | null> {
     }
 }
 
-async function tavily(query: string, topic: string): Promise<SearchResult[] | null> {
+async function tavily(query: string, topic: string, key: string): Promise<SearchResult[] | null> {
     try {
         const response = await fetch(TAVILY_URL, {
             method: 'POST',
             headers: {
-                authorization: `Bearer ${CONFIG.TAVILY_API_KEY}`,
+                authorization: `Bearer ${key}`,
                 'content-type': 'application/json',
             },
             body: JSON.stringify({
@@ -207,15 +207,19 @@ async function wikipedia(query: string): Promise<SearchResult[]> {
     }
 }
 
-export async function searchWeb(query: string, topic = 'general'): Promise<SearchOutcome> {
+export async function searchWeb(
+    query: string,
+    topic = 'general',
+    key = CONFIG.TAVILY_API_KEY,
+): Promise<SearchOutcome> {
     const done = (source: string, results: SearchResult[]): SearchOutcome => ({
         ok: true,
         source,
         results: results.slice(0, SEARCH_RESULTS_MAX).map(trimmed),
     });
 
-    if (CONFIG.TAVILY_API_KEY !== '') {
-        const found = await tavily(query, topic);
+    if (key !== '') {
+        const found = await tavily(query, topic, key);
 
         if (found !== null && found.length > 0) {
             return done('tavily', found);
@@ -251,8 +255,8 @@ export async function searchWeb(query: string, topic = 'general'): Promise<Searc
         source: 'none',
         results: [],
         reason:
-            CONFIG.TAVILY_API_KEY === ''
-                ? 'no search engine answered; a TAVILY_API_KEY in the server .env makes search reliable'
+            key === ''
+                ? 'no search engine answered; a Tavily API key makes search reliable'
                 : 'no search engine answered',
     };
 }
