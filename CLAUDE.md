@@ -16,31 +16,10 @@ Do not restate UI rules here. One rulebook, one design system.
 
 ## Layout
 
-```
-backend/src/routes/<area>/   entity, schema, service, route per area
-backend/src/constant.ts      every module-level value the backend needs, and the logger
-backend/src/plugins/         auth, rate limit, typeorm, telegram polling
-backend/src/tests/           self-checks, one standalone script each
-frontend/src/apis/           one module per backend area, re-exported from index
-frontend/src/ui/             shadcn primitives plus this project's own
-frontend/src/components/     layout, project panels, agent
-frontend/src/pages/          one file per route
-frontend/src/libs/constant.ts every constant the frontend reads
-frontend/src/styles/         index.css: tokens and the Tailwind theme over them
-```
-
 Routes are autoloaded from `*.route.ts` and entities from `*.entity.ts`, so a
 new area needs no registration.
 
 ## Commands
-
-```
-npm run dev              api and web together
-npm run typecheck        frontend only
-npm run build            backend tsc, then the web bundle
-npm run lint             Biome lint, recommended rules, both workspaces
-npm run format:check     Biome format and import order, no writes
-```
 
 Backend types are checked by `npm run build:api`, not by `npm run typecheck`.
 
