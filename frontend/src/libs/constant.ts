@@ -34,6 +34,15 @@ export const MODEL_AUTO_FREE = 'auto:free';
 // How long the model form waits after the address or key stops changing before it lists models.
 export const MODEL_LIST_DELAY = 500;
 
+export const LOCALES = [
+    { code: 'en', dir: 'ltr', name: 'English' },
+    { code: 'fa', dir: 'rtl', name: 'فارسی' },
+] as const;
+
+export const DEFAULT_LOCALE = 'en';
+
+export const LOCALE_STORAGE_KEY = 'locale';
+
 export const PAGE_WIDTH = 'mx-auto w-full max-w-5xl';
 
 export const TEAM_NAMES = new Map<number, string>();
