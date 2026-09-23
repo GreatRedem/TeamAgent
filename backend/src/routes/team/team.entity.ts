@@ -57,7 +57,6 @@ export class TeamDocument {
 }
 
 @Entity({ name: 'team_bot' })
-@Unique(['team_id', 'token'])
 export class TeamBot {
     @PrimaryGeneratedColumn()
     id: number;

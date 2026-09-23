@@ -94,6 +94,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
     const [publicUrl, setPublicUrl] = useState('');
 
     const [drafts, setDrafts] = useState<Record<number, string>>({});
+    const [tokens, setTokens] = useState<Record<number, string>>({});
     const [saving, setSaving] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -224,17 +225,21 @@ export function BotsPanel({ teamId }: { teamId: number }) {
     );
 
     const change = useCallback(
-        async (bot: TeamBot, patch: Partial<TeamBot>) => {
+        async (bot: TeamBot, patch: Partial<TeamBot>, token?: string) => {
             setError(null);
             setSaving(bot.id);
 
             try {
-                const updated = await teamBotUpdate(teamId, { ...bot, ...patch });
+                const updated = await teamBotUpdate(teamId, { ...bot, ...patch }, token);
 
                 setBots(
                     (current) =>
                         current?.map((item) => (item.id === bot.id ? updated : item)) ?? null,
                 );
+                setTokens((current) => {
+                    const { [bot.id]: _saved, ...rest } = current;
+                    return rest;
+                });
 
                 if (patch.groups === true) {
                     void test(bot.id);
@@ -473,9 +478,57 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 type="Data"
                                                 as="dd"
                                                 className="truncate"
-                                                message={bot.token_hint}
+                                                message={
+                                                    bot.token_hint === ''
+                                                        ? 'Not set yet'
+                                                        : bot.token_hint
+                                                }
                                             />
                                         </DataList>
+
+                                        {bot.token_hint === '' && (
+                                            <Stack direction="Vertical" className="gap-2">
+                                                <Text
+                                                    type="BodyMuted"
+                                                    as="label"
+                                                    htmlFor={`bot-token-${bot.id}`}
+                                                    message="This bot came from an import without its token. Paste it from BotFather to switch it on."
+                                                />
+
+                                                <Stack direction="Horizontal" className="gap-2">
+                                                    <Input
+                                                        id={`bot-token-${bot.id}`}
+                                                        type="password"
+                                                        autoComplete="off"
+                                                        value={tokens[bot.id] ?? ''}
+                                                        className="font-mono"
+                                                        placeholder="123456789:AA..."
+                                                        onChange={(event) =>
+                                                            setTokens((current) => ({
+                                                                ...current,
+                                                                [bot.id]: event.target.value,
+                                                            }))
+                                                        }
+                                                    />
+
+                                                    <Button
+                                                        variant="outline"
+                                                        disabled={
+                                                            (tokens[bot.id] ?? '').trim() === '' ||
+                                                            saving === bot.id
+                                                        }
+                                                        onClick={() =>
+                                                            void change(
+                                                                bot,
+                                                                {},
+                                                                (tokens[bot.id] ?? '').trim(),
+                                                            )
+                                                        }
+                                                        message="Save token"
+                                                    />
+                                                </Stack>
+                                            </Stack>
+                                        )}
 
                                         <Stack direction="Vertical" className="gap-2">
                                             <Text

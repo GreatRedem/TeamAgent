@@ -21,22 +21,26 @@ export interface Paged {
     total: number;
 }
 
-export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+export async function send(
+    method: string,
+    path: string,
+    body?: BodyInit,
+    type?: string,
+): Promise<Response> {
     const token = readAccessToken();
 
     const response = await fetch(API_BASE_URL + path, {
         method,
         headers: {
-            ...(body !== undefined && { 'Content-Type': 'application/json' }),
+            ...(type !== undefined && { 'Content-Type': type }),
             ...(token !== null && { Authorization: `Bearer ${token}` }),
         },
         credentials: 'include',
-        ...(body !== undefined && { body: JSON.stringify(body) }),
+        ...(body !== undefined && { body }),
     });
 
-    const payload: unknown = await response.json().catch(() => undefined);
-
     if (!response.ok) {
+        const payload: unknown = await response.json().catch(() => undefined);
         const result =
             typeof payload === 'object' && payload !== null && 'result' in payload
                 ? String((payload as { result: unknown }).result)
@@ -45,7 +49,16 @@ export async function request<T>(method: string, path: string, body?: unknown): 
         throw new ApiError(response.status, result);
     }
 
-    return payload as T;
+    return response;
+}
+
+export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const response =
+        body === undefined
+            ? await send(method, path)
+            : await send(method, path, JSON.stringify(body), 'application/json');
+
+    return (await response.json().catch(() => undefined)) as T;
 }
 
 export function pageQuery(page?: Partial<Paged>): string {

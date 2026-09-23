@@ -155,7 +155,10 @@ export const TEAM_TITLES: Record<string, { title: string; description: string }>
         description:
             'Apps the agents can post to, reply on and read from, what each one is used for, and every request it made.',
     },
-    settings: { title: 'Settings', description: 'What this project is called.' },
+    settings: {
+        title: 'Settings',
+        description: 'What this project is called, and moving it in or out as a zip.',
+    },
 };
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -261,9 +264,34 @@ export const PLUGIN_EVENT_LABELS: Record<string, string> = {
     'agent.failed': 'Something fails',
 };
 
+export const TRANSFER_LABELS: Record<string, string> = {
+    models: 'models',
+    people: 'people',
+    agents: 'agents',
+    'agent-files': 'agent files',
+    bots: 'bots',
+    plugins: 'plugins',
+    tasks: 'tasks',
+    'task-runs': 'task runs',
+    'people-files': 'people files',
+    messages: 'messages',
+    exchanges: 'model round-trips',
+    'plugin-calls': 'plugin requests',
+    'team-files': 'team files',
+};
+
 export const MEMBER_ROLES_MAX = 8;
 
 export const MEMBER_ROLE_MAX = 64;
+
+export const TRANSFER_UPLOAD_MAX = 64 * 1024 * 1024;
+
+export const TRANSFER_ERRORS: Record<string, string> = {
+    IMPORT_FILE_REQUIRED: 'Choose a project zip first.',
+    IMPORT_ZIP_INVALID: 'That file is not a zip this app can read, or it is damaged.',
+    IMPORT_FILE_INVALID: 'A file inside the zip is not valid JSON.',
+    IMPORT_FORMAT_UNKNOWN: 'That zip is not a NuraAI project export.',
+};
 
 export const PLUGIN_ERRORS: Record<string, string> = {
     PLUGIN_NAME_REQUIRED: 'Give the plugin a name.',

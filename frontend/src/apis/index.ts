@@ -27,7 +27,7 @@ export {
     teamBotUpdate,
     teamBotWebhookRegister,
 } from './bot';
-export { ApiError, type Paged, pageQuery, request } from './client';
+export { ApiError, type Paged, pageQuery, request, send } from './client';
 export {
     conversationList,
     conversationMessages,
@@ -106,3 +106,4 @@ export {
     teamRemove,
     teamUpdate,
 } from './team';
+export { type ImportReport, teamExport, teamImport } from './transfer';

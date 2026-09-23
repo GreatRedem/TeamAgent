@@ -16,6 +16,7 @@ import { PluginsPanel } from '@/components/project/plugins-panel';
 import { TasksPanel } from '@/components/project/tasks-panel';
 import { TeamPanel } from '@/components/project/team-panel';
 import { ToolsPanel } from '@/components/project/tools-panel';
+import { TransferCard } from '@/components/project/transfer-card';
 import { TEAM_NAMES, TEAM_TITLES } from '@/libs/constant';
 import { teamPath } from '@/libs/navigation';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
@@ -284,6 +285,8 @@ export function Project() {
                     </CardContent>
                 </Card>
             )}
+
+            {team !== null && tab === 'settings' && <TransferCard teamId={teamId} />}
 
             {team !== null && tab === 'settings' && (
                 <Card className="max-w-xl">

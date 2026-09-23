@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
+import { Not } from 'typeorm';
 
 import {
     BACKOFF_ERROR,
@@ -122,7 +123,9 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
     }
 
     async function rescan() {
-        const bots = await fastify.db.getRepository(TeamBot).findBy({ public_url: '' });
+        const bots = await fastify.db
+            .getRepository(TeamBot)
+            .findBy({ public_url: '', token: Not('') });
 
         const wanted = new Set(bots.map((bot) => bot.id));
 

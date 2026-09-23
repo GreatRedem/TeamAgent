@@ -98,7 +98,7 @@ function toBotView(bot: TeamBot, agentName = '', people = new Map<number, string
     return {
         id: bot.id,
         name: bot.name,
-        token_hint: `${bot.token.split(':')[0]}:...${bot.token.slice(-4)}`,
+        token_hint: bot.token === '' ? '' : `${bot.token.split(':')[0]}:...${bot.token.slice(-4)}`,
         public_url: bot.public_url,
         mode: bot.public_url === '' ? 'polling' : 'webhook',
         agent_id: bot.agent_id,
@@ -622,17 +622,44 @@ export function teamBotUpdate(fastify: FastifyInstance) {
         const bot = await findOwnedBot(fastify, teamId, botId, request.account_id);
 
         const agentId = await readAgentId(fastify, request, teamId);
-        const body = request.body as { groups?: unknown; profiles?: unknown } | undefined;
+        const body = request.body as
+            | { groups?: unknown; profiles?: unknown; token?: unknown }
+            | undefined;
         const groups = typeof body?.groups === 'boolean' ? body.groups : bot.groups;
+        const token = typeof body?.token === 'string' ? body.token.trim() : '';
+
+        if (token !== '') {
+            if (
+                token.length < BOT_TOKEN_MIN ||
+                token.length > BOT_TOKEN_MAX ||
+                !BOT_TOKEN_PATTERN.test(token)
+            ) {
+                throw new BadRequestResponse('BOT_TOKEN_INVALID');
+            }
+
+            const holder = await fastify.db
+                .getRepository(TeamBot)
+                .findOneBy({ team_id: teamId, token });
+
+            if (holder && holder.id !== bot.id) {
+                throw new BadRequestResponse('BOT_ALREADY_ADDED');
+            }
+        }
+
         const profiles =
             body?.profiles === undefined
                 ? bot.profiles
                 : (await readBotProfiles(fastify, teamId, body.profiles)).join(',');
         const changes = { name, public_url: publicUrl, agent_id: agentId, groups, profiles };
 
-        const diff = changed(bot, changes);
+        const diff = changed(bot, token === '' ? changes : { ...changes, token });
 
-        await fastify.db.getRepository(TeamBot).update({ id: bot.id, team_id: teamId }, changes);
+        await fastify.db
+            .getRepository(TeamBot)
+            .update(
+                { id: bot.id, team_id: teamId },
+                token === '' ? changes : { ...changes, token, poll_offset: '0' },
+            );
 
         request.log.info(
             {
@@ -654,7 +681,7 @@ export function teamBotUpdate(fastify: FastifyInstance) {
         });
 
         const names = await agentNames(fastify, teamId);
-        const updated = { ...bot, ...changes };
+        const updated = { ...bot, ...changes, ...(token !== '' && { token }) };
 
         reply.send(
             toBotView(

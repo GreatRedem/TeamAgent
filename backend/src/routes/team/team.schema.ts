@@ -170,6 +170,7 @@ export function schemaTeamBotUpdate() {
                 agent_id: { type: 'integer' },
                 groups: { type: 'boolean' },
                 profiles: { type: 'array', items: { type: 'integer' } },
+                token: { type: 'string' },
             },
         },
         response: {

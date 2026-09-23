@@ -28,13 +28,14 @@ export function teamBotCreate(teamId: number, name: string, token: string, publi
     return request<TeamBot>('POST', `/team/${teamId}/bot`, { name, token, public_url: publicUrl });
 }
 
-export function teamBotUpdate(teamId: number, bot: TeamBot) {
+export function teamBotUpdate(teamId: number, bot: TeamBot, token?: string) {
     return request<TeamBot>('PATCH', `/team/${teamId}/bot/${bot.id}`, {
         name: bot.name,
         public_url: bot.public_url,
         agent_id: bot.agent_id,
         groups: bot.groups,
         profiles: bot.profiles.map((profile) => profile.id),
+        ...(token !== undefined && { token }),
     });
 }
 

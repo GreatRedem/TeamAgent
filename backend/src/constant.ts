@@ -155,6 +155,18 @@ export const AGENT_PERMISSIONS_MAX = 256;
 
 export const BOT_PROFILES_MAX = 50;
 
+export const TRANSFER_FORMAT = 1;
+
+export const TRANSFER_PAGE = 1000;
+
+export const TRANSFER_INSERT_CHUNK = 500;
+
+export const TRANSFER_UPLOAD_MAX = 64 * 1024 * 1024;
+
+export const TRANSFER_UNPACKED_MAX = 256 * 1024 * 1024;
+
+export const TRANSFER_FILES_MAX = 64;
+
 export const MAX_TOOL_ROUNDS = 4;
 
 export const HISTORY_LIMIT = 12;
