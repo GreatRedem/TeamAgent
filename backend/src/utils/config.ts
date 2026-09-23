@@ -72,5 +72,7 @@ export function readConfig() {
 
         SESSION_ACCESS_SECRET: readString('SESSION_ACCESS_SECRET'),
         SESSION_REFRESH_SECRET: readString('SESSION_REFRESH_SECRET'),
+
+        TAVILY_API_KEY: process.env['TAVILY_API_KEY'] ?? '',
     };
 }

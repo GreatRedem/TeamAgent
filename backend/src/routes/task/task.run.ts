@@ -10,7 +10,7 @@ import {
 
 import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
-import { buildSystemPrompt } from '../agent/agent.reply.js';
+import { buildSystemPrompt, toolGuidance } from '../agent/agent.reply.js';
 import { audit } from '../audit/audit.log.js';
 import { allowedTools } from '../mcp/mcp.tools.js';
 import { isAutoFree, rest } from '../model/model.auto.js';
@@ -210,6 +210,7 @@ export async function runTask(
                 tools.some((tool) => tool.name === 'document_read'),
             ),
             roster,
+            toolGuidance(tools.map((tool) => tool.name)),
         ]
             .filter((part) => part !== '')
             .join('\n\n---\n\n');

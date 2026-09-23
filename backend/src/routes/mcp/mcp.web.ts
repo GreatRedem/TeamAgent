@@ -2,10 +2,52 @@ import { lookup } from 'node:dns/promises';
 import net from 'node:net';
 import {
     ALLOWED_TYPES,
-    FETCH_BYTES_MAX,
     FETCH_REDIRECTS_MAX,
+    FETCH_TEXT_MAX,
     FETCH_TIMEOUT,
 } from '../../constant.js';
+
+export function decodeEntities(text: string): string {
+    return text
+        .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+            String.fromCodePoint(Number.parseInt(hex, 16)),
+        )
+        .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+}
+
+export function htmlToText(html: string): string {
+    const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? '';
+    const body = html
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(
+            /<(script|style|noscript|svg|head|template|iframe|nav|aside|footer)\b[\s\S]*?<\/\1>/gi,
+            '',
+        )
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(
+            /<\/(p|div|li|h[1-6]|tr|section|article|header|footer|blockquote|pre|table)>/gi,
+            '\n',
+        )
+        .replace(/<li[^>]*>/gi, '- ')
+        .replace(/<[^>]+>/g, ' ');
+
+    const text = decodeEntities(body)
+        .split('\n')
+        .map((line) => line.replace(/[ \t\r\f\v]+/g, ' ').trim())
+        .filter((line, index, lines) => line !== '' || (index > 0 && lines[index - 1] !== ''))
+        .join('\n')
+        .trim();
+
+    const heading = decodeEntities(title).replace(/\s+/g, ' ').trim();
+
+    return heading === '' ? text : `${heading}\n\n${text}`;
+}
 
 export function isPrivateAddress(ip: string): boolean {
     if (net.isIPv4(ip)) {
@@ -158,13 +200,18 @@ export async function fetchPublicUrl(raw: string): Promise<FetchResult> {
         }
 
         const body = await response.text().catch(() => '');
+        const readable =
+            contentType === 'text/html' ||
+            (contentType === '' && /^\s*<(!doctype|html)/i.test(body))
+                ? htmlToText(body)
+                : body;
 
         return {
             ok: response.ok,
             status: response.status,
             contentType,
-            text: body.slice(0, FETCH_BYTES_MAX),
-            truncated: body.length > FETCH_BYTES_MAX,
+            text: readable.slice(0, FETCH_TEXT_MAX),
+            truncated: readable.length > FETCH_TEXT_MAX,
             finalUrl: check.url.toString(),
             ...(response.ok ? {} : { reason: `http ${response.status}` }),
         };

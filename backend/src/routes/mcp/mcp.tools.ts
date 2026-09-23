@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
     DOCUMENT_NAME_PATTERN,
-    FETCH_BYTES_MAX,
+    FETCH_TEXT_MAX,
     MCP_DOCUMENT_CONTENT_MAX,
     PREFERENCES_TEMPLATE,
     ROSTER_FILE,
@@ -28,6 +28,8 @@ import {
     TelegramUser,
     TelegramUserDocument,
 } from '../telegram/telegram.entity.js';
+import { searchWeb } from './mcp.search.js';
+import { weatherFor } from './mcp.weather.js';
 import { fetchPublicUrl } from './mcp.web.js';
 
 export interface ToolDefinition {
@@ -269,6 +271,38 @@ export async function runTool(
         };
     }
 
+    if (tool.name === 'web_search') {
+        const query = typeof args['query'] === 'string' ? args['query'].trim() : '';
+
+        if (query === '') {
+            return refuse('query is required');
+        }
+
+        const found = await searchWeb(query, args['topic'] === 'news' ? 'news' : 'general');
+
+        return found.ok
+            ? {
+                  ok: true,
+                  content: JSON.stringify({ query, source: found.source, results: found.results }),
+              }
+            : refuse(found.reason ?? 'search failed');
+    }
+
+    if (tool.name === 'weather') {
+        const place = typeof args['place'] === 'string' ? args['place'].trim() : '';
+
+        if (place === '') {
+            return refuse('place is required');
+        }
+
+        const days = typeof args['days'] === 'number' ? args['days'] : 3;
+        const report = await weatherFor(place, days);
+
+        return report.ok
+            ? { ok: true, content: JSON.stringify(report.report) }
+            : refuse(report.reason ?? 'weather failed');
+    }
+
     if (tool.name === 'web_fetch') {
         const url = typeof args['url'] === 'string' ? args['url'].trim() : '';
 
@@ -289,7 +323,7 @@ export async function runTool(
                 status: fetched.status,
                 content_type: fetched.contentType,
                 truncated: fetched.truncated === true,
-                bytes_limit: FETCH_BYTES_MAX,
+                text_limit: FETCH_TEXT_MAX,
                 text: fetched.text,
             }),
         };

@@ -125,9 +125,9 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
     },
     {
         key: 'web.fetch',
-        label: 'May fetch web pages',
+        label: 'May use the web',
         description:
-            'Lets this agent read public web pages. Private, loopback and cloud-metadata addresses are always refused, whoever asks.',
+            'Lets this agent search the web, read public pages and look up the weather. Private, loopback and cloud-metadata addresses are always refused, whoever asks.',
     },
     {
         key: 'basics',
@@ -414,9 +414,43 @@ export const TOOLS: ToolDefinition[] = [
         },
     },
     {
+        name: 'web_search',
+        description:
+            'Search the web for current information: news, facts, prices, opening hours, anything you do not already know. Returns titles, links and short snippets; read a result in full with web_fetch.',
+        permission: 'web.fetch',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'What to search for, in plain words' },
+                topic: {
+                    type: 'string',
+                    description: 'news for recent events, general otherwise; defaults to general',
+                },
+            },
+            required: ['query'],
+        },
+    },
+    {
+        name: 'weather',
+        description:
+            'The current weather and the forecast for a place, by name: temperature, conditions, wind, humidity and rain. Use this for any weather question rather than searching.',
+        permission: 'web.fetch',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                place: { type: 'string', description: 'A city or town, e.g. Karaj or Tehran' },
+                days: {
+                    type: 'integer',
+                    description: 'How many days of forecast, 1 to 7; defaults to 3',
+                },
+            },
+            required: ['place'],
+        },
+    },
+    {
         name: 'web_fetch',
         description:
-            'Fetch a public web page or API response and read its text. Only public addresses work; private and internal ones are always refused.',
+            'Read a public web page or API response as text. Find the address with web_search first when you do not have one. Only public addresses work; private and internal ones are always refused.',
         permission: 'web.fetch',
         inputSchema: {
             type: 'object',
@@ -527,8 +561,6 @@ export const SEARCH_LIMIT = 20;
 export const ROSTER_LIMIT = 50;
 
 export const FETCH_TIMEOUT = 10000;
-
-export const FETCH_BYTES_MAX = 100000;
 
 export const FETCH_REDIRECTS_MAX = 3;
 
@@ -746,3 +778,59 @@ export const STATUS_INTERNAL_ERROR = 500;
 export const TASK_RETRY_DELAYS = [60_000, 300_000, 900_000];
 
 export const TASK_MODEL_REST = 1_200_000;
+
+export const FETCH_TEXT_MAX = 12_000;
+
+export const SEARCH_TIMEOUT = 10_000;
+
+export const SEARCH_RESULTS_MAX = 6;
+
+export const SEARCH_SNIPPET_MAX = 300;
+
+export const SEARCH_USER_AGENT =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
+
+export const TAVILY_URL = 'https://api.tavily.com/search';
+
+export const BING_URL = 'https://www.bing.com/search';
+
+export const DUCKDUCKGO_URL = 'https://html.duckduckgo.com/html/';
+
+export const WIKIPEDIA_URL = 'https://en.wikipedia.org/w/api.php';
+
+export const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+
+export const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+
+export const WEATHER_DAYS_MAX = 7;
+
+export const WEATHER_CODES: Record<number, string> = {
+    0: 'clear sky',
+    1: 'mainly clear',
+    2: 'partly cloudy',
+    3: 'overcast',
+    45: 'fog',
+    48: 'freezing fog',
+    51: 'light drizzle',
+    53: 'drizzle',
+    55: 'heavy drizzle',
+    56: 'light freezing drizzle',
+    57: 'freezing drizzle',
+    61: 'light rain',
+    63: 'rain',
+    65: 'heavy rain',
+    66: 'light freezing rain',
+    67: 'freezing rain',
+    71: 'light snow',
+    73: 'snow',
+    75: 'heavy snow',
+    77: 'snow grains',
+    80: 'light rain showers',
+    81: 'rain showers',
+    82: 'violent rain showers',
+    85: 'light snow showers',
+    86: 'snow showers',
+    95: 'thunderstorm',
+    96: 'thunderstorm with light hail',
+    99: 'thunderstorm with hail',
+};

@@ -373,3 +373,17 @@ export function countTokens(
         estimated: true,
     };
 }
+
+export function toolGuidance(tools: readonly string[]): string {
+    const web = ['web_search', 'weather', 'web_fetch'].filter((name) => tools.includes(name));
+
+    if (web.length === 0) {
+        return '';
+    }
+
+    return [
+        '# Looking things up',
+        '',
+        `You can use ${web.join(', ')}. For anything current or that you do not know for certain, such as news, weather, prices or facts about the world, call these tools before you answer. Never say you cannot look something up while you have them: search first, then read a page if the snippets are not enough.`,
+    ].join('\n');
+}

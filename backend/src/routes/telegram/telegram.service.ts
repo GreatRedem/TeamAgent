@@ -40,6 +40,7 @@ import {
     readCompletion,
     readError,
     readToolCalls,
+    toolGuidance,
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
@@ -1008,7 +1009,11 @@ async function deliverAgentReply(
         : '';
 
     const messages: ChatMessage[] = buildMessages(
-        [buildSystemPrompt(documents, lazyDocuments), roster]
+        [
+            buildSystemPrompt(documents, lazyDocuments),
+            roster,
+            toolGuidance(tools.map((tool) => tool.name)),
+        ]
             .filter((section) => section !== '')
             .join('\n\n---\n\n'),
         earlier,
