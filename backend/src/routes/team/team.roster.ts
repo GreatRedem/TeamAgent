@@ -1,19 +1,13 @@
-export const ROSTER_FILE = 'team.json';
-
-export const ROSTER_CONTENT_MAX = 65536;
-
-export const MEMBERS_MAX = 500;
-
-export const MEMBER_NAME_MAX = 120;
-
-export const MEMBER_TEXT_MAX = 2000;
-
-export const SOCIAL_MAX = 20;
-
-export const ROSTER_INLINE_MAX = 8000;
-
-const FORM_FIELDS = ['name', 'rank', 'description', 'social', 'profile_id'];
-
+import {
+    FORM_FIELDS,
+    MEMBER_NAME_MAX,
+    MEMBER_TEXT_MAX,
+    MEMBERS_MAX,
+    ROSTER_CONTENT_MAX,
+    ROSTER_FILE,
+    ROSTER_INLINE_MAX,
+    SOCIAL_MAX,
+} from '../../constant.js';
 export interface RosterMember {
     name: string;
     rank?: string;

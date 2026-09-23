@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { DAY, WEEK } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { TeamAgentExchange } from '../agent/agent.entity.js';
@@ -8,15 +9,15 @@ import { TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
 import { schemaOverview } from './overview.schema.js';
 
-const DAY = "now() - interval '1 day'";
-const WEEK = "now() - interval '7 days'";
-
 type Row = Record<string, string | null>;
 
-const number = (row: Row | undefined, key: string) => Number(row?.[key] ?? 0);
+function number(row: Row | undefined, key: string) {
+    return Number(row?.[key] ?? 0);
+}
 
-const spent = (model: { prompt_tokens: number; completion_tokens: number }) =>
-    model.prompt_tokens + model.completion_tokens;
+function spent(model: { prompt_tokens: number; completion_tokens: number }) {
+    return model.prompt_tokens + model.completion_tokens;
+}
 
 export function overview(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -120,5 +121,5 @@ export function overview(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaOverview, config: { ...authGuard() }, handler };
+    return { schema: schemaOverview(), config: { ...authGuard() }, handler };
 }

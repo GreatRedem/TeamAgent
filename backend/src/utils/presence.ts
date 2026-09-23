@@ -1,7 +1,4 @@
-const WINDOW = 5 * 60 * 1000;
-
-const seen = new Map<number, number>();
-
+import { seen, WINDOW } from '../constant.js';
 export function touchAccount(accountId: number): void {
     seen.set(accountId, Date.now());
 }

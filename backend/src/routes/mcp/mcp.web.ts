@@ -1,19 +1,11 @@
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
-
-export const FETCH_TIMEOUT = 10000;
-export const FETCH_BYTES_MAX = 100000;
-export const FETCH_REDIRECTS_MAX = 3;
-
-const ALLOWED_TYPES = [
-    'text/plain',
-    'text/html',
-    'text/markdown',
-    'application/json',
-    'application/xml',
-    'text/xml',
-    'text/csv',
-];
+import {
+    ALLOWED_TYPES,
+    FETCH_BYTES_MAX,
+    FETCH_REDIRECTS_MAX,
+    FETCH_TIMEOUT,
+} from '../../constant.js';
 
 export function isPrivateAddress(ip: string): boolean {
     if (net.isIPv4(ip)) {

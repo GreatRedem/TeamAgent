@@ -1,18 +1,7 @@
+import { GOAL_MAX, PERIOD, TASK_DESCRIPTION_MAX, TASK_REPEATS, TITLE_MAX } from '../../constant.js';
 import type { ChatMessage } from '../agent/agent.reply.js';
 
-export const TASK_REPEATS = ['none', 'daily', 'weekly'] as const;
-
 export type TaskRepeat = (typeof TASK_REPEATS)[number];
-
-export const TASK_STATUSES = ['scheduled', 'running', 'done', 'failed', 'cancelled'] as const;
-
-export const TITLE_MAX = 120;
-
-export const DESCRIPTION_MAX = 4000;
-
-export const GOAL_MAX = 2000;
-
-const PERIOD: Record<TaskRepeat, number> = { none: 0, daily: 86_400_000, weekly: 604_800_000 };
 
 export class TaskError extends Error {
     readonly code: string;
@@ -74,7 +63,7 @@ export function readTaskBody(body: unknown): TaskBody {
 
     return {
         title,
-        description: text('description', DESCRIPTION_MAX),
+        description: text('description', TASK_DESCRIPTION_MAX),
         goal: text('goal', GOAL_MAX),
         agent_id: agentId,
         profile_id: profileId,

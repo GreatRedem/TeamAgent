@@ -13,41 +13,6 @@ export interface ExchangeUsage {
     last_used_at: string | null;
 }
 
-export const NO_USAGE: ExchangeUsage = {
-    replies: 0,
-    round_trips: 0,
-    failures: 0,
-    prompt_tokens: 0,
-    completion_tokens: 0,
-    tool_calls: 0,
-    average_ms: 0,
-    last_used_at: null,
-};
-
-export const schemaUsage = {
-    type: 'object',
-    required: [
-        'replies',
-        'round_trips',
-        'failures',
-        'prompt_tokens',
-        'completion_tokens',
-        'tool_calls',
-        'average_ms',
-        'last_used_at',
-    ],
-    properties: {
-        replies: { type: 'integer' },
-        round_trips: { type: 'integer' },
-        failures: { type: 'integer' },
-        prompt_tokens: { type: 'integer' },
-        completion_tokens: { type: 'integer' },
-        tool_calls: { type: 'integer' },
-        average_ms: { type: 'integer' },
-        last_used_at: { type: ['string', 'null'] },
-    },
-} as const;
-
 export async function exchangeUsage(
     fastify: FastifyInstance,
     teamId: number,

@@ -1,22 +1,14 @@
 import { randomBytes } from 'node:crypto';
-
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { IsNull } from 'typeorm';
 import { getAddress, isAddress, recoverMessageAddress } from 'viem';
+import { APP_NAME, SESSION_REFRESH_TIME, WALLET_NONCE_TIME } from '../../constant.js';
 
-import {
-    createAccessToken,
-    createRefreshToken,
-    SESSION_REFRESH_TIME,
-} from '../../plugins/authentication.js';
+import { createAccessToken, createRefreshToken } from '../../plugins/authentication.js';
 import { rateLimit } from '../../plugins/ratelimit.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { Account, AccountNonce, AccountSession } from './account.entity.js';
 import { schemaAccountWalletNonce, schemaAccountWalletSignIn } from './account.schema.js';
-
-const APP_NAME = 'NuraAI';
-
-const WALLET_NONCE_TIME = 5 * 60 * 1000;
 
 function buildSignInMessage(address: string, nonce: string, issuedAt: Date, expiresAt: Date) {
     return [
@@ -88,7 +80,7 @@ export function walletNonce(fastify: FastifyInstance) {
     };
 
     return {
-        schema: schemaAccountWalletNonce,
+        schema: schemaAccountWalletNonce(),
         config: { ...rateLimit('account-wallet-nonce', 20, 2 * 60 * 1000) },
         handler,
     };
@@ -172,7 +164,7 @@ export function walletSignIn(fastify: FastifyInstance) {
     };
 
     return {
-        schema: schemaAccountWalletSignIn,
+        schema: schemaAccountWalletSignIn(),
         config: { ...rateLimit('account-wallet-sign-in', 20, 2 * 60 * 1000) },
         handler,
     };

@@ -1,13 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { HEATMAP_DAYS, LIST_LIMIT } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { findOwnedTeam, readPage, readTeamId, takePage } from '../team/team.access.js';
 import { AuditLog } from './audit.entity.js';
 import { schemaAuditHeatmap, schemaAuditList } from './audit.schema.js';
-
-const HEATMAP_DAYS = 364;
-
-const LIST_LIMIT = 60;
 
 function isoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
@@ -48,7 +45,7 @@ export function auditList(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaAuditList, config: { ...authGuard() }, handler };
+    return { schema: schemaAuditList(), config: { ...authGuard() }, handler };
 }
 
 export function auditHeatmap(fastify: FastifyInstance) {
@@ -95,5 +92,5 @@ export function auditHeatmap(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaAuditHeatmap, config: { ...authGuard() }, handler };
+    return { schema: schemaAuditHeatmap(), config: { ...authGuard() }, handler };
 }

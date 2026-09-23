@@ -1,6 +1,27 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ILike } from 'typeorm';
+import {
+    AGENT_TIMEOUT,
+    AUTO_ATTEMPTS,
+    CONVERSATION_PAGE,
+    DEFAULT_PERMISSIONS,
+    ERROR_TEXT_MAX,
+    EXCHANGE_MAX,
+    HISTORY_LIMIT,
+    MAX_TOOL_ROUNDS,
+    MESSAGE_PAGE,
+    PERMISSIONS,
+    ROSTER_FILE,
+    STREAM_EDIT_INTERVAL,
+    STREAM_FIRST_CHARS,
+    TELEGRAM_API,
+    TELEGRAM_TEXT_MAX,
+    TELEGRAM_TIMEOUT,
+    TEXT_MAX,
+    TRACE_TEXT_MAX,
+    TYPING_INTERVAL,
+} from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
@@ -12,40 +33,27 @@ import {
     type ChatMessage,
     completionCap,
     countTokens,
-    ERROR_TEXT_MAX,
     earlierTurns,
     fitToContext,
-    HISTORY_LIMIT,
     isToolRefusal,
-    MAX_TOOL_ROUNDS,
     readAssistantTurn,
     readCompletion,
     readError,
     readToolCalls,
-    TELEGRAM_TEXT_MAX,
 } from '../agent/agent.reply.js';
 import { sendCompletion } from '../agent/agent.transport.js';
 import { audit } from '../audit/audit.log.js';
 import { allowedTools, runTool, type ToolDefinition, toOpenAITools } from '../mcp/mcp.tools.js';
-import {
-    AUTO_ATTEMPTS,
-    freeCandidates,
-    isAutoFree,
-    pickFree,
-    rest,
-    restFor,
-} from '../model/model.auto.js';
+import { freeCandidates, isAutoFree, pickFree, rest, restFor } from '../model/model.auto.js';
 import { fetchCatalog } from '../model/model.provider.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
-import { ROSTER_FILE, rosterPrompt } from '../team/team.roster.js';
+import { rosterPrompt } from '../team/team.roster.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import { telegramHtml } from './telegram.format.js';
 import {
-    DEFAULT_PERMISSIONS,
     hasPermission,
     isKnownPermission,
-    PERMISSIONS,
     parsePermissions,
     serializePermissions,
 } from './telegram.permission.js';
@@ -58,21 +66,6 @@ import {
     schemaTelegramWebhook,
     schemaTelegramWebhookRegister,
 } from './telegram.schema.js';
-
-const TELEGRAM_API = 'https://api.telegram.org';
-const TELEGRAM_TIMEOUT = 5000;
-
-const AGENT_TIMEOUT = 60000;
-
-const TYPING_INTERVAL = 4000;
-
-const EXCHANGE_MAX = 65536;
-
-const TEXT_MAX = 8192;
-
-const MESSAGE_PAGE = 200;
-
-const CONVERSATION_PAGE = 50;
 
 export function createWebhookSecret(): string {
     return randomBytes(32).toString('hex');
@@ -283,11 +276,13 @@ export async function ingestUpdate(
     return 'stored';
 }
 
-const tokenColumns = (count: { prompt: number; completion: number; estimated: boolean }) => ({
-    prompt_tokens: count.prompt,
-    completion_tokens: count.completion,
-    tokens_estimated: count.estimated,
-});
+function tokenColumns(count: { prompt: number; completion: number; estimated: boolean }) {
+    return {
+        prompt_tokens: count.prompt,
+        completion_tokens: count.completion,
+        tokens_estimated: count.estimated,
+    };
+}
 
 async function recordExchange(
     fastify: FastifyInstance,
@@ -322,10 +317,6 @@ async function recordExchange(
         );
     }
 }
-
-const STREAM_EDIT_INTERVAL = 1200;
-
-const STREAM_FIRST_CHARS = 24;
 
 async function telegramCall(
     token: string,
@@ -593,8 +584,6 @@ export type AgentEvent =
           result: string;
           duration_ms: number;
       };
-
-const TRACE_TEXT_MAX = 400;
 
 interface AgentRun {
     text: string | undefined;
@@ -1188,7 +1177,7 @@ export function telegramWebhook(fastify: FastifyInstance) {
         reply.send({ ok: true });
     };
 
-    return { schema: schemaTelegramWebhook, config: {}, handler };
+    return { schema: schemaTelegramWebhook(), config: {}, handler };
 }
 
 export function conversationList(fastify: FastifyInstance) {
@@ -1221,7 +1210,7 @@ export function conversationList(fastify: FastifyInstance) {
         reply.send({ limit, offset, has_more, total, conversations: items.map(toProfile) });
     };
 
-    return { schema: schemaConversationList, config: { ...authGuard() }, handler };
+    return { schema: schemaConversationList(), config: { ...authGuard() }, handler };
 }
 
 export function conversationMessages(fastify: FastifyInstance) {
@@ -1266,7 +1255,7 @@ export function conversationMessages(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaConversationMessages, config: { ...authGuard() }, handler };
+    return { schema: schemaConversationMessages(), config: { ...authGuard() }, handler };
 }
 
 export function profileDetails(fastify: FastifyInstance) {
@@ -1334,7 +1323,7 @@ export function profileDetails(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaProfileDetails, config: { ...authGuard() }, handler };
+    return { schema: schemaProfileDetails(), config: { ...authGuard() }, handler };
 }
 
 export function permissionCatalog(fastify: FastifyInstance) {
@@ -1344,7 +1333,7 @@ export function permissionCatalog(fastify: FastifyInstance) {
         reply.send({ permissions: PERMISSIONS });
     };
 
-    return { schema: schemaPermissionCatalog, config: { ...authGuard() }, handler };
+    return { schema: schemaPermissionCatalog(), config: { ...authGuard() }, handler };
 }
 
 export function profilePermissionUpdate(fastify: FastifyInstance) {
@@ -1401,7 +1390,7 @@ export function profilePermissionUpdate(fastify: FastifyInstance) {
         reply.send(toProfile({ ...user, permissions }));
     };
 
-    return { schema: schemaProfilePermissionUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaProfilePermissionUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function telegramWebhookRegister(fastify: FastifyInstance) {
@@ -1466,5 +1455,5 @@ export function telegramWebhookRegister(fastify: FastifyInstance) {
         reply.send(ok ? { ok, url } : { ok, reason: 'BOT_TOKEN_REJECTED' });
     };
 
-    return { schema: schemaTelegramWebhookRegister, config: { ...authGuard() }, handler };
+    return { schema: schemaTelegramWebhookRegister(), config: { ...authGuard() }, handler };
 }

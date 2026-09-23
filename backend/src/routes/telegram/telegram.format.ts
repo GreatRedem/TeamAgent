@@ -1,15 +1,17 @@
-const escapeHtml = (text: string): string =>
-    text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+import {
+    BULLET,
+    FENCE,
+    HEADING,
+    QUOTE,
+    RULE,
+    SAFE_LINK,
+    TABLE_ROW,
+    TABLE_RULE,
+} from '../../constant.js';
 
-const SAFE_LINK = /^(https?:\/\/|mailto:|tg:\/\/)/i;
-
-const FENCE = /^\s*(```|~~~)\s*([\w+#.-]*)\s*$/;
-const HEADING = /^\s*#{1,6}\s+(.*?)\s*#*\s*$/;
-const RULE = /^\s*([-*_])(\s*\1){2,}\s*$/;
-const BULLET = /^(\s*)[-*+]\s+(.*)$/;
-const QUOTE = /^\s*>\s?(.*)$/;
-const TABLE_ROW = /^\s*\|.*\|\s*$/;
-const TABLE_RULE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 function inline(line: string): string {
     const kept: string[] = [];

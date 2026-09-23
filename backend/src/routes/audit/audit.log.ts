@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
+import { DETAIL_MAX } from '../../constant.js';
 
 import { AuditLog } from './audit.entity.js';
 
@@ -16,8 +17,6 @@ export interface AuditEntry {
     durationMs?: number;
     actor?: AuditActor;
 }
-
-const DETAIL_MAX = 512;
 
 export async function audit(
     fastify: FastifyInstance,

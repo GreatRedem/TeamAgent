@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { In } from 'typeorm';
+import { LIST_PAGE, RUN_PAGE } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
@@ -18,10 +19,6 @@ import {
     schemaTaskStatus,
 } from './task.schema.js';
 
-const LIST_PAGE = 50;
-
-const RUN_PAGE = 20;
-
 function readLog(stored: string): unknown[] {
     try {
         const parsed: unknown = JSON.parse(stored);
@@ -32,7 +29,9 @@ function readLog(stored: string): unknown[] {
     }
 }
 
-const readTaskId = (request: FastifyRequest) => readParamId(request, 'taskId', 'TASK_ID_INVALID');
+function readTaskId(request: FastifyRequest) {
+    return readParamId(request, 'taskId', 'TASK_ID_INVALID');
+}
 
 async function findOwnedTask(
     fastify: FastifyInstance,
@@ -184,7 +183,7 @@ export function taskList(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaTaskList, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskList(), config: { ...authGuard() }, handler };
 }
 
 export function taskCreate(fastify: FastifyInstance) {
@@ -212,7 +211,7 @@ export function taskCreate(fastify: FastifyInstance) {
         reply.send(view);
     };
 
-    return { schema: schemaTaskSave, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskSave(), config: { ...authGuard() }, handler };
 }
 
 export function taskUpdate(fastify: FastifyInstance) {
@@ -246,7 +245,7 @@ export function taskUpdate(fastify: FastifyInstance) {
         reply.send(view);
     };
 
-    return { schema: schemaTaskSave, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskSave(), config: { ...authGuard() }, handler };
 }
 
 export function taskStatus(fastify: FastifyInstance) {
@@ -274,7 +273,7 @@ export function taskStatus(fastify: FastifyInstance) {
         reply.send(view);
     };
 
-    return { schema: schemaTaskStatus, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskStatus(), config: { ...authGuard() }, handler };
 }
 
 export function taskRemove(fastify: FastifyInstance) {
@@ -296,7 +295,7 @@ export function taskRemove(fastify: FastifyInstance) {
         reply.send({ result: 'removed' });
     };
 
-    return { schema: schemaTaskResult, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskResult(), config: { ...authGuard() }, handler };
 }
 
 export function taskRunNow(fastify: FastifyInstance) {
@@ -333,7 +332,7 @@ export function taskRunNow(fastify: FastifyInstance) {
         reply.send({ result: 'started' });
     };
 
-    return { schema: schemaTaskResult, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskResult(), config: { ...authGuard() }, handler };
 }
 
 export function taskRuns(fastify: FastifyInstance) {
@@ -374,5 +373,5 @@ export function taskRuns(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaTaskRuns, config: { ...authGuard() }, handler };
+    return { schema: schemaTaskRuns(), config: { ...authGuard() }, handler };
 }

@@ -9,13 +9,13 @@ interface Rule {
     value: number;
 }
 
-const readField = (request: FastifyRequest, field: string): unknown => {
+function readField(request: FastifyRequest, field: string): unknown {
     const body = request.body as Record<string, unknown> | undefined;
 
     return body?.[field];
-};
+}
 
-const applyStringRules = (value: string, rules: Rule[]): void => {
+function applyStringRules(value: string, rules: Rule[]): void {
     for (const rule of rules) {
         switch (rule.type) {
             case 'MIN': {
@@ -34,9 +34,9 @@ const applyStringRules = (value: string, rules: Rule[]): void => {
             }
         }
     }
-};
+}
 
-const validator = (request: FastifyRequest, field: string) => {
+function validator(request: FastifyRequest, field: string) {
     const rules: Rule[] = [];
 
     const builder: Validator = {
@@ -68,7 +68,7 @@ const validator = (request: FastifyRequest, field: string) => {
     };
 
     return builder;
-};
+}
 
 export default fastifyPlugin(async (fastify) => {
     fastify.decorateRequest('getBody', function (this: FastifyRequest, field: string) {

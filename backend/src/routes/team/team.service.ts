@@ -1,5 +1,19 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { In, IsNull, Not } from 'typeorm';
+import {
+    BOT_TOKEN_MAX,
+    BOT_TOKEN_MIN,
+    BOT_TOKEN_PATTERN,
+    LIST_PAGE,
+    NAME_MAX,
+    NAME_MIN,
+    PUBLIC_URL_MAX,
+    ROSTER_FILE,
+    ROSTER_PAGE,
+    TEAM_DESCRIPTION_MAX,
+    TELEGRAM_API,
+    TELEGRAM_TIMEOUT,
+} from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
@@ -17,7 +31,6 @@ import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from './te
 import { Team, TeamBot, TeamDocument, TeamModel } from './team.entity.js';
 import {
     parseRoster,
-    ROSTER_FILE,
     type Roster,
     RosterError,
     removeMember,
@@ -40,25 +53,6 @@ import {
     schemaTeamRoster,
     schemaTeamUpdate,
 } from './team.schema.js';
-
-const LIST_PAGE = 50;
-
-const ROSTER_PAGE = 50;
-
-const NAME_MIN = 2;
-const NAME_MAX = 64;
-const DESCRIPTION_MAX = 280;
-
-const PUBLIC_URL_MAX = 256;
-
-const BOT_TOKEN_MIN = 20;
-const BOT_TOKEN_MAX = 128;
-
-const BOT_TOKEN_PATTERN = /^(\d{5,16}):([A-Za-z0-9_-]{20,})$/;
-
-const TELEGRAM_API = 'https://api.telegram.org';
-
-const TELEGRAM_TIMEOUT = 5000;
 
 interface BotProbe {
     ok: boolean;
@@ -88,7 +82,9 @@ export async function probeTelegram(token: string): Promise<BotProbe> {
     return { ok: true, username: payload.result?.username ?? '' };
 }
 
-const readBotId = (request: FastifyRequest) => readParamId(request, 'botId', 'BOT_ID_INVALID');
+function readBotId(request: FastifyRequest) {
+    return readParamId(request, 'botId', 'BOT_ID_INVALID');
+}
 
 function toBotView(bot: TeamBot, agentName = '') {
     return {
@@ -158,7 +154,7 @@ function readPublicUrl(request: FastifyRequest): string {
 function readTeamBody(request: FastifyRequest) {
     return {
         name: request.getBody('name').min(NAME_MIN).max(NAME_MAX).asString().trim(),
-        description: request.getBody('description').max(DESCRIPTION_MAX).asString().trim(),
+        description: request.getBody('description').max(TEAM_DESCRIPTION_MAX).asString().trim(),
     };
 }
 
@@ -190,7 +186,7 @@ export function teamCreate(fastify: FastifyInstance) {
         reply.send(team);
     };
 
-    return { schema: schemaTeamCreate, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamCreate(), config: { ...authGuard() }, handler };
 }
 
 export function teamList(fastify: FastifyInstance) {
@@ -214,7 +210,7 @@ export function teamList(fastify: FastifyInstance) {
         reply.send({ limit, offset, has_more, total, teams: items });
     };
 
-    return { schema: schemaTeamList, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamList(), config: { ...authGuard() }, handler };
 }
 
 export function teamDetails(fastify: FastifyInstance) {
@@ -224,7 +220,7 @@ export function teamDetails(fastify: FastifyInstance) {
         reply.send(team);
     };
 
-    return { schema: schemaTeamDetails, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamDetails(), config: { ...authGuard() }, handler };
 }
 
 export function teamUpdate(fastify: FastifyInstance) {
@@ -261,7 +257,7 @@ export function teamUpdate(fastify: FastifyInstance) {
         reply.send(team);
     };
 
-    return { schema: schemaTeamUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function teamArchive(fastify: FastifyInstance) {
@@ -295,7 +291,7 @@ export function teamArchive(fastify: FastifyInstance) {
         reply.send(team);
     };
 
-    return { schema: schemaTeamArchive, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamArchive(), config: { ...authGuard() }, handler };
 }
 
 export function teamRemove(fastify: FastifyInstance) {
@@ -347,7 +343,7 @@ export function teamRemove(fastify: FastifyInstance) {
         reply.send({ result: 'OK' });
     };
 
-    return { schema: schemaTeamRemove, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamRemove(), config: { ...authGuard() }, handler };
 }
 
 export function teamBotCreate(fastify: FastifyInstance) {
@@ -402,7 +398,7 @@ export function teamBotCreate(fastify: FastifyInstance) {
         reply.send(toBotView(bot));
     };
 
-    return { schema: schemaTeamBotCreate, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamBotCreate(), config: { ...authGuard() }, handler };
 }
 
 export function teamBotList(fastify: FastifyInstance) {
@@ -433,7 +429,7 @@ export function teamBotList(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaTeamBotList, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamBotList(), config: { ...authGuard() }, handler };
 }
 
 async function findOwnedBot(
@@ -486,7 +482,7 @@ export function teamBotTest(fastify: FastifyInstance) {
         reply.send(probe);
     };
 
-    return { schema: schemaTeamBotTest, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamBotTest(), config: { ...authGuard() }, handler };
 }
 
 export function teamBotRemove(fastify: FastifyInstance) {
@@ -519,7 +515,7 @@ export function teamBotRemove(fastify: FastifyInstance) {
         reply.send({ result: 'OK' });
     };
 
-    return { schema: schemaTeamBotRemove, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamBotRemove(), config: { ...authGuard() }, handler };
 }
 
 export function teamBotUpdate(fastify: FastifyInstance) {
@@ -573,7 +569,7 @@ export function teamBotUpdate(fastify: FastifyInstance) {
         );
     };
 
-    return { schema: schemaTeamBotUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamBotUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function teamRosterRead(fastify: FastifyInstance) {
@@ -607,7 +603,7 @@ export function teamRosterRead(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamRoster(), config: { ...authGuard() }, handler };
 }
 
 export function teamRosterWrite(fastify: FastifyInstance) {
@@ -656,7 +652,7 @@ export function teamRosterWrite(fastify: FastifyInstance) {
         reply.send({ members: roster.members, count: roster.members.length });
     };
 
-    return { schema: schemaTeamRoster, config: { ...authGuard() }, handler };
+    return { schema: schemaTeamRoster(), config: { ...authGuard() }, handler };
 }
 
 async function editRoster(
@@ -722,7 +718,7 @@ export function teamRosterMemberSave(fastify: FastifyInstance) {
         reply.send({ members: roster.members, count: roster.members.length });
     };
 
-    return { schema: schemaRosterMemberSave, config: { ...authGuard() }, handler };
+    return { schema: schemaRosterMemberSave(), config: { ...authGuard() }, handler };
 }
 
 export function teamRosterMemberRemove(fastify: FastifyInstance) {
@@ -754,5 +750,5 @@ export function teamRosterMemberRemove(fastify: FastifyInstance) {
         reply.send({ members: roster.members, count: roster.members.length });
     };
 
-    return { schema: schemaRosterMemberRemove, config: { ...authGuard() }, handler };
+    return { schema: schemaRosterMemberRemove(), config: { ...authGuard() }, handler };
 }

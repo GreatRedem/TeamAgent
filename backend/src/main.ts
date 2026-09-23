@@ -8,21 +8,22 @@ import autoLoadPlugin from '@fastify/autoload';
 import cookiePlugin from '@fastify/cookie';
 import type { FastifyError } from 'fastify';
 import fastify from 'fastify';
-
+import {
+    CONFIG,
+    IS_DEVELOPMENT,
+    LOGGER,
+    STATUS_BAD_REQUEST,
+    STATUS_FORBIDDEN,
+    STATUS_INTERNAL_ERROR,
+    STATUS_TOO_MANY_REQUEST,
+    STATUS_UNAUTHORIZED,
+} from './constant.js';
 import authenticationPlugin from './plugins/authentication.js';
 import ratelimitPlugin from './plugins/ratelimit.js';
 import taskRunnerPlugin from './plugins/taskrunner.js';
 import telegramPollPlugin from './plugins/telegrampoll.js';
 import typeormPlugin from './plugins/typeorm.js';
 import validatorPlugin from './plugins/validator.js';
-import { CONFIG, IS_DEVELOPMENT, LOGGER } from './constant.js';
-import {
-    STATUS_BAD_REQUEST,
-    STATUS_FORBIDDEN,
-    STATUS_INTERNAL_ERROR,
-    STATUS_TOO_MANY_REQUEST,
-    STATUS_UNAUTHORIZED,
-} from './utils/status.js';
 
 const log = LOGGER.child({ module: 'server' });
 

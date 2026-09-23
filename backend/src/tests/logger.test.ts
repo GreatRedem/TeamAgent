@@ -13,7 +13,14 @@ function capture(run: (logger: Logger) => void, level = 'info') {
     }) as typeof process.stdout.write;
 
     try {
-        run(new Logger({ level, base: { service: 'backend' }, time: false, redacted: ['token', 'authorization'] }));
+        run(
+            new Logger({
+                level,
+                base: { service: 'backend' },
+                time: false,
+                redacted: ['token', 'authorization'],
+            }),
+        );
     } finally {
         process.stdout.write = write;
     }
@@ -26,9 +33,17 @@ function main() {
 
     assert.deepEqual(plain, { level: 30, service: 'backend', msg: 'started' });
 
-    const [fields] = capture((logger) => logger.child({ module: 'task' }).warn({ taskId: 4 }, 'slow'));
+    const [fields] = capture((logger) =>
+        logger.child({ module: 'task' }).warn({ taskId: 4 }, 'slow'),
+    );
 
-    assert.deepEqual(fields, { level: 40, service: 'backend', module: 'task', taskId: 4, msg: 'slow' });
+    assert.deepEqual(fields, {
+        level: 40,
+        service: 'backend',
+        module: 'task',
+        taskId: 4,
+        msg: 'slow',
+    });
 
     assert.equal(capture((logger) => logger.debug('hidden')).length, 0);
     assert.equal(capture((logger) => logger.debug('shown'), 'trace').length, 1);
@@ -59,7 +74,12 @@ function main() {
         logger.info({ req: { method: 'GET', url: '/x', ip: '1.2.3.4', hostname: 'h', raw: loop } }),
     );
 
-    assert.deepEqual(request?.['req'], { method: 'GET', url: '/x', host: 'h', remoteAddress: '1.2.3.4' });
+    assert.deepEqual(request?.['req'], {
+        method: 'GET',
+        url: '/x',
+        host: 'h',
+        remoteAddress: '1.2.3.4',
+    });
 
     console.log('logger: ok');
 }

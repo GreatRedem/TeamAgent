@@ -1,3 +1,15 @@
+import {
+    ALWAYS_INLINE,
+    CONTEXT_MARGIN,
+    DEFAULT_CONTEXT_TOKENS,
+    DOCUMENT_INLINE_MAX,
+    ERROR_TEXT_MAX,
+    HISTORY_LIMIT,
+    MAX_COMPLETION_TOKENS,
+    MESSAGE_OVERHEAD,
+    MIN_INPUT_BUDGET,
+    TELEGRAM_TEXT_MAX,
+} from '../../constant.js';
 export interface AgentDocumentLike {
     name: string;
     content: string;
@@ -20,24 +32,6 @@ export interface ChatMessage {
     tool_call_id?: string;
     tool_calls?: unknown;
 }
-
-export const MAX_TOOL_ROUNDS = 4;
-
-export const HISTORY_LIMIT = 12;
-
-export const TELEGRAM_TEXT_MAX = 4096;
-
-export const MAX_COMPLETION_TOKENS = 2048;
-
-export const ERROR_TEXT_MAX = 200;
-
-export const DEFAULT_CONTEXT_TOKENS = 8192;
-
-export const CONTEXT_MARGIN = 512;
-
-const MESSAGE_OVERHEAD = 4;
-
-const MIN_INPUT_BUDGET = 512;
 
 export function estimateTokens(text: string): number {
     return Math.ceil(text.length / 4);
@@ -115,10 +109,6 @@ export function fitToContext(messages: ChatMessage[], contextTokens: number): Ch
 
     return running > budget ? squeeze(kept, budget) : kept;
 }
-
-export const ALWAYS_INLINE = ['instructions.md', 'guardrails.md'];
-
-export const DOCUMENT_INLINE_MAX = 400;
 
 export function buildSystemPrompt(documents: AgentDocumentLike[], lazy = false): string {
     const sorted = [...documents].sort((a, b) => {

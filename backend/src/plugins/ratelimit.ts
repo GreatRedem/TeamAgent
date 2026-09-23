@@ -1,10 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
-
-import LRUCache from '../utils/lru.js';
-import { STATUS_TOO_MANY_REQUEST } from '../utils/status.js';
-
-const rateLimitCache = new LRUCache<string, { count: number; time: number }>(10000);
+import { rateLimitCache, STATUS_TOO_MANY_REQUEST } from '../constant.js';
 
 export function rateLimit(name: string, count: number, time: number) {
     return { rateLimit: { name, count, time } };

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { FILE_PAGE, TOOLS } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
@@ -6,10 +7,6 @@ import { TeamAgent } from '../agent/agent.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TelegramUser, TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { schemaMcpTools, schemaProfileFiles } from './mcp.schema.js';
-import { TOOLS } from './mcp.tools.js';
-
-const FILE_PAGE = 20;
-
 export function mcpTools(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         await findOwnedTeam(fastify, readTeamId(request), request.account_id);
@@ -23,7 +20,7 @@ export function mcpTools(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaMcpTools, config: { ...authGuard() }, handler };
+    return { schema: schemaMcpTools(), config: { ...authGuard() }, handler };
 }
 
 export function profileFiles(fastify: FastifyInstance) {
@@ -76,5 +73,5 @@ export function profileFiles(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaProfileFiles, config: { ...authGuard() }, handler };
+    return { schema: schemaProfileFiles(), config: { ...authGuard() }, handler };
 }

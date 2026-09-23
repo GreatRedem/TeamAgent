@@ -1,24 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { LOGGER } from '../constant.js';
+import {
+    BACKOFF_ERROR,
+    BACKOFF_REJECTED,
+    LOGGER,
+    POLL_HOLD,
+    POLL_TIMEOUT,
+    RESCAN_INTERVAL,
+    TELEGRAM_API,
+} from '../constant.js';
 import { TeamBot } from '../routes/team/team.entity.js';
 import { ingestUpdate } from '../routes/telegram/telegram.service.js';
 
-const TELEGRAM_API = 'https://api.telegram.org';
-
-const POLL_HOLD = 25;
-
-const POLL_TIMEOUT = (POLL_HOLD + 10) * 1000;
-
-const RESCAN_INTERVAL = 20_000;
-
-const BACKOFF_ERROR = 5_000;
-
-const BACKOFF_REJECTED = 300_000;
-
-const sleep = (ms: number, signal: AbortSignal) =>
-    new Promise<void>((resolve) => {
+function sleep(ms: number, signal: AbortSignal) {
+    return new Promise<void>((resolve) => {
         const timer = setTimeout(resolve, ms);
 
         signal.addEventListener(
@@ -31,6 +27,7 @@ const sleep = (ms: number, signal: AbortSignal) =>
             { once: true },
         );
     });
+}
 
 interface TelegramReply {
     ok?: boolean;

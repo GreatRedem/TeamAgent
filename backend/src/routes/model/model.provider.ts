@@ -1,6 +1,4 @@
-export const OPENROUTER_URL = 'https://openrouter.ai/api/v1';
-
-export const AGENTROUTER_URL = 'https://agentrouter.org/v1';
+import { CATALOG_CACHE, CATALOG_TIMEOUT, CATALOG_TTL, CATALOG_URL } from '../../constant.js';
 
 export interface ProviderModel {
     id: string;
@@ -16,43 +14,6 @@ export interface ProviderPreset {
     models: ProviderModel[];
     hint: string;
 }
-
-export const PROVIDERS: ProviderPreset[] = [
-    {
-        key: 'openrouter',
-        label: 'OpenRouter · one key, every model',
-        url: OPENROUTER_URL,
-        catalog: true,
-        key_required: true,
-        models: [],
-        hint: 'One key reaches hundreds of models. The list below is fetched from OpenRouter.',
-    },
-    {
-        key: 'agentrouter',
-        label: 'AgentRouter · free quota for coding models',
-        url: AGENTROUTER_URL,
-        catalog: false,
-        key_required: true,
-        models: [
-            { id: 'gpt-5.5', context: 100000 },
-            { id: 'glm-5.2', context: 0 },
-        ],
-        hint: 'A hosted router with a free quota, but it admits only client applications it recognises and refuses anything else with a 401 -- a valid key is not enough. Its Claude models also use the Anthropic protocol on a different root and are not reachable here.',
-    },
-    {
-        key: 'custom',
-        label: 'Other OpenAI-compatible endpoint',
-        url: '',
-        catalog: false,
-        key_required: false,
-        models: [],
-        hint: 'Any OpenAI-compatible root, including a model served locally.',
-    },
-];
-
-const CATALOG_URL = `${OPENROUTER_URL}/models`;
-const CATALOG_TTL = 3600000;
-const CATALOG_TIMEOUT = 8000;
 
 export interface CatalogModel {
     id: string;
@@ -150,8 +111,6 @@ export function readCatalog(payload: unknown): CatalogModel[] {
     return models.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-let cached: { at: number; models: CatalogModel[] } | null = null;
-
 export interface CatalogResult {
     models: CatalogModel[];
     stale: boolean;
@@ -159,6 +118,8 @@ export interface CatalogResult {
 }
 
 export async function fetchCatalog(now = Date.now()): Promise<CatalogResult> {
+    const cached = CATALOG_CACHE.entry;
+
     if (cached !== null && now - cached.at < CATALOG_TTL) {
         return { models: cached.models, stale: true };
     }
@@ -176,7 +137,7 @@ export async function fetchCatalog(now = Date.now()): Promise<CatalogResult> {
             throw new Error('empty listing');
         }
 
-        cached = { at: now, models };
+        CATALOG_CACHE.entry = { at: now, models };
 
         return { models, stale: false };
     } catch {

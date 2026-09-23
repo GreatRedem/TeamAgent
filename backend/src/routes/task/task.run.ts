@@ -1,18 +1,17 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
+import { DRAFT_INTERVAL, PERSONAL_TOOLS, ROSTER_FILE, TELEGRAM_TEXT_MAX } from '../../constant.js';
 
 import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
-import { buildSystemPrompt, TELEGRAM_TEXT_MAX } from '../agent/agent.reply.js';
+import { buildSystemPrompt } from '../agent/agent.reply.js';
 import { audit } from '../audit/audit.log.js';
-import { allowedTools, PERSONAL_TOOLS } from '../mcp/mcp.tools.js';
+import { allowedTools } from '../mcp/mcp.tools.js';
 import { TeamBot, TeamDocument, TeamModel } from '../team/team.entity.js';
-import { ROSTER_FILE, rosterPrompt } from '../team/team.roster.js';
+import { rosterPrompt } from '../team/team.roster.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
 import { runAgent, telegramText } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import { nextStart, profileLabel, type TaskRepeat, taskMessages } from './task.plan.js';
-
-const DRAFT_INTERVAL = 1000;
 
 export async function runTask(
     fastify: FastifyInstance,

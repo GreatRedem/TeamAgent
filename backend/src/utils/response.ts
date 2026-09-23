@@ -1,5 +1,4 @@
-import { STATUS_BAD_REQUEST, STATUS_UNAUTHORIZED } from './status.js';
-
+import { STATUS_BAD_REQUEST, STATUS_UNAUTHORIZED } from '../constant.js';
 export class BadRequestResponse {
     readonly statusCode = STATUS_BAD_REQUEST;
     readonly result: string;

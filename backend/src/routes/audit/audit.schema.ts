@@ -1,67 +1,71 @@
-export const schemaAuditList = {
-    response: {
-        200: {
-            type: 'object',
-            required: ['entries', 'limit', 'offset', 'has_more', 'total'],
-            properties: {
-                limit: { type: 'integer' },
-                offset: { type: 'integer' },
-                has_more: { type: 'boolean' },
-                total: { type: 'integer' },
-                entries: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: [
-                            'id',
-                            'action',
-                            'target',
-                            'outcome',
-                            'detail',
-                            'duration_ms',
-                            'actor',
-                            'created_at',
-                        ],
-                        properties: {
-                            id: { type: 'integer' },
-                            action: { type: 'string' },
-                            target: { type: 'string' },
-                            outcome: { type: 'string' },
-                            detail: { type: 'string' },
-                            duration_ms: { type: 'integer' },
-                            actor: { type: 'string' },
-                            created_at: { type: 'string' },
+export function schemaAuditList() {
+    return {
+        response: {
+            200: {
+                type: 'object',
+                required: ['entries', 'limit', 'offset', 'has_more', 'total'],
+                properties: {
+                    limit: { type: 'integer' },
+                    offset: { type: 'integer' },
+                    has_more: { type: 'boolean' },
+                    total: { type: 'integer' },
+                    entries: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: [
+                                'id',
+                                'action',
+                                'target',
+                                'outcome',
+                                'detail',
+                                'duration_ms',
+                                'actor',
+                                'created_at',
+                            ],
+                            properties: {
+                                id: { type: 'integer' },
+                                action: { type: 'string' },
+                                target: { type: 'string' },
+                                outcome: { type: 'string' },
+                                detail: { type: 'string' },
+                                duration_ms: { type: 'integer' },
+                                actor: { type: 'string' },
+                                created_at: { type: 'string' },
+                            },
                         },
                     },
                 },
             },
         },
-    },
-} as const;
+    } as const;
+}
 
-export const schemaAuditHeatmap = {
-    response: {
-        200: {
-            type: 'object',
-            required: ['days', 'from', 'to', 'total', 'busiest'],
-            properties: {
-                days: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['date', 'total', 'errors'],
-                        properties: {
-                            date: { type: 'string' },
-                            total: { type: 'integer' },
-                            errors: { type: 'integer' },
+export function schemaAuditHeatmap() {
+    return {
+        response: {
+            200: {
+                type: 'object',
+                required: ['days', 'from', 'to', 'total', 'busiest'],
+                properties: {
+                    days: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['date', 'total', 'errors'],
+                            properties: {
+                                date: { type: 'string' },
+                                total: { type: 'integer' },
+                                errors: { type: 'integer' },
+                            },
                         },
                     },
+                    from: { type: 'string' },
+                    to: { type: 'string' },
+                    total: { type: 'integer' },
+                    busiest: { type: 'integer' },
                 },
-                from: { type: 'string' },
-                to: { type: 'string' },
-                total: { type: 'integer' },
-                busiest: { type: 'integer' },
             },
         },
-    },
-} as const;
+    } as const;
+}

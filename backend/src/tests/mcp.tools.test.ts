@@ -1,357 +1,371 @@
 import assert from 'node:assert/strict';
-
 import {
     AGENT_PERMISSIONS,
     DEFAULT_AGENT_PERMISSIONS,
+    DOCUMENT_NAME_PATTERN,
+    PERMISSIONS,
+    TOOLS,
+} from '../constant.js';
+
+import {
     parseAgentPermissions,
     serializeAgentPermissions,
 } from '../routes/agent/agent.permission.js';
 import { readToolCalls } from '../routes/agent/agent.reply.js';
-import {
-    allowedTools,
-    DOCUMENT_NAME_PATTERN,
-    TOOLS,
-    toOpenAITools,
-} from '../routes/mcp/mcp.tools.js';
-import { PERMISSIONS as PROFILE_PERMISSIONS } from '../routes/telegram/telegram.permission.js';
+import { allowedTools, toOpenAITools } from '../routes/mcp/mcp.tools.js';
 
-const call = (id: string, name: string, args: unknown) => ({
-    choices: [
-        {
-            message: {
-                tool_calls: [{ id, type: 'function', function: { name, arguments: args } }],
+function main() {
+    const call = (id: string, name: string, args: unknown) => ({
+        choices: [
+            {
+                message: {
+                    tool_calls: [{ id, type: 'function', function: { name, arguments: args } }],
+                },
             },
-        },
-    ],
-});
+        ],
+    });
 
-const tests: Array<[string, () => void]> = [
-    [
-        'an agent with no capabilities gets no tools at all',
-        () => {
-            assert.deepEqual(allowedTools(''), []);
-        },
-    ],
+    const tests: Array<[string, () => void]> = [
+        [
+            'an agent with no capabilities gets no tools at all',
+            () => {
+                assert.deepEqual(allowedTools(''), []);
+            },
+        ],
 
-    [
-        'capabilities belong to the agent, not to the person',
-        () => {
-            const profileKeys = PROFILE_PERMISSIONS.map((p) => p.key);
+        [
+            'capabilities belong to the agent, not to the person',
+            () => {
+                const profileKeys = PERMISSIONS.map((p) => p.key);
 
-            assert.equal(profileKeys.includes('prefs.read'), false);
-            assert.equal(profileKeys.includes('prefs.write'), false);
+                assert.equal(profileKeys.includes('prefs.read'), false);
+                assert.equal(profileKeys.includes('prefs.write'), false);
 
-            for (const tool of TOOLS) {
-                assert.ok(
-                    AGENT_PERMISSIONS.some((p) => p.key === tool.permission),
-                    `${tool.name} needs an agent capability`,
+                for (const tool of TOOLS) {
+                    assert.ok(
+                        AGENT_PERMISSIONS.some((p) => p.key === tool.permission),
+                        `${tool.name} needs an agent capability`,
+                    );
+                }
+            },
+        ],
+
+        [
+            'read permission exposes only read tools',
+            () => {
+                const names = allowedTools(serializeAgentPermissions(['prefs.read']))
+                    .map((t) => t.name)
+                    .sort();
+
+                assert.deepEqual(names, ['preferences_list', 'preferences_read', 'profile_get']);
+            },
+        ],
+
+        [
+            'write permission does not imply read',
+            () => {
+                const names = allowedTools(serializeAgentPermissions(['prefs.write']))
+                    .map((t) => t.name)
+                    .sort();
+
+                assert.deepEqual(names, ['preferences_append', 'preferences_write']);
+                assert.equal(names.includes('preferences_read'), false);
+            },
+        ],
+
+        [
+            'no tool can touch permissions',
+            () => {
+                const keys = AGENT_PERMISSIONS.map((p) => p.key);
+
+                for (const tool of TOOLS) {
+                    assert.equal(
+                        /permission|grant|revoke/i.test(tool.name),
+                        false,
+                        `${tool.name} looks like it edits permissions`,
+                    );
+                    assert.ok(
+                        keys.includes(tool.permission),
+                        `${tool.name} requires an unknown permission`,
+                    );
+                }
+            },
+        ],
+
+        [
+            'seeing the team is a separate capability from seeing the person in front of you',
+            () => {
+                const prefs = allowedTools(serializeAgentPermissions(['prefs.read'])).map(
+                    (t) => t.name,
                 );
-            }
-        },
-    ],
 
-    [
-        'read permission exposes only read tools',
-        () => {
-            const names = allowedTools(serializeAgentPermissions(['prefs.read']))
-                .map((t) => t.name)
-                .sort();
+                for (const name of ['team_members', 'team_member_read', 'team_member_note']) {
+                    assert.equal(prefs.includes(name), false, `prefs.read exposed ${name}`);
+                }
+            },
+        ],
 
-            assert.deepEqual(names, ['preferences_list', 'preferences_read', 'profile_get']);
-        },
-    ],
+        [
+            'team.read lists and reads but cannot record',
+            () => {
+                const names = allowedTools(serializeAgentPermissions(['team.read']))
+                    .map((t) => t.name)
+                    .sort();
 
-    [
-        'write permission does not imply read',
-        () => {
-            const names = allowedTools(serializeAgentPermissions(['prefs.write']))
-                .map((t) => t.name)
-                .sort();
+                assert.deepEqual(names, ['team_member_read', 'team_members']);
+            },
+        ],
 
-            assert.deepEqual(names, ['preferences_append', 'preferences_write']);
-            assert.equal(names.includes('preferences_read'), false);
-        },
-    ],
+        [
+            'team.write records but does not imply reading the roster',
+            () => {
+                const names = allowedTools(serializeAgentPermissions(['team.write']))
+                    .map((t) => t.name)
+                    .sort();
 
-    [
-        'no tool can touch permissions',
-        () => {
-            const keys = AGENT_PERMISSIONS.map((p) => p.key);
+                assert.deepEqual(names, ['team_member_note']);
+            },
+        ],
 
-            for (const tool of TOOLS) {
+        [
+            'the team file is a separate capability from the profile notes',
+            () => {
+                const notes = allowedTools(
+                    serializeAgentPermissions(['team.read', 'team.write']),
+                ).map((t) => t.name);
+                const roster = allowedTools(
+                    serializeAgentPermissions([
+                        'roster.read',
+                        'roster.create',
+                        'roster.update',
+                        'roster.delete',
+                    ]),
+                ).map((t) => t.name);
+
                 assert.equal(
-                    /permission|grant|revoke/i.test(tool.name),
+                    notes.some((name) => name.startsWith('roster_')),
                     false,
-                    `${tool.name} looks like it edits permissions`,
+                    'team.* reached the roster file',
                 );
-                assert.ok(
-                    keys.includes(tool.permission),
-                    `${tool.name} requires an unknown permission`,
+                assert.equal(
+                    roster.some((name) => name.startsWith('team_member')),
+                    false,
+                    'roster.* reached the profile notes',
                 );
-            }
-        },
-    ],
+            },
+        ],
 
-    [
-        'seeing the team is a separate capability from seeing the person in front of you',
-        () => {
-            const prefs = allowedTools(serializeAgentPermissions(['prefs.read'])).map(
-                (t) => t.name,
-            );
+        [
+            'reading the team file does not imply editing it',
+            () => {
+                const names = allowedTools(serializeAgentPermissions(['roster.read']))
+                    .map((t) => t.name)
+                    .sort();
 
-            for (const name of ['team_members', 'team_member_read', 'team_member_note']) {
-                assert.equal(prefs.includes(name), false, `prefs.read exposed ${name}`);
-            }
-        },
-    ],
+                assert.deepEqual(names, ['roster_read']);
+            },
+        ],
 
-    [
-        'team.read lists and reads but cannot record',
-        () => {
-            const names = allowedTools(serializeAgentPermissions(['team.read']))
-                .map((t) => t.name)
-                .sort();
+        [
+            'each team file action is its own permission, and none replaces the whole file',
+            () => {
+                const only = (key: string) =>
+                    allowedTools(serializeAgentPermissions([key])).map((t) => t.name);
 
-            assert.deepEqual(names, ['team_member_read', 'team_members']);
-        },
-    ],
+                assert.deepEqual(only('roster.create'), ['roster_member_create']);
+                assert.deepEqual(only('roster.update'), ['roster_member_update']);
+                assert.deepEqual(only('roster.delete'), ['roster_member_delete']);
+            },
+        ],
 
-    [
-        'team.write records but does not imply reading the roster',
-        () => {
-            const names = allowedTools(serializeAgentPermissions(['team.write']))
-                .map((t) => t.name)
-                .sort();
-
-            assert.deepEqual(names, ['team_member_note']);
-        },
-    ],
-
-    [
-        'the team file is a separate capability from the profile notes',
-        () => {
-            const notes = allowedTools(serializeAgentPermissions(['team.read', 'team.write'])).map(
-                (t) => t.name,
-            );
-            const roster = allowedTools(
-                serializeAgentPermissions([
+        [
+            'an agent that could edit the team file before the split keeps every action',
+            () => {
+                assert.deepEqual(parseAgentPermissions('basics,roster.read,roster.write'), [
+                    'basics',
                     'roster.read',
                     'roster.create',
                     'roster.update',
                     'roster.delete',
-                ]),
-            ).map((t) => t.name);
-
-            assert.equal(
-                notes.some((name) => name.startsWith('roster_')),
-                false,
-                'team.* reached the roster file',
-            );
-            assert.equal(
-                roster.some((name) => name.startsWith('team_member')),
-                false,
-                'roster.* reached the profile notes',
-            );
-        },
-    ],
-
-    [
-        'reading the team file does not imply editing it',
-        () => {
-            const names = allowedTools(serializeAgentPermissions(['roster.read']))
-                .map((t) => t.name)
-                .sort();
-
-            assert.deepEqual(names, ['roster_read']);
-        },
-    ],
-
-    [
-        'each team file action is its own permission, and none replaces the whole file',
-        () => {
-            const only = (key: string) =>
-                allowedTools(serializeAgentPermissions([key])).map((t) => t.name);
-
-            assert.deepEqual(only('roster.create'), ['roster_member_create']);
-            assert.deepEqual(only('roster.update'), ['roster_member_update']);
-            assert.deepEqual(only('roster.delete'), ['roster_member_delete']);
-        },
-    ],
-
-    [
-        'an agent that could edit the team file before the split keeps every action',
-        () => {
-            assert.deepEqual(parseAgentPermissions('basics,roster.read,roster.write'), [
-                'basics',
-                'roster.read',
-                'roster.create',
-                'roster.update',
-                'roster.delete',
-            ]);
-            assert.equal(
-                serializeAgentPermissions(['roster.write']),
-                'roster.create,roster.update,roster.delete',
-            );
-        },
-    ],
-
-    [
-        'the team file is off for a new agent',
-        () => {
-            const names = allowedTools(serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS)).map(
-                (t) => t.name,
-            );
-
-            assert.equal(
-                names.some((name) => name.startsWith('roster_')),
-                false,
-            );
-        },
-    ],
-
-    [
-        'nothing can overwrite what the team remembers about someone',
-        () => {
-            const write = TOOLS.filter((t) => t.permission === 'team.write');
-
-            assert.equal(write.length, 1);
-            assert.equal(write[0].name, 'team_member_note');
-            assert.match(write[0].description, /appends/i);
-        },
-    ],
-
-    [
-        'a member is addressed by the id the roster hands out',
-        () => {
-            for (const name of ['team_member_read', 'team_member_note']) {
-                const tool = TOOLS.find((t) => t.name === name);
-
-                assert.ok(tool, `${name} missing`);
-                assert.ok(
-                    tool.inputSchema.required.includes('member_id'),
-                    `${name} does not require member_id`,
-                );
-                assert.equal(tool.inputSchema.required.includes('telegram_id'), false);
-            }
-        },
-    ],
-
-    [
-        'the team capabilities are off for a new agent',
-        () => {
-            for (const key of ['team.read', 'team.write']) {
+                ]);
                 assert.equal(
-                    DEFAULT_AGENT_PERMISSIONS.includes(key),
-                    false,
-                    `${key} is on by default`,
+                    serializeAgentPermissions(['roster.write']),
+                    'roster.create,roster.update,roster.delete',
                 );
-            }
-        },
-    ],
+            },
+        ],
 
-    [
-        'every tool declares a permission and a schema',
-        () => {
-            for (const tool of TOOLS) {
-                assert.ok(tool.permission !== '', `${tool.name} has no permission`);
-                assert.equal(tool.inputSchema.type, 'object');
-                assert.ok(Array.isArray(tool.inputSchema.required));
-            }
-        },
-    ],
+        [
+            'the team file is off for a new agent',
+            () => {
+                const names = allowedTools(
+                    serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS),
+                ).map((t) => t.name);
 
-    [
-        'definitions adapt to the vendor tool format',
-        () => {
-            const adapted = toOpenAITools(allowedTools(serializeAgentPermissions(['prefs.read'])));
+                assert.equal(
+                    names.some((name) => name.startsWith('roster_')),
+                    false,
+                );
+            },
+        ],
 
-            assert.equal(adapted.length, 3);
-            assert.equal(adapted[0].type, 'function');
-            assert.ok(typeof adapted[0].function.name === 'string');
-            assert.equal(adapted[0].function.parameters.type, 'object');
-        },
-    ],
+        [
+            'nothing can overwrite what the team remembers about someone',
+            () => {
+                const write = TOOLS.filter((t) => t.permission === 'team.write');
 
-    [
-        'filenames must be plain markdown',
-        () => {
-            for (const good of ['preferences.md', 'notes-2026.md', 'a.md']) {
-                assert.ok(DOCUMENT_NAME_PATTERN.test(good), good);
-            }
+                assert.equal(write.length, 1);
+                assert.equal(write[0].name, 'team_member_note');
+                assert.match(write[0].description, /appends/i);
+            },
+        ],
 
-            for (const bad of [
-                '../etc/passwd',
-                'notes.txt',
-                '/abs.md',
-                'a b.md',
-                '.hidden.md',
-                '',
-                'no-extension',
-            ]) {
-                assert.equal(DOCUMENT_NAME_PATTERN.test(bad), false, `accepted ${bad}`);
-            }
-        },
-    ],
+        [
+            'a member is addressed by the id the roster hands out',
+            () => {
+                for (const name of ['team_member_read', 'team_member_note']) {
+                    const tool = TOOLS.find((t) => t.name === name);
 
-    [
-        'tool calls with string arguments are parsed',
-        () => {
-            const calls = readToolCalls(
-                call('c1', 'preferences_write', '{"name":"preferences.md","content":"hi"}'),
-            );
+                    assert.ok(tool, `${name} missing`);
+                    assert.ok(
+                        tool.inputSchema.required.includes('member_id'),
+                        `${name} does not require member_id`,
+                    );
+                    assert.equal(tool.inputSchema.required.includes('telegram_id'), false);
+                }
+            },
+        ],
 
-            assert.equal(calls.length, 1);
-            assert.deepEqual(calls[0], {
-                id: 'c1',
-                name: 'preferences_write',
-                arguments: { name: 'preferences.md', content: 'hi' },
-            });
-        },
-    ],
+        [
+            'the team capabilities are off for a new agent',
+            () => {
+                for (const key of ['team.read', 'team.write']) {
+                    assert.equal(
+                        DEFAULT_AGENT_PERMISSIONS.includes(key),
+                        false,
+                        `${key} is on by default`,
+                    );
+                }
+            },
+        ],
 
-    [
-        'a call with unparseable arguments is dropped, not thrown on',
-        () => {
-            assert.deepEqual(readToolCalls(call('c1', 'preferences_read', '{not json')), []);
-        },
-    ],
+        [
+            'every tool declares a permission and a schema',
+            () => {
+                for (const tool of TOOLS) {
+                    assert.ok(tool.permission !== '', `${tool.name} has no permission`);
+                    assert.equal(tool.inputSchema.type, 'object');
+                    assert.ok(Array.isArray(tool.inputSchema.required));
+                }
+            },
+        ],
 
-    [
-        'a call with no arguments parses as empty',
-        () => {
-            const calls = readToolCalls(call('c1', 'preferences_list', ''));
+        [
+            'definitions adapt to the vendor tool format',
+            () => {
+                const adapted = toOpenAITools(
+                    allowedTools(serializeAgentPermissions(['prefs.read'])),
+                );
 
-            assert.deepEqual(calls[0].arguments, {});
-        },
-    ],
+                assert.equal(adapted.length, 3);
+                assert.equal(adapted[0].type, 'function');
+                assert.ok(typeof adapted[0].function.name === 'string');
+                assert.equal(adapted[0].function.parameters.type, 'object');
+            },
+        ],
 
-    [
-        'a plain answer yields no tool calls',
-        () => {
-            assert.deepEqual(readToolCalls({ choices: [{ message: { content: 'hello' } }] }), []);
+        [
+            'filenames must be plain markdown',
+            () => {
+                for (const good of ['preferences.md', 'notes-2026.md', 'a.md']) {
+                    assert.ok(DOCUMENT_NAME_PATTERN.test(good), good);
+                }
 
-            for (const payload of [undefined, null, 'x', 42, {}, { choices: [] }]) {
-                assert.deepEqual(readToolCalls(payload), [], `accepted ${JSON.stringify(payload)}`);
-            }
-        },
-    ],
-];
+                for (const bad of [
+                    '../etc/passwd',
+                    'notes.txt',
+                    '/abs.md',
+                    'a b.md',
+                    '.hidden.md',
+                    '',
+                    'no-extension',
+                ]) {
+                    assert.equal(DOCUMENT_NAME_PATTERN.test(bad), false, `accepted ${bad}`);
+                }
+            },
+        ],
 
-let failed = 0;
+        [
+            'tool calls with string arguments are parsed',
+            () => {
+                const calls = readToolCalls(
+                    call('c1', 'preferences_write', '{"name":"preferences.md","content":"hi"}'),
+                );
 
-for (const [title, run] of tests) {
-    try {
-        run();
+                assert.equal(calls.length, 1);
+                assert.deepEqual(calls[0], {
+                    id: 'c1',
+                    name: 'preferences_write',
+                    arguments: { name: 'preferences.md', content: 'hi' },
+                });
+            },
+        ],
 
-        console.log(`  ok    ${title}`);
-    } catch (error) {
-        failed += 1;
+        [
+            'a call with unparseable arguments is dropped, not thrown on',
+            () => {
+                assert.deepEqual(readToolCalls(call('c1', 'preferences_read', '{not json')), []);
+            },
+        ],
 
-        console.log(`  FAIL  ${title}`);
-        console.log(`        ${error instanceof Error ? error.message : String(error)}`);
+        [
+            'a call with no arguments parses as empty',
+            () => {
+                const calls = readToolCalls(call('c1', 'preferences_list', ''));
+
+                assert.deepEqual(calls[0].arguments, {});
+            },
+        ],
+
+        [
+            'a plain answer yields no tool calls',
+            () => {
+                assert.deepEqual(
+                    readToolCalls({ choices: [{ message: { content: 'hello' } }] }),
+                    [],
+                );
+
+                for (const payload of [undefined, null, 'x', 42, {}, { choices: [] }]) {
+                    assert.deepEqual(
+                        readToolCalls(payload),
+                        [],
+                        `accepted ${JSON.stringify(payload)}`,
+                    );
+                }
+            },
+        ],
+    ];
+
+    let failed = 0;
+
+    for (const [title, run] of tests) {
+        try {
+            run();
+
+            console.log(`  ok    ${title}`);
+        } catch (error) {
+            failed += 1;
+
+            console.log(`  FAIL  ${title}`);
+            console.log(`        ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
+
+    console.log(
+        failed === 0 ? `\n${tests.length} passed` : `\n${failed} of ${tests.length} failed`,
+    );
+
+    process.exit(failed === 0 ? 0 : 1);
 }
 
-console.log(failed === 0 ? `\n${tests.length} passed` : `\n${failed} of ${tests.length} failed`);
-
-process.exit(failed === 0 ? 0 : 1);
+main();

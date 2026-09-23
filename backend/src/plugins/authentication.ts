@@ -3,13 +3,14 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
-import { CONFIG } from '../constant.js';
+import {
+    CONFIG,
+    SESSION_ACCESS_TIME,
+    SESSION_REFRESH_TIME,
+    STATUS_FORBIDDEN,
+    STATUS_UNAUTHORIZED,
+} from '../constant.js';
 import { touchAccount } from '../utils/presence.js';
-import { STATUS_FORBIDDEN, STATUS_UNAUTHORIZED } from '../utils/status.js';
-
-export const SESSION_ACCESS_TIME = 15 * 60 * 1000;
-export const SESSION_REFRESH_TIME = 30 * 24 * 60 * 60 * 1000;
-
 export function verifyAccessToken(token: string) {
     const accessToken = token.split('.');
 

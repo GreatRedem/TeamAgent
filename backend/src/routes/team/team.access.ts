@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { PAGE_LIMIT_MAX } from '../../constant.js';
 
 import { BadRequestResponse } from '../../utils/response.js';
 import { Team } from './team.entity.js';
@@ -13,10 +14,9 @@ export function readParamId(request: FastifyRequest, key: string, result: string
     return parsed;
 }
 
-export const readTeamId = (request: FastifyRequest) =>
-    readParamId(request, 'id', 'TEAM_ID_INVALID');
-
-export const PAGE_LIMIT_MAX = 200;
+export function readTeamId(request: FastifyRequest) {
+    return readParamId(request, 'id', 'TEAM_ID_INVALID');
+}
 
 export interface Page {
     limit: number;

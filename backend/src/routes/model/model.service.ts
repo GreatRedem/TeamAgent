@@ -1,16 +1,33 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import {
+    CONTEXT_TOKENS_MAX,
+    DETECT_TIMEOUT,
+    KEY_MAX,
+    KEY_MIN,
+    LIST_PAGE,
+    MODEL_EXCHANGE_PAGE,
+    MODEL_MAX,
+    NAME_MAX,
+    NAME_MIN,
+    NO_USAGE,
+    OPENROUTER_URL,
+    PROBE_IDS_MAX,
+    PROVIDERS,
+    TEST_TIMEOUT,
+    URL_MAX,
+} from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentExchange } from '../agent/agent.entity.js';
 import { exchangeView } from '../agent/agent.service.js';
 import { isOpenRouter } from '../agent/agent.transport.js';
-import { exchangeUsage, NO_USAGE } from '../agent/agent.usage.js';
+import { exchangeUsage } from '../agent/agent.usage.js';
 import { audit } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamModel } from '../team/team.entity.js';
 import { freeCandidates, isAutoFree } from './model.auto.js';
-import { fetchCatalog, OPENROUTER_URL, PROVIDERS, readContextLength } from './model.provider.js';
+import { fetchCatalog, readContextLength } from './model.provider.js';
 import {
     schemaModelCatalog,
     schemaModelCreate,
@@ -23,25 +40,9 @@ import {
     schemaModelUpdate,
 } from './model.schema.js';
 
-const LIST_PAGE = 50;
-
-const EXCHANGE_PAGE = 20;
-
-const NAME_MIN = 2;
-const NAME_MAX = 64;
-const MODEL_MAX = 128;
-const URL_MAX = 256;
-const KEY_MIN = 8;
-const KEY_MAX = 256;
-
-const CONTEXT_TOKENS_MAX = 10_000_000;
-
-const TEST_TIMEOUT = 8000;
-
-const DETECT_TIMEOUT = 3000;
-
-const readModelId = (request: FastifyRequest) =>
-    readParamId(request, 'modelId', 'MODEL_ID_INVALID');
+function readModelId(request: FastifyRequest) {
+    return readParamId(request, 'modelId', 'MODEL_ID_INVALID');
+}
 
 function toModelView(model: TeamModel) {
     const hint =
@@ -160,8 +161,6 @@ interface ModelProbe {
     ids?: string[];
     reason?: string;
 }
-
-const PROBE_IDS_MAX = 1000;
 
 export async function probeModel(
     baseUrl: string,
@@ -324,7 +323,7 @@ export function modelCreate(fastify: FastifyInstance) {
         reply.send(toModelView(saved));
     };
 
-    return { schema: schemaModelCreate, config: { ...authGuard() }, handler };
+    return { schema: schemaModelCreate(), config: { ...authGuard() }, handler };
 }
 
 export function modelList(fastify: FastifyInstance) {
@@ -363,7 +362,7 @@ export function modelList(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaModelList, config: { ...authGuard() }, handler };
+    return { schema: schemaModelList(), config: { ...authGuard() }, handler };
 }
 
 export function modelExchanges(fastify: FastifyInstance) {
@@ -376,7 +375,7 @@ export function modelExchanges(fastify: FastifyInstance) {
             request.account_id,
         );
 
-        const { limit, offset } = readPage(request, EXCHANGE_PAGE);
+        const { limit, offset } = readPage(request, MODEL_EXCHANGE_PAGE);
 
         const [rows, total] = await fastify.db.getRepository(TeamAgentExchange).findAndCount({
             where: { team_id: teamId, model_id: model.id },
@@ -406,7 +405,7 @@ export function modelExchanges(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaModelExchanges, config: { ...authGuard() }, handler };
+    return { schema: schemaModelExchanges(), config: { ...authGuard() }, handler };
 }
 
 export function modelUpdate(fastify: FastifyInstance) {
@@ -462,7 +461,7 @@ export function modelUpdate(fastify: FastifyInstance) {
         );
     };
 
-    return { schema: schemaModelUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaModelUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function modelRemove(fastify: FastifyInstance) {
@@ -506,7 +505,7 @@ export function modelRemove(fastify: FastifyInstance) {
         reply.send({ result: 'OK' });
     };
 
-    return { schema: schemaModelRemove, config: { ...authGuard() }, handler };
+    return { schema: schemaModelRemove(), config: { ...authGuard() }, handler };
 }
 
 export function modelTest(fastify: FastifyInstance) {
@@ -558,7 +557,7 @@ export function modelTest(fastify: FastifyInstance) {
         reply.send(probe);
     };
 
-    return { schema: schemaModelTest, config: { ...authGuard() }, handler };
+    return { schema: schemaModelTest(), config: { ...authGuard() }, handler };
 }
 
 export function modelProbe(fastify: FastifyInstance) {
@@ -603,7 +602,7 @@ export function modelProbe(fastify: FastifyInstance) {
         reply.send(probe);
     };
 
-    return { schema: schemaModelProbe, config: { ...authGuard() }, handler };
+    return { schema: schemaModelProbe(), config: { ...authGuard() }, handler };
 }
 
 export function modelListIds(fastify: FastifyInstance) {
@@ -638,7 +637,7 @@ export function modelListIds(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaModelListIds, config: { ...authGuard() }, handler };
+    return { schema: schemaModelListIds(), config: { ...authGuard() }, handler };
 }
 
 export function modelCatalog() {
@@ -665,5 +664,5 @@ export function modelCatalog() {
         });
     };
 
-    return { schema: schemaModelCatalog, config: { ...authGuard() }, handler };
+    return { schema: schemaModelCatalog(), config: { ...authGuard() }, handler };
 }

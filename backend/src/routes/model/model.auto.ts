@@ -1,16 +1,9 @@
+import { AUTO_FREE, REST_BUSY, REST_DOWN, REST_GONE, resting } from '../../constant.js';
 import type { CatalogModel } from './model.provider.js';
 
-export const AUTO_FREE = 'auto:free';
-
-export const isAutoFree = (model: string): boolean => model === AUTO_FREE;
-
-export const AUTO_ATTEMPTS = 3;
-
-export const REST_BUSY = 60_000;
-export const REST_DOWN = 30_000;
-export const REST_GONE = 3_600_000;
-
-const resting = new Map<string, number>();
+export function isAutoFree(model: string): boolean {
+    return model === AUTO_FREE;
+}
 
 export function freeCandidates(models: CatalogModel[], needTools: boolean): CatalogModel[] {
     return models

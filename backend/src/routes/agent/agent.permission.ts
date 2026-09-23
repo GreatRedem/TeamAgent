@@ -1,92 +1,17 @@
+import { AGENT_KNOWN, AGENT_PERMISSIONS, SPLIT } from '../../constant.js';
 export interface AgentPermission {
     key: string;
     label: string;
     description: string;
 }
 
-export const AGENT_PERMISSIONS: AgentPermission[] = [
-    {
-        key: 'prefs.read',
-        label: 'May read files',
-        description: 'Lets this agent read the markdown files it keeps for the people it talks to.',
-    },
-    {
-        key: 'prefs.write',
-        label: 'May write files',
-        description:
-            'Lets this agent create and change those files. Granting it does not imply read.',
-    },
-    {
-        key: 'conversation.read',
-        label: 'May search past messages',
-        description:
-            'Lets this agent look back through what a person has written to it before, beyond the recent turns it already sees.',
-    },
-    {
-        key: 'team.read',
-        label: 'May see the team roster',
-        description:
-            'Lets this agent list the people the team knows and read what has been recorded about them, not only the person it is currently talking to.',
-    },
-    {
-        key: 'team.write',
-        label: 'May remember things about the team',
-        description:
-            'Lets this agent add notes about any member of the team. It can only append, so nothing already recorded is lost.',
-    },
-    {
-        key: 'roster.read',
-        label: 'May read the team file',
-        description:
-            'Lets this agent read team.json: who is on the team, what they do, their rank and their public handles.',
-    },
-    {
-        key: 'roster.create',
-        label: 'May add team members',
-        description:
-            'Lets this agent add a new person to team.json. It cannot change or remove anyone already there.',
-    },
-    {
-        key: 'roster.update',
-        label: 'May update team members',
-        description:
-            'Lets this agent change what team.json says about someone already on it: their rank, description, handles or name. Only the fields it passes change.',
-    },
-    {
-        key: 'roster.delete',
-        label: 'May remove team members',
-        description:
-            'Lets this agent take a person out of team.json. The one team.json action that loses information, so grant it sparingly.',
-    },
-    {
-        key: 'web.fetch',
-        label: 'May fetch web pages',
-        description:
-            'Lets this agent read public web pages. Private, loopback and cloud-metadata addresses are always refused, whoever asks.',
-    },
-    {
-        key: 'basics',
-        label: 'May read the clock',
-        description:
-            'Lets this agent know the current date and time. Harmless, and on by default for new agents.',
-    },
-];
-
-const KNOWN = new Set(AGENT_PERMISSIONS.map((permission) => permission.key));
-
-const SPLIT: Record<string, string[]> = {
-    'roster.write': ['roster.create', 'roster.update', 'roster.delete'],
-};
-
-const expand = (keys: string[]) => keys.flatMap((key) => SPLIT[key] ?? [key]);
-
-export const DEFAULT_AGENT_PERMISSIONS: string[] = ['basics'];
-
-export const AGENT_PERMISSIONS_MAX = 256;
+function expand(keys: string[]) {
+    return keys.flatMap((key) => SPLIT[key] ?? [key]);
+}
 
 export function parseAgentPermissions(stored: string): string[] {
     return [...new Set(expand(stored.split(',').map((key) => key.trim())))].filter((key) =>
-        KNOWN.has(key),
+        AGENT_KNOWN.has(key),
     );
 }
 
@@ -99,7 +24,7 @@ export function serializeAgentPermissions(keys: string[]): string {
 }
 
 export function isKnownAgentPermission(key: string): boolean {
-    return KNOWN.has(key);
+    return AGENT_KNOWN.has(key);
 }
 
 export function agentHasPermission(stored: string, key: string): boolean {

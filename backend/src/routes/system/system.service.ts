@@ -3,6 +3,7 @@ import os from 'node:os';
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+import { CPU_SAMPLE } from '../../constant.js';
 import { authGuard } from '../../plugins/authentication.js';
 import { activeAccounts } from '../../utils/presence.js';
 import { schemaSystemMetrics } from './system.schema.js';
@@ -22,19 +23,19 @@ function cpuTimes(): { idle: number; total: number } {
     return { idle, total };
 }
 
-let previous = cpuTimes();
-let lastPercent = 0;
-
 export function cpuPercent(): number {
     const now = cpuTimes();
+    const previous = CPU_SAMPLE.previous ?? now;
     const total = now.total - previous.total;
 
+    CPU_SAMPLE.previous = CPU_SAMPLE.previous ?? now;
+
     if (total > 0) {
-        lastPercent = Math.round((1 - (now.idle - previous.idle) / total) * 100);
-        previous = now;
+        CPU_SAMPLE.percent = Math.round((1 - (now.idle - previous.idle) / total) * 100);
+        CPU_SAMPLE.previous = now;
     }
 
-    return lastPercent;
+    return CPU_SAMPLE.percent;
 }
 
 export async function disk(): Promise<{ total: number; used: number }> {
@@ -73,5 +74,5 @@ export function systemMetrics(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaSystemMetrics, config: { ...authGuard() }, handler };
+    return { schema: schemaSystemMetrics(), config: { ...authGuard() }, handler };
 }

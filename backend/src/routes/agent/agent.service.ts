@@ -1,4 +1,18 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import {
+    AGENT_DESCRIPTION_MAX,
+    AGENT_DOCUMENT_CONTENT_MAX,
+    AGENT_EXCHANGE_PAGE,
+    AGENT_PERMISSIONS,
+    DEFAULT_AGENT_PERMISSIONS,
+    DEFAULT_DOCUMENTS,
+    DOCUMENT_NAME_MAX,
+    DOCUMENT_NAME_PATTERN,
+    LIST_PAGE,
+    NAME_MAX,
+    NAME_MIN,
+    NO_USAGE,
+} from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
@@ -9,8 +23,6 @@ import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from './agent.entity.js';
 import {
-    AGENT_PERMISSIONS,
-    DEFAULT_AGENT_PERMISSIONS,
     isKnownAgentPermission,
     parseAgentPermissions,
     serializeAgentPermissions,
@@ -28,26 +40,14 @@ import {
     schemaAgentRemove,
     schemaAgentUpdate,
 } from './agent.schema.js';
-import {
-    DEFAULT_DOCUMENTS,
-    DOCUMENT_CONTENT_MAX,
-    DOCUMENT_NAME_MAX,
-    DOCUMENT_NAME_PATTERN,
-} from './agent.template.js';
-import { exchangeUsage, NO_USAGE } from './agent.usage.js';
+import { exchangeUsage } from './agent.usage.js';
 
-const NAME_MIN = 2;
-const NAME_MAX = 64;
-const DESCRIPTION_MAX = 280;
-
-const EXCHANGE_PAGE = 40;
-
-const LIST_PAGE = 50;
-
-const readAgentId = (request: FastifyRequest) =>
-    readParamId(request, 'agentId', 'AGENT_ID_INVALID');
-const readDocumentId = (request: FastifyRequest) =>
-    readParamId(request, 'documentId', 'DOCUMENT_ID_INVALID');
+function readAgentId(request: FastifyRequest) {
+    return readParamId(request, 'agentId', 'AGENT_ID_INVALID');
+}
+function readDocumentId(request: FastifyRequest) {
+    return readParamId(request, 'documentId', 'DOCUMENT_ID_INVALID');
+}
 
 function toDocumentView(document: TeamAgentDocument) {
     return {
@@ -112,7 +112,7 @@ async function readModelId(
 
 function readAgentBody(request: FastifyRequest) {
     const name = request.getBody('name').min(NAME_MIN).max(NAME_MAX).asString().trim();
-    const description = request.getBody('description').max(DESCRIPTION_MAX).asString().trim();
+    const description = request.getBody('description').max(AGENT_DESCRIPTION_MAX).asString().trim();
 
     if (name.length < NAME_MIN) {
         throw new BadRequestResponse('ERROR_MIN_LENGTH');
@@ -123,7 +123,7 @@ function readAgentBody(request: FastifyRequest) {
 
 function readDocumentBody(request: FastifyRequest) {
     const name = request.getBody('name').min(4).max(DOCUMENT_NAME_MAX).asString().trim();
-    const content = request.getBody('content').max(DOCUMENT_CONTENT_MAX).asString();
+    const content = request.getBody('content').max(AGENT_DOCUMENT_CONTENT_MAX).asString();
 
     if (!DOCUMENT_NAME_PATTERN.test(name)) {
         throw new BadRequestResponse('DOCUMENT_NAME_INVALID');
@@ -181,7 +181,7 @@ export function agentCreate(fastify: FastifyInstance) {
         reply.send(toAgentView(agent, names.get(modelId) ?? '', DEFAULT_DOCUMENTS.length));
     };
 
-    return { schema: schemaAgentCreate, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentCreate(), config: { ...authGuard() }, handler };
 }
 
 export function agentList(fastify: FastifyInstance) {
@@ -239,7 +239,7 @@ export function agentList(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaAgentList, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentList(), config: { ...authGuard() }, handler };
 }
 
 export function agentDetails(fastify: FastifyInstance) {
@@ -267,7 +267,7 @@ export function agentDetails(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaAgentDetails, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentDetails(), config: { ...authGuard() }, handler };
 }
 
 export function agentUpdate(fastify: FastifyInstance) {
@@ -314,7 +314,7 @@ export function agentUpdate(fastify: FastifyInstance) {
         );
     };
 
-    return { schema: schemaAgentUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function agentRemove(fastify: FastifyInstance) {
@@ -369,7 +369,7 @@ export function agentRemove(fastify: FastifyInstance) {
         reply.send({ result: 'OK' });
     };
 
-    return { schema: schemaAgentRemove, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentRemove(), config: { ...authGuard() }, handler };
 }
 
 export function agentDocumentCreate(fastify: FastifyInstance) {
@@ -414,7 +414,7 @@ export function agentDocumentCreate(fastify: FastifyInstance) {
         reply.send(toDocumentView(document));
     };
 
-    return { schema: schemaAgentDocumentCreate, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentDocumentCreate(), config: { ...authGuard() }, handler };
 }
 
 export function agentDocumentUpdate(fastify: FastifyInstance) {
@@ -468,7 +468,7 @@ export function agentDocumentUpdate(fastify: FastifyInstance) {
         reply.send(toDocumentView({ ...document, name, content, updated_at: new Date() }));
     };
 
-    return { schema: schemaAgentDocumentUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentDocumentUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function agentDocumentRemove(fastify: FastifyInstance) {
@@ -512,7 +512,7 @@ export function agentDocumentRemove(fastify: FastifyInstance) {
         reply.send({ result: 'OK' });
     };
 
-    return { schema: schemaAgentDocumentRemove, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentDocumentRemove(), config: { ...authGuard() }, handler };
 }
 
 export function agentPermissionCatalog(fastify: FastifyInstance) {
@@ -522,7 +522,7 @@ export function agentPermissionCatalog(fastify: FastifyInstance) {
         reply.send({ permissions: AGENT_PERMISSIONS });
     };
 
-    return { schema: schemaAgentPermissionCatalog, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentPermissionCatalog(), config: { ...authGuard() }, handler };
 }
 
 export function agentPermissionUpdate(fastify: FastifyInstance) {
@@ -582,7 +582,7 @@ export function agentPermissionUpdate(fastify: FastifyInstance) {
         );
     };
 
-    return { schema: schemaAgentPermissionUpdate, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentPermissionUpdate(), config: { ...authGuard() }, handler };
 }
 
 export function exchangeView(exchange: TeamAgentExchange, agentName: string) {
@@ -615,7 +615,7 @@ export function agentExchanges(fastify: FastifyInstance) {
             request.account_id,
         );
 
-        const { limit, offset } = readPage(request, EXCHANGE_PAGE);
+        const { limit, offset } = readPage(request, AGENT_EXCHANGE_PAGE);
 
         const [rows, total] = await fastify.db.getRepository(TeamAgentExchange).findAndCount({
             where: { team_id: teamId, agent_id: agent.id },
@@ -635,5 +635,5 @@ export function agentExchanges(fastify: FastifyInstance) {
         });
     };
 
-    return { schema: schemaAgentExchanges, config: { ...authGuard() }, handler };
+    return { schema: schemaAgentExchanges(), config: { ...authGuard() }, handler };
 }

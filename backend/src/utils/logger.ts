@@ -59,7 +59,12 @@ function replacer(redacted: Set<string>) {
         }
 
         if (key === 'req' && 'method' in value && 'url' in value) {
-            const request = value as { method: string; url: string; ip?: string; hostname?: string };
+            const request = value as {
+                method: string;
+                url: string;
+                ip?: string;
+                hostname?: string;
+            };
 
             return {
                 method: request.method,
