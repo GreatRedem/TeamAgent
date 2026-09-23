@@ -98,9 +98,13 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
             const updates = Array.isArray(answer.payload.result) ? answer.payload.result : [];
 
             let highest = offset > 0 ? offset - 1 : 0;
+            const current =
+                updates.length > 0
+                    ? ((await fastify.db.getRepository(TeamBot).findOneBy({ id: botId })) ?? bot)
+                    : bot;
 
             for (const update of updates) {
-                await ingestUpdate(fastify, bot, update, fastify.log);
+                await ingestUpdate(fastify, current, update, fastify.log);
 
                 const updateId = Number((update as { update_id?: unknown }).update_id);
 

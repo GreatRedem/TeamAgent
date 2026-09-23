@@ -8,12 +8,15 @@ export interface TeamBot {
     mode: 'webhook' | 'polling';
     agent_id: number;
     agent_name: string;
+    groups: boolean;
+    profiles: { id: number; name: string }[];
     created_at: string;
 }
 
 export interface TeamBotProbe {
     ok: boolean;
     username?: string;
+    reads_groups?: boolean;
     reason?: string;
 }
 
@@ -25,17 +28,13 @@ export function teamBotCreate(teamId: number, name: string, token: string, publi
     return request<TeamBot>('POST', `/team/${teamId}/bot`, { name, token, public_url: publicUrl });
 }
 
-export function teamBotUpdate(
-    teamId: number,
-    botId: number,
-    name: string,
-    publicUrl: string,
-    agentId: number,
-) {
-    return request<TeamBot>('PATCH', `/team/${teamId}/bot/${botId}`, {
-        name,
-        public_url: publicUrl,
-        agent_id: agentId,
+export function teamBotUpdate(teamId: number, bot: TeamBot) {
+    return request<TeamBot>('PATCH', `/team/${teamId}/bot/${bot.id}`, {
+        name: bot.name,
+        public_url: bot.public_url,
+        agent_id: bot.agent_id,
+        groups: bot.groups,
+        profiles: bot.profiles.map((profile) => profile.id),
     });
 }
 

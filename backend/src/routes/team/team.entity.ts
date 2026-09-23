@@ -81,6 +81,15 @@ export class TeamBot {
     @Column({ type: 'int', default: 0 })
     agent_id: number;
 
+    @Column({ type: 'boolean', default: false })
+    groups: boolean;
+
+    @Column({ type: 'varchar', length: 512, default: '' })
+    profiles: string;
+
+    @Column({ type: 'varchar', length: 64, default: '' })
+    username: string;
+
     @Column({ type: 'bigint', default: 0 })
     poll_offset: string;
 

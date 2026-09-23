@@ -7,6 +7,7 @@ import {
     PLUGIN_TOOLS,
 } from '../../constant.js';
 
+import { idList } from '../../utils/ids.js';
 import type { TeamAgent } from '../agent/agent.entity.js';
 import type { ToolDefinition, ToolResult } from '../mcp/mcp.tools.js';
 import { browserAct, browserProbe } from './plugin.browser.js';
@@ -18,10 +19,7 @@ import { telegramAct, telegramProbe } from './plugin.telegram.js';
 import { xAct, xProbe } from './plugin.x.js';
 
 export function pluginAgents(plugin: { agents: string }): number[] {
-    return plugin.agents
-        .split(',')
-        .map(Number)
-        .filter((id) => Number.isInteger(id) && id > 0);
+    return idList(plugin.agents);
 }
 
 export function pluginEvents(plugin: { hook_events: string }): string[] {

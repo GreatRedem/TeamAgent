@@ -53,6 +53,46 @@ function main() {
         ],
 
         [
+            'a bot that answers groups takes a mention and drops the handle',
+            () => {
+                const bot = { id: 555, username: 'nura_bot' };
+                const group = { chat: { id: -100123, type: 'supergroup', title: 'Team' } };
+                const inbound = readInboundMessage(
+                    pm({ ...group, text: '@Nura_Bot what is new?' }),
+                    bot,
+                );
+
+                assert.equal(inbound?.text, 'what is new?');
+                assert.equal(inbound?.group, 'Team');
+                assert.equal(inbound?.messageId, 42);
+                assert.equal(inbound?.chatId, '-100123');
+                assert.equal(
+                    readInboundMessage(pm({ ...group, text: 'just chatting' }), bot),
+                    undefined,
+                );
+                assert.equal(
+                    readInboundMessage(
+                        pm({ ...group, text: 'and you?', reply_to_message: { from: { id: 555 } } }),
+                        bot,
+                    )?.text,
+                    'and you?',
+                );
+                assert.equal(
+                    readInboundMessage(pm({ ...group, text: '@nura_bot' }), bot),
+                    undefined,
+                );
+                assert.equal(
+                    readInboundMessage(pm({ ...group, text: '@someone hi' }), {
+                        id: 555,
+                        username: '',
+                    }),
+                    undefined,
+                );
+                assert.equal(readInboundMessage(pm(), bot)?.group, '');
+            },
+        ],
+
+        [
             'a group message is ignored',
             () => {
                 assert.equal(

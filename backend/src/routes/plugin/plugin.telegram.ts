@@ -1,6 +1,6 @@
 import { TELEGRAM_TEXT_MAX } from '../../constant.js';
 
-import { telegramMethod, telegramRich } from '../telegram/telegram.client.js';
+import { addressedText, telegramMethod, telegramRich } from '../telegram/telegram.client.js';
 import {
     argText,
     failed,
@@ -242,12 +242,9 @@ export function telegramInbound(
     }
 
     const direct = chat.type === 'private';
-    const handle = new RegExp(`@${bot.username.replace(/[^\w]/g, '')}\\b`, 'gi');
-    const addressed =
-        direct || handle.test(message.text) || message.reply_to_message?.from?.id === bot.id;
-    const text = message.text.replace(handle, '').trim();
+    const text = addressedText({ ...message, text: message.text }, bot);
 
-    if (!addressed || text === '') {
+    if (text === undefined) {
         return undefined;
     }
 

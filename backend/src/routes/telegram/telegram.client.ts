@@ -25,6 +25,25 @@ export async function telegramMethod(
     return answer.ok ? { ...answer, data: (answer.data as { result?: unknown })?.result } : answer;
 }
 
+export function addressedText(
+    message: {
+        text: string;
+        chat?: { type?: string };
+        reply_to_message?: { from?: { id?: number } };
+    },
+    bot: { id: number; username: string },
+): string | undefined {
+    const handle = new RegExp(`@${bot.username.replace(/[^\w]/g, '')}\\b`, 'gi');
+    const named = bot.username !== '';
+    const addressed =
+        message.chat?.type === 'private' ||
+        (named && handle.test(message.text)) ||
+        message.reply_to_message?.from?.id === bot.id;
+    const text = (named ? message.text.replace(handle, '') : message.text).trim();
+
+    return addressed && text !== '' ? text : undefined;
+}
+
 export async function telegramRich(
     token: string,
     method: string,

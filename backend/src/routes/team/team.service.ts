@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { In, IsNull, Not } from 'typeorm';
 import {
+    BOT_PROFILES_MAX,
     BOT_TOKEN_MAX,
     BOT_TOKEN_MIN,
     BOT_TOKEN_PATTERN,
@@ -16,11 +17,13 @@ import {
 } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
+import { idList } from '../../utils/ids.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { AuditLog } from '../audit/audit.entity.js';
 import { audit } from '../audit/audit.log.js';
 import { TeamTask, TeamTaskRun } from '../task/task.entity.js';
+import { profileLabel } from '../task/task.plan.js';
 import {
     TelegramMessage,
     TelegramUser,
@@ -57,6 +60,7 @@ import {
 interface BotProbe {
     ok: boolean;
     username?: string;
+    reads_groups?: boolean;
     reason?: string;
 }
 
@@ -72,21 +76,25 @@ export async function probeTelegram(token: string): Promise<BotProbe> {
     }
 
     const payload = (await response.json().catch(() => undefined)) as
-        | { ok?: boolean; result?: { username?: string } }
+        | { ok?: boolean; result?: { username?: string; can_read_all_group_messages?: boolean } }
         | undefined;
 
     if (!response.ok || payload?.ok !== true) {
         return { ok: false, reason: 'BOT_TOKEN_REJECTED' };
     }
 
-    return { ok: true, username: payload.result?.username ?? '' };
+    return {
+        ok: true,
+        username: payload.result?.username ?? '',
+        reads_groups: payload.result?.can_read_all_group_messages === true,
+    };
 }
 
 function readBotId(request: FastifyRequest) {
     return readParamId(request, 'botId', 'BOT_ID_INVALID');
 }
 
-function toBotView(bot: TeamBot, agentName = '') {
+function toBotView(bot: TeamBot, agentName = '', people = new Map<number, string>()) {
     return {
         id: bot.id,
         name: bot.name,
@@ -95,8 +103,58 @@ function toBotView(bot: TeamBot, agentName = '') {
         mode: bot.public_url === '' ? 'polling' : 'webhook',
         agent_id: bot.agent_id,
         agent_name: agentName,
+        groups: bot.groups,
+        profiles: idList(bot.profiles).map((id) => ({ id, name: people.get(id) ?? `#${id}` })),
         created_at: bot.created_at,
     };
+}
+
+async function profileNames(
+    fastify: FastifyInstance,
+    teamId: number,
+    bots: TeamBot[],
+): Promise<Map<number, string>> {
+    const ids = [...new Set(bots.flatMap((bot) => idList(bot.profiles)))];
+
+    if (ids.length === 0) {
+        return new Map();
+    }
+
+    const people = await fastify.db
+        .getRepository(TelegramUser)
+        .findBy({ team_id: teamId, id: In(ids) });
+
+    return new Map(people.map((person) => [person.id, profileLabel(person)]));
+}
+
+async function readBotProfiles(
+    fastify: FastifyInstance,
+    teamId: number,
+    raw: unknown,
+): Promise<number[]> {
+    const ids = Array.isArray(raw) ? [...new Set(raw)] : [];
+
+    if (
+        !Array.isArray(raw) ||
+        ids.length > BOT_PROFILES_MAX ||
+        !ids.every((id) => Number.isInteger(id) && id > 0)
+    ) {
+        throw new BadRequestResponse('BOT_PROFILES_INVALID');
+    }
+
+    if (ids.length === 0) {
+        return [];
+    }
+
+    const found = await fastify.db
+        .getRepository(TelegramUser)
+        .countBy({ team_id: teamId, id: In(ids) });
+
+    if (found !== ids.length) {
+        throw new BadRequestResponse('BOT_PROFILES_INVALID');
+    }
+
+    return ids as number[];
 }
 
 async function agentNames(fastify: FastifyInstance, teamId: number): Promise<Map<number, string>> {
@@ -420,13 +478,14 @@ export function teamBotList(fastify: FastifyInstance) {
         const { items, has_more } = takePage(rows, limit);
 
         const names = await agentNames(fastify, teamId);
+        const people = await profileNames(fastify, teamId, items);
 
         reply.send({
             limit,
             offset,
             has_more,
             total,
-            bots: items.map((bot) => toBotView(bot, names.get(bot.agent_id) ?? '')),
+            bots: items.map((bot) => toBotView(bot, names.get(bot.agent_id) ?? '', people)),
         });
     };
 
@@ -534,13 +593,15 @@ export function teamBotUpdate(fastify: FastifyInstance) {
         const bot = await findOwnedBot(fastify, teamId, botId, request.account_id);
 
         const agentId = await readAgentId(fastify, request, teamId);
+        const body = request.body as { groups?: unknown; profiles?: unknown } | undefined;
+        const groups = typeof body?.groups === 'boolean' ? body.groups : bot.groups;
+        const profiles =
+            body?.profiles === undefined
+                ? bot.profiles
+                : (await readBotProfiles(fastify, teamId, body.profiles)).join(',');
+        const changes = { name, public_url: publicUrl, agent_id: agentId, groups, profiles };
 
-        await fastify.db
-            .getRepository(TeamBot)
-            .update(
-                { id: bot.id, team_id: teamId },
-                { name, public_url: publicUrl, agent_id: agentId },
-            );
+        await fastify.db.getRepository(TeamBot).update({ id: bot.id, team_id: teamId }, changes);
 
         request.log.info(
             {
@@ -561,11 +622,13 @@ export function teamBotUpdate(fastify: FastifyInstance) {
         });
 
         const names = await agentNames(fastify, teamId);
+        const updated = { ...bot, ...changes };
 
         reply.send(
             toBotView(
-                { ...bot, name, public_url: publicUrl, agent_id: agentId },
+                updated,
                 names.get(agentId) ?? '',
+                await profileNames(fastify, teamId, [updated]),
             ),
         );
     };

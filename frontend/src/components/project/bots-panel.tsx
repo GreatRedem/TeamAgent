@@ -1,4 +1,4 @@
-import { MessageSquare, Plus } from 'lucide-react';
+import { MessageSquare, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -19,7 +19,9 @@ import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
+import { ProfilePicker } from '@/components/profile-picker';
 import { PROBE_TONE } from '@/libs/constant';
+import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -38,6 +40,7 @@ import { Select, SelectItem } from '@/ui/select';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { type Status, StatusDot } from '@/ui/status-dot';
+import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
 
 function probeState(probe: TeamBotProbe | 'testing'): string {
@@ -48,7 +51,7 @@ function probeState(probe: TeamBotProbe | 'testing'): string {
     return probe.ok ? 'ok' : 'error';
 }
 
-function probeLabel(probe: TeamBotProbe | 'testing'): string {
+function probeLabel(probe: TeamBotProbe | 'testing', groups: boolean): string {
     if (probe === 'testing') {
         return 'Asking Telegram…';
     }
@@ -57,9 +60,14 @@ function probeLabel(probe: TeamBotProbe | 'testing'): string {
         return probe.reason ?? 'Telegram refused the token.';
     }
 
-    return probe.username !== undefined && probe.username !== ''
-        ? `Connected as @${probe.username}`
-        : 'Connected';
+    const connected =
+        probe.username !== undefined && probe.username !== ''
+            ? `Connected as @${probe.username}.`
+            : 'Connected.';
+
+    return groups && probe.reads_groups === false
+        ? `${connected} Privacy mode is on, so in groups Telegram only sends it replies to its own messages and /commands, not @mentions. Make it a group admin, or send /setprivacy to @BotFather, choose Disable, then add the bot to the group again.`
+        : connected;
 }
 
 function dotState(probe: TeamBotProbe | 'testing' | undefined): Status {
@@ -157,7 +165,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
             setSaving(bot.id);
 
             try {
-                const updated = await teamBotUpdate(teamId, bot.id, bot.name, next, bot.agent_id);
+                const updated = await teamBotUpdate(teamId, { ...bot, public_url: next });
 
                 setBots(
                     (current) =>
@@ -215,33 +223,31 @@ export function BotsPanel({ teamId }: { teamId: number }) {
         [teamId],
     );
 
-    const setAgent = useCallback(
-        async (bot: TeamBot, agentId: number) => {
+    const change = useCallback(
+        async (bot: TeamBot, patch: Partial<TeamBot>) => {
             setError(null);
             setSaving(bot.id);
 
             try {
-                const updated = await teamBotUpdate(
-                    teamId,
-                    bot.id,
-                    bot.name,
-                    bot.public_url,
-                    agentId,
-                );
+                const updated = await teamBotUpdate(teamId, { ...bot, ...patch });
 
                 setBots(
                     (current) =>
                         current?.map((item) => (item.id === bot.id ? updated : item)) ?? null,
                 );
+
+                if (patch.groups === true) {
+                    void test(bot.id);
+                }
             } catch (cause) {
                 setError(
-                    cause instanceof ApiError ? cause.result : 'The agent could not be attached.',
+                    cause instanceof ApiError ? cause.result : 'The bot could not be updated.',
                 );
             } finally {
                 setSaving(null);
             }
         },
-        [teamId],
+        [teamId, test],
     );
 
     const remove = useCallback(
@@ -483,7 +489,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 value={String(bot.agent_id)}
                                                 disabled={saving === bot.id}
                                                 onValueChange={(value) =>
-                                                    void setAgent(bot, Number(value))
+                                                    void change(bot, { agent_id: Number(value) })
                                                 }
                                                 id={`bot-agent-${bot.id}`}
                                                 placeholder="Nobody yet">
@@ -496,6 +502,85 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                     </SelectItem>
                                                 ))}
                                             </Select>
+                                        </Stack>
+
+                                        <Stack
+                                            direction="Horizontal"
+                                            className="items-center gap-2">
+                                            <Switch
+                                                id={`bot-groups-${bot.id}`}
+                                                checked={bot.groups}
+                                                disabled={saving === bot.id}
+                                                onCheckedChange={(checked) =>
+                                                    void change(bot, { groups: checked })
+                                                }
+                                            />
+                                            <Text
+                                                type="Body"
+                                                as="label"
+                                                htmlFor={`bot-groups-${bot.id}`}
+                                                message="Answer in groups when @mentioned or replied to"
+                                            />
+                                        </Stack>
+
+                                        <Stack direction="Vertical" className="gap-2">
+                                            <Text
+                                                type="BodyMuted"
+                                                as="label"
+                                                htmlFor={`bot-people-${bot.id}`}
+                                                message={
+                                                    bot.profiles.length === 0
+                                                        ? 'Answers everyone who may chat. Pick people to answer only them.'
+                                                        : 'Answers only these people'
+                                                }
+                                            />
+
+                                            {bot.profiles.length > 0 && (
+                                                <Stack
+                                                    direction="Horizontal"
+                                                    className="flex-wrap gap-1.5">
+                                                    {bot.profiles.map((profile) => (
+                                                        <Button
+                                                            key={profile.id}
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={saving === bot.id}
+                                                            icon={<X />}
+                                                            onClick={() =>
+                                                                void change(bot, {
+                                                                    profiles: bot.profiles.filter(
+                                                                        (item) =>
+                                                                            item.id !== profile.id,
+                                                                    ),
+                                                                })
+                                                            }
+                                                            message={profile.name}
+                                                        />
+                                                    ))}
+                                                </Stack>
+                                            )}
+
+                                            <ProfilePicker
+                                                id={`bot-people-${bot.id}`}
+                                                teamId={teamId}
+                                                onPick={(picked) => {
+                                                    if (
+                                                        !bot.profiles.some(
+                                                            (item) => item.id === picked.id,
+                                                        )
+                                                    ) {
+                                                        void change(bot, {
+                                                            profiles: [
+                                                                ...bot.profiles,
+                                                                {
+                                                                    id: picked.id,
+                                                                    name: profileName(picked),
+                                                                },
+                                                            ],
+                                                        });
+                                                    }
+                                                }}
+                                            />
                                         </Stack>
 
                                         <Stack direction="Vertical" className="gap-2">
@@ -535,7 +620,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 type="Body"
                                                 as="output"
                                                 className={PROBE_TONE[probeState(probe)]}
-                                                message={probeLabel(probe)}
+                                                message={probeLabel(probe, bot.groups)}
                                             />
                                         )}
                                     </CardContent>

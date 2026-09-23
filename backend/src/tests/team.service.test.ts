@@ -44,6 +44,7 @@ async function main() {
                         assert.deepEqual(await probeTelegram(TOKEN), {
                             ok: true,
                             username: 'support_bot',
+                            reads_groups: false,
                         });
 
                         assert.equal(urls.length, 1);
@@ -57,8 +58,27 @@ async function main() {
             'a live bot without a username still passes',
             async () => {
                 await withFetch(json(200, { ok: true, result: {} }), async () => {
-                    assert.deepEqual(await probeTelegram(TOKEN), { ok: true, username: '' });
+                    assert.deepEqual(await probeTelegram(TOKEN), {
+                        ok: true,
+                        username: '',
+                        reads_groups: false,
+                    });
                 });
+            },
+        ],
+
+        [
+            'a bot with privacy mode off says it reads every group message',
+            async () => {
+                await withFetch(
+                    json(200, {
+                        ok: true,
+                        result: { username: 'team_bot', can_read_all_group_messages: true },
+                    }),
+                    async () => {
+                        assert.equal((await probeTelegram(TOKEN)).reads_groups, true);
+                    },
+                );
             },
         ],
 

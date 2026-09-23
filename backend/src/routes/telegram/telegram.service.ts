@@ -23,6 +23,7 @@ import {
 } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
+import { idList } from '../../utils/ids.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
@@ -64,7 +65,7 @@ import { profileLabel } from '../task/task.plan.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { rosterPrompt } from '../team/team.roster.js';
-import { telegramMethod, telegramRich } from './telegram.client.js';
+import { addressedText, telegramMethod, telegramRich } from './telegram.client.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
 import {
     hasPermission,
@@ -115,6 +116,8 @@ function toProfile(user: TelegramUser) {
 interface InboundMessage {
     updateId: string;
     chatId: string;
+    messageId: number;
+    group: string;
     text: string;
     sentAt: Date;
     from: {
@@ -126,7 +129,10 @@ interface InboundMessage {
     };
 }
 
-export function readInboundMessage(body: unknown): InboundMessage | undefined {
+export function readInboundMessage(
+    body: unknown,
+    bot?: { id: number; username: string },
+): InboundMessage | undefined {
     if (typeof body !== 'object' || body === null) {
         return undefined;
     }
@@ -151,8 +157,9 @@ export function readInboundMessage(body: unknown): InboundMessage | undefined {
 
     const chatRecord = chat as Record<string, unknown>;
     const fromRecord = from as Record<string, unknown>;
+    const direct = chatRecord['type'] === 'private';
 
-    if (chatRecord['type'] !== 'private') {
+    if (!direct && !bot) {
         return undefined;
     }
 
@@ -161,6 +168,12 @@ export function readInboundMessage(body: unknown): InboundMessage | undefined {
     }
 
     if (typeof text !== 'string' || text === '') {
+        return undefined;
+    }
+
+    const said = direct ? text : bot && addressedText({ ...(message as object), text }, bot);
+
+    if (said === undefined) {
         return undefined;
     }
 
@@ -177,10 +190,14 @@ export function readInboundMessage(body: unknown): InboundMessage | undefined {
 
     const text_ = (value: unknown) => (typeof value === 'string' ? value : '');
 
+    const messageId = (message as Record<string, unknown>)['message_id'];
+
     return {
         updateId: String(update['update_id']),
         chatId: String(chatId),
-        text: text.slice(0, TEXT_MAX),
+        messageId: typeof messageId === 'number' ? messageId : 0,
+        group: direct ? '' : text_(chatRecord['title']) || String(chatId),
+        text: said.slice(0, TEXT_MAX),
         sentAt: typeof date === 'number' ? new Date(date * 1000) : new Date(),
         from: {
             id: String(senderId),
@@ -192,13 +209,34 @@ export function readInboundMessage(body: unknown): InboundMessage | undefined {
     };
 }
 
+async function botIdentity(
+    fastify: FastifyInstance,
+    bot: TeamBot,
+): Promise<{ id: number; username: string }> {
+    if (bot.username === '') {
+        const me = await telegramMethod(bot.token, 'getMe', {}, undefined, TELEGRAM_TIMEOUT);
+        const username = (me.data as { username?: string } | undefined)?.username ?? '';
+
+        if (username !== '') {
+            bot.username = username;
+
+            await fastify.db.getRepository(TeamBot).update({ id: bot.id }, { username });
+        }
+    }
+
+    return { id: Number(bot.token.split(':')[0]), username: bot.username };
+}
+
 export async function ingestUpdate(
     fastify: FastifyInstance,
     bot: TeamBot,
     body: unknown,
     log: FastifyBaseLogger,
 ): Promise<'stored' | 'ignored' | 'duplicate' | 'blocked'> {
-    const inbound = readInboundMessage(body);
+    const inbound = readInboundMessage(
+        body,
+        bot.groups ? await botIdentity(fastify, bot) : undefined,
+    );
 
     if (!inbound) {
         return 'ignored';
@@ -283,9 +321,8 @@ export async function ingestUpdate(
         detail: `bot ${bot.id} (${bot.name}) - ${inbound.text.length} chars - update ${inbound.updateId}`,
     });
 
-    void deliverAgentReply(fastify, bot, user, inbound.chatId, inbound.text, stored.id, log).catch(
-        (error: unknown) =>
-            log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'),
+    void deliverAgentReply(fastify, bot, user, inbound, stored.id, log).catch((error: unknown) =>
+        log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'),
     );
 
     return 'stored';
@@ -344,7 +381,12 @@ export async function telegramText(
     return { ok: sent.ok, status: sent.status, result: sent.data };
 }
 
-function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
+function createStreamer(
+    token: string,
+    chatId: string,
+    log: FastifyBaseLogger,
+    opening: Record<string, unknown> = { chat_id: chatId },
+) {
     let messageId: number | undefined;
     let sentText = '';
     let pending = '';
@@ -371,7 +413,7 @@ function createStreamer(token: string, chatId: string, log: FastifyBaseLogger) {
 
         try {
             if (messageId === undefined) {
-                const sent = await telegramText(token, 'sendMessage', { chat_id: chatId }, text);
+                const sent = await telegramText(token, 'sendMessage', opening, text);
                 const id = (sent.result as { message_id?: unknown } | undefined)?.message_id;
 
                 if (sent.ok && typeof id === 'number') {
@@ -523,12 +565,14 @@ function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () 
 async function supersededBy(
     fastify: FastifyInstance,
     userId: number,
+    chatId: string,
     messageId: number,
 ): Promise<boolean> {
     const newer = await fastify.db
         .getRepository(TelegramMessage)
         .createQueryBuilder('message')
         .where('message.user_id = :userId', { userId })
+        .andWhere('message.chat_id = :chatId', { chatId })
         .andWhere('message.direction = :direction', { direction: 'in' })
         .andWhere('message.id > :messageId', { messageId })
         .getCount();
@@ -1018,12 +1062,33 @@ async function deliverAgentReply(
     fastify: FastifyInstance,
     bot: TeamBot,
     user: TelegramUser,
-    chatId: string,
-    incoming: string,
+    inbound: InboundMessage,
     messageId: number,
     log: FastifyBaseLogger,
 ) {
+    const { chatId, text: incoming } = inbound;
+
     if (bot.agent_id === 0) {
+        return;
+    }
+
+    const allowed = idList(bot.profiles);
+
+    if (allowed.length > 0 && !allowed.includes(user.id)) {
+        log.info(
+            { module: 'agent', botId: bot.id, userId: user.id },
+            'agent reply skipped: bot answers other people only',
+        );
+
+        await audit(fastify, log, {
+            teamId: bot.team_id,
+            actor: 'agent',
+            action: 'agent.request',
+            target: `bot:${bot.id}`,
+            outcome: 'skipped',
+            detail: `profile ${user.id} is not one of the ${allowed.length} people ${bot.name} answers`,
+        });
+
         return;
     }
 
@@ -1090,7 +1155,7 @@ async function deliverAgentReply(
     }
 
     const history = await fastify.db.getRepository(TelegramMessage).find({
-        where: { team_id: bot.team_id, user_id: user.id },
+        where: { team_id: bot.team_id, user_id: user.id, chat_id: chatId },
         order: { id: 'DESC' },
         take: HISTORY_LIMIT + 1,
     });
@@ -1100,12 +1165,30 @@ async function deliverAgentReply(
     const tools = await agentTools(fastify, agent, user);
 
     const messages: ChatMessage[] = buildMessages(
-        await agentInstructions(fastify, agent, tools),
+        await agentInstructions(
+            fastify,
+            agent,
+            tools,
+            inbound.group === ''
+                ? ''
+                : [
+                      '# Where you are',
+                      '',
+                      `You are answering ${profileLabel(user)} in the Telegram group "${inbound.group}", where they mentioned you. Everyone in the group reads your reply, so never share what they told you in private.`,
+                  ].join('\n'),
+        ),
         earlier,
         incoming,
     );
 
-    if (await supersededBy(fastify, user.id, messageId)) {
+    const opening = {
+        chat_id: chatId,
+        ...(inbound.group !== '' && {
+            reply_parameters: { message_id: inbound.messageId, allow_sending_without_reply: true },
+        }),
+    };
+
+    if (await supersededBy(fastify, user.id, chatId, messageId)) {
         log.info(
             { module: 'agent', botId: bot.id, userId: user.id, messageId },
             'agent reply stood down: newer message arrived',
@@ -1125,7 +1208,7 @@ async function deliverAgentReply(
 
     const stopTyping = startTyping(bot.token, chatId, log);
 
-    const streamer = createStreamer(bot.token, chatId, log);
+    const streamer = createStreamer(bot.token, chatId, log, opening);
 
     const startedAt = Date.now();
 
@@ -1195,7 +1278,7 @@ async function deliverAgentReply(
         return;
     }
 
-    if (await supersededBy(fastify, user.id, messageId)) {
+    if (await supersededBy(fastify, user.id, chatId, messageId)) {
         log.info(
             { module: 'agent', botId: bot.id, userId: user.id, messageId },
             'agent reply discarded: newer message arrived while composing',
@@ -1220,7 +1303,7 @@ async function deliverAgentReply(
         const sent = await telegramText(
             bot.token,
             'sendMessage',
-            { chat_id: chatId },
+            opening,
             text.slice(0, TELEGRAM_TEXT_MAX),
         );
 

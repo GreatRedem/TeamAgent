@@ -164,7 +164,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                         <EmptyState
                             icon={UserRound}
                             title="Nobody has written yet"
-                            description="Someone appears here the first time they send one of your bots a private message."
+                            description="Someone appears here the first time they write to one of your bots."
                         />
                     </Stack>
                 )}

@@ -117,6 +117,8 @@ function bot() {
             'mode',
             'agent_id',
             'agent_name',
+            'groups',
+            'profiles',
             'created_at',
         ],
         properties: {
@@ -127,6 +129,15 @@ function bot() {
             mode: { type: 'string' },
             agent_id: { type: 'integer' },
             agent_name: { type: 'string' },
+            groups: { type: 'boolean' },
+            profiles: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['id', 'name'],
+                    properties: { id: { type: 'integer' }, name: { type: 'string' } },
+                },
+            },
             created_at: { type: 'string' },
         },
     } as const;
@@ -157,6 +168,8 @@ export function schemaTeamBotUpdate() {
                 name: { type: 'string' },
                 public_url: { type: 'string' },
                 agent_id: { type: 'integer' },
+                groups: { type: 'boolean' },
+                profiles: { type: 'array', items: { type: 'integer' } },
             },
         },
         response: {
@@ -206,6 +219,7 @@ export function schemaTeamBotTest() {
                 properties: {
                     ok: { type: 'boolean' },
                     username: { type: 'string' },
+                    reads_groups: { type: 'boolean' },
                     reason: { type: 'string' },
                 },
             },

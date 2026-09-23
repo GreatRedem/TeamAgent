@@ -153,6 +153,8 @@ export const DEFAULT_AGENT_PERMISSIONS: string[] = [];
 
 export const AGENT_PERMISSIONS_MAX = 256;
 
+export const BOT_PROFILES_MAX = 50;
+
 export const MAX_TOOL_ROUNDS = 4;
 
 export const HISTORY_LIMIT = 12;
