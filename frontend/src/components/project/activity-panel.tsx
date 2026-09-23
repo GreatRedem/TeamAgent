@@ -338,7 +338,9 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                         )}
 
                         {rows.length > 0 && (
-                            <Stack direction="Vertical" className="px-5">
+                            <Stack
+                                direction="Vertical"
+                                className="max-h-125 overflow-y-auto px-5 py-1">
                                 {cards(rows)}
                             </Stack>
                         )}
