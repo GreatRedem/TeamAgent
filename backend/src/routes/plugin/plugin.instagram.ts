@@ -233,6 +233,17 @@ export async function instagramAct(
             : instagramReply(token, commentId, message);
     }
 
+    if (name === 'instagram_comment') {
+        const mediaId = argText(args, 'media_id');
+        const message = argText(args, 'message');
+
+        return mediaId === '' || message === ''
+            ? failed('media_id and message are required')
+            : instagramCall(token, 'POST', `/${mediaId}/comments`, {
+                  message: message.slice(0, INSTAGRAM_CAPTION_MAX),
+              });
+    }
+
     if (name === 'instagram_hide_comment') {
         const commentId = argText(args, 'comment_id');
 

@@ -1,6 +1,6 @@
 import { type Paged, pageQuery, request } from './client';
 
-export type TaskRepeat = 'none' | 'daily' | 'weekly';
+export type TaskRepeat = 'none' | 'hourly' | 'daily' | 'weekly';
 
 export type TaskStatus = 'scheduled' | 'running' | 'done' | 'failed' | 'cancelled';
 

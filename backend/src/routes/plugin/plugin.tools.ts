@@ -15,6 +15,7 @@ import { discordAct, discordProbe } from './plugin.discord.js';
 import { TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import { instagramAct, instagramProbe } from './plugin.instagram.js';
 import { telegramAct, telegramProbe } from './plugin.telegram.js';
+import { xAct, xProbe } from './plugin.x.js';
 
 export function pluginAgents(plugin: { agents: string }): number[] {
     return plugin.agents
@@ -127,6 +128,10 @@ export function actOn(
         return discordAct(settings, name, args);
     }
 
+    if (plugin.kind === 'x') {
+        return xAct(settings, name, args);
+    }
+
     if (plugin.kind === 'instagram') {
         return instagramAct(settings, name, args);
     }
@@ -165,6 +170,10 @@ export async function probePlugin(plugin: TeamPlugin): Promise<PluginOutcome> {
 
     if (plugin.kind === 'discord') {
         return discordProbe(settings);
+    }
+
+    if (plugin.kind === 'x') {
+        return xProbe(settings);
     }
 
     if (plugin.kind === 'instagram') {

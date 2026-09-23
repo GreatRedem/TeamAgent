@@ -90,6 +90,7 @@ export async function telegramAct(
         'telegram_edit_message',
         'telegram_delete_message',
         'telegram_pin_message',
+        'telegram_react',
     ].includes(name);
 
     if (needsMessage && (!Number.isInteger(messageId) || messageId <= 0)) {
@@ -198,6 +199,18 @@ export async function telegramAct(
             message_id: messageId,
             disable_notification: true,
         });
+    }
+
+    if (name === 'telegram_react') {
+        const emoji = argText(args, 'emoji');
+
+        return emoji === ''
+            ? failed('emoji is required')
+            : telegramMethod(token, 'setMessageReaction', {
+                  chat_id: chat,
+                  message_id: messageId,
+                  reaction: [{ type: 'emoji', emoji }],
+              });
     }
 
     if (name === 'telegram_chat_info') {

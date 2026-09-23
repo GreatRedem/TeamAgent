@@ -679,7 +679,7 @@ export const DAY = "now() - interval '1 day'";
 
 export const WEEK = "now() - interval '7 days'";
 
-export const TASK_REPEATS = ['none', 'daily', 'weekly'] as const;
+export const TASK_REPEATS = ['none', 'hourly', 'daily', 'weekly'] as const;
 
 export const TASK_STATUSES = ['scheduled', 'running', 'done', 'failed', 'cancelled'] as const;
 
@@ -691,6 +691,7 @@ export const GOAL_MAX = 2000;
 
 export const PERIOD: Record<TaskRepeat, number> = {
     none: 0,
+    hourly: 3_600_000,
     daily: 86_400_000,
     weekly: 604_800_000,
 };
@@ -808,6 +809,10 @@ export const STATUS_INTERNAL_ERROR = 500;
 export const TASK_RETRY_DELAYS = [60_000, 300_000, 900_000];
 
 export const TASK_MODEL_REST = 1_200_000;
+
+export const TASK_MEMORY = 5;
+
+export const TASK_MEMORY_CHARS = 600;
 
 export const FETCH_TEXT_MAX = 12_000;
 
@@ -1027,6 +1032,123 @@ export const PLUGIN_TOOLS: ToolDefinition[] = [
         },
     },
     {
+        name: 'telegram_react',
+        description:
+            'React to a Telegram message with an emoji, like a like. Telegram accepts only its standard reaction emoji, such as 👍 ❤ 🔥 🎉 👏.',
+        permission: 'plugin:telegram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                chat: TELEGRAM_CHAT_FIELD,
+                message_id: { type: 'integer', description: 'The message to react to' },
+                emoji: { type: 'string', description: 'One reaction emoji' },
+            },
+            required: ['message_id', 'emoji'],
+        },
+    },
+    {
+        name: 'x_post',
+        description:
+            'Publish a post on X from the connected account. Pass reply_to to reply to a post, or quote to quote one. At most 280 characters, links counting as 23.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                text: { type: 'string', description: 'The post' },
+                reply_to: { type: 'string', description: 'Optional id of the post to reply to' },
+                quote: { type: 'string', description: 'Optional id of the post to quote' },
+            },
+            required: ['text'],
+        },
+    },
+    {
+        name: 'x_like',
+        description: 'Like a post on X, or take the like back with undo.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                post_id: { type: 'string', description: 'The post' },
+                undo: { type: 'boolean', description: 'true to unlike' },
+            },
+            required: ['post_id'],
+        },
+    },
+    {
+        name: 'x_repost',
+        description: 'Repost a post on X, or undo the repost.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                post_id: { type: 'string', description: 'The post' },
+                undo: { type: 'boolean', description: 'true to undo the repost' },
+            },
+            required: ['post_id'],
+        },
+    },
+    {
+        name: 'x_delete',
+        description: 'Delete a post the connected X account made.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: { post_id: { type: 'string', description: 'The post to delete' } },
+            required: ['post_id'],
+        },
+    },
+    {
+        name: 'x_read_post',
+        description:
+            'Read one post on X with its author, time and counts of likes, reposts and replies.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: { post_id: { type: 'string', description: 'The post' } },
+            required: ['post_id'],
+        },
+    },
+    {
+        name: 'x_mentions',
+        description:
+            'The latest posts that mention the connected X account, newest first, to review and answer them.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                limit: { type: 'integer', description: 'How many, 5 to 100; defaults to 10' },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'x_my_posts',
+        description:
+            'The latest posts of the connected X account with their likes, reposts and replies, to see what it already said.',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                limit: { type: 'integer', description: 'How many, 5 to 100; defaults to 10' },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'x_search',
+        description:
+            'Search posts on X from the last 7 days, e.g. "blockchain -is:retweet lang:en".',
+        permission: 'plugin:x',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'An X search query' },
+                limit: { type: 'integer', description: 'How many, 10 to 100; defaults to 10' },
+            },
+            required: ['query'],
+        },
+    },
+    {
         name: 'discord_send_message',
         description:
             'Send a message to a Discord channel through a connected bot. Pass reply_to to reply to a particular message.',
@@ -1179,6 +1301,20 @@ export const PLUGIN_TOOLS: ToolDefinition[] = [
         },
     },
     {
+        name: 'instagram_comment',
+        description:
+            'Comment on one of the account posts. Instagram lets an account comment only on its own posts or where it is mentioned. Get media_id from instagram_list_media.',
+        permission: 'plugin:instagram',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                media_id: { type: 'string', description: 'The post id' },
+                message: { type: 'string', description: 'The comment' },
+            },
+            required: ['media_id', 'message'],
+        },
+    },
+    {
         name: 'instagram_hide_comment',
         description: 'Hide a comment on one of the account posts, or show it again.',
         permission: 'plugin:instagram',
@@ -1285,6 +1421,48 @@ export const PLUGIN_KINDS: PluginKind[] = [
                 required: false,
                 hint: 'Used when the agent does not name one: @channelname or a chat id.',
                 placeholder: '@mychannel',
+            },
+        ],
+    },
+    {
+        key: 'x',
+        label: 'X',
+        description:
+            'Post, reply, quote, like, repost and delete on X, and read mentions, searches and posts. Every request spends X API credits.',
+        inbound: 'none',
+        inbound_hint: '',
+        fields: [
+            {
+                key: 'api_key',
+                label: 'API key',
+                secret: true,
+                required: true,
+                hint: 'X developer console, your app, Keys and tokens: the consumer key.',
+                placeholder: '',
+            },
+            {
+                key: 'api_secret',
+                label: 'API key secret',
+                secret: true,
+                required: true,
+                hint: 'Shown next to the API key.',
+                placeholder: '',
+            },
+            {
+                key: 'access_token',
+                label: 'Access token',
+                secret: true,
+                required: true,
+                hint: 'Set the app to Read and write first, then generate it for the account that posts.',
+                placeholder: '',
+            },
+            {
+                key: 'access_secret',
+                label: 'Access token secret',
+                secret: true,
+                required: true,
+                hint: 'Shown with the access token.',
+                placeholder: '',
             },
         ],
     },
@@ -1396,3 +1574,24 @@ export const PLUGIN_KINDS: PluginKind[] = [
         ],
     },
 ];
+
+export const X_API = 'https://api.x.com/2';
+
+export const X_TEXT_MAX = 280;
+
+export const X_URL_WEIGHT = 23;
+
+export const X_LIGHT_RANGES: [number, number][] = [
+    [0x0000, 0x10ff],
+    [0x2000, 0x200d],
+    [0x2010, 0x201f],
+    [0x2032, 0x2037],
+];
+
+export const X_USER_IDS = new Map<string, string>();
+
+export const X_POST_FIELDS = {
+    'tweet.fields': 'created_at,public_metrics,author_id,conversation_id',
+    expansions: 'author_id',
+    'user.fields': 'username',
+};

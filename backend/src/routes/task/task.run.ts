@@ -1,7 +1,9 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
+import { Not } from 'typeorm';
 import {
     DRAFT_INTERVAL,
     PERSONAL_TOOLS,
+    TASK_MEMORY,
     TASK_MODEL_REST,
     TASK_RETRY_DELAYS,
     TELEGRAM_TEXT_MAX,
@@ -28,6 +30,23 @@ import {
     type TaskRepeat,
     taskMessages,
 } from './task.plan.js';
+
+async function earlierOutputs(
+    fastify: FastifyInstance,
+    taskId: number,
+    runId: number,
+): Promise<{ at: string; output: string }[]> {
+    const runs = await fastify.db.getRepository(TeamTaskRun).find({
+        where: { task_id: taskId, outcome: 'ok', id: Not(runId) },
+        order: { id: 'DESC' },
+        take: TASK_MEMORY,
+        select: { id: true, started_at: true, output: true },
+    });
+
+    return runs
+        .filter((earlier) => earlier.output.trim() !== '')
+        .map((earlier) => ({ at: earlier.started_at.toISOString(), output: earlier.output }));
+}
 
 export async function runTask(
     fastify: FastifyInstance,
@@ -207,6 +226,7 @@ export async function runTask(
                 task,
                 recipient ? profileLabel(recipient) : '',
                 startedAt,
+                task.repeat === 'none' ? [] : await earlierOutputs(fastify, task.id, run.id),
             ),
             tools,
             trace: (event) => {

@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+    AtSign,
     Bot,
     Camera,
     Cpu,
@@ -91,6 +92,7 @@ export const ROSTER_ERRORS: Record<string, string> = {
 
 export const TASK_REPEAT_LABELS: Record<string, string> = {
     none: 'Once',
+    hourly: 'Every hour',
     daily: 'Every day',
     weekly: 'Every week',
 };
@@ -229,6 +231,7 @@ export const BRAND_SIZES: Record<'sm' | 'lg', string> = {
 
 export const PLUGIN_ICONS: Record<PluginKindKey, LucideIcon> = {
     telegram: Send,
+    x: AtSign,
     discord: MessagesSquare,
     instagram: Camera,
     browser: Globe,

@@ -2,6 +2,7 @@ import {
     GOAL_MAX,
     PERIOD,
     TASK_DESCRIPTION_MAX,
+    TASK_MEMORY_CHARS,
     TASK_REPEATS,
     TASK_RETRY_DELAYS,
     TITLE_MAX,
@@ -98,10 +99,13 @@ export function nextStart(startAt: Date, repeat: TaskRepeat, now: Date): Date | 
 
 export function taskMessages(
     instructions: string,
-    task: { title: string; description: string; goal: string },
+    task: { title: string; description: string; goal: string; repeat?: string },
     recipient: string,
     now: Date,
+    earlier: { at: string; output: string }[] = [],
 ): ChatMessage[] {
+    const repeats = task.repeat !== undefined && task.repeat !== 'none';
+
     const brief = [
         '# Scheduled task',
         '',
@@ -110,6 +114,21 @@ export function taskMessages(
             ? 'Your reply is kept as the result of the task; nobody is sent it.'
             : `Your reply is sent to ${recipient} on Telegram as it is, so write it to them: the message itself, with no preamble about the task.`,
         'Use your tools where the task needs them. Do not invent facts you could not find.',
+        ...(repeats
+            ? [
+                  'This task repeats. When you post or send something, end your answer with exactly what you posted, so the next run knows.',
+              ]
+            : []),
+        ...(earlier.length === 0
+            ? []
+            : [
+                  '',
+                  'What its latest runs produced, newest first. Do not repeat it: cover something new, or say there is nothing new.',
+                  ...earlier.map(
+                      (run) =>
+                          `- ${run.at}: ${run.output.replace(/\s+/g, ' ').trim().slice(0, TASK_MEMORY_CHARS)}`,
+                  ),
+              ]),
     ].join('\n');
 
     const request = [

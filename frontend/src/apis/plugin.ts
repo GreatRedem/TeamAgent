@@ -1,6 +1,6 @@
 import { type Paged, pageQuery, request } from './client';
 
-export type PluginKindKey = 'telegram' | 'discord' | 'instagram' | 'browser' | 'webhook';
+export type PluginKindKey = 'telegram' | 'x' | 'discord' | 'instagram' | 'browser' | 'webhook';
 
 export interface PluginField {
     key: string;

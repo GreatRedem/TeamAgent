@@ -9,6 +9,7 @@ import { postSigned } from '../routes/plugin/plugin.common.js';
 import { discordChunks, discordInbound } from '../routes/plugin/plugin.discord.js';
 import { instagramInbound } from '../routes/plugin/plugin.instagram.js';
 import { telegramInbound } from '../routes/plugin/plugin.telegram.js';
+import { oauthHeader, readPosts, xLength } from '../routes/plugin/plugin.x.js';
 
 function kind(key: string) {
     const found = PLUGIN_KINDS.find((candidate) => candidate.key === key);
@@ -269,6 +270,69 @@ async function main() {
 
     assert.equal(refused.ok, false);
     assert.equal(refused.error, 'address is not publicly routable');
+
+    const signed = oauthHeader(
+        'POST',
+        'https://api.twitter.com/1.1/statuses/update.json?include_entities=true',
+        { status: 'Hello Ladies + Gentlemen, a signed OAuth request!' },
+        {
+            api_key: 'xvz1evFS4wEEPTGEFPHBog',
+            api_secret: 'kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw',
+            access_token: '370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb',
+            access_secret: 'LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE',
+        },
+        'kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg',
+        '1318622958',
+    );
+
+    assert.ok(signed.startsWith('OAuth oauth_consumer_key="xvz1evFS4wEEPTGEFPHBog", '), signed);
+    assert.ok(signed.includes('oauth_signature="hCtSmYh%2BiHYCEqBWrE7C7hYmtUk%3D"'), signed);
+
+    assert.equal(xLength('hello'), 5);
+    assert.equal(xLength('news https://example.com/a/very/long/path?x=1'), 5 + 23);
+    assert.equal(xLength('سلام دنیا'), 9);
+    assert.equal(xLength('ok 🚀'), 5);
+    assert.equal(xLength('日本'), 4);
+    assert.equal(xLength('a'.repeat(280)), 280);
+
+    assert.deepEqual(
+        readPosts({
+            data: [
+                {
+                    id: '10',
+                    text: 'gm',
+                    author_id: '7',
+                    created_at: '2026-09-23T10:00:00.000Z',
+                    public_metrics: { like_count: 3, retweet_count: 1, reply_count: 2 },
+                },
+            ],
+            includes: { users: [{ id: '7', username: 'nura' }] },
+        }),
+        [
+            {
+                id: '10',
+                author: '@nura',
+                text: 'gm',
+                at: '2026-09-23T10:00:00.000Z',
+                likes: 3,
+                reposts: 1,
+                replies: 2,
+                url: 'https://x.com/nura/status/10',
+            },
+        ],
+    );
+    assert.deepEqual(readPosts({}), []);
+
+    assert.equal(
+        code(() =>
+            readPluginBody(
+                { name: 'X', fields: { api_key: 'a', api_secret: 'b' } },
+                kind('x'),
+                null,
+            ),
+        ),
+        'PLUGIN_FIELD_REQUIRED',
+    );
 
     assert.ok(toolGuidance(['telegram_send_message']).includes('# Connected apps'));
     assert.ok(!toolGuidance(['web_search']).includes('# Connected apps'));

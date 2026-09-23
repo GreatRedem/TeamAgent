@@ -47,9 +47,19 @@ function main() {
         );
         assert.equal(
             code(() =>
-                readTaskBody({ title: 'x', agent_id: 1, start_at: '2026-09-24', repeat: 'hourly' }),
+                readTaskBody({
+                    title: 'x',
+                    agent_id: 1,
+                    start_at: '2026-09-24',
+                    repeat: 'monthly',
+                }),
             ),
             'TASK_REPEAT_INVALID',
+        );
+        assert.equal(
+            readTaskBody({ title: 'x', agent_id: 1, start_at: '2026-09-24', repeat: 'hourly' })
+                .repeat,
+            'hourly',
         );
         assert.equal(
             code(() =>
@@ -111,7 +121,38 @@ function main() {
 
         assert.ok(kept.content.includes('nobody is sent it'));
         assert.ok(!kept.content.startsWith('\n'), 'no empty instructions section');
+        assert.ok(!kept.content.includes('This task repeats'), 'a one-off is not told it repeats');
+
+        const [hourly] = taskMessages(
+            '',
+            { title: 'Blockchain news', goal: '', description: '', repeat: 'hourly' },
+            '',
+            now,
+            [
+                { at: '2026-09-23T08:00:00.000Z', output: 'Posted:\n  ETF inflows hit a record' },
+                { at: '2026-09-23T07:00:00.000Z', output: 'x'.repeat(2000) },
+            ],
+        );
+
+        assert.ok(hourly.content.includes('This task repeats'));
+        assert.ok(
+            hourly.content.includes('- 2026-09-23T08:00:00.000Z: Posted: ETF inflows hit a record'),
+        );
+        assert.ok(
+            hourly.content.includes(`- 2026-09-23T07:00:00.000Z: ${'x'.repeat(600)}\n`) === false,
+        );
+        assert.ok(hourly.content.endsWith(`- 2026-09-23T07:00:00.000Z: ${'x'.repeat(600)}`));
     }
+
+    assert.equal(
+        nextStart(
+            new Date('2026-09-23T09:00:00.000Z'),
+            'hourly',
+            new Date('2026-09-23T11:30:00.000Z'),
+        )?.toISOString(),
+        '2026-09-23T12:00:00.000Z',
+        'hourly skips the hours it missed',
+    );
 
     assert.equal(
         profileLabel({ first_name: 'Alex', last_name: 'K', username: 'alexk', telegram_id: '1' }),
