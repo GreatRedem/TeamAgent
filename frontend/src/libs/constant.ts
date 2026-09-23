@@ -8,6 +8,7 @@ import {
     Settings2,
     ShieldCheck,
     Users,
+    Wrench,
 } from 'lucide-react';
 
 import type { AuditEntry } from '@/apis/audit';
@@ -43,6 +44,7 @@ export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
     { id: 'bots', label: 'Bots', icon: MessageSquare },
     { id: 'models', label: 'Models', icon: Cpu },
     { id: 'team', label: 'Team', icon: Users },
+    { id: 'tools', label: 'MCP', icon: Wrench },
     { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
 
@@ -96,6 +98,11 @@ export const TEAM_TITLES: Record<string, { title: string; description: string }>
     team: {
         title: 'Team',
         description: 'The people on this team, kept in team.json for the agents to answer from.',
+    },
+    tools: {
+        title: 'MCP tools',
+        description:
+            'The tools agents can call, such as managing team.json, and which agents may call them.',
     },
     settings: { title: 'Settings', description: 'What this project is called.' },
 };
