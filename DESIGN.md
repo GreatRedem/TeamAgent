@@ -160,9 +160,9 @@ instance.
 
 | Element                 | Height |
 | ----------------------- | ------ |
-| Button default          | 36px   |
-| Button `sm`             | 32px   |
-| Button `lg`             | 40px   |
+| Button default          | 40px   |
+| Button `sm`             | 36px   |
+| Button `lg`             | 44px   |
 | Input, select, textarea | 36px   |
 | Header bar              | 56px   |
 | Header nav row          | 48px   |
