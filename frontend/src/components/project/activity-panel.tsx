@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { type AuditEntry, auditHeatmap, auditList, type HeatmapDay, type Paged } from '@/apis';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
+import { actionText } from '@/libs/catalog';
 import { cn } from '@/libs/cn';
 import { AUDIT_RESULT, HEAT_SCALE, HEAT_SCALE_FAILED } from '@/libs/constant';
 import { dateTimeLabel, numberLabel, prettyJson, timeLabel } from '@/libs/format';
@@ -153,7 +154,9 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 as="span"
                                 className="truncate"
                                 message={
-                                    row !== null && row.model !== '' ? row.model : entry.action
+                                    row !== null && row.model !== ''
+                                        ? row.model
+                                        : actionText(entry.action)
                                 }
                             />
 
@@ -351,7 +354,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             {selected === null
                                 ? t('activity.detail.nothingSelected')
                                 : trip === null
-                                  ? selected.action
+                                  ? actionText(selected.action)
                                   : t('activity.detail.roundTrip')}
                         </CardTitle>
                         <CardDescription>
@@ -386,7 +389,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                     {trip === null && (
                                         <DataRow
                                             label={t('activity.detail.action')}
-                                            value={selected.action}
+                                            value={actionText(selected.action)}
                                         />
                                     )}
                                     {trip === null && selected.target !== '' && (

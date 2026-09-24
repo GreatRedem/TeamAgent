@@ -5,7 +5,7 @@ import { type ImportReport, teamExport, teamImport } from '@/apis';
 import { Field } from '@/components/field';
 import { TRANSFER_LABELS, TRANSFER_UPLOAD_MAX } from '@/libs/constant';
 import { numberLabel } from '@/libs/format';
-import { apiError, locale, t } from '@/libs/i18n';
+import { apiError, locale, t, tk, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
@@ -23,6 +23,22 @@ function counted(counts: Record<string, number>): string {
                     `${numberLabel(count)} ${TRANSFER_LABELS[key] === undefined ? key : t(TRANSFER_LABELS[key])}`,
             ),
     );
+}
+
+function noteText(note: ImportReport['notes'][number]): string {
+    if (note.code === 'botsWithoutToken') {
+        return tn('projects.importNote.botsWithoutToken', note.count ?? 0);
+    }
+
+    if (note.code === 'tasksPaused') {
+        return tn('projects.importNote.tasksPaused', note.count ?? 0);
+    }
+
+    if (note.code === 'keptFiles') {
+        return t('projects.importNote.keptFiles', { files: note.files ?? '' });
+    }
+
+    return tk(`projects.importNote.${note.code}`, note.code);
 }
 
 export function TransferCard({ teamId }: { teamId: number }) {
@@ -167,7 +183,11 @@ export function TransferCard({ teamId }: { teamId: number }) {
                                         />
                                     )}
                                     {report.notes.map((note) => (
-                                        <Text key={note} type="BodyMuted" message={note} />
+                                        <Text
+                                            key={note.code}
+                                            type="BodyMuted"
+                                            message={noteText(note)}
+                                        />
                                     ))}
                                 </Stack>
                             </AlertDescription>

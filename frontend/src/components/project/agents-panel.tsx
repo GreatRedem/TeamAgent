@@ -12,6 +12,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
+import { roleText } from '@/libs/catalog';
 import { AGENT_ROLES } from '@/libs/constant';
 import { compactCount, dateTimeLabel, numberLabel } from '@/libs/format';
 import { apiError, t, tn } from '@/libs/i18n';
@@ -166,7 +167,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                 </SelectItem>
                                 {AGENT_ROLES.map((item) => (
                                     <SelectItem key={item.key} value={item.key}>
-                                        {item.name}
+                                        {roleText(item.key, 'name', item.name)}
                                     </SelectItem>
                                 ))}
                             </Select>

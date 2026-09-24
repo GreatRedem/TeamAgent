@@ -87,6 +87,24 @@ const messages = {
     'projects.delete.description':
         'Its bots, agents, models, conversations and records are removed with it. This cannot be undone.',
     'projects.delete.confirm': 'Delete for good',
+    'projects.importNote.botsWithoutToken.one':
+        '{count} bot came without its token. Paste its token on the Bots tab to switch it back on.',
+    'projects.importNote.botsWithoutToken.other':
+        '{count} bots came without their token. Paste each token on the Bots tab to switch them back on.',
+    'projects.importNote.modelsWithoutKey':
+        'Imported models have no API key. Add one to each model that needs it.',
+    'projects.importNote.pluginsOff':
+        'Imported plugins are off until you enter their secrets and switch them on.',
+    'projects.importNote.tasksPaused.one':
+        '{count} scheduled task came in cancelled, so nothing runs twice. Resume it if you want it.',
+    'projects.importNote.tasksPaused.other':
+        '{count} scheduled tasks came in cancelled, so nothing runs twice. Resume the ones you want.',
+    'projects.importNote.modelsReused':
+        'Models this project already had were reused instead of added again.',
+    'projects.importNote.peopleKept':
+        'People this project already knew were kept as they are, with the imported history added to them.',
+    'projects.importNote.keptFiles': "Kept this project's own {files}.",
+    'projects.importNote.auditStays': 'The audit log stays with the project it was recorded in.',
 } as const;
 
 export default messages;

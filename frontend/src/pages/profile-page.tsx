@@ -18,6 +18,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
+import { localPermissions } from '@/libs/catalog';
 import { cn } from '@/libs/cn';
 import { dateLabel, dateTimeLabel, numberLabel, tokenLabel } from '@/libs/format';
 import { apiError, t, tn } from '@/libs/i18n';
@@ -387,7 +388,7 @@ export function ProfilePage() {
                         <PermissionsPanel
                             title={t('people.profile.permissionsTitle')}
                             description={t('people.profile.permissionsDescription')}
-                            catalog={catalog}
+                            catalog={localPermissions(catalog)}
                             granted={details.profile.permissions}
                             saving={saving}
                             error={null}

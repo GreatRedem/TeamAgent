@@ -9,6 +9,7 @@ import {
     type Permission,
     type TeamAgent,
 } from '@/apis';
+import { capabilityText, toolText } from '@/libs/catalog';
 import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
@@ -117,10 +118,16 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
                 <Card key={capability.key}>
                     <CardHeader>
                         <CardTitle className="flex flex-wrap items-center gap-2">
-                            <Text type="Foreground" as="span" message={capability.label} />
+                            <Text
+                                type="Foreground"
+                                as="span"
+                                message={capabilityText(capability.key, 'label', capability.label)}
+                            />
                             <Badge variant="outline">{capability.key}</Badge>
                         </CardTitle>
-                        <CardDescription>{capability.description}</CardDescription>
+                        <CardDescription>
+                            {capabilityText(capability.key, 'description', capability.description)}
+                        </CardDescription>
                     </CardHeader>
 
                     <CardContent className="grid gap-5">
@@ -132,7 +139,10 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
                                     className="gap-1 rounded-lg border px-4 py-3"
                                     key={tool.name}>
                                     <Text type="DataStrong" message={tool.name} />
-                                    <Text type="BodyMuted" message={tool.description} />
+                                    <Text
+                                        type="BodyMuted"
+                                        message={toolText(tool.name, tool.description)}
+                                    />
                                 </Stack>
                             ))}
                         </Stack>

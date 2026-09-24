@@ -23,7 +23,7 @@ interface Report {
     from: string;
     imported: Record<string, number>;
     skipped: Record<string, number>;
-    notes: string[];
+    notes: { code: string; count?: number; files?: string }[];
 }
 
 async function* once(text: string) {
@@ -502,8 +502,12 @@ async function main() {
                 assert.equal(target.rowsOf(TelegramMessage)[0]?.['bot_id'], bot?.['id']);
                 assert.equal(target.rowsOf(TeamAgentExchange)[0]?.['model_id'], model?.['id']);
                 assert.equal(target.rowsOf(TeamPluginCall)[0]?.['plugin_id'], plugin?.['id']);
-                assert.ok(report.notes.some((note) => /token/.test(note)));
-                assert.ok(report.notes.some((note) => /cancelled/.test(note)));
+                assert.ok(
+                    report.notes.some(
+                        (note) => note.code === 'botsWithoutToken' && note.count === 1,
+                    ),
+                );
+                assert.ok(report.notes.some((note) => note.code === 'tasksPaused'));
                 assert.match(
                     String(
                         target.audits.find((row) => row['action'] === 'team.import')?.['detail'],
@@ -562,7 +566,11 @@ async function main() {
                 );
                 assert.equal(target.rowsOf(TeamDocument).length, 1);
                 assert.equal(target.rowsOf(TeamDocument)[0]?.['content'], 'mine');
-                assert.ok(report.notes.some((note) => /team\.json/.test(note)));
+                assert.ok(
+                    report.notes.some(
+                        (note) => note.code === 'keptFiles' && /team\.json/.test(note.files ?? ''),
+                    ),
+                );
             },
         ],
 

@@ -514,22 +514,18 @@ async function importTables(
     }
 
     const notes = [
-        (imported['bots'] ?? 0) > 0 &&
-            `${imported['bots']} bots came without their token. Paste each token on the Bots tab to switch them back on.`,
-        (imported['models'] ?? 0) > 0 &&
-            'Imported models have no API key. Add one to each model that needs it.',
-        (imported['plugins'] ?? 0) > 0 &&
-            'Imported plugins are off until you enter their secrets and switch them on.',
-        existing.paused > 0 &&
-            `${existing.paused} scheduled tasks came in cancelled, so nothing runs twice. Resume the ones you want.`,
-        (skipped['models'] ?? 0) > 0 &&
-            'Models this project already had were reused instead of added again.',
-        (skipped['people'] ?? 0) > 0 &&
-            'People this project already knew were kept as they are, with the imported history added to them.',
-        existing.keptFiles.length > 0 &&
-            `Kept this project's own ${existing.keptFiles.join(', ')}.`,
-        'The audit log stays with the project it was recorded in.',
-    ].filter((note): note is string => typeof note === 'string');
+        (imported['bots'] ?? 0) > 0 && { code: 'botsWithoutToken', count: imported['bots'] ?? 0 },
+        (imported['models'] ?? 0) > 0 && { code: 'modelsWithoutKey' },
+        (imported['plugins'] ?? 0) > 0 && { code: 'pluginsOff' },
+        existing.paused > 0 && { code: 'tasksPaused', count: existing.paused },
+        (skipped['models'] ?? 0) > 0 && { code: 'modelsReused' },
+        (skipped['people'] ?? 0) > 0 && { code: 'peopleKept' },
+        existing.keptFiles.length > 0 && {
+            code: 'keptFiles',
+            files: existing.keptFiles.join(', '),
+        },
+        { code: 'auditStays' },
+    ].filter((note) => note !== false);
 
     return { imported, skipped, notes };
 }

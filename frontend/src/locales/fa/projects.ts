@@ -90,6 +90,24 @@ const messages: Messages<typeof en> = {
     'projects.delete.description':
         'ربات‌ها، ایجنت‌ها، مدل‌ها، گفتگوها و سوابق آن هم همراهش حذف می‌شوند. این کار برگشت‌پذیر نیست.',
     'projects.delete.confirm': 'حذف برای همیشه',
+    'projects.importNote.botsWithoutToken.one':
+        '{count} ربات بدون توکن وارد شد. توکنش را در بخش ربات‌ها وارد کنید تا دوباره روشن شود.',
+    'projects.importNote.botsWithoutToken.other':
+        '{count} ربات بدون توکن وارد شد. توکن هرکدام را در بخش ربات‌ها وارد کنید تا دوباره روشن شوند.',
+    'projects.importNote.modelsWithoutKey':
+        'مدل‌های واردشده کلید API ندارند. برای هر مدلی که لازم دارد یک کلید اضافه کنید.',
+    'projects.importNote.pluginsOff':
+        'پلاگین‌های واردشده خاموش‌اند تا رمزهایشان را وارد و روشنشان کنید.',
+    'projects.importNote.tasksPaused.one':
+        '{count} وظیفهٔ زمان‌بندی‌شده به‌صورت لغوشده وارد شد تا چیزی دو بار اجرا نشود. اگر آن را می‌خواهید، دوباره زمان‌بندی‌اش کنید.',
+    'projects.importNote.tasksPaused.other':
+        '{count} وظیفهٔ زمان‌بندی‌شده به‌صورت لغوشده وارد شد تا چیزی دو بار اجرا نشود. هرکدام را که می‌خواهید دوباره زمان‌بندی کنید.',
+    'projects.importNote.modelsReused':
+        'مدل‌هایی که این پروژه از قبل داشت، به‌جای افزودن دوباره، دوباره به کار رفتند.',
+    'projects.importNote.peopleKept':
+        'افرادی که این پروژه از قبل می‌شناخت همان‌طور ماندند و تاریخچهٔ واردشده به آن‌ها اضافه شد.',
+    'projects.importNote.keptFiles': 'فایل‌های خود این پروژه نگه داشته شد: {files}.',
+    'projects.importNote.auditStays': 'گزارش فعالیت‌ها در همان پروژه‌ای می‌ماند که در آن ثبت شده است.',
 };
 
 export default messages;

@@ -16,6 +16,7 @@ import faActivity from './fa/activity';
 import faAgents from './fa/agents';
 import faAuth from './fa/auth';
 import faBots from './fa/bots';
+import faCatalog from './fa/catalog';
 import faCommon from './fa/common';
 import faErrors from './fa/errors';
 import faLayout from './fa/layout';
@@ -46,6 +47,7 @@ const en = {
 };
 
 const fa: Messages<typeof en> = {
+    ...faCatalog,
     ...faCommon,
     ...faAuth,
     ...faLayout,

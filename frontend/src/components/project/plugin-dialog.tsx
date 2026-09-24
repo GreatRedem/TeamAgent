@@ -9,6 +9,7 @@ import {
     type TeamPlugin,
 } from '@/apis';
 import { Field } from '@/components/field';
+import { fieldText, kindText } from '@/libs/catalog';
 import { API_BASE_URL, PLUGIN_EVENT_LABELS } from '@/libs/constant';
 import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -137,7 +138,9 @@ export function PluginDialog({
                                 : t('tools.form.titleEdit', { name: plugin.name })}
                         </DialogTitle>
                         <DialogDescription>
-                            {kind?.description ?? t('tools.form.description')}
+                            {kind === undefined
+                                ? t('tools.form.description')
+                                : kindText(kind.key, 'description', kind.description)}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -154,7 +157,7 @@ export function PluginDialog({
                                         }}>
                                         {kinds.map((option) => (
                                             <SelectItem key={option.key} value={option.key}>
-                                                {option.label}
+                                                {kindText(option.key, 'label', option.label)}
                                             </SelectItem>
                                         ))}
                                     </Select>
@@ -175,7 +178,7 @@ export function PluginDialog({
                                         kind === undefined
                                             ? t('tools.form.namePlaceholderDefault')
                                             : t('tools.form.namePlaceholder', {
-                                                  kind: kind.label,
+                                                  kind: kindText(kind.key, 'label', kind.label),
                                               })
                                     }
                                 />
@@ -192,9 +195,14 @@ export function PluginDialog({
                                 key={field.key}
                                 label={
                                     field.required
-                                        ? field.label
+                                        ? fieldText(kind.key, field.key, 'label', field.label)
                                         : t('tools.optionalField', {
-                                              label: field.label,
+                                              label: fieldText(
+                                                  kind.key,
+                                                  field.key,
+                                                  'label',
+                                                  field.label,
+                                              ),
                                           })
                                 }
                                 hint={
@@ -203,9 +211,14 @@ export function PluginDialog({
                                             ? t('tools.form.secretRemoved')
                                             : t('tools.form.secretSaved', {
                                                   saved,
-                                                  hint: field.hint,
+                                                  hint: fieldText(
+                                                      kind.key,
+                                                      field.key,
+                                                      'hint',
+                                                      field.hint,
+                                                  ),
                                               })
-                                        : field.hint
+                                        : fieldText(kind.key, field.key, 'hint', field.hint)
                                 }>
                                 {(id) => (
                                     <Stack direction="Horizontal" className="items-center gap-2">
@@ -345,7 +358,9 @@ export function PluginDialog({
                         </Stack>
 
                         {kind !== undefined && kind.inbound !== 'none' && (
-                            <Field label={t('tools.form.answeredBy')} hint={kind.inbound_hint}>
+                            <Field
+                                label={t('tools.form.answeredBy')}
+                                hint={kindText(kind.key, 'inbound_hint', kind.inbound_hint)}>
                                 {(id) => (
                                     <Select id={id} value={hookAgent} onValueChange={setHookAgent}>
                                         <SelectItem value="0">

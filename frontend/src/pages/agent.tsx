@@ -27,6 +27,7 @@ import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
 import { UsageStats } from '@/components/usage-stats';
+import { localCapabilities } from '@/libs/catalog';
 import { AGENT_TABS, type AgentTab } from '@/libs/constant';
 import { apiError, t } from '@/libs/i18n';
 import { teamPath } from '@/libs/navigation';
@@ -426,7 +427,7 @@ export function Agent() {
                             <PermissionsPanel
                                 title={t('agents.capabilities.title')}
                                 description={t('agents.capabilities.description')}
-                                catalog={capabilities}
+                                catalog={localCapabilities(capabilities)}
                                 granted={agent.permissions}
                                 saving={savingCapability}
                                 error={null}

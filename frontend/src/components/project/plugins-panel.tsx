@@ -14,6 +14,7 @@ import {
 } from '@/apis';
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
+import { kindText } from '@/libs/catalog';
 import { HEALTH_TONE, PLUGIN_ICONS } from '@/libs/constant';
 import { dateTimeLabel, numberLabel } from '@/libs/format';
 import { apiError, t, tn } from '@/libs/i18n';
@@ -280,7 +281,9 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                             />
                                         </CardTitle>
                                         <CardDescription>
-                                            {kind?.label ?? plugin.kind}
+                                            {kind === undefined
+                                                ? plugin.kind
+                                                : kindText(kind.key, 'label', kind.label)}
                                         </CardDescription>
                                         <CardAction className="flex items-center gap-2">
                                             <Switch

@@ -31,6 +31,29 @@ async (page) => {
             ...paged,
             total: 2,
         },
+        'GET /team/1/agent-permission': {
+            permissions: [
+                { key: 'prefs.read', label: 'May read files', description: 'Lets this agent read the markdown files it keeps for the people it talks to.' },
+                { key: 'web.fetch', label: 'May use the web', description: 'Lets this agent search the web, read public pages and look up the weather.' },
+                { key: 'roster.read', label: 'May read the team file', description: 'Lets this agent read team.json.' },
+            ],
+        },
+        'GET /team/1/mcp/tools': {
+            tools: [
+                { name: 'preferences_list', description: 'List the markdown files you keep for the person you are talking to.', permission: 'prefs.read' },
+                { name: 'profile_get', description: 'Read the stored facts about the person you are talking to.', permission: 'prefs.read' },
+                { name: 'web_search', description: 'Search the web for current information.', permission: 'web.fetch' },
+                { name: 'roster_read', description: 'Read team.json.', permission: 'roster.read' },
+            ],
+        },
+        'GET /model/catalog': {
+            base_url: 'https://openrouter.ai/api/v1',
+            providers: [
+                { key: 'openrouter', label: 'OpenRouter · one key, every model', url: 'https://openrouter.ai/api/v1', catalog: true, key_required: true, models: [], hint: 'One key reaches hundreds of models. The list below is fetched from OpenRouter.' },
+                { key: 'custom', label: 'Other OpenAI-compatible endpoint', url: '', catalog: false, key_required: false, models: [], hint: 'Any OpenAI-compatible root, including a model served locally.' },
+            ],
+            models: [],
+        },
         'GET /team/1/group': { groups: [{ bot_id: 1, bot_name: 'Front desk', chat_id: '-100123', title: 'Nura community', last_at: at }] },
         'GET /team/1/task': {
             tasks: [

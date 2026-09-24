@@ -9,6 +9,7 @@ import {
     type TeamModelProbe,
 } from '@/apis';
 import { Field } from '@/components/field';
+import { providerText } from '@/libs/catalog';
 import { MODEL_AUTO_FREE, MODEL_LIST_DELAY, PROBE_TONE } from '@/libs/constant';
 import { apiError, t, tk, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -291,7 +292,11 @@ export function ModelDialog({
                     {mode === 'create' && (
                         <Field
                             label={t('models.dialog.provider')}
-                            hint={preset?.hint !== '' ? preset?.hint : undefined}>
+                            hint={
+                                preset === undefined || preset.hint === ''
+                                    ? undefined
+                                    : providerText(preset.key, 'hint', preset.hint)
+                            }>
                             {(id) => (
                                 <Select
                                     value={preset?.key ?? ''}
@@ -300,7 +305,7 @@ export function ModelDialog({
                                     placeholder={t('models.dialog.providerPlaceholder')}>
                                     {providers.map((entry) => (
                                         <SelectItem key={entry.key} value={entry.key}>
-                                            {entry.label}
+                                            {providerText(entry.key, 'label', entry.label)}
                                         </SelectItem>
                                     ))}
                                 </Select>

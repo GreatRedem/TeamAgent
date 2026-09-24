@@ -4,7 +4,7 @@ export interface ImportReport {
     from: string;
     imported: Record<string, number>;
     skipped: Record<string, number>;
-    notes: string[];
+    notes: { code: string; count?: number; files?: string }[];
 }
 
 export async function teamExport(teamId: number) {

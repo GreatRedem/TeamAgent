@@ -8,7 +8,18 @@ export function schemaTeamImport() {
                     from: { type: 'string' },
                     imported: { type: 'object', additionalProperties: { type: 'integer' } },
                     skipped: { type: 'object', additionalProperties: { type: 'integer' } },
-                    notes: { type: 'array', items: { type: 'string' } },
+                    notes: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['code'],
+                            properties: {
+                                code: { type: 'string' },
+                                count: { type: 'integer' },
+                                files: { type: 'string' },
+                            },
+                        },
+                    },
                 },
             },
         },
