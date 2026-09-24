@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 
-import { type AgentDocument, ApiError, agentDocumentRemove, agentDocumentUpdate } from '@/apis';
+import { type AgentDocument, agentDocumentRemove, agentDocumentUpdate } from '@/apis';
 import { ConfirmButton } from '@/components/confirm-button';
 import { tokenLabel } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -44,7 +45,7 @@ export function DocumentEditor({
                 await agentDocumentUpdate(teamId, agentId, document.id, document.name, content),
             );
         } catch (cause) {
-            setError(cause instanceof ApiError ? cause.result : 'The file could not be saved.');
+            setError(apiError(cause, 'agents.errors.fileSaveFailed'));
         } finally {
             setBusy(false);
         }
@@ -56,7 +57,7 @@ export function DocumentEditor({
 
             onRemoved(document.id);
         } catch (cause) {
-            setError(cause instanceof ApiError ? cause.result : 'The file could not be removed.');
+            setError(apiError(cause, 'agents.errors.fileRemoveFailed'));
         }
     }, [teamId, agentId, document.id, onRemoved]);
 
@@ -66,7 +67,7 @@ export function DocumentEditor({
                 <CardTitle className="flex min-w-0 flex-wrap items-center gap-2">
                     <Text type="DataBody" as="span" className="truncate" message={document.name} />
 
-                    {dirty && <Badge variant="warning">Unsaved</Badge>}
+                    {dirty && <Badge variant="warning">{t('agents.document.unsaved')}</Badge>}
                 </CardTitle>
 
                 <Stack
@@ -77,14 +78,14 @@ export function DocumentEditor({
                         variant="outline"
                         disabled={busy || !dirty}
                         onClick={() => void save()}
-                        message={busy ? 'Saving…' : 'Save'}
+                        message={busy ? t('agents.document.saving') : t('agents.document.save')}
                     />
 
                     <ConfirmButton
-                        label="Delete"
-                        title={`Delete ${document.name}?`}
-                        description="This file and everything in it goes for good. The agent stops reading it immediately."
-                        confirmLabel="Delete file"
+                        label={t('agents.document.delete')}
+                        title={t('agents.document.deleteTitle', { name: document.name })}
+                        description={t('agents.document.deleteDescription')}
+                        confirmLabel={t('agents.document.deleteConfirm')}
                         onConfirm={() => void remove()}
                     />
                 </Stack>
@@ -100,7 +101,9 @@ export function DocumentEditor({
 
                 <Text
                     type="Caption"
-                    message={`${tokenLabel(content)}${always ? ', sent with every message this agent answers.' : ', charged only when the agent opens this file.'}`}
+                    message={t(always ? 'agents.document.alwaysSent' : 'agents.document.onDemand', {
+                        tokens: tokenLabel(content),
+                    })}
                 />
 
                 {error !== null && (

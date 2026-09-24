@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 
 import { conversationList, type TelegramProfile } from '@/apis';
 import { PROFILE_SEARCH_DELAY } from '@/libs/constant';
+import { t } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
 import { Input } from '@/ui/input';
 import { Suggestions } from '@/ui/suggestions';
@@ -70,7 +71,7 @@ export function ProfilePicker({
                 value={search}
                 list={listId}
                 onChange={(event) => pick(event.target.value)}
-                placeholder="Search by name or username"
+                placeholder={t('people.picker.placeholder')}
                 autoComplete="off"
             />
         </>

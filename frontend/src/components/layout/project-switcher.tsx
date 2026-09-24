@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 
 import { type Team, teamDetails, teamList } from '@/apis';
 import { TEAM_NAMES } from '@/libs/constant';
+import { t } from '@/libs/i18n';
 import { teamPath } from '@/libs/navigation';
 import { Button } from '@/ui/button';
 import {
@@ -61,7 +62,12 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
             .catch(() => setTeams([]));
     }, [open, teams]);
 
-    const label = teamId === 0 ? 'All projects' : name === '' ? `Project ${teamId}` : name;
+    const label =
+        teamId === 0
+            ? t('layout.projects.all')
+            : name === ''
+              ? t('layout.projects.fallback', { id: String(teamId) })
+              : name;
 
     return (
         <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -77,14 +83,22 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="start" className="w-60">
-                <DropdownMenuLabel>Projects</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('layout.projects.title')}</DropdownMenuLabel>
 
                 {teams === null && (
-                    <Text type="BodyMuted" className="px-2 py-1.5" message="Loading…" />
+                    <Text
+                        type="BodyMuted"
+                        className="px-2 py-1.5"
+                        message={t('layout.projects.loading')}
+                    />
                 )}
 
                 {teams !== null && teams.length === 0 && (
-                    <Text type="BodyMuted" className="px-2 py-1.5" message="No projects yet." />
+                    <Text
+                        type="BodyMuted"
+                        className="px-2 py-1.5"
+                        message={t('layout.projects.empty')}
+                    />
                 )}
 
                 {teams?.map((team) => (
@@ -106,7 +120,7 @@ export function ProjectSwitcher({ teamId }: { teamId: number }) {
                 <DropdownMenuItem asChild>
                     <Link to="/dashboard">
                         <LayoutGrid />
-                        All projects
+                        {t('layout.projects.all')}
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>

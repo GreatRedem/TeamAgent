@@ -1,4 +1,5 @@
 import { WalletSignIn } from '@/components/wallet-sign-in';
+import { t } from '@/libs/i18n';
 import { Brand } from '@/ui/brand';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
@@ -13,11 +14,7 @@ export function SignIn() {
 
                 <Text type="Title" className="mt-6 mb-2" message="Nura Team AI" />
 
-                <Text
-                    type="ForegroundMuted"
-                    className="mt-0 mb-7"
-                    message="Sign in with a wallet signature. There is no password to lose."
-                />
+                <Text type="ForegroundMuted" className="mt-0 mb-7" message={t('auth.intro')} />
 
                 <WalletSignIn />
             </Stack>

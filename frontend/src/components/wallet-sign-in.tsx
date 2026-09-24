@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 
 import { ApiError, walletNonce, walletSignIn } from '@/apis';
 import { WALLETS } from '@/libs/constant';
+import { apiError, t } from '@/libs/i18n';
 import { writeAccessToken } from '@/libs/session';
 import { type DiscoveredWallet, discoverWallets, matchWallet } from '@/libs/wallet';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -47,7 +48,7 @@ export function WalletSignIn() {
     const signIn = useCallback(
         async (name: string, provider: EthereumProvider) => {
             try {
-                setStatus({ kind: 'busy', wallet: name, step: `Opening ${name}` });
+                setStatus({ kind: 'busy', wallet: name, step: t('auth.step.opening', { name }) });
 
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 const address =
@@ -58,17 +59,17 @@ export function WalletSignIn() {
                 if (!address) {
                     setStatus({
                         kind: 'error',
-                        message: `${name} did not share an account. Unlock it and try again.`,
+                        message: t('auth.errors.noAccount', { name }),
                     });
 
                     return;
                 }
 
-                setStatus({ kind: 'busy', wallet: name, step: 'Asking for a challenge' });
+                setStatus({ kind: 'busy', wallet: name, step: t('auth.step.challenge') });
 
                 const { message } = await walletNonce(address);
 
-                setStatus({ kind: 'busy', wallet: name, step: 'Waiting for your signature' });
+                setStatus({ kind: 'busy', wallet: name, step: t('auth.step.signature') });
 
                 const signed = await provider.request({
                     method: 'personal_sign',
@@ -78,13 +79,13 @@ export function WalletSignIn() {
                 if (typeof signed !== 'string') {
                     setStatus({
                         kind: 'error',
-                        message: `${name} returned a signature Nura could not read.`,
+                        message: t('auth.errors.unreadableSignature', { name }),
                     });
 
                     return;
                 }
 
-                setStatus({ kind: 'busy', wallet: name, step: 'Checking the signature' });
+                setStatus({ kind: 'busy', wallet: name, step: t('auth.step.checking') });
 
                 const { accessToken } = await walletSignIn(address, signed);
 
@@ -94,10 +95,10 @@ export function WalletSignIn() {
             } catch (error) {
                 const message =
                     error instanceof ApiError
-                        ? error.result
+                        ? apiError(error, 'auth.errors.signInFailed')
                         : error instanceof Error
                           ? error.message
-                          : 'Sign-in did not finish.';
+                          : t('auth.errors.signInFailed');
 
                 setStatus({ kind: 'error', message });
             }
@@ -117,7 +118,7 @@ export function WalletSignIn() {
                     setOpen(true);
                 }}
                 icon={<Wallet />}
-                message="Sign in with your wallet"
+                message={t('auth.signIn')}
             />
 
             <Dialog
@@ -129,11 +130,8 @@ export function WalletSignIn() {
                 }}>
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>Choose a wallet</DialogTitle>
-                        <DialogDescription>
-                            Nura signs you in with a signature. It never moves funds and never costs
-                            gas.
-                        </DialogDescription>
+                        <DialogTitle>{t('auth.dialog.title')}</DialogTitle>
+                        <DialogDescription>{t('auth.dialog.description')}</DialogDescription>
                     </DialogHeader>
 
                     <Stack direction="Vertical" as="ul" className="m-0 list-none gap-2 p-0">
@@ -197,10 +195,10 @@ export function WalletSignIn() {
                                                     running
                                                         ? status.step
                                                         : found === null
-                                                          ? 'Looking for it'
+                                                          ? t('auth.dialog.looking')
                                                           : provider === undefined
-                                                            ? 'Not installed in this browser'
-                                                            : wallet.blurb
+                                                            ? t('auth.dialog.notInstalled')
+                                                            : t(wallet.blurb)
                                                 }
                                             />
                                         </Stack>
@@ -225,10 +223,7 @@ export function WalletSignIn() {
                     </Stack>
 
                     {found?.length === 0 && (
-                        <Text
-                            type="Caption"
-                            message="No wallet announced itself. Install one, then reopen this dialog."
-                        />
+                        <Text type="Caption" message={t('auth.dialog.noneFound')} />
                     )}
 
                     {status.kind === 'error' && (

@@ -1,56 +1,59 @@
 import type { ExchangeUsage } from '@/apis';
 import { Stat } from '@/components/stat';
-import { compactCount, durationLabel } from '@/libs/format';
+import { compactCount, dateLabel, durationLabel, timeLabel } from '@/libs/format';
+import { t } from '@/libs/i18n';
 import { Stack } from '@/ui/stack';
 
 export function UsageStats({ usage, who }: { usage: ExchangeUsage; who: string }) {
     return (
         <Stack direction="Vertical" className="gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
             <Stat
-                label="Replies"
+                label={t('models.stats.replies')}
                 value={compactCount(usage.replies)}
-                note={`${usage.round_trips.toLocaleString()} round-trips in all`}
+                note={t('models.stats.roundTrips', { count: usage.round_trips })}
             />
             <Stat
-                label="Tokens in"
+                label={t('models.stats.tokensIn')}
                 value={compactCount(usage.prompt_tokens)}
-                note={`${usage.prompt_tokens.toLocaleString()} read`}
+                note={t('models.stats.tokensRead', { count: usage.prompt_tokens })}
             />
             <Stat
-                label="Tokens out"
+                label={t('models.stats.tokensOut')}
                 value={compactCount(usage.completion_tokens)}
-                note={`${usage.completion_tokens.toLocaleString()} written`}
+                note={t('models.stats.tokensWritten', { count: usage.completion_tokens })}
             />
             <Stat
-                label="Failures"
+                label={t('models.stats.failures')}
                 value={compactCount(usage.failures)}
                 note={
                     usage.round_trips === 0
-                        ? 'Nothing sent yet'
-                        : `${Math.round((usage.failures / usage.round_trips) * 100)}% of round-trips`
+                        ? t('models.stats.nothingSent')
+                        : t('models.stats.failureShare', {
+                              percent: Math.round((usage.failures / usage.round_trips) * 100),
+                          })
                 }
             />
             <Stat
-                label="Average answer"
+                label={t('models.stats.average')}
                 value={usage.average_ms === 0 ? '–' : durationLabel(usage.average_ms)}
-                note="Over the calls that succeeded"
+                note={t('models.stats.averageNote')}
             />
             <Stat
-                label="Tool calls"
+                label={t('models.stats.toolCalls')}
                 value={compactCount(usage.tool_calls)}
-                note="Asked for during replies"
+                note={t('models.stats.toolCallsNote')}
             />
             <Stat
-                label="Last used"
+                label={t('models.stats.lastUsed')}
                 value={
                     usage.last_used_at === null
-                        ? 'Never'
-                        : new Date(usage.last_used_at).toLocaleDateString()
+                        ? t('models.stats.never')
+                        : dateLabel(usage.last_used_at)
                 }
                 note={
                     usage.last_used_at === null
-                        ? `${who} has not been called yet`
-                        : new Date(usage.last_used_at).toLocaleTimeString()
+                        ? t('models.stats.notCalled', { who })
+                        : timeLabel(usage.last_used_at)
                 }
             />
         </Stack>

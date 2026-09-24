@@ -72,9 +72,9 @@ function DropdownMenuTrigger({
 }
 
 const menuAlign = {
-    start: { left: 'anchor(left)' },
+    start: { insetInlineStart: 'anchor(start)' },
     center: { justifySelf: 'anchor-center' },
-    end: { right: 'anchor(right)' },
+    end: { insetInlineEnd: 'anchor(end)' },
 };
 
 function DropdownMenuContent({
@@ -172,7 +172,7 @@ function DropdownMenuItem({
                 setOpen(false);
             }}
             className={cn(
-                "relative flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm leading-control outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!",
+                "relative flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm leading-control outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 data-[inset]:ps-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!",
                 className,
             )}
             {...props}
@@ -192,7 +192,7 @@ function DropdownMenuLabel({
             data-slot="dropdown-menu-label"
             data-inset={inset}
             className={cn(
-                'px-2 py-1.5 text-sm leading-control font-medium data-[inset]:pl-8',
+                'px-2 py-1.5 text-sm leading-control font-medium data-[inset]:ps-8',
                 className,
             )}
             {...props}

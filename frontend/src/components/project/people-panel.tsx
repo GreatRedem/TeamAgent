@@ -2,7 +2,6 @@ import { ArrowUpRight, ChevronDown, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     conversationList,
     conversationMessages,
     type Paged,
@@ -12,6 +11,8 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { cn } from '@/libs/cn';
+import { dateLabel, dateTimeLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -46,11 +47,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
             .catch((cause: unknown) => {
                 if (active) {
                     setPeople([]);
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The people could not be loaded.',
-                    );
+                    setError(apiError(cause, 'people.errors.loadFailed'));
                 }
             });
 
@@ -78,11 +75,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
             })
             .catch((cause: unknown) => {
                 if (active) {
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The thread could not be loaded.',
-                    );
+                    setError(apiError(cause, 'people.errors.threadFailed'));
                 }
             });
 
@@ -102,9 +95,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                 setPage(next);
                 setSelected(null);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The people could not be loaded.',
-                );
+                setError(apiError(cause, 'people.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -121,9 +112,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
 
                 setThread({ profile: payload.profile, messages: payload.messages, page: payload });
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The thread could not be loaded.',
-                );
+                setError(apiError(cause, 'people.errors.threadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -136,10 +125,8 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
     return (
         <Card gap={0} flush>
             <CardHeader className="border-b py-5">
-                <CardTitle>People</CardTitle>
-                <CardDescription>
-                    Everyone who has messaged a bot in this project, most recent first.
-                </CardDescription>
+                <CardTitle>{t('people.list.title')}</CardTitle>
+                <CardDescription>{t('people.list.description')}</CardDescription>
             </CardHeader>
 
             <CardContent padding="none" className="py-5">
@@ -163,8 +150,8 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                     <Stack direction="Vertical" className="px-5">
                         <EmptyState
                             icon={UserRound}
-                            title="Nobody has written yet"
-                            description="Someone appears here the first time they write to one of your bots."
+                            title={t('people.list.emptyTitle')}
+                            description={t('people.list.emptyDescription')}
                         />
                     </Stack>
                 )}
@@ -206,14 +193,19 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                             type="Data"
                                                             as="span"
                                                             className="truncate"
-                                                            message={`@${profile.username},`}
+                                                            message={t('people.list.username', {
+                                                                username: profile.username,
+                                                            })}
                                                         />
                                                     )}
                                                     <Text
                                                         type="BodyMuted"
                                                         as="span"
                                                         className="shrink-0"
-                                                        message={`${profile.message_count} message${profile.message_count === 1 ? '' : 's'}`}
+                                                        message={tn(
+                                                            'people.list.messageCount',
+                                                            profile.message_count,
+                                                        )}
                                                     />
                                                 </Stack>
                                             </Stack>
@@ -224,8 +216,8 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             className="relative z-10 [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
                                             link={`/dashboard/team/${teamId}/profile/${profile.id}`}
-                                            icon={<ArrowUpRight />}
-                                            message="Open full profile"
+                                            icon={<ArrowUpRight className="rtl:-scale-x-100" />}
+                                            message={t('people.list.openProfile')}
                                         />
 
                                         <Text
@@ -233,9 +225,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                             as="time"
                                             className="hidden shrink-0 sm:block"
                                             dateTime={profile.last_seen_at}
-                                            message={new Date(
-                                                profile.last_seen_at,
-                                            ).toLocaleDateString()}
+                                            message={dateLabel(profile.last_seen_at)}
                                         />
 
                                         <ChevronDown
@@ -257,7 +247,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                 openThread.messages.length === 0 && (
                                                     <Text
                                                         type="BodyMuted"
-                                                        message="No messages stored for this person yet."
+                                                        message={t('people.list.noMessages')}
                                                     />
                                                 )}
 
@@ -280,9 +270,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                         type="DataMuted"
                                                         as="time"
                                                         dateTime={message.sent_at}
-                                                        message={new Date(
-                                                            message.sent_at,
-                                                        ).toLocaleString()}
+                                                        message={dateTimeLabel(message.sent_at)}
                                                     />
                                                 </Stack>
                                             ))}
@@ -295,7 +283,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                                                         page={openThread.page}
                                                         shown={openThread.messages.length}
                                                         busy={paging}
-                                                        noun="messages"
+                                                        noun={t('people.pager.messages')}
                                                         onPage={(offset) =>
                                                             void goToMessages(profile.id, offset)
                                                         }
@@ -317,7 +305,7 @@ export function PeoplePanel({ teamId }: { teamId: number }) {
                         page={page}
                         shown={people.length}
                         busy={paging}
-                        noun="people"
+                        noun={t('people.pager.people')}
                         onPage={(offset) => void goTo(offset)}
                     />
                 </CardFooter>

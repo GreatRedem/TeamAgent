@@ -1,6 +1,123 @@
 import type en from '../en/models';
 import type { Messages } from '../types';
 
-const messages: Messages<typeof en> = {};
+const messages: Messages<typeof en> = {
+    'models.panel.loading': 'در حال بارگذاری مدل‌ها.',
+    'models.panel.count.one': '{count} اندپوینت که این پروژه می‌تواند فراخوانی کند.',
+    'models.panel.count.other': '{count} اندپوینت که این پروژه می‌تواند فراخوانی کند.',
+    'models.panel.add': 'افزودن مدل',
+    'models.panel.empty.title': 'هنوز مدلی اضافه نشده است',
+    'models.panel.empty.description':
+        'Nura را به یک اندپوینت سازگار با OpenAI وصل کنید. هر چه ایجنت‌هایتان می‌گویند از یکی از این اندپوینت‌ها می‌گذرد.',
+    'models.panel.pagerNoun': 'مدل',
+    'models.card.model': 'مدل',
+    'models.card.autoFree': 'خودکار · مدل‌های رایگان',
+    'models.card.endpoint': 'اندپوینت',
+    'models.card.key': 'کلید',
+    'models.card.replies': 'پاسخ‌ها',
+    'models.card.repliesValue': '{replies} · {failures} ناموفق',
+    'models.card.tokens': 'توکن‌ها',
+    'models.card.tokensValue': '{prompt} ورودی · {completion} خروجی',
+    'models.card.lastUsed': 'آخرین استفاده',
+    'models.card.never': 'هرگز',
+    'models.card.windowFollows': 'پنجرهٔ زمینه به مدلِ در حال استفاده بستگی دارد',
+    'models.card.windowUnread': 'پنجرهٔ زمینه هنوز خوانده نشده است',
+    'models.card.windowUnit': 'توکن',
+    'models.card.testing': 'در حال آزمایش…',
+    'models.card.test': 'فعالیت شبکه',
+    'models.card.details': 'جزئیات',
+    'models.card.modify': 'ویرایش',
+    'models.card.noAnswer': 'بدون پاسخ',
+    'models.card.available': 'در دسترس است، مدل موجود است',
+    'models.card.unlisted': 'در دسترس است، مدل در فهرست نیست',
+    'models.remove.label': 'حذف',
+    'models.remove.title': '{name} حذف شود؟',
+    'models.remove.description':
+        'کلید ذخیره‌شده هم همراه آن حذف می‌شود و قابل بازیابی نیست. ایجنت‌هایی که از این مدل استفاده می‌کنند دیگر پاسخ نمی‌دهند.',
+    'models.remove.confirm': 'حذف مدل',
+    'models.errors.loadFailed': 'مدل‌ها بارگذاری نشدند.',
+    'models.errors.saveFailed': 'مدل ذخیره نشد.',
+    'models.errors.removeFailed': 'مدل حذف نشد.',
+    'models.errors.roundTripsFailed': 'رفت‌وبرگشت‌ها بارگذاری نشدند.',
+    'models.dialog.asking': 'در حال پرسش از اندپوینت…',
+    'models.dialog.noAnswer': 'اندپوینت پاسخی نداد.',
+    'models.dialog.connected.free':
+        'متصل شد. {count} مدل ارائه می‌شود و مدل‌های رایگان برای جابه‌جایی در دسترس‌اند.',
+    'models.dialog.connected.freeWindow':
+        'متصل شد. {count} مدل ارائه می‌شود، مدل‌های رایگان برای جابه‌جایی در دسترس‌اند و پنجرهٔ زمینه {window} توکن است.',
+    'models.dialog.connected.noFree':
+        'متصل شد. {count} مدل ارائه می‌شود، اما فعلاً هیچ مدل رایگانی در دسترس نیست.',
+    'models.dialog.connected.noFreeWindow':
+        'متصل شد. {count} مدل ارائه می‌شود، فعلاً هیچ مدل رایگانی در دسترس نیست و پنجرهٔ زمینه {window} توکن است.',
+    'models.dialog.connected.found': 'متصل شد. {count} مدل ارائه می‌شود و مدل شما در دسترس است.',
+    'models.dialog.connected.foundWindow':
+        'متصل شد. {count} مدل ارائه می‌شود، مدل شما در دسترس است و پنجرهٔ زمینه {window} توکن است.',
+    'models.dialog.connected.missing':
+        'متصل شد. {count} مدل ارائه می‌شود، اما مدل شما در فهرست آن نیست.',
+    'models.dialog.connected.missingWindow':
+        'متصل شد. {count} مدل ارائه می‌شود، مدل شما در فهرست آن نیست و پنجرهٔ زمینه {window} توکن است.',
+    'models.dialog.listFailed': 'اندپوینت فهرست مدل‌هایش را ارائه نکرد.',
+    'models.dialog.catalogHint':
+        'همهٔ مدل‌های کاتالوگ OpenRouter، همراه با قیمت. برای جست‌وجو تایپ کنید.',
+    'models.dialog.listing': 'در حال دریافت فهرست مدل‌ها از اندپوینت…',
+    'models.dialog.offered.one':
+        '{count} مدل ارائه می‌شود. یکی را انتخاب کنید یا شناسه‌ای تایپ کنید.',
+    'models.dialog.offered.other':
+        '{count} مدل ارائه می‌شود. یکی را انتخاب کنید یا شناسه‌ای تایپ کنید.',
+    'models.dialog.createTitle': 'افزودن مدل',
+    'models.dialog.editTitle': 'ویرایش مدل',
+    'models.dialog.createDescription':
+        'هر اندپوینت سازگار با OpenAI کار می‌کند. پیش از ذخیره، اتصال را آزمایش کنید.',
+    'models.dialog.editDescription': 'کلید را خالی بگذارید تا همان کلید ذخیره‌شده حفظ شود.',
+    'models.dialog.catalogFree': '{name} · رایگان',
+    'models.dialog.catalogPrice': '{name} · {prompt}/{completion} به ازای هر میلیون',
+    'models.dialog.provider': 'ارائه‌دهنده',
+    'models.dialog.providerPlaceholder': 'یک ارائه‌دهنده انتخاب کنید',
+    'models.dialog.name': 'نام',
+    'models.dialog.nameHint': 'نامی که این اندپوینت را در Nura با آن صدا می‌زنید.',
+    'models.dialog.namePlaceholder': 'اصلی',
+    'models.dialog.autoFree': 'خودکار رایگان',
+    'models.dialog.autoFreeHint':
+        'برای هر پاسخ یک مدل رایگان OpenRouter انتخاب می‌کند، اول مدل‌هایی که ابزار را پشتیبانی می‌کنند، و وقتی مدلی به محدودیت نرخ بخورد، از کار بیفتد یا حذف شود، سراغ مدل بعدی می‌رود.',
+    'models.dialog.model': 'مدل',
+    'models.dialog.endpoint': 'نشانی اندپوینت',
+    'models.dialog.context': 'پنجرهٔ زمینه',
+    'models.dialog.contextHint':
+        'هنگام آزمایش یا ذخیره از ارائه‌دهنده خوانده می‌شود. فقط برای اندپوینتی پر کنید که خودش آن را اعلام نمی‌کند.',
+    'models.dialog.contextPlaceholder': 'تشخیص خودکار',
+    'models.dialog.apiKey': 'کلید API',
+    'models.dialog.replacementKey': 'کلید جایگزین',
+    'models.dialog.replacementKeyHint': 'برای حفظ کلید ذخیره‌شده خالی بگذارید.',
+    'models.dialog.localKeyHint': 'یک روتر محلی معمولاً به کلید نیازی ندارد.',
+    'models.dialog.testing': 'در حال آزمایش…',
+    'models.dialog.test': 'آزمایش اتصال',
+    'models.dialog.cancel': 'انصراف',
+    'models.dialog.saving': 'در حال ذخیره…',
+    'models.dialog.add': 'افزودن مدل',
+    'models.dialog.save': 'ذخیرهٔ تغییرات',
+    'models.usage.fallbackTitle': 'مدل',
+    'models.usage.description':
+        'آنچه این مدل پاسخ داده، هزینهٔ آن به توکن، و همهٔ فراخوانی‌هایی که ایجنت‌ها از طریق آن انجام داده‌اند. توکن‌ها شمارش خود ارائه‌دهنده‌اند و هر جا ارائه‌دهنده عددی نداده، تخمینی‌اند (با علامت ~).',
+    'models.usage.who': 'این مدل',
+    'models.usage.roundTrips': 'رفت‌وبرگشت‌ها',
+    'models.usage.empty': 'هنوز هیچ ایجنتی این مدل را فراخوانی نکرده است.',
+    'models.usage.pagerNoun': 'رفت‌وبرگشت',
+    'models.stats.replies': 'پاسخ‌ها',
+    'models.stats.roundTrips': 'در مجموع {count} رفت‌وبرگشت',
+    'models.stats.tokensIn': 'توکن‌های ورودی',
+    'models.stats.tokensRead': '{count} خوانده‌شده',
+    'models.stats.tokensOut': 'توکن‌های خروجی',
+    'models.stats.tokensWritten': '{count} نوشته‌شده',
+    'models.stats.failures': 'ناموفق‌ها',
+    'models.stats.nothingSent': 'هنوز چیزی ارسال نشده است',
+    'models.stats.failureShare': '{percent}٪ از رفت‌وبرگشت‌ها',
+    'models.stats.average': 'میانگین زمان پاسخ',
+    'models.stats.averageNote': 'در فراخوانی‌های موفق',
+    'models.stats.toolCalls': 'فراخوانی ابزار',
+    'models.stats.toolCallsNote': 'درخواست‌شده در حین پاسخ‌ها',
+    'models.stats.lastUsed': 'آخرین استفاده',
+    'models.stats.never': 'هرگز',
+    'models.stats.notCalled': '{who} هنوز فراخوانی نشده است',
+};
 
 export default messages;

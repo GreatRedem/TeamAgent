@@ -1,3 +1,4 @@
+import { t } from '@/libs/i18n';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -39,7 +40,7 @@ export function ConfirmButton({
                 </AlertDialogHeader>
 
                 <AlertDialogFooter>
-                    <AlertDialogCancel message="Keep it" />
+                    <AlertDialogCancel message={t('common.keepIt')} />
                     <AlertDialogAction
                         variant="destructive"
                         onClick={onConfirm}

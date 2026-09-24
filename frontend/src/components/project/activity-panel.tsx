@@ -1,19 +1,13 @@
 import { Activity } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
-import {
-    ApiError,
-    type AuditEntry,
-    auditHeatmap,
-    auditList,
-    type HeatmapDay,
-    type Paged,
-} from '@/apis';
+import { type AuditEntry, auditHeatmap, auditList, type HeatmapDay, type Paged } from '@/apis';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { cn } from '@/libs/cn';
 import { AUDIT_RESULT, HEAT_SCALE, HEAT_SCALE_FAILED } from '@/libs/constant';
-import { prettyJson } from '@/libs/format';
+import { dateTimeLabel, numberLabel, prettyJson, timeLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
@@ -23,7 +17,6 @@ import { Pressable } from '@/ui/pressable';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
-
 import { Heatmap } from './heatmap';
 
 function roundTrip(
@@ -43,7 +36,7 @@ function roundTrip(
 }
 
 function clock(iso: string): string {
-    return new Date(iso).toLocaleTimeString(undefined, {
+    return timeLabel(iso, {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -77,11 +70,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
             .catch((cause: unknown) => {
                 if (active) {
                     setEntries([]);
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The activity trail could not be loaded.',
-                    );
+                    setError(apiError(cause, 'activity.errors.loadFailed'));
                 }
             });
 
@@ -101,11 +90,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                 setPage(next);
                 setSelectedId(null);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The activity trail could not be loaded.',
-                );
+                setError(apiError(cause, 'activity.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -182,7 +167,10 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                     className="truncate"
                                     message={
                                         row !== null && row.messages !== ''
-                                            ? `${Number(row.messages).toLocaleString()} in / ${Number(row.chars).toLocaleString()} chars`
+                                            ? t('activity.trail.sizes', {
+                                                  messages: Number(row.messages),
+                                                  chars: Number(row.chars),
+                                              })
                                             : entry.target === ''
                                               ? '—'
                                               : entry.target
@@ -196,14 +184,16 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                         <Text
                                             type="DataMuted"
                                             as="span"
-                                            message={`${entry.duration_ms.toLocaleString()} ms`}
+                                            message={t('common.milliseconds', {
+                                                count: entry.duration_ms,
+                                            })}
                                         />
                                     )}
                                     <Text
                                         type="BodyStrong"
                                         as="span"
                                         className={result.className}
-                                        message={result.label}
+                                        message={t(result.label)}
                                     />
                                 </Stack>
                             </Stack>
@@ -219,11 +209,11 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
             <Stack direction="Vertical" className="gap-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Succeeded</CardTitle>
+                        <CardTitle>{t('activity.succeeded.title')}</CardTitle>
                         <CardDescription>
                             {heatmap === null
-                                ? 'Counting what this project got done.'
-                                : `${succeededTotal.toLocaleString()} action${succeededTotal === 1 ? '' : 's'} finished in the past year.`}
+                                ? t('activity.succeeded.loading')
+                                : tn('activity.succeeded.summary', succeededTotal)}
                         </CardDescription>
                     </CardHeader>
 
@@ -235,7 +225,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 days={heatmap.days}
                                 count={(day) => day.total - day.errors}
                                 scale={HEAT_SCALE}
-                                noun={['action', 'actions']}
+                                noun={[t('activity.noun.action'), t('activity.noun.actions')]}
                             />
                         )}
                     </CardContent>
@@ -243,13 +233,13 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Failed</CardTitle>
+                        <CardTitle>{t('activity.failed.title')}</CardTitle>
                         <CardDescription>
                             {heatmap === null
-                                ? 'Counting what went wrong.'
+                                ? t('activity.failed.loading')
                                 : failedTotal === 0
-                                  ? 'Nothing failed in the past year.'
-                                  : `${failedTotal.toLocaleString()} failure${failedTotal === 1 ? '' : 's'} in the past year.`}
+                                  ? t('activity.failed.none')
+                                  : tn('activity.failed.summary', failedTotal)}
                         </CardDescription>
                     </CardHeader>
 
@@ -261,7 +251,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 days={heatmap.days}
                                 count={(day) => day.errors}
                                 scale={HEAT_SCALE_FAILED}
-                                noun={['failure', 'failures']}
+                                noun={[t('activity.noun.failure'), t('activity.noun.failures')]}
                             />
                         )}
                     </CardContent>
@@ -273,10 +263,8 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                 className="xl:items-start gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:grid">
                 <Card className="overflow-hidden">
                     <CardHeader>
-                        <CardTitle>Trail</CardTitle>
-                        <CardDescription>
-                            What was sent, what came back, and how long it took.
-                        </CardDescription>
+                        <CardTitle>{t('activity.trail.title')}</CardTitle>
+                        <CardDescription>{t('activity.trail.description')}</CardDescription>
 
                         <Stack
                             direction="Horizontal"
@@ -285,7 +273,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 size="sm"
                                 variant={failuresOnly ? 'ghost' : 'secondary'}
                                 onClick={() => setFailuresOnly(false)}
-                                message="All"
+                                message={t('activity.trail.all')}
                             />
 
                             <Button
@@ -293,7 +281,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 variant={failuresOnly ? 'secondary-destructive' : 'ghost'}
                                 className={failuresOnly ? undefined : 'text-muted-foreground'}
                                 onClick={() => setFailuresOnly(true)}
-                                message="Failures"
+                                message={t('activity.trail.failures')}
                             />
                         </Stack>
                     </CardHeader>
@@ -319,8 +307,8 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             <Stack direction="Vertical" className="px-5">
                                 <EmptyState
                                     icon={Activity}
-                                    title="Nothing has happened yet"
-                                    description="Every model run and every change to this project will show up here."
+                                    title={t('activity.trail.emptyTitle')}
+                                    description={t('activity.trail.emptyDescription')}
                                 />
                             </Stack>
                         )}
@@ -329,8 +317,8 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             <Stack direction="Vertical" className="px-5">
                                 <EmptyState
                                     icon={Activity}
-                                    title="No failures on this page"
-                                    description="Every run on this page finished cleanly."
+                                    title={t('activity.trail.noFailuresTitle')}
+                                    description={t('activity.trail.noFailuresDescription')}
                                 />
                             </Stack>
                         )}
@@ -350,7 +338,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 page={page}
                                 shown={entries.length}
                                 busy={paging}
-                                noun="entries"
+                                noun={t('activity.trail.entries')}
                                 onPage={(offset) => void goTo(offset)}
                             />
                         </CardFooter>
@@ -361,15 +349,15 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                     <CardHeader>
                         <CardTitle>
                             {selected === null
-                                ? 'Nothing selected'
+                                ? t('activity.detail.nothingSelected')
                                 : trip === null
                                   ? selected.action
-                                  : 'Model round-trip'}
+                                  : t('activity.detail.roundTrip')}
                         </CardTitle>
                         <CardDescription>
                             {selected === null
-                                ? 'Pick a row to see the detail.'
-                                : new Date(selected.created_at).toLocaleString()}
+                                ? t('activity.detail.pick')
+                                : dateTimeLabel(selected.created_at)}
                         </CardDescription>
                     </CardHeader>
 
@@ -378,28 +366,45 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                             <>
                                 <DataList>
                                     {trip !== null && trip.agent !== '' && (
-                                        <DataRow label="Agent" value={trip.agent} />
+                                        <DataRow
+                                            label={t('activity.detail.agent')}
+                                            value={trip.agent}
+                                        />
                                     )}
                                     {trip !== null && trip.model !== '' && (
-                                        <DataRow label="Model" value={trip.model} />
+                                        <DataRow
+                                            label={t('activity.detail.model')}
+                                            value={trip.model}
+                                        />
                                     )}
                                     {trip !== null && trip.messages !== '' && (
                                         <DataRow
-                                            label="Messages in"
-                                            value={Number(trip.messages).toLocaleString()}
+                                            label={t('activity.detail.messagesIn')}
+                                            value={numberLabel(Number(trip.messages))}
                                         />
                                     )}
                                     {trip === null && (
-                                        <DataRow label="Action" value={selected.action} />
+                                        <DataRow
+                                            label={t('activity.detail.action')}
+                                            value={selected.action}
+                                        />
                                     )}
                                     {trip === null && selected.target !== '' && (
-                                        <DataRow label="Target" value={selected.target} />
+                                        <DataRow
+                                            label={t('activity.detail.target')}
+                                            value={selected.target}
+                                        />
                                     )}
-                                    <DataRow label="Actor" value={selected.actor} />
+                                    <DataRow
+                                        label={t('activity.detail.actor')}
+                                        value={selected.actor}
+                                    />
                                     {selected.duration_ms > 0 && (
                                         <DataRow
-                                            label="Took"
-                                            value={`${selected.duration_ms.toLocaleString()} ms`}
+                                            label={t('activity.detail.took')}
+                                            value={t('common.milliseconds', {
+                                                count: selected.duration_ms,
+                                            })}
                                         />
                                     )}
                                 </DataList>
@@ -407,7 +412,11 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                 <Stack direction="Vertical" className="gap-2">
                                     <Text
                                         type="BodyMuted"
-                                        message={trip === null ? 'Detail' : 'Came back'}
+                                        message={
+                                            trip === null
+                                                ? t('activity.detail.detail')
+                                                : t('activity.detail.cameBack')
+                                        }
                                     />
 
                                     <Text
@@ -424,17 +433,28 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                                             trip !== null &&
                                             selected.outcome === 'ok' &&
                                             trip.chars !== ''
-                                                ? `${Number(trip.chars).toLocaleString()} characters of text${trip.tools !== '' && trip.tools !== '0' ? ` after ${trip.tools} tool call${trip.tools === '1' ? '' : 's'}` : ''}`
+                                                ? trip.tools !== '' && trip.tools !== '0'
+                                                    ? tn(
+                                                          'activity.detail.textAfterTools',
+                                                          Number(trip.tools),
+                                                          { chars: Number(trip.chars) },
+                                                      )
+                                                    : t('activity.detail.text', {
+                                                          chars: Number(trip.chars),
+                                                      })
                                                 : selected.detail !== ''
                                                   ? selected.detail
-                                                  : 'Nothing was recorded.'
+                                                  : t('activity.detail.nothingRecorded')
                                         }
                                     />
                                 </Stack>
 
                                 {selected.changes !== '' && (
                                     <Stack direction="Vertical" className="gap-2">
-                                        <Text type="BodyMuted" message="What changed" />
+                                        <Text
+                                            type="BodyMuted"
+                                            message={t('activity.detail.changes')}
+                                        />
 
                                         <Stack
                                             direction="Vertical"

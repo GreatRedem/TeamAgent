@@ -7,6 +7,8 @@ import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
+import { dateLabel } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -75,9 +77,7 @@ export function Projects() {
                 }
 
                 setTeams([]);
-                setError(
-                    cause instanceof ApiError ? cause.result : 'Your projects could not be loaded.',
-                );
+                setError(apiError(cause, 'projects.errors.loadFailed'));
             });
 
         return () => {
@@ -95,9 +95,7 @@ export function Projects() {
                 setTeams(next.teams);
                 setPage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'Your projects could not be loaded.',
-                );
+                setError(apiError(cause, 'projects.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -121,9 +119,7 @@ export function Projects() {
                 setDescription('');
                 setCreating(false);
             } catch (cause) {
-                setFormError(
-                    cause instanceof ApiError ? cause.result : 'The project could not be created.',
-                );
+                setFormError(apiError(cause, 'projects.errors.createFailed'));
             } finally {
                 setBusy(false);
             }
@@ -142,25 +138,29 @@ export function Projects() {
                 setCreating(true);
             }}
             icon={<Plus />}
-            message="New project"
+            message={t('projects.list.new')}
         />
     );
 
     return (
         <>
             <PageHeader
-                title={archived ? 'Archived projects' : 'Projects'}
+                title={archived ? t('projects.list.archivedTitle') : t('projects.list.title')}
                 description={
                     archived
-                        ? 'Projects you have put away. Open one to restore it or delete it for good.'
-                        : 'A project holds the bots people message, the agents that answer, and the models behind them.'
+                        ? t('projects.list.archivedDescription')
+                        : t('projects.list.description')
                 }
                 actions={
                     <>
                         <Button
                             variant="ghost"
                             icon={archived ? <FolderOpen /> : <Archive />}
-                            message={archived ? 'Active projects' : 'Archived'}
+                            message={
+                                archived
+                                    ? t('projects.list.showActive')
+                                    : t('projects.list.showArchived')
+                            }
                             onClick={() => setArchived(!archived)}
                         />
                         {!archived && createButton}
@@ -172,13 +172,13 @@ export function Projects() {
                 <DialogContent>
                     <Stack direction="Vertical" as="form" className="gap-5" onSubmit={create}>
                         <DialogHeader>
-                            <DialogTitle>New project</DialogTitle>
+                            <DialogTitle>{t('projects.create.title')}</DialogTitle>
                             <DialogDescription>
-                                Group the bots, agents and models that belong together.
+                                {t('projects.create.description')}
                             </DialogDescription>
                         </DialogHeader>
 
-                        <Field label="Name">
+                        <Field label={t('projects.field.name')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -187,19 +187,21 @@ export function Projects() {
                                     minLength={2}
                                     maxLength={64}
                                     required
-                                    placeholder="Night shift"
+                                    placeholder={t('projects.field.namePlaceholder')}
                                 />
                             )}
                         </Field>
 
-                        <Field label="What it is for" hint="Optional. Shown on the project card.">
+                        <Field
+                            label={t('projects.field.purpose')}
+                            hint={t('projects.field.purposeHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
                                     value={description}
                                     onChange={(event) => setDescription(event.target.value)}
                                     maxLength={280}
-                                    placeholder="Support cover outside office hours"
+                                    placeholder={t('projects.field.purposePlaceholder')}
                                 />
                             )}
                         </Field>
@@ -215,12 +217,14 @@ export function Projects() {
                                 type="button"
                                 variant="outline"
                                 onClick={() => setCreating(false)}
-                                message="Cancel"
+                                message={t('projects.create.cancel')}
                             />
                             <Button
                                 type="submit"
                                 disabled={busy}
-                                message={busy ? 'Creating…' : 'Create project'}
+                                message={
+                                    busy ? t('projects.create.busy') : t('projects.create.submit')
+                                }
                             />
                         </DialogFooter>
                     </Stack>
@@ -244,8 +248,8 @@ export function Projects() {
             {teams !== null && teams.length === 0 && !archived && (
                 <EmptyState
                     icon={FolderPlus}
-                    title="No projects yet"
-                    description="Start with one project. You can add a model, an agent and a bot to it in a few minutes."
+                    title={t('projects.list.emptyTitle')}
+                    description={t('projects.list.emptyDescription')}
                     action={createButton}
                 />
             )}
@@ -253,8 +257,8 @@ export function Projects() {
             {teams !== null && teams.length === 0 && archived && (
                 <EmptyState
                     icon={Archive}
-                    title="Nothing archived"
-                    description="Archive a project from its settings to put it away without losing it."
+                    title={t('projects.list.archivedEmptyTitle')}
+                    description={t('projects.list.archivedEmptyDescription')}
                 />
             )}
 
@@ -276,7 +280,7 @@ export function Projects() {
                                         className="line-clamp-2 min-h-[2lh]"
                                         message={
                                             team.description === ''
-                                                ? 'No description yet.'
+                                                ? t('projects.list.noDescription')
                                                 : team.description
                                         }
                                     />
@@ -287,7 +291,7 @@ export function Projects() {
                                         type="DataMuted"
                                         as="time"
                                         dateTime={team.created_at}
-                                        message={new Date(team.created_at).toLocaleDateString()}
+                                        message={dateLabel(team.created_at)}
                                     />
 
                                     <Button
@@ -298,7 +302,11 @@ export function Projects() {
                                                 ? `/dashboard/team/${team.id}/settings`
                                                 : `/dashboard/team/${team.id}`
                                         }
-                                        message={archived ? 'Restore or delete' : 'Open'}
+                                        message={
+                                            archived
+                                                ? t('projects.list.restoreOrDelete')
+                                                : t('projects.list.open')
+                                        }
                                     />
                                 </CardFooter>
                             </Card>
@@ -313,7 +321,7 @@ export function Projects() {
                     page={page}
                     shown={teams.length}
                     busy={paging}
-                    noun="projects"
+                    noun={t('projects.list.pagerNoun')}
                     onPage={(offset) => void goTo(offset)}
                 />
             )}

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     type CatalogModel,
     isOpenRouterUrl,
     modelListIds,
@@ -11,6 +10,7 @@ import {
 } from '@/apis';
 import { Field } from '@/components/field';
 import { MODEL_AUTO_FREE, MODEL_LIST_DELAY, PROBE_TONE } from '@/libs/constant';
+import { apiError, t, tk, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import {
@@ -46,24 +46,35 @@ function probeState(probe: TeamModelProbe | 'testing'): string {
 
 function probeLabel(probe: TeamModelProbe | 'testing', autoFree: boolean): string {
     if (probe === 'testing') {
-        return 'Asking the endpoint…';
+        return t('models.dialog.asking');
     }
 
     if (!probe.ok) {
-        return probe.reason ?? 'The endpoint did not answer.';
+        return tk(`errors.${probe.reason}`, probe.reason ?? t('models.dialog.noAnswer'));
     }
 
-    const found = autoFree
-        ? probe.found === true
-            ? 'free models are available to switch between'
-            : 'no free model is available right now'
-        : probe.found === true
-          ? 'your model is available'
-          : 'your model is not in its listing';
-    const context =
-        (probe.context ?? 0) > 0 ? `, ${probe.context?.toLocaleString()} token window` : '';
+    const found = probe.found === true;
+    const values = { count: probe.models ?? 0, window: probe.context ?? 0 };
 
-    return `Connected. ${probe.models ?? 0} models offered, ${found}${context}.`;
+    if ((probe.context ?? 0) > 0) {
+        return autoFree
+            ? t(
+                  found
+                      ? 'models.dialog.connected.freeWindow'
+                      : 'models.dialog.connected.noFreeWindow',
+                  values,
+              )
+            : t(
+                  found
+                      ? 'models.dialog.connected.foundWindow'
+                      : 'models.dialog.connected.missingWindow',
+                  values,
+              );
+    }
+
+    return autoFree
+        ? t(found ? 'models.dialog.connected.free' : 'models.dialog.connected.noFree', values)
+        : t(found ? 'models.dialog.connected.found' : 'models.dialog.connected.missing', values);
 }
 
 export function ModelDialog({
@@ -140,7 +151,7 @@ export function ModelDialog({
                     setListing(
                         result.ok
                             ? { count: result.ids.length }
-                            : { reason: result.reason ?? 'The endpoint did not list its models.' },
+                            : { reason: result.reason ?? t('models.dialog.listFailed') },
                     );
                 })
                 .catch((cause: unknown) => {
@@ -149,12 +160,7 @@ export function ModelDialog({
                     }
 
                     setDiscovered([]);
-                    setListing({
-                        reason:
-                            cause instanceof ApiError
-                                ? cause.result
-                                : 'The endpoint did not list its models.',
-                    });
+                    setListing({ reason: apiError(cause, 'models.dialog.listFailed') });
                 });
         }, MODEL_LIST_DELAY);
 
@@ -166,13 +172,13 @@ export function ModelDialog({
     }, [open, url, apiKey, openRouter, teamId, mode, modelId]);
 
     const modelHint = openRouter
-        ? 'Every model in the OpenRouter catalog, with its price. Type to search.'
+        ? t('models.dialog.catalogHint')
         : listing === 'loading'
-          ? 'Asking the endpoint for its models…'
+          ? t('models.dialog.listing')
           : listing !== null && 'count' in listing
-            ? `${listing.count.toLocaleString()} model${listing.count === 1 ? '' : 's'} offered. Pick one, or type an id.`
+            ? tn('models.dialog.offered', listing.count)
             : listing !== null
-              ? listing.reason
+              ? tk(`errors.${listing.reason}`, listing.reason)
               : undefined;
 
     const chooseModel = useCallback(
@@ -233,7 +239,7 @@ export function ModelDialog({
         } catch (cause) {
             setProbe({
                 ok: false,
-                reason: cause instanceof ApiError ? cause.result : 'The endpoint did not answer.',
+                reason: apiError(cause, 'models.dialog.noAnswer'),
             });
         }
     }, [teamId, url, apiKey, draft, onChange, mode, modelId]);
@@ -251,12 +257,14 @@ export function ModelDialog({
                     }}>
                     <DialogHeader>
                         <DialogTitle>
-                            {mode === 'create' ? 'Add a model' : 'Edit model'}
+                            {mode === 'create'
+                                ? t('models.dialog.createTitle')
+                                : t('models.dialog.editTitle')}
                         </DialogTitle>
                         <DialogDescription>
                             {mode === 'create'
-                                ? 'Any OpenAI-compatible endpoint works. Test the connection before you save.'
-                                : 'Leave the key blank to keep the one already stored.'}
+                                ? t('models.dialog.createDescription')
+                                : t('models.dialog.editDescription')}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -264,11 +272,14 @@ export function ModelDialog({
                         id="catalog-models"
                         options={catalog.map((entry) => ({
                             value: entry.id,
-                            label: `${entry.name}${
+                            label:
                                 entry.prompt === 0 && entry.completion === 0
-                                    ? ' · free'
-                                    : ` · ${entry.prompt}/${entry.completion} per 1M`
-                            }`,
+                                    ? t('models.dialog.catalogFree', { name: entry.name })
+                                    : t('models.dialog.catalogPrice', {
+                                          name: entry.name,
+                                          prompt: String(entry.prompt),
+                                          completion: String(entry.completion),
+                                      }),
                         }))}
                     />
 
@@ -279,14 +290,14 @@ export function ModelDialog({
 
                     {mode === 'create' && (
                         <Field
-                            label="Provider"
+                            label={t('models.dialog.provider')}
                             hint={preset?.hint !== '' ? preset?.hint : undefined}>
                             {(id) => (
                                 <Select
                                     value={preset?.key ?? ''}
                                     onValueChange={(key) => void chooseProvider(key)}
                                     id={id}
-                                    placeholder="Pick a provider">
+                                    placeholder={t('models.dialog.providerPlaceholder')}>
                                     {providers.map((entry) => (
                                         <SelectItem key={entry.key} value={entry.key}>
                                             {entry.label}
@@ -297,7 +308,7 @@ export function ModelDialog({
                         </Field>
                     )}
 
-                    <Field label="Name" hint="What you will call this endpoint inside Nura.">
+                    <Field label={t('models.dialog.name')} hint={t('models.dialog.nameHint')}>
                         {(id) => (
                             <Input
                                 id={id}
@@ -308,15 +319,15 @@ export function ModelDialog({
                                 minLength={2}
                                 maxLength={64}
                                 required
-                                placeholder="Primary"
+                                placeholder={t('models.dialog.namePlaceholder')}
                             />
                         )}
                     </Field>
 
                     {openRouter && (
                         <Field
-                            label="Auto-free"
-                            hint="Picks a free OpenRouter model for each reply, tool-capable first, and moves to the next one when a model is rate limited, down or gone.">
+                            label={t('models.dialog.autoFree')}
+                            hint={t('models.dialog.autoFreeHint')}>
                             {(id) => (
                                 <Switch
                                     id={id}
@@ -334,7 +345,7 @@ export function ModelDialog({
                     )}
 
                     {!autoFree && (
-                        <Field label="Model" hint={modelHint}>
+                        <Field label={t('models.dialog.model')} hint={modelHint}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -351,7 +362,7 @@ export function ModelDialog({
                     )}
 
                     {!usesCatalog && (
-                        <Field label="Endpoint URL">
+                        <Field label={t('models.dialog.endpoint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -371,8 +382,8 @@ export function ModelDialog({
 
                     {!autoFree && (
                         <Field
-                            label="Context window"
-                            hint="Read from the provider when you test or save. Fill it in only for an endpoint that does not publish its own.">
+                            label={t('models.dialog.context')}
+                            hint={t('models.dialog.contextHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -383,20 +394,24 @@ export function ModelDialog({
                                         onChange({ ...draft, contextTokens: event.target.value })
                                     }
                                     className="font-mono"
-                                    placeholder="Detected automatically"
+                                    placeholder={t('models.dialog.contextPlaceholder')}
                                 />
                             )}
                         </Field>
                     )}
 
                     <Field
-                        label={mode === 'edit' ? 'Replacement key' : 'API key'}
+                        label={
+                            mode === 'edit'
+                                ? t('models.dialog.replacementKey')
+                                : t('models.dialog.apiKey')
+                        }
                         hint={
                             mode === 'edit'
-                                ? 'Leave blank to keep the stored key.'
+                                ? t('models.dialog.replacementKeyHint')
                                 : preset?.key_required === true
                                   ? undefined
-                                  : 'A local router usually needs none.'
+                                  : t('models.dialog.localKeyHint')
                         }>
                         {(id) => (
                             <Input
@@ -436,7 +451,11 @@ export function ModelDialog({
                             variant="outline"
                             disabled={probe === 'testing' || url === ''}
                             onClick={() => void test()}
-                            message={probe === 'testing' ? 'Testing…' : 'Test connection'}
+                            message={
+                                probe === 'testing'
+                                    ? t('models.dialog.testing')
+                                    : t('models.dialog.test')
+                            }
                         />
 
                         <Stack direction="Horizontal" className="gap-2">
@@ -444,17 +463,17 @@ export function ModelDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                message="Cancel"
+                                message={t('models.dialog.cancel')}
                             />
                             <Button
                                 type="submit"
                                 disabled={busy}
                                 message={
                                     busy
-                                        ? 'Saving…'
+                                        ? t('models.dialog.saving')
                                         : mode === 'create'
-                                          ? 'Add model'
-                                          : 'Save changes'
+                                          ? t('models.dialog.add')
+                                          : t('models.dialog.save')
                                 }
                             />
                         </Stack>

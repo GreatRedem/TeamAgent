@@ -1,6 +1,7 @@
 import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
+import { isolated } from '@/libs/i18n';
 import type { Status } from '@/ui/status-dot';
 
 const cardVariant = {
@@ -60,23 +61,25 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
     );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
+function CardTitle({ className, children, ...props }: React.ComponentProps<'div'>) {
     return (
         <div
             data-slot="card-title"
             className={cn('text-base font-semibold leading-heading', className)}
-            {...props}
-        />
+            {...props}>
+            {isolated(children) ? <bdi>{children}</bdi> : children}
+        </div>
     );
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
+function CardDescription({ className, children, ...props }: React.ComponentProps<'div'>) {
     return (
         <div
             data-slot="card-description"
             className={cn('text-sm leading-body text-muted-foreground', className)}
-            {...props}
-        />
+            {...props}>
+            {isolated(children) ? <bdi>{children}</bdi> : children}
+        </div>
     );
 }
 

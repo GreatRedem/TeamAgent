@@ -2,7 +2,6 @@ import { Bot, FileText, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     agentCreate,
     agentList,
     modelList,
@@ -14,7 +13,8 @@ import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
 import { AGENT_ROLES } from '@/libs/constant';
-import { compactCount } from '@/libs/format';
+import { compactCount, dateTimeLabel, numberLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -72,11 +72,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                 if (active) {
                     setAgents([]);
                     setModels([]);
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The agents could not be loaded.',
-                    );
+                    setError(apiError(cause, 'agents.errors.listFailed'));
                 }
             });
 
@@ -108,9 +104,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                 setDescription('');
                 setCreating(false);
             } catch (cause) {
-                setFormError(
-                    cause instanceof ApiError ? cause.result : 'The agent could not be created.',
-                );
+                setFormError(apiError(cause, 'agents.errors.createFailed'));
             } finally {
                 setBusy(false);
             }
@@ -128,9 +122,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                 setAgents(next.agents);
                 setPage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The agents could not be loaded.',
-                );
+                setError(apiError(cause, 'agents.errors.listFailed'));
             } finally {
                 setPaging(false);
             }
@@ -143,22 +135,21 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
     const createDialog = (
         <Dialog open={creating} onOpenChange={setCreating}>
             <DialogTrigger asChild>
-                <Button disabled={!hasModels} icon={<Plus />} message="New agent" />
+                <Button
+                    disabled={!hasModels}
+                    icon={<Plus />}
+                    message={t('agents.create.trigger')}
+                />
             </DialogTrigger>
 
             <DialogContent>
                 <Stack direction="Vertical" as="form" className="gap-5" onSubmit={add}>
                     <DialogHeader>
-                        <DialogTitle>New agent</DialogTitle>
-                        <DialogDescription>
-                            An agent is a role with its own instructions, answering through one of
-                            your models.
-                        </DialogDescription>
+                        <DialogTitle>{t('agents.create.title')}</DialogTitle>
+                        <DialogDescription>{t('agents.create.intro')}</DialogDescription>
                     </DialogHeader>
 
-                    <Field
-                        label="Role"
-                        hint="Starts the agent with instructions written for that role. Empty starts from a blank template.">
+                    <Field label={t('agents.create.role')} hint={t('agents.create.roleHint')}>
                         {(id) => (
                             <Select
                                 value={role}
@@ -170,7 +161,9 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                     setDescription(picked?.description ?? '');
                                 }}
                                 id={id}>
-                                <SelectItem value="empty">Empty</SelectItem>
+                                <SelectItem value="empty">
+                                    {t('agents.create.roleEmpty')}
+                                </SelectItem>
                                 {AGENT_ROLES.map((item) => (
                                     <SelectItem key={item.key} value={item.key}>
                                         {item.name}
@@ -180,7 +173,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                         )}
                     </Field>
 
-                    <Field label="Name">
+                    <Field label={t('agents.field.name')}>
                         {(id) => (
                             <Input
                                 id={id}
@@ -189,30 +182,32 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                 minLength={2}
                                 maxLength={64}
                                 required
-                                placeholder="Night shift support"
+                                placeholder={t('agents.create.namePlaceholder')}
                             />
                         )}
                     </Field>
 
-                    <Field label="What it does" hint="Optional. Shown on the agent card.">
+                    <Field
+                        label={t('agents.field.whatItDoes')}
+                        hint={t('agents.create.whatItDoesHint')}>
                         {(id) => (
                             <Input
                                 id={id}
                                 value={description}
                                 onChange={(event) => setDescription(event.target.value)}
                                 maxLength={280}
-                                placeholder="Answers billing questions out of hours"
+                                placeholder={t('agents.create.whatItDoesPlaceholder')}
                             />
                         )}
                     </Field>
 
-                    <Field label="Model">
+                    <Field label={t('agents.field.model')}>
                         {(id) => (
                             <Select
                                 value={modelId}
                                 onValueChange={setModelId}
                                 id={id}
-                                placeholder="Pick a model">
+                                placeholder={t('agents.field.modelPlaceholder')}>
                                 {models?.map((model) => (
                                     <SelectItem key={model.id} value={String(model.id)}>
                                         {`${model.name} · ${model.model}`}
@@ -233,12 +228,14 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                             type="button"
                             variant="outline"
                             onClick={() => setCreating(false)}
-                            message="Cancel"
+                            message={t('agents.create.cancel')}
                         />
                         <Button
                             type="submit"
                             disabled={busy}
-                            message={busy ? 'Creating…' : 'Create agent'}
+                            message={
+                                busy ? t('agents.create.submitting') : t('agents.create.submit')
+                            }
                         />
                     </DialogFooter>
                 </Stack>
@@ -253,8 +250,8 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                     type="BodyMuted"
                     message={
                         agents === null
-                            ? 'Loading agents.'
-                            : `${page?.total.toLocaleString() ?? agents.length} agent${(page?.total ?? agents.length) === 1 ? '' : 's'} in this project.`
+                            ? t('agents.list.loading')
+                            : tn('agents.list.count', page?.total ?? agents.length)
                     }
                 />
 
@@ -269,9 +266,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
 
             {models !== null && !hasModels && (
                 <Alert>
-                    <AlertDescription>
-                        Add a model before creating an agent. An agent always answers through one.
-                    </AlertDescription>
+                    <AlertDescription>{t('agents.list.noModels')}</AlertDescription>
                 </Alert>
             )}
 
@@ -286,8 +281,8 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
             {agents !== null && agents.length === 0 && hasModels && (
                 <EmptyState
                     icon={Bot}
-                    title="No agents yet"
-                    description="An agent is the role that answers. Give it a name, point it at a model, then write its instructions."
+                    title={t('agents.list.empty.title')}
+                    description={t('agents.list.empty.description')}
                     action={createDialog}
                 />
             )}
@@ -318,7 +313,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                         className="line-clamp-2 min-h-[2lh]"
                                         message={
                                             agent.description === ''
-                                                ? 'No description yet.'
+                                                ? t('agents.noDescription')
                                                 : agent.description
                                         }
                                     />
@@ -332,13 +327,13 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                             }
                                             className="font-mono">
                                             {agent.model_name === ''
-                                                ? 'No model'
+                                                ? t('agents.noModel')
                                                 : agent.model_name}
                                         </Badge>
 
                                         <Badge variant="outline" className="gap-1 font-mono">
                                             <FileText size={11} />
-                                            {agent.document_count}
+                                            {numberLabel(agent.document_count)}
                                         </Badge>
                                     </Stack>
 
@@ -347,35 +342,45 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                             <Text
                                                 type="ForegroundMuted"
                                                 as="dt"
-                                                message="Replies"
+                                                message={t('agents.card.replies')}
                                             />
                                             <Text
                                                 type="Data"
                                                 as="dd"
-                                                message={`${agent.usage.replies.toLocaleString()} · ${agent.usage.failures.toLocaleString()} failed`}
-                                            />
-
-                                            <Text type="ForegroundMuted" as="dt" message="Tokens" />
-                                            <Text
-                                                type="Data"
-                                                as="dd"
-                                                message={`${compactCount(agent.usage.prompt_tokens)} in · ${compactCount(agent.usage.completion_tokens)} out`}
+                                                message={t('agents.card.repliesValue', {
+                                                    replies: agent.usage.replies,
+                                                    failures: agent.usage.failures,
+                                                })}
                                             />
 
                                             <Text
                                                 type="ForegroundMuted"
                                                 as="dt"
-                                                message="Last used"
+                                                message={t('agents.card.tokens')}
+                                            />
+                                            <Text
+                                                type="Data"
+                                                as="dd"
+                                                message={t('agents.tokensInOut', {
+                                                    prompt: compactCount(agent.usage.prompt_tokens),
+                                                    completion: compactCount(
+                                                        agent.usage.completion_tokens,
+                                                    ),
+                                                })}
+                                            />
+
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message={t('agents.card.lastUsed')}
                                             />
                                             <Text
                                                 type="Data"
                                                 as="dd"
                                                 message={
                                                     agent.usage.last_used_at === null
-                                                        ? 'Never'
-                                                        : new Date(
-                                                              agent.usage.last_used_at,
-                                                          ).toLocaleString()
+                                                        ? t('agents.card.never')
+                                                        : dateTimeLabel(agent.usage.last_used_at)
                                                 }
                                             />
                                         </DataList>
@@ -388,7 +393,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                         size="sm"
                                         className="w-full"
                                         link={`/dashboard/team/${teamId}/agent/${agent.id}`}
-                                        message="Open agent"
+                                        message={t('agents.card.open')}
                                     />
                                 </CardFooter>
                             </Card>
@@ -403,7 +408,7 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                     page={page}
                     shown={agents.length}
                     busy={paging}
-                    noun="agents"
+                    noun={t('agents.list.pagerNoun')}
                     onPage={(offset) => void goTo(offset)}
                 />
             )}

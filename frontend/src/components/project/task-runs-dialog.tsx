@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, type Paged, type TaskRun, type TeamTask, taskRuns } from '@/apis';
+import { type Paged, type TaskRun, type TeamTask, taskRuns } from '@/apis';
 import { Pager } from '@/components/pager';
 import { TASK_LIVE_POLL } from '@/libs/constant';
-import { durationLabel } from '@/libs/format';
+import { dateTimeLabel, durationLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -56,9 +57,7 @@ export function TaskRunsDialog({
             .catch((cause: unknown) => {
                 if (active) {
                     setRuns([]);
-                    setError(
-                        cause instanceof ApiError ? cause.result : 'The runs could not be loaded.',
-                    );
+                    setError(apiError(cause, 'tasks.runs.errors.loadFailed'));
                 }
             });
 
@@ -104,9 +103,7 @@ export function TaskRunsDialog({
                 setRuns(payload.runs);
                 setPage(payload);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The runs could not be loaded.',
-                );
+                setError(apiError(cause, 'tasks.runs.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -131,11 +128,15 @@ export function TaskRunsDialog({
         <Dialog open={task !== null} onOpenChange={onOpenChange}>
             <DialogContent size="lg" className="max-h-[85dvh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{task?.title ?? 'Runs'}</DialogTitle>
+                    <DialogTitle>{task?.title ?? t('tasks.runs.title')}</DialogTitle>
                     <DialogDescription>
                         {task === null || finished === 0
-                            ? 'Each time it runs: every step, what it cost, what the agent wrote and whether it was sent.'
-                            : `${finished.toLocaleString()} run${finished === 1 ? '' : 's'}: ${task.ok_count.toLocaleString()} succeeded, ${task.error_count.toLocaleString()} failed (${Math.round((task.ok_count / finished) * 100)}% success).`}
+                            ? t('tasks.runs.description')
+                            : tn('tasks.runs.summary', finished, {
+                                  ok: task.ok_count,
+                                  failed: task.error_count,
+                                  percent: Math.round((task.ok_count / finished) * 100),
+                              })}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -150,7 +151,7 @@ export function TaskRunsDialog({
                 {runs !== null && runs.length === 0 && (
                     <Text
                         type="BodyMuted"
-                        message={awaited ? 'Starting…' : 'It has not run yet.'}
+                        message={awaited ? t('tasks.runs.starting') : t('tasks.runs.notYet')}
                     />
                 )}
 
@@ -173,14 +174,16 @@ export function TaskRunsDialog({
                                     type="DataMuted"
                                     as="time"
                                     dateTime={run.started_at}
-                                    message={new Date(run.started_at).toLocaleString()}
+                                    message={dateTimeLabel(run.started_at)}
                                 />
                                 <Text
                                     type="DataMuted"
                                     as="span"
                                     message={
                                         running
-                                            ? `running for ${durationLabel(took)}`
+                                            ? t('tasks.runs.runningFor', {
+                                                  duration: durationLabel(took),
+                                              })
                                             : durationLabel(took)
                                     }
                                 />
@@ -188,21 +191,23 @@ export function TaskRunsDialog({
                                 {running ? (
                                     <Badge variant="default" className="gap-1.5">
                                         <StatusDot status="live" />
-                                        Live
+                                        {t('tasks.runs.live')}
                                     </Badge>
                                 ) : (
                                     <Badge
                                         variant={
                                             run.outcome === 'ok' ? 'secondary' : 'destructive'
                                         }>
-                                        {run.outcome === 'ok' ? 'Succeeded' : 'Failed'}
+                                        {run.outcome === 'ok'
+                                            ? t('tasks.runs.succeeded')
+                                            : t('tasks.runs.failed')}
                                     </Badge>
                                 )}
                                 {task !== null && task.profile_id !== 0 && !running && (
                                     <Badge variant="outline">
                                         {run.delivered
-                                            ? `Sent to ${task.profile_name}`
-                                            : 'Not sent'}
+                                            ? t('tasks.runs.sentTo', { name: task.profile_name })
+                                            : t('tasks.runs.notSent')}
                                     </Badge>
                                 )}
                             </Stack>
@@ -210,7 +215,11 @@ export function TaskRunsDialog({
                             {run.model !== '' && (
                                 <Text
                                     type="DataMuted"
-                                    message={`${run.model} · ${run.prompt_tokens.toLocaleString()} in · ${run.completion_tokens.toLocaleString()} out · ${run.tool_calls} tool call${run.tool_calls === 1 ? '' : 's'}`}
+                                    message={tn('tasks.runs.usage', run.tool_calls, {
+                                        model: run.model,
+                                        prompt: run.prompt_tokens,
+                                        completion: run.completion_tokens,
+                                    })}
                                 />
                             )}
 
@@ -224,7 +233,9 @@ export function TaskRunsDialog({
 
                             {run.output !== '' && (
                                 <Stack direction="Vertical" className="gap-1">
-                                    {running && <Text type="Caption" message="Writing…" />}
+                                    {running && (
+                                        <Text type="Caption" message={t('tasks.runs.writing')} />
+                                    )}
                                     <Text
                                         type="Body"
                                         className="break-anywhere whitespace-pre-wrap rounded-md bg-muted/40 px-3 py-2"
@@ -239,7 +250,11 @@ export function TaskRunsDialog({
                                     size="sm"
                                     className="self-start"
                                     onClick={() => toggle(run.id)}
-                                    message={open ? 'Hide steps' : `Show steps (${run.log.length})`}
+                                    message={
+                                        open
+                                            ? t('tasks.runs.hideSteps')
+                                            : t('tasks.runs.showSteps', { count: run.log.length })
+                                    }
                                 />
                             )}
 
@@ -253,7 +268,7 @@ export function TaskRunsDialog({
                         page={page}
                         shown={runs.length}
                         busy={paging}
-                        noun="runs"
+                        noun={t('tasks.runs.pager.noun')}
                         onPage={(next) => void goTo(next)}
                     />
                 )}

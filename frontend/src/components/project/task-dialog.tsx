@@ -1,17 +1,11 @@
 import { useEffect, useState } from 'react';
 
-import {
-    ApiError,
-    type TaskRepeat,
-    type TeamAgent,
-    type TeamTask,
-    taskCreate,
-    taskUpdate,
-} from '@/apis';
+import { type TaskRepeat, type TeamAgent, type TeamTask, taskCreate, taskUpdate } from '@/apis';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
-import { TASK_ERRORS, TASK_REPEAT_LABELS } from '@/libs/constant';
+import { TASK_REPEAT_LABELS } from '@/libs/constant';
 import { localInputValue } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -97,11 +91,7 @@ export function TaskDialog({
             );
             onOpenChange(false);
         } catch (cause) {
-            setError(
-                cause instanceof ApiError
-                    ? (TASK_ERRORS[cause.result] ?? cause.result)
-                    : 'The task could not be saved.',
-            );
+            setError(apiError(cause, 'tasks.errors.saveFailed'));
         } finally {
             setBusy(false);
         }
@@ -120,15 +110,14 @@ export function TaskDialog({
                     }}>
                     <DialogHeader>
                         <DialogTitle>
-                            {task === null ? 'New task' : `Modify ${task.title}`}
+                            {task === null
+                                ? t('tasks.dialog.newTitle')
+                                : t('tasks.dialog.editTitle', { title: task.title })}
                         </DialogTitle>
-                        <DialogDescription>
-                            The agent carries it out at the time you set, with the tools it has, and
-                            sends what it produces to the person you choose.
-                        </DialogDescription>
+                        <DialogDescription>{t('tasks.dialog.description')}</DialogDescription>
                     </DialogHeader>
 
-                    <Field label="Title">
+                    <Field label={t('tasks.field.title.label')}>
                         {(id) => (
                             <Input
                                 id={id}
@@ -136,12 +125,12 @@ export function TaskDialog({
                                 onChange={(event) => setTitle(event.target.value)}
                                 maxLength={120}
                                 required
-                                placeholder="Morning weather for Alex"
+                                placeholder={t('tasks.field.title.placeholder')}
                             />
                         )}
                     </Field>
 
-                    <Field label="Goal" hint="What should be true once it is done.">
+                    <Field label={t('tasks.field.goal.label')} hint={t('tasks.field.goal.hint')}>
                         {(id) => (
                             <Textarea
                                 id={id}
@@ -149,14 +138,14 @@ export function TaskDialog({
                                 onChange={(event) => setGoal(event.target.value)}
                                 maxLength={2000}
                                 className="min-h-16"
-                                placeholder="Alex knows whether to take a coat today."
+                                placeholder={t('tasks.field.goal.placeholder')}
                             />
                         )}
                     </Field>
 
                     <Field
-                        label="Description"
-                        hint="What to do, and anything the agent should know.">
+                        label={t('tasks.field.description.label')}
+                        hint={t('tasks.field.description.hint')}>
                         {(id) => (
                             <Textarea
                                 id={id}
@@ -164,20 +153,18 @@ export function TaskDialog({
                                 onChange={(event) => setDescription(event.target.value)}
                                 maxLength={4000}
                                 className="min-h-24"
-                                placeholder="Look up today's weather in Tehran and write Alex a short message about it."
+                                placeholder={t('tasks.field.description.placeholder')}
                             />
                         )}
                     </Field>
 
-                    <Field
-                        label="Agent"
-                        hint="It uses this agent's instructions, model and tools. A task that searches the web needs one that may fetch web pages.">
+                    <Field label={t('tasks.field.agent.label')} hint={t('tasks.field.agent.hint')}>
                         {(id) => (
                             <Select
                                 id={id}
                                 value={agentId}
                                 onValueChange={setAgentId}
-                                placeholder="Pick an agent">
+                                placeholder={t('tasks.field.agent.placeholder')}>
                                 {agents.map((agent) => (
                                     <SelectItem key={agent.id} value={String(agent.id)}>
                                         {agent.name}
@@ -188,11 +175,11 @@ export function TaskDialog({
                     </Field>
 
                     <Field
-                        label="Send to"
+                        label={t('tasks.field.sendTo.label')}
                         hint={
                             profileId === 0
-                                ? 'Optional. Nobody picked: the result is only kept here.'
-                                : `Sent to ${profile} through the bot they last wrote to.`
+                                ? t('tasks.field.sendTo.hint')
+                                : t('tasks.field.sendTo.hintPicked', { name: profile })
                         }>
                         {(id) => (
                             <Stack direction="Horizontal" className="items-center gap-2">
@@ -211,7 +198,7 @@ export function TaskDialog({
                                             setProfileId(0);
                                             setProfile('');
                                         }}
-                                        message="Clear"
+                                        message={t('tasks.field.sendTo.clear')}
                                     />
                                 )}
                             </Stack>
@@ -219,7 +206,9 @@ export function TaskDialog({
                     </Field>
 
                     <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
-                        <Field label="Runs at" hint="Your local time.">
+                        <Field
+                            label={t('tasks.field.startAt.label')}
+                            hint={t('tasks.field.startAt.hint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -231,7 +220,7 @@ export function TaskDialog({
                             )}
                         </Field>
 
-                        <Field label="Repeats">
+                        <Field label={t('tasks.field.repeat.label')}>
                             {(id) => (
                                 <Select
                                     id={id}
@@ -239,7 +228,7 @@ export function TaskDialog({
                                     onValueChange={(value) => setRepeat(value as TaskRepeat)}>
                                     {Object.entries(TASK_REPEAT_LABELS).map(([value, label]) => (
                                         <SelectItem key={value} value={value}>
-                                            {label}
+                                            {t(label)}
                                         </SelectItem>
                                     ))}
                                 </Select>
@@ -257,7 +246,7 @@ export function TaskDialog({
                         <Button
                             variant="outline"
                             onClick={() => onOpenChange(false)}
-                            message="Cancel"
+                            message={t('tasks.dialog.cancel')}
                         />
                         <Button
                             type="submit"
@@ -265,7 +254,11 @@ export function TaskDialog({
                                 busy || title.trim() === '' || agentId === '' || startAt === ''
                             }
                             message={
-                                busy ? 'Saving…' : task === null ? 'Create task' : 'Save changes'
+                                busy
+                                    ? t('tasks.dialog.saving')
+                                    : task === null
+                                      ? t('tasks.dialog.create')
+                                      : t('tasks.dialog.save')
                             }
                         />
                     </DialogFooter>

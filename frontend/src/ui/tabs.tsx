@@ -3,6 +3,7 @@ import type * as React from 'react';
 import { useId } from 'react';
 
 import { cn } from '@/libs/cn';
+import { direction } from '@/libs/i18n';
 
 function Tabs<T extends string>({
     tabs,
@@ -22,11 +23,11 @@ function Tabs<T extends string>({
     const step = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
         const last = tabs.length - 1;
         const next =
-            event.key === 'ArrowRight'
+            event.key === (direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight')
                 ? index === last
                     ? 0
                     : index + 1
-                : event.key === 'ArrowLeft'
+                : event.key === (direction === 'rtl' ? 'ArrowRight' : 'ArrowLeft')
                   ? index === 0
                       ? last
                       : index - 1

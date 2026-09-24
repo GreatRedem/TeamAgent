@@ -22,6 +22,7 @@ import {
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
 import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
+import type { MessageKey } from '@/locales';
 import type { Status } from '@/ui/status-dot';
 
 export const API_BASE_URL = '/api';
@@ -49,27 +50,29 @@ export const DEFAULT_LOCALE = 'en';
 
 export const LOCALE_STORAGE_KEY = 'locale';
 
+export const RLM = '‏';
+
 export const PAGE_WIDTH = 'mx-auto w-full max-w-5xl';
 
 export const TEAM_NAMES = new Map<number, string>();
 
-export const DESTINATIONS: { id: string; label: string; icon: LucideIcon }[] = [
-    { id: '', label: 'Overview', icon: LayoutGrid },
-    { id: 'agents', label: 'Agents', icon: Bot },
-    { id: 'bots', label: 'Bots', icon: MessageSquare },
-    { id: 'models', label: 'Models', icon: Cpu },
-    { id: 'tasks', label: 'Tasks', icon: ListChecks },
-    { id: 'team', label: 'Team', icon: Users },
-    { id: 'tools', label: 'MCP', icon: Wrench },
-    { id: 'plugins', label: 'Plugins', icon: Plug },
-    { id: 'settings', label: 'Settings', icon: Settings2 },
+export const DESTINATIONS: { id: string; label: MessageKey; icon: LucideIcon }[] = [
+    { id: '', label: 'layout.nav.overview', icon: LayoutGrid },
+    { id: 'agents', label: 'layout.nav.agents', icon: Bot },
+    { id: 'bots', label: 'layout.nav.bots', icon: MessageSquare },
+    { id: 'models', label: 'layout.nav.models', icon: Cpu },
+    { id: 'tasks', label: 'layout.nav.tasks', icon: ListChecks },
+    { id: 'team', label: 'layout.nav.team', icon: Users },
+    { id: 'tools', label: 'layout.nav.tools', icon: Wrench },
+    { id: 'plugins', label: 'layout.nav.plugins', icon: Plug },
+    { id: 'settings', label: 'layout.nav.settings', icon: Settings2 },
 ];
 
-export const ROSTER_ACCESS = [
-    { key: 'roster.read', label: 'Reads it' },
-    { key: 'roster.create', label: 'Adds members' },
-    { key: 'roster.update', label: 'Updates members' },
-    { key: 'roster.delete', label: 'Removes members' },
+export const ROSTER_ACCESS: { key: string; label: MessageKey }[] = [
+    { key: 'roster.read', label: 'team.access.read' },
+    { key: 'roster.create', label: 'team.access.create' },
+    { key: 'roster.update', label: 'team.access.update' },
+    { key: 'roster.delete', label: 'team.access.delete' },
 ];
 
 export const SOCIAL_NETWORKS = [
@@ -82,86 +85,57 @@ export const SOCIAL_NETWORKS = [
     'email',
 ];
 
-export const ROSTER_ERRORS: Record<string, string> = {
-    ROSTER_MEMBER_TAKEN: 'Someone with that name is already on the team.',
-    ROSTER_MEMBER_NOT_FOUND: 'That person is no longer on the team.',
-    ROSTER_FULL: 'team.json already holds as many people as it can.',
-    ROSTER_TOO_LARGE: 'team.json would grow past its size limit. Shorten a description.',
-    ROSTER_INVALID: 'That member could not be saved. Check the name.',
-    ROSTER_MALFORMED: 'team.json is damaged and cannot be read.',
-};
-
-export const TASK_REPEAT_LABELS: Record<string, string> = {
-    none: 'Once',
-    hourly: 'Every hour',
-    daily: 'Every day',
-    weekly: 'Every week',
+export const TASK_REPEAT_LABELS: Record<string, MessageKey> = {
+    none: 'tasks.repeat.none',
+    hourly: 'tasks.repeat.hourly',
+    daily: 'tasks.repeat.daily',
+    weekly: 'tasks.repeat.weekly',
 };
 
 export const TASK_STATUS: Record<
     string,
-    { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
+    { label: MessageKey; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
 > = {
-    scheduled: { label: 'Scheduled', variant: 'secondary' },
-    running: { label: 'Running', variant: 'default' },
-    done: { label: 'Done', variant: 'outline' },
-    failed: { label: 'Failed', variant: 'destructive' },
-    cancelled: { label: 'Cancelled', variant: 'outline' },
+    scheduled: { label: 'tasks.status.scheduled', variant: 'secondary' },
+    running: { label: 'tasks.status.running', variant: 'default' },
+    done: { label: 'tasks.status.done', variant: 'outline' },
+    failed: { label: 'tasks.status.failed', variant: 'destructive' },
+    cancelled: { label: 'tasks.status.cancelled', variant: 'outline' },
 };
 
 export const TASK_LIVE_POLL = 1500;
 
-export const TASK_ERRORS: Record<string, string> = {
-    TASK_TITLE_REQUIRED: 'Give the task a title.',
-    TASK_AGENT_REQUIRED: 'Pick the agent that carries it out.',
-    TASK_AGENT_NOT_FOUND: 'That agent is no longer in this project.',
-    TASK_PROFILE_NOT_FOUND: 'That person is no longer in this project.',
-    TASK_START_INVALID: 'Pick when it should run.',
-    TASK_RUNNING: 'It is running right now. Try again when it finishes.',
-    TASK_CANCELLED: 'It is cancelled. Schedule it again to run it.',
-};
-
 export const PROFILE_SEARCH_DELAY = 300;
 
 export const AGENT_TABS = [
-    { value: 'settings', label: 'Settings', icon: Settings2 },
-    { value: 'capabilities', label: 'Capabilities', icon: ShieldCheck },
-    { value: 'files', label: 'Files', icon: FileText },
+    { value: 'settings', label: 'agents.tabs.settings', icon: Settings2 },
+    { value: 'capabilities', label: 'agents.tabs.capabilities', icon: ShieldCheck },
+    { value: 'files', label: 'agents.tabs.files', icon: FileText },
 ] as const;
 
 export type AgentTab = (typeof AGENT_TABS)[number]['value'];
 
-export const TEAM_TITLES: Record<string, { title: string; description: string }> = {
-    '': { title: 'Overview', description: 'How this project is running right now.' },
-    overview: { title: 'Overview', description: 'How this project is running right now.' },
-    agents: { title: 'Agents', description: 'The roles that answer, and the models behind them.' },
-    bots: { title: 'Bots', description: 'The bots people message, and who has messaged them.' },
-    models: { title: 'Models', description: 'The endpoints this project can call.' },
-    tasks: {
-        title: 'Tasks',
-        description: 'Work the agents carry out at a set time, and what came of each run.',
+export const TEAM_TITLES: Record<string, { title: MessageKey; description: MessageKey }> = {
+    '': { title: 'layout.page.overview.title', description: 'layout.page.overview.description' },
+    overview: {
+        title: 'layout.page.overview.title',
+        description: 'layout.page.overview.description',
     },
-    team: {
-        title: 'Team',
-        description: 'The people on this team, kept in team.json for the agents to answer from.',
-    },
-    tools: {
-        title: 'MCP tools',
-        description:
-            'The tools agents can call, such as managing team.json, and which agents may call them.',
-    },
+    agents: { title: 'layout.page.agents.title', description: 'layout.page.agents.description' },
+    bots: { title: 'layout.page.bots.title', description: 'layout.page.bots.description' },
+    models: { title: 'layout.page.models.title', description: 'layout.page.models.description' },
+    tasks: { title: 'layout.page.tasks.title', description: 'layout.page.tasks.description' },
+    team: { title: 'layout.page.team.title', description: 'layout.page.team.description' },
+    tools: { title: 'layout.page.tools.title', description: 'layout.page.tools.description' },
     plugins: {
-        title: 'Plugins',
-        description:
-            'Apps the agents can post to, reply on and read from, what each one is used for, and every request it made.',
+        title: 'layout.page.plugins.title',
+        description: 'layout.page.plugins.description',
     },
     settings: {
-        title: 'Settings',
-        description: 'What this project is called, and moving it in or out as a zip.',
+        title: 'layout.page.settings.title',
+        description: 'layout.page.settings.description',
     },
 };
-
-export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const HEAT_SCALE = ['bg-scale-0', 'bg-scale-1', 'bg-scale-2', 'bg-scale-3', 'bg-scale-4'];
 
@@ -180,11 +154,12 @@ export const STATUS_FILL: Record<'live' | 'degraded' | 'off' | 'failed', string>
     failed: 'bg-destructive',
 };
 
-export const AUDIT_RESULT: Record<AuditEntry['outcome'], { label: string; className: string }> = {
-    ok: { label: 'OK', className: 'text-primary' },
-    error: { label: 'Failed', className: 'text-destructive' },
-    skipped: { label: 'Skipped', className: 'text-warning' },
-};
+export const AUDIT_RESULT: Record<AuditEntry['outcome'], { label: MessageKey; className: string }> =
+    {
+        ok: { label: 'activity.result.ok', className: 'text-primary' },
+        error: { label: 'activity.result.error', className: 'text-destructive' },
+        skipped: { label: 'activity.result.skipped', className: 'text-warning' },
+    };
 
 export const HEALTH_TONE: Record<Status, string> = {
     live: 'text-primary',
@@ -215,23 +190,28 @@ export const BLANK_MODEL = { name: '', model: '', baseUrl: '', apiKey: '', conte
 
 export const WALLET_DISCOVERY_TIMEOUT = 350;
 
-export const WALLETS: { id: string; name: string; rdns: string; keyword: string; blurb: string }[] =
-    [
-        {
-            id: 'nura',
-            name: 'Nura Wallet',
-            rdns: 'ai.nura.wallet',
-            keyword: 'nura',
-            blurb: 'Built for Nura, signs without leaving the app',
-        },
-        {
-            id: 'metamask',
-            name: 'MetaMask',
-            rdns: 'io.metamask',
-            keyword: 'metamask',
-            blurb: 'The browser extension you may already have',
-        },
-    ];
+export const WALLETS: {
+    id: string;
+    name: string;
+    rdns: string;
+    keyword: string;
+    blurb: MessageKey;
+}[] = [
+    {
+        id: 'nura',
+        name: 'Nura Wallet',
+        rdns: 'ai.nura.wallet',
+        keyword: 'nura',
+        blurb: 'auth.wallet.nura',
+    },
+    {
+        id: 'metamask',
+        name: 'MetaMask',
+        rdns: 'io.metamask',
+        keyword: 'metamask',
+        blurb: 'auth.wallet.metamask',
+    },
+];
 
 export const LOGO_SRC = '/logo.png';
 
@@ -249,35 +229,35 @@ export const PLUGIN_ICONS: Record<PluginKindKey, LucideIcon> = {
     webhook: Webhook,
 };
 
-export const PLUGIN_DIRECTIONS: Record<PluginDirection, string> = {
-    tool: 'Agent call',
-    in: 'Received',
-    reply: 'Auto-reply',
-    out: 'Hook sent',
-    test: 'Test',
+export const PLUGIN_DIRECTIONS: Record<PluginDirection, MessageKey> = {
+    tool: 'tools.direction.tool',
+    in: 'tools.direction.in',
+    reply: 'tools.direction.reply',
+    out: 'tools.direction.out',
+    test: 'tools.direction.test',
 };
 
-export const PLUGIN_EVENT_LABELS: Record<string, string> = {
-    'message.received': 'A message or comment arrives',
-    'agent.replied': 'An agent answers it',
-    'agent.action': 'An agent uses the plugin',
-    'agent.failed': 'Something fails',
+export const PLUGIN_EVENT_LABELS: Record<string, MessageKey> = {
+    'message.received': 'tools.event.messageReceived',
+    'agent.replied': 'tools.event.agentReplied',
+    'agent.action': 'tools.event.agentAction',
+    'agent.failed': 'tools.event.agentFailed',
 };
 
-export const TRANSFER_LABELS: Record<string, string> = {
-    models: 'models',
-    people: 'people',
-    agents: 'agents',
-    'agent-files': 'agent files',
-    bots: 'bots',
-    plugins: 'plugins',
-    tasks: 'tasks',
-    'task-runs': 'task runs',
-    'people-files': 'people files',
-    messages: 'messages',
-    exchanges: 'model round-trips',
-    'plugin-calls': 'plugin requests',
-    'team-files': 'team files',
+export const TRANSFER_LABELS: Record<string, MessageKey> = {
+    models: 'projects.transfer.models',
+    people: 'projects.transfer.people',
+    agents: 'projects.transfer.agents',
+    'agent-files': 'projects.transfer.agentFiles',
+    bots: 'projects.transfer.bots',
+    plugins: 'projects.transfer.plugins',
+    tasks: 'projects.transfer.tasks',
+    'task-runs': 'projects.transfer.taskRuns',
+    'people-files': 'projects.transfer.peopleFiles',
+    messages: 'projects.transfer.messages',
+    exchanges: 'projects.transfer.exchanges',
+    'plugin-calls': 'projects.transfer.pluginCalls',
+    'team-files': 'projects.transfer.teamFiles',
 };
 
 export const MEMBER_ROLES_MAX = 8;
@@ -285,26 +265,6 @@ export const MEMBER_ROLES_MAX = 8;
 export const MEMBER_ROLE_MAX = 64;
 
 export const TRANSFER_UPLOAD_MAX = 64 * 1024 * 1024;
-
-export const TRANSFER_ERRORS: Record<string, string> = {
-    IMPORT_FILE_REQUIRED: 'Choose a project zip first.',
-    IMPORT_ZIP_INVALID: 'That file is not a zip this app can read, or it is damaged.',
-    IMPORT_FILE_INVALID: 'A file inside the zip is not valid JSON.',
-    IMPORT_FORMAT_UNKNOWN: 'That zip is not a NuraAI project export.',
-};
-
-export const PLUGIN_ERRORS: Record<string, string> = {
-    PLUGIN_NAME_REQUIRED: 'Give the plugin a name.',
-    PLUGIN_NAME_TAKEN: 'Another plugin in this project already has that name.',
-    PLUGIN_FIELD_REQUIRED: 'Fill in every required field.',
-    PLUGIN_TOKEN_INVALID: 'That does not look like a bot token from @BotFather.',
-    PLUGIN_CHANNEL_INVALID: 'A channel id is a long number.',
-    PLUGIN_URL_INVALID: 'Enter a full http or https address.',
-    PLUGIN_HOOK_URL_INVALID: 'The forwarding address must be a full http or https address.',
-    PLUGIN_AGENT_NOT_FOUND: 'That agent is no longer in this project.',
-    PLUGIN_KIND_INVALID: 'Pick what kind of plugin it is.',
-    PLUGIN_NOT_FOUND: 'That plugin is no longer in this project.',
-};
 
 export const AGENT_ROLE_ANSWERING = `## Answering
 

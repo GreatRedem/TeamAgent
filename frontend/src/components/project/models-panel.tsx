@@ -2,7 +2,6 @@ import { Cpu, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     type CatalogModel,
     modelCatalog,
     modelCreate,
@@ -19,7 +18,8 @@ import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
 import { BLANK_MODEL, MODEL_AUTO_FREE, PROBE_TONE, PROVIDER_FALLBACK } from '@/libs/constant';
-import { compactCount } from '@/libs/format';
+import { compactCount, dateTimeLabel, numberLabel } from '@/libs/format';
+import { apiError, t, tk, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -42,14 +42,14 @@ function probeState(probe: TeamModelProbe | 'testing'): string {
 
 function probeLabel(probe: TeamModelProbe | 'testing'): string {
     if (probe === 'testing') {
-        return 'Testing…';
+        return t('models.card.testing');
     }
 
     if (!probe.ok) {
-        return probe.reason ?? 'No answer';
+        return tk(`errors.${probe.reason}`, probe.reason ?? t('models.card.noAnswer'));
     }
 
-    return probe.found === true ? 'Reachable, model available' : 'Reachable, model not listed';
+    return probe.found === true ? t('models.card.available') : t('models.card.unlisted');
 }
 
 export function ModelsPanel({ teamId }: { teamId: number }) {
@@ -83,11 +83,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
             .catch((cause: unknown) => {
                 if (active) {
                     setModels([]);
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The models could not be loaded.',
-                    );
+                    setError(apiError(cause, 'models.errors.loadFailed'));
                 }
             });
 
@@ -137,9 +133,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                 setDraft(BLANK_MODEL);
                 setCreating(false);
             } catch (cause) {
-                setFormError(
-                    cause instanceof ApiError ? cause.result : 'The model could not be saved.',
-                );
+                setFormError(apiError(cause, 'models.errors.saveFailed'));
             } finally {
                 setBusy(false);
             }
@@ -180,9 +174,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                 setEditing(null);
                 setDraft(BLANK_MODEL);
             } catch (cause) {
-                setFormError(
-                    cause instanceof ApiError ? cause.result : 'The model could not be saved.',
-                );
+                setFormError(apiError(cause, 'models.errors.saveFailed'));
             } finally {
                 setBusy(false);
             }
@@ -214,7 +206,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                     ...current,
                     [modelId]: {
                         ok: false,
-                        reason: cause instanceof ApiError ? cause.result : 'No answer',
+                        reason: apiError(cause, 'models.card.noAnswer'),
                     },
                 }));
             }
@@ -238,9 +230,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                     return rest;
                 });
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The model could not be removed.',
-                );
+                setError(apiError(cause, 'models.errors.removeFailed'));
             }
         },
         [teamId],
@@ -256,9 +246,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                 setModels(next.models);
                 setPage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The models could not be loaded.',
-                );
+                setError(apiError(cause, 'models.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -285,7 +273,9 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
         setEditing(item.id);
     };
 
-    const createButton = <Button onClick={openCreate} icon={<Plus />} message="Add model" />;
+    const createButton = (
+        <Button onClick={openCreate} icon={<Plus />} message={t('models.panel.add')} />
+    );
 
     return (
         <Stack direction="Vertical" as="section" className="gap-4">
@@ -294,8 +284,8 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                     type="BodyMuted"
                     message={
                         models === null
-                            ? 'Loading models.'
-                            : `${page?.total.toLocaleString() ?? models.length} endpoint${(page?.total ?? models.length) === 1 ? '' : 's'} this project can call.`
+                            ? t('models.panel.loading')
+                            : tn('models.panel.count', page?.total ?? models.length)
                     }
                 />
 
@@ -354,8 +344,8 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
             {models !== null && models.length === 0 && (
                 <EmptyState
                     icon={Cpu}
-                    title="No models yet"
-                    description="Point Nura at an OpenAI-compatible endpoint. Everything your agents say goes through one."
+                    title={t('models.panel.empty.title')}
+                    description={t('models.panel.empty.description')}
                     action={createButton}
                 />
             )}
@@ -385,14 +375,18 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
 
                                     <CardContent className="grid gap-3">
                                         <DataList dense>
-                                            <Text type="ForegroundMuted" as="dt" message="Model" />
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message={t('models.card.model')}
+                                            />
                                             <Text
                                                 type="Data"
                                                 as="dd"
                                                 className="truncate"
                                                 message={
                                                     item.model === MODEL_AUTO_FREE
-                                                        ? 'Auto · free models'
+                                                        ? t('models.card.autoFree')
                                                         : item.model
                                                 }
                                             />
@@ -400,7 +394,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                             <Text
                                                 type="ForegroundMuted"
                                                 as="dt"
-                                                message="Endpoint"
+                                                message={t('models.card.endpoint')}
                                             />
                                             <Text
                                                 type="Data"
@@ -409,7 +403,11 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                 message={item.base_url}
                                             />
 
-                                            <Text type="ForegroundMuted" as="dt" message="Key" />
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message={t('models.card.key')}
+                                            />
                                             <Text
                                                 type="Data"
                                                 as="dd"
@@ -422,39 +420,49 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                     <Text
                                                         type="ForegroundMuted"
                                                         as="dt"
-                                                        message="Replies"
+                                                        message={t('models.card.replies')}
                                                     />
                                                     <Text
                                                         type="Data"
                                                         as="dd"
-                                                        message={`${item.usage.replies.toLocaleString()} · ${item.usage.failures.toLocaleString()} failed`}
+                                                        message={t('models.card.repliesValue', {
+                                                            replies: item.usage.replies,
+                                                            failures: item.usage.failures,
+                                                        })}
                                                     />
 
                                                     <Text
                                                         type="ForegroundMuted"
                                                         as="dt"
-                                                        message="Tokens"
+                                                        message={t('models.card.tokens')}
                                                     />
                                                     <Text
                                                         type="Data"
                                                         as="dd"
-                                                        message={`${compactCount(item.usage.prompt_tokens)} in · ${compactCount(item.usage.completion_tokens)} out`}
+                                                        message={t('models.card.tokensValue', {
+                                                            prompt: compactCount(
+                                                                item.usage.prompt_tokens,
+                                                            ),
+                                                            completion: compactCount(
+                                                                item.usage.completion_tokens,
+                                                            ),
+                                                        })}
                                                     />
 
                                                     <Text
                                                         type="ForegroundMuted"
                                                         as="dt"
-                                                        message="Last used"
+                                                        message={t('models.card.lastUsed')}
                                                     />
                                                     <Text
                                                         type="Data"
                                                         as="dd"
                                                         message={
                                                             item.usage.last_used_at === null
-                                                                ? 'Never'
-                                                                : new Date(
+                                                                ? t('models.card.never')
+                                                                : dateTimeLabel(
                                                                       item.usage.last_used_at,
-                                                                  ).toLocaleString()
+                                                                  )
                                                         }
                                                     />
                                                 </>
@@ -471,17 +479,19 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                                         : 'secondary'
                                                 }>
                                                 {item.model === MODEL_AUTO_FREE ? (
-                                                    'Window follows the model in use'
+                                                    t('models.card.windowFollows')
                                                 ) : item.context_tokens === 0 ? (
-                                                    'Window not read yet'
+                                                    t('models.card.windowUnread')
                                                 ) : (
                                                     <>
                                                         <Text
                                                             type="Mono"
                                                             as="span"
-                                                            message={item.context_tokens.toLocaleString()}
+                                                            message={numberLabel(
+                                                                item.context_tokens,
+                                                            )}
                                                         />{' '}
-                                                        tokens
+                                                        {t('models.card.windowUnit')}
                                                     </>
                                                 )}
                                             </Badge>
@@ -505,8 +515,8 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                             onClick={() => void test(item.id)}
                                             message={
                                                 probe === 'testing'
-                                                    ? 'Testing…'
-                                                    : 'Network activity'
+                                                    ? t('models.card.testing')
+                                                    : t('models.card.test')
                                             }
                                         />
 
@@ -514,23 +524,23 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setViewing(item.id)}
-                                            message="Details"
+                                            message={t('models.card.details')}
                                         />
 
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => openEdit(item)}
-                                            message="Modify"
+                                            message={t('models.card.modify')}
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
-                                            label="Remove"
-                                            title={`Remove ${item.name}?`}
-                                            description="The stored key goes with it and cannot be recovered. Agents using this model stop answering."
-                                            confirmLabel="Remove model"
+                                            label={t('models.remove.label')}
+                                            title={t('models.remove.title', { name: item.name })}
+                                            description={t('models.remove.description')}
+                                            confirmLabel={t('models.remove.confirm')}
                                             onConfirm={() => void remove(item.id)}
                                         />
                                     </CardFooter>
@@ -557,7 +567,7 @@ export function ModelsPanel({ teamId }: { teamId: number }) {
                     page={page}
                     shown={models.length}
                     busy={paging}
-                    noun="models"
+                    noun={t('models.panel.pagerNoun')}
                     onPage={(offset) => void goTo(offset)}
                 />
             )}

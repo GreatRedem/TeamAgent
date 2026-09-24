@@ -2,7 +2,6 @@ import { Activity, FlaskConical, Plug, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     agentList,
     type PluginKind,
     pluginCatalog,
@@ -15,7 +14,9 @@ import {
 } from '@/apis';
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
-import { HEALTH_TONE, PLUGIN_ERRORS, PLUGIN_ICONS } from '@/libs/constant';
+import { HEALTH_TONE, PLUGIN_ICONS } from '@/libs/constant';
+import { dateTimeLabel, numberLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -34,7 +35,6 @@ import { Stack } from '@/ui/stack';
 import type { Status } from '@/ui/status-dot';
 import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
-
 import { PluginCallsDialog } from './plugin-calls-dialog';
 import { PluginDialog } from './plugin-dialog';
 
@@ -43,7 +43,7 @@ function health(
     answering: string | undefined,
 ): { status: Status; line: string } {
     if (!plugin.enabled) {
-        return { status: 'off', line: 'Off. Agents cannot use it, and it answers nobody.' };
+        return { status: 'off', line: t('tools.health.off') };
     }
 
     if (plugin.listen_error !== '') {
@@ -51,14 +51,20 @@ function health(
     }
 
     if (plugin.account === '') {
-        return { status: 'degraded', line: 'Not connected yet. Run Test to check its keys.' };
+        return { status: 'degraded', line: t('tools.health.notConnected') };
     }
 
-    const by = answering === undefined ? '' : `, answered by ${answering}`;
+    const values = { account: plugin.account, agent: answering ?? '' };
 
     return {
         status: 'live',
-        line: `${plugin.listening ? 'Listening' : 'Connected'} as ${plugin.account}${by}.`,
+        line: plugin.listening
+            ? answering === undefined
+                ? t('tools.health.listening', values)
+                : t('tools.health.listeningAnswered', values)
+            : answering === undefined
+              ? t('tools.health.connected', values)
+              : t('tools.health.connectedAnswered', values),
     };
 }
 
@@ -100,7 +106,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
             setPlugins((await pluginList(teamId)).plugins);
         } catch (cause) {
             setPlugins((current) => current ?? []);
-            setError(cause instanceof ApiError ? cause.result : 'The plugins could not be loaded.');
+            setError(apiError(cause, 'tools.errors.pluginsLoadFailed'));
         }
     }, [teamId]);
 
@@ -134,11 +140,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
         try {
             await run();
         } catch (cause) {
-            setError(
-                cause instanceof ApiError
-                    ? (PLUGIN_ERRORS[cause.result] ?? cause.result)
-                    : 'That did not work.',
-            );
+            setError(apiError(cause, 'tools.errors.actionFailed'));
         } finally {
             setBusy(null);
         }
@@ -151,7 +153,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
             onClick={() => setEditing('new')}
             disabled={kinds.length === 0}
             icon={<Plus />}
-            message="Add plugin"
+            message={t('tools.plugins.add')}
         />
     );
 
@@ -173,8 +175,11 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                     replace(plugin);
                     setNotice(
                         plugin.account === ''
-                            ? `${plugin.name} is saved, but its test did not pass yet. Open Activity to see why.`
-                            : `${plugin.name} is saved and connected as ${plugin.account}.`,
+                            ? t('tools.plugins.savedUntested', { name: plugin.name })
+                            : t('tools.plugins.savedConnected', {
+                                  name: plugin.name,
+                                  account: plugin.account,
+                              }),
                     );
                 }}
             />
@@ -194,8 +199,8 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                     type="BodyMuted"
                     message={
                         plugins === null
-                            ? 'Loading plugins.'
-                            : `${plugins.length} plugin${plugins.length === 1 ? '' : 's'}. An agent can use a plugin once you let it; a plugin with an agent under Hooks also answers what comes in.`
+                            ? t('tools.plugins.loading')
+                            : tn('tools.plugins.summary', plugins.length)
                     }
                 />
 
@@ -204,7 +209,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                         variant="outline"
                         onClick={() => void load()}
                         icon={<RefreshCw />}
-                        message="Refresh"
+                        message={t('tools.plugins.refresh')}
                     />
                     {addButton}
                 </Stack>
@@ -233,8 +238,8 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
             {plugins !== null && plugins.length === 0 && (
                 <EmptyState
                     icon={Plug}
-                    title="No plugins yet"
-                    description="Connect Telegram, X, Discord, Instagram, a web browser or a webhook, and let your agents post, reply, like and look things up there."
+                    title={t('tools.plugins.empty.title')}
+                    description={t('tools.plugins.empty.description')}
                     action={addButton}
                 />
             )}
@@ -303,7 +308,11 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                                 type="Body"
                                                 as="label"
                                                 htmlFor={switchId}
-                                                message={plugin.enabled ? 'On' : 'Off'}
+                                                message={
+                                                    plugin.enabled
+                                                        ? t('tools.plugins.on')
+                                                        : t('tools.plugins.off')
+                                                }
                                             />
                                         </CardAction>
                                     </CardHeader>
@@ -319,36 +328,36 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                             direction="Horizontal"
                                             className="flex-wrap gap-x-8 gap-y-3">
                                             <Reading
-                                                label="This week"
-                                                value={stats.week.toLocaleString()}
+                                                label={t('tools.stats.week')}
+                                                value={numberLabel(stats.week)}
                                             />
                                             <Reading
-                                                label="Failed"
+                                                label={t('tools.stats.failed')}
                                                 value={
                                                     stats.failures === 0
-                                                        ? '0'
-                                                        : `${stats.failures.toLocaleString()} of ${stats.requests.toLocaleString()}`
+                                                        ? numberLabel(0)
+                                                        : t('tools.stats.failedOf', {
+                                                              failures: stats.failures,
+                                                              requests: stats.requests,
+                                                          })
                                                 }
                                                 failed={stats.failures > 0}
                                             />
                                             {kind !== undefined && kind.inbound !== 'none' && (
                                                 <Reading
-                                                    label="Received"
-                                                    value={stats.inbound.toLocaleString()}
+                                                    label={t('tools.stats.received')}
+                                                    value={numberLabel(stats.inbound)}
                                                 />
                                             )}
                                             <Reading
-                                                label="Last used"
+                                                label={t('tools.stats.lastUsed')}
                                                 value={
                                                     stats.last_at === null
-                                                        ? 'Never'
-                                                        : new Date(stats.last_at).toLocaleString(
-                                                              undefined,
-                                                              {
-                                                                  dateStyle: 'short',
-                                                                  timeStyle: 'short',
-                                                              },
-                                                          )
+                                                        ? t('tools.stats.never')
+                                                        : dateTimeLabel(stats.last_at, {
+                                                              dateStyle: 'short',
+                                                              timeStyle: 'short',
+                                                          })
                                                 }
                                             />
                                         </Stack>
@@ -356,7 +365,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                         {users.length === 0 ? (
                                             <Text
                                                 type="BodyMuted"
-                                                message="No agent may use it yet. Choose who under Modify."
+                                                message={t('tools.plugins.noUsers')}
                                             />
                                         ) : (
                                             <Stack
@@ -379,7 +388,7 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                                     type="Caption"
                                                     as="span"
                                                     className="shrink-0"
-                                                    message="Sends events to"
+                                                    message={t('tools.plugins.sendsTo')}
                                                 />
                                                 <Text
                                                     type="DataMuted"
@@ -408,16 +417,31 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
 
                                                     if (tested.ok) {
                                                         setNotice(
-                                                            `${plugin.name} works${tested.plugin.account === '' ? '' : `: ${tested.plugin.account}`}.`,
+                                                            tested.plugin.account === ''
+                                                                ? t('tools.plugins.works', {
+                                                                      name: plugin.name,
+                                                                  })
+                                                                : t('tools.plugins.worksAs', {
+                                                                      name: plugin.name,
+                                                                      account:
+                                                                          tested.plugin.account,
+                                                                  }),
                                                         );
                                                     } else {
                                                         setError(
-                                                            `${plugin.name} did not pass: ${tested.error}`,
+                                                            t('tools.plugins.testFailed', {
+                                                                name: plugin.name,
+                                                                error: tested.error,
+                                                            }),
                                                         );
                                                     }
                                                 })
                                             }
-                                            message={busy === plugin.id ? 'Testing…' : 'Test'}
+                                            message={
+                                                busy === plugin.id
+                                                    ? t('tools.plugins.testing')
+                                                    : t('tools.plugins.test')
+                                            }
                                         />
 
                                         <Button
@@ -425,23 +449,25 @@ export function PluginsPanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             icon={<Activity />}
                                             onClick={() => setViewing(plugin)}
-                                            message="Activity"
+                                            message={t('tools.plugins.activity')}
                                         />
 
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setEditing(plugin)}
-                                            message="Modify"
+                                            message={t('tools.plugins.modify')}
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
-                                            label="Remove"
-                                            title={`Remove ${plugin.name}?`}
-                                            description="Agents lose its tools, it stops answering, and the record of its requests is deleted. Posts it already made stay where they are."
-                                            confirmLabel="Remove plugin"
+                                            label={t('tools.plugins.remove')}
+                                            title={t('tools.plugins.removeTitle', {
+                                                name: plugin.name,
+                                            })}
+                                            description={t('tools.plugins.removeDescription')}
+                                            confirmLabel={t('tools.plugins.removeConfirm')}
                                             onConfirm={() =>
                                                 void act(plugin.id, async () => {
                                                     await pluginRemove(teamId, plugin.id);

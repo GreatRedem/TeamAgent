@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { Paged } from '@/apis';
 import { cn } from '@/libs/cn';
+import { numberLabel } from '@/libs/format';
+import { t } from '@/libs/i18n';
 import { Button } from '@/ui/button';
 import { Pagination, PaginationContent, PaginationItem } from '@/ui/pagination';
 import { Stack } from '@/ui/stack';
@@ -40,10 +42,10 @@ export function Pager({
                 <Text
                     type="DataMuted"
                     as="span"
-                    message={`${from.toLocaleString()}–${to.toLocaleString()}`}
+                    message={`${numberLabel(from)}–${numberLabel(to)}`}
                 />
-                <Text type="Caption" as="span" message="of" />
-                <Text type="DataMuted" as="span" message={page.total.toLocaleString()} />
+                <Text type="Caption" as="span" message={t('common.pager.of')} />
+                <Text type="DataMuted" as="span" message={numberLabel(page.total)} />
                 <Text type="Caption" as="span" message={noun} />
             </Stack>
 
@@ -56,7 +58,7 @@ export function Pager({
                             size="icon-sm"
                             disabled={busy || page.offset === 0}
                             onClick={() => onPage(Math.max(0, page.offset - page.limit))}
-                            icon={<ChevronLeft />}
+                            icon={<ChevronLeft className="rtl:-scale-x-100" />}
                         />
                     </PaginationItem>
 
@@ -67,7 +69,7 @@ export function Pager({
                             size="icon-sm"
                             disabled={busy || !page.has_more}
                             onClick={() => onPage(page.offset + page.limit)}
-                            icon={<ChevronRight />}
+                            icon={<ChevronRight className="rtl:-scale-x-100" />}
                         />
                     </PaginationItem>
                 </PaginationContent>

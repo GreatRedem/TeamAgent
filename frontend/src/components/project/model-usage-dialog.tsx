@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { type AgentExchange, ApiError, modelExchanges, type Paged, type TeamModel } from '@/apis';
+import { type AgentExchange, modelExchanges, type Paged, type TeamModel } from '@/apis';
 import { ExchangeList } from '@/components/agent/exchange-list';
 import { Pager } from '@/components/pager';
 import { UsageStats } from '@/components/usage-stats';
+import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog';
@@ -45,11 +46,7 @@ export function ModelUsageDialog({
             .catch((cause: unknown) => {
                 if (active) {
                     setExchanges([]);
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The round-trips could not be loaded.',
-                    );
+                    setError(apiError(cause, 'models.errors.roundTripsFailed'));
                 }
             });
 
@@ -72,11 +69,7 @@ export function ModelUsageDialog({
                 setExchanges(next.exchanges);
                 setPage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The round-trips could not be loaded.',
-                );
+                setError(apiError(cause, 'models.errors.roundTripsFailed'));
             } finally {
                 setPaging(false);
             }
@@ -90,15 +83,11 @@ export function ModelUsageDialog({
         <Dialog open={model !== null} onOpenChange={onOpenChange}>
             <DialogContent size="lg" className="max-h-[85dvh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{model?.name ?? 'Model'}</DialogTitle>
-                    <DialogDescription>
-                        What this model has answered, what it cost in tokens, and every call the
-                        agents made through it. Tokens are the provider's own count, estimated
-                        (marked ~) where it gave none.
-                    </DialogDescription>
+                    <DialogTitle>{model?.name ?? t('models.usage.fallbackTitle')}</DialogTitle>
+                    <DialogDescription>{t('models.usage.description')}</DialogDescription>
                 </DialogHeader>
 
-                {usage !== undefined && <UsageStats usage={usage} who="This model" />}
+                {usage !== undefined && <UsageStats usage={usage} who={t('models.usage.who')} />}
 
                 {error !== null && (
                     <Alert variant="destructive">
@@ -108,7 +97,7 @@ export function ModelUsageDialog({
 
                 <Card gap={0} flush>
                     <CardHeader className="border-b py-5">
-                        <CardTitle>Round-trips</CardTitle>
+                        <CardTitle>{t('models.usage.roundTrips')}</CardTitle>
                     </CardHeader>
 
                     <CardContent padding="none">
@@ -119,7 +108,7 @@ export function ModelUsageDialog({
                                 key={page?.offset ?? 0}
                                 exchanges={exchanges}
                                 showAgent
-                                empty="No agent has called this model yet."
+                                empty={t('models.usage.empty')}
                             />
                         )}
                     </CardContent>
@@ -130,7 +119,7 @@ export function ModelUsageDialog({
                                 page={page}
                                 shown={exchanges.length}
                                 busy={paging}
-                                noun="round-trips"
+                                noun={t('models.usage.pagerNoun')}
                                 onPage={(offset) => void goTo(offset)}
                             />
                         </CardFooter>

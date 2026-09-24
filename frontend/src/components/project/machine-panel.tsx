@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { ApiError, type SystemMetrics, systemMetrics } from '@/apis';
+import { type SystemMetrics, systemMetrics } from '@/apis';
 import { Stat } from '@/components/stat';
 import { METRICS_REFRESH } from '@/libs/constant';
-import { byteLabel, uptimeLabel } from '@/libs/format';
+import { byteLabel, numberLabel, uptimeLabel } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
 import { Skeleton } from '@/ui/skeleton';
@@ -38,9 +39,7 @@ export function MachinePanel() {
                 })
                 .catch((cause: unknown) => {
                     if (active) {
-                        setError(
-                            cause instanceof ApiError ? cause.result : 'The server did not answer.',
-                        );
+                        setError(apiError(cause, 'overview.machine.errors.noAnswer'));
                     }
                 });
         };
@@ -61,11 +60,14 @@ export function MachinePanel() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Server</CardTitle>
+                <CardTitle>{t('overview.machine.title')}</CardTitle>
                 <CardDescription>
                     {metrics === null
-                        ? 'Reading the machine.'
-                        : `Running for ${uptimeLabel(metrics.uptime_seconds)} on ${metrics.cpu_cores} cores.`}
+                        ? t('overview.machine.loading')
+                        : t('overview.machine.running', {
+                              uptime: uptimeLabel(metrics.uptime_seconds),
+                              cores: metrics.cpu_cores,
+                          })}
                 </CardDescription>
             </CardHeader>
 
@@ -73,7 +75,7 @@ export function MachinePanel() {
                 {error !== null && (
                     <Alert variant="destructive">
                         <AlertDescription>
-                            {error} Metrics will retry on their own.
+                            {t('overview.machine.retry', { error })}
                         </AlertDescription>
                     </Alert>
                 )}
@@ -93,52 +95,58 @@ export function MachinePanel() {
                         direction="Vertical"
                         className="gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:grid">
                         <Stat
-                            label="Processor"
-                            value={metrics.cpu_percent}
+                            label={t('overview.machine.processor')}
+                            value={numberLabel(metrics.cpu_percent)}
                             unit="%"
                             meter={metrics.cpu_percent}
                             tone={tone(metrics.cpu_percent)}
-                            note={`${metrics.cpu_cores} cores`}
+                            note={t('overview.machine.cores', { cores: metrics.cpu_cores })}
                         />
 
                         <Stat
-                            label="Memory"
-                            value={memory}
+                            label={t('overview.machine.memory')}
+                            value={numberLabel(memory)}
                             unit="%"
                             meter={memory}
                             tone={tone(memory)}
-                            note={`${byteLabel(metrics.memory_used)} of ${byteLabel(metrics.memory_total)} in use`}
+                            note={t('overview.machine.inUse', {
+                                used: byteLabel(metrics.memory_used),
+                                total: byteLabel(metrics.memory_total),
+                            })}
                         />
 
                         <Stat
-                            label="Disk"
-                            value={disk}
+                            label={t('overview.machine.disk')}
+                            value={numberLabel(disk)}
                             unit="%"
                             meter={disk}
                             tone={tone(disk)}
                             note={
                                 metrics.disk_total === 0
-                                    ? 'Not readable on this host'
-                                    : `${byteLabel(metrics.disk_used)} of ${byteLabel(metrics.disk_total)} in use`
+                                    ? t('overview.machine.diskUnreadable')
+                                    : t('overview.machine.inUse', {
+                                          used: byteLabel(metrics.disk_used),
+                                          total: byteLabel(metrics.disk_total),
+                                      })
                             }
                         />
 
                         <Stat
-                            label="People signed in"
-                            value={metrics.active_users.toLocaleString()}
-                            note="Made a request in the last five minutes"
+                            label={t('overview.machine.signedIn')}
+                            value={numberLabel(metrics.active_users)}
+                            note={t('overview.machine.signedInNote')}
                         />
 
                         <Stat
-                            label="Open connections"
-                            value={metrics.connections.toLocaleString()}
-                            note="Sockets the API is holding right now"
+                            label={t('overview.machine.connections')}
+                            value={numberLabel(metrics.connections)}
+                            note={t('overview.machine.connectionsNote')}
                         />
 
                         <Stat
-                            label="Uptime"
+                            label={t('overview.machine.uptime')}
                             value={uptimeLabel(metrics.uptime_seconds)}
-                            note="Since the host last booted"
+                            note={t('overview.machine.uptimeNote')}
                         />
                     </Stack>
                 )}

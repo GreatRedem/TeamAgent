@@ -2,7 +2,6 @@ import { ListChecks, Play, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     agentList,
     type Paged,
     type TeamAgent,
@@ -15,7 +14,9 @@ import {
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
-import { TASK_ERRORS, TASK_REPEAT_LABELS, TASK_STATUS } from '@/libs/constant';
+import { TASK_REPEAT_LABELS, TASK_STATUS } from '@/libs/constant';
+import { dateTimeLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -24,7 +25,6 @@ import { DataList } from '@/ui/data-value';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
-
 import { TaskDialog } from './task-dialog';
 import { TaskRunsDialog } from './task-runs-dialog';
 
@@ -51,9 +51,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                 setPage(next);
             } catch (cause) {
                 setTasks((current) => current ?? []);
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The tasks could not be loaded.',
-                );
+                setError(apiError(cause, 'tasks.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -91,11 +89,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                 setNotice(done);
             }
         } catch (cause) {
-            setError(
-                cause instanceof ApiError
-                    ? (TASK_ERRORS[cause.result] ?? cause.result)
-                    : 'That did not work.',
-            );
+            setError(apiError(cause, 'tasks.errors.actionFailed'));
         }
     };
 
@@ -104,7 +98,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
             onClick={() => setEditing('new')}
             disabled={agents.length === 0}
             icon={<Plus />}
-            message="New task"
+            message={t('tasks.new')}
         />
     );
 
@@ -141,10 +135,10 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                     type="BodyMuted"
                     message={
                         tasks === null
-                            ? 'Loading tasks.'
+                            ? t('tasks.loading')
                             : agents.length === 0
-                              ? 'Add an agent first; a task needs one to carry it out.'
-                              : `${page?.total.toLocaleString() ?? tasks.length} task${(page?.total ?? tasks.length) === 1 ? '' : 's'}. They run on their own at their time.`
+                              ? t('tasks.needsAgent')
+                              : tn('tasks.summary', page?.total ?? tasks.length)
                     }
                 />
 
@@ -154,7 +148,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                         disabled={paging}
                         onClick={() => void load(page?.offset ?? 0)}
                         icon={<RefreshCw />}
-                        message="Refresh"
+                        message={t('tasks.refresh')}
                     />
                     {newButton}
                 </Stack>
@@ -183,8 +177,8 @@ export function TasksPanel({ teamId }: { teamId: number }) {
             {tasks !== null && tasks.length === 0 && (
                 <EmptyState
                     icon={ListChecks}
-                    title="No tasks yet"
-                    description="Give an agent something to do at a set time: write a post and send it to someone, check the weather each morning, look something up on a site."
+                    title={t('tasks.empty.title')}
+                    description={t('tasks.empty.description')}
                     action={newButton}
                 />
             )}
@@ -208,7 +202,9 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 className="min-w-0 grow truncate"
                                                 message={task.title}
                                             />
-                                            <Badge variant={status.variant}>{status.label}</Badge>
+                                            <Badge variant={status.variant}>
+                                                {t(status.label)}
+                                            </Badge>
                                         </CardTitle>
                                     </CardHeader>
 
@@ -224,14 +220,18 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                         )}
 
                                         <DataList dense>
-                                            <Text type="ForegroundMuted" as="dt" message="Agent" />
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message={t('tasks.card.agent')}
+                                            />
                                             <Text
                                                 type="Data"
                                                 as="dd"
                                                 className="truncate"
                                                 message={
                                                     task.agent_name === ''
-                                                        ? 'Removed agent'
+                                                        ? t('tasks.card.removedAgent')
                                                         : task.agent_name
                                                 }
                                             />
@@ -239,7 +239,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                             <Text
                                                 type="ForegroundMuted"
                                                 as="dt"
-                                                message="Sends to"
+                                                message={t('tasks.card.sendsTo')}
                                             />
                                             <Text
                                                 type="Data"
@@ -247,7 +247,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 className="truncate"
                                                 message={
                                                     task.profile_id === 0
-                                                        ? 'Kept here'
+                                                        ? t('tasks.card.keptHere')
                                                         : task.profile_name
                                                 }
                                             />
@@ -256,7 +256,9 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 type="ForegroundMuted"
                                                 as="dt"
                                                 message={
-                                                    task.status === 'scheduled' ? 'Runs' : 'Was due'
+                                                    task.status === 'scheduled'
+                                                        ? t('tasks.card.runs')
+                                                        : t('tasks.card.wasDue')
                                                 }
                                             />
                                             <Text
@@ -264,38 +266,80 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 as="dd"
                                                 message={
                                                     task.retry_at !== null
-                                                        ? `Retry ${task.retry_count} at ${new Date(task.retry_at).toLocaleString()}`
-                                                        : `${new Date(task.start_at).toLocaleString()} · ${TASK_REPEAT_LABELS[task.repeat] ?? task.repeat}`
+                                                        ? t('tasks.card.retryAt', {
+                                                              count: task.retry_count,
+                                                              time: dateTimeLabel(task.retry_at),
+                                                          })
+                                                        : t('tasks.card.schedule', {
+                                                              time: dateTimeLabel(task.start_at),
+                                                              repeat:
+                                                                  TASK_REPEAT_LABELS[
+                                                                      task.repeat
+                                                                  ] === undefined
+                                                                      ? task.repeat
+                                                                      : t(
+                                                                            TASK_REPEAT_LABELS[
+                                                                                task.repeat
+                                                                            ],
+                                                                        ),
+                                                          })
                                                 }
                                             />
 
                                             <Text
                                                 type="ForegroundMuted"
                                                 as="dt"
-                                                message="Last run"
+                                                message={t('tasks.card.lastRun')}
                                             />
                                             <Text
                                                 type="Data"
                                                 as="dd"
                                                 message={
                                                     task.last_run_at === null
-                                                        ? 'Not yet'
-                                                        : `${new Date(task.last_run_at).toLocaleString()} · ${task.last_outcome === 'ok' ? 'succeeded' : task.last_outcome === 'error' ? 'failed' : task.last_outcome}`
+                                                        ? t('tasks.card.notYet')
+                                                        : task.last_outcome === 'ok'
+                                                          ? t('tasks.card.lastRunSucceeded', {
+                                                                time: dateTimeLabel(
+                                                                    task.last_run_at,
+                                                                ),
+                                                            })
+                                                          : task.last_outcome === 'error'
+                                                            ? t('tasks.card.lastRunFailed', {
+                                                                  time: dateTimeLabel(
+                                                                      task.last_run_at,
+                                                                  ),
+                                                              })
+                                                            : t('tasks.card.lastRunOutcome', {
+                                                                  time: dateTimeLabel(
+                                                                      task.last_run_at,
+                                                                  ),
+                                                                  outcome: task.last_outcome,
+                                                              })
                                                 }
                                             />
 
                                             <Text
                                                 type="ForegroundMuted"
                                                 as="dt"
-                                                message="Success"
+                                                message={t('tasks.card.success')}
                                             />
                                             <Text
                                                 type="Data"
                                                 as="dd"
                                                 message={
                                                     task.ok_count + task.error_count === 0
-                                                        ? 'No finished runs yet'
-                                                        : `${task.ok_count} of ${task.ok_count + task.error_count} runs (${Math.round((task.ok_count / (task.ok_count + task.error_count)) * 100)}%)`
+                                                        ? t('tasks.card.noFinishedRuns')
+                                                        : t('tasks.card.successRate', {
+                                                              ok: task.ok_count,
+                                                              total:
+                                                                  task.ok_count + task.error_count,
+                                                              percent: Math.round(
+                                                                  (task.ok_count /
+                                                                      (task.ok_count +
+                                                                          task.error_count)) *
+                                                                      100,
+                                                              ),
+                                                          })
                                                 }
                                             />
                                         </DataList>
@@ -318,7 +362,11 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                     setViewing({ ...task, status: 'running' });
                                                 })
                                             }
-                                            message={task.status === 'failed' ? 'Retry' : 'Run now'}
+                                            message={
+                                                task.status === 'failed'
+                                                    ? t('tasks.actions.retry')
+                                                    : t('tasks.actions.runNow')
+                                            }
                                         />
 
                                         <Button
@@ -328,7 +376,9 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 setLiveSince(null);
                                                 setViewing(task);
                                             }}
-                                            message={`History (${task.run_count})`}
+                                            message={t('tasks.actions.history', {
+                                                count: task.run_count,
+                                            })}
                                         />
 
                                         <Button
@@ -336,7 +386,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                             size="sm"
                                             disabled={task.status === 'running'}
                                             onClick={() => setEditing(task)}
-                                            message="Modify"
+                                            message={t('tasks.actions.modify')}
                                         />
 
                                         <Button
@@ -357,17 +407,19 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 )
                                             }
                                             message={
-                                                task.status === 'cancelled' ? 'Schedule' : 'Cancel'
+                                                task.status === 'cancelled'
+                                                    ? t('tasks.actions.schedule')
+                                                    : t('tasks.actions.cancel')
                                             }
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
-                                            label="Remove"
-                                            title={`Remove ${task.title}?`}
-                                            description="The task and the record of its runs are deleted. Anything it already sent stays sent."
-                                            confirmLabel="Remove task"
+                                            label={t('tasks.remove.label')}
+                                            title={t('tasks.remove.title', { title: task.title })}
+                                            description={t('tasks.remove.description')}
+                                            confirmLabel={t('tasks.remove.confirm')}
                                             onConfirm={() =>
                                                 void act(async () => {
                                                     await taskRemove(teamId, task.id);
@@ -394,7 +446,7 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                     page={page}
                     shown={tasks.length}
                     busy={paging}
-                    noun="tasks"
+                    noun={t('tasks.pager.noun')}
                     onPage={(offset) => void load(offset)}
                 />
             )}

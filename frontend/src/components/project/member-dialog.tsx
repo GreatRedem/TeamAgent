@@ -1,16 +1,11 @@
 import { Plus, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
-import {
-    ApiError,
-    profileDetails,
-    type RosterMember,
-    rosterMemberSave,
-    type TelegramProfile,
-} from '@/apis';
+import { profileDetails, type RosterMember, rosterMemberSave, type TelegramProfile } from '@/apis';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
-import { MEMBER_ROLE_MAX, MEMBER_ROLES_MAX, ROSTER_ERRORS, SOCIAL_NETWORKS } from '@/libs/constant';
+import { MEMBER_ROLE_MAX, MEMBER_ROLES_MAX, SOCIAL_NETWORKS } from '@/libs/constant';
+import { apiError, t } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -72,7 +67,7 @@ export function MemberDialog({
             Object.entries(member?.social ?? {}).map(([network, handle]) => ({ network, handle })),
         );
         setProfileId(member?.profile_id);
-        setLinked(member?.profile_id === undefined ? '' : 'their Telegram profile');
+        setLinked(member?.profile_id === undefined ? '' : t('team.dialog.theirProfile'));
         setError(null);
     }, [open, member]);
 
@@ -155,11 +150,7 @@ export function MemberDialog({
             onSaved(result.members);
             onOpenChange(false);
         } catch (cause) {
-            setError(
-                cause instanceof ApiError
-                    ? (ROSTER_ERRORS[cause.result] ?? cause.result)
-                    : 'The member could not be saved.',
-            );
+            setError(apiError(cause, 'team.errors.saveFailed'));
         } finally {
             setBusy(false);
         }
@@ -178,20 +169,19 @@ export function MemberDialog({
                     }}>
                     <DialogHeader>
                         <DialogTitle>
-                            {member === null ? 'Add a team member' : `Modify ${member.name}`}
+                            {member === null
+                                ? t('team.dialog.addTitle')
+                                : t('team.dialog.editTitle', { name: member.name })}
                         </DialogTitle>
-                        <DialogDescription>
-                            What goes here is written to team.json, which agents allowed to read it
-                            answer from.
-                        </DialogDescription>
+                        <DialogDescription>{t('team.dialog.description')}</DialogDescription>
                     </DialogHeader>
 
                     <Field
-                        label="From a profile"
+                        label={t('team.field.profile.label')}
                         hint={
                             profileId === undefined
-                                ? 'Optional. Pick someone who has written to a bot to link them.'
-                                : `Linked to ${linked}.`
+                                ? t('team.field.profile.hint')
+                                : t('team.field.profile.hintLinked', { name: linked })
                         }>
                         {(id) => (
                             <Stack direction="Horizontal" className="items-center gap-2">
@@ -203,7 +193,7 @@ export function MemberDialog({
                                             setProfileId(undefined);
                                             setLinked('');
                                         }}
-                                        message="Unlink"
+                                        message={t('team.field.profile.unlink')}
                                     />
                                 )}
                             </Stack>
@@ -211,7 +201,7 @@ export function MemberDialog({
                     </Field>
 
                     <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
-                        <Field label="Name" hint="How the agents will refer to them.">
+                        <Field label={t('team.field.name.label')} hint={t('team.field.name.hint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -224,8 +214,8 @@ export function MemberDialog({
                         </Field>
 
                         <Field
-                            label="Roles"
-                            hint={`Everything they are on the team, such as Administrator and Senior software engineer. Press Enter after each one, up to ${MEMBER_ROLES_MAX}.`}>
+                            label={t('team.field.roles.label')}
+                            hint={t('team.field.roles.hint', { max: MEMBER_ROLES_MAX })}>
                             {(id) => (
                                 <Stack direction="Vertical" className="gap-2">
                                     <Input
@@ -241,7 +231,7 @@ export function MemberDialog({
                                         onBlur={addRole}
                                         disabled={roles.length >= MEMBER_ROLES_MAX}
                                         maxLength={MEMBER_ROLE_MAX}
-                                        placeholder="Add a role"
+                                        placeholder={t('team.field.roles.placeholder')}
                                     />
 
                                     {roles.length > 0 && (
@@ -270,7 +260,9 @@ export function MemberDialog({
                         </Field>
                     </Stack>
 
-                    <Field label="Description" hint="What they do, and what to ask them about.">
+                    <Field
+                        label={t('team.field.description.label')}
+                        hint={t('team.field.description.hint')}>
                         {(id) => (
                             <Textarea
                                 id={id}
@@ -287,10 +279,10 @@ export function MemberDialog({
                     />
 
                     <Stack direction="Vertical" className="gap-2">
-                        <Text type="BodyStrong" message="Social networks" />
+                        <Text type="BodyStrong" message={t('team.social.title')} />
 
                         {social.length === 0 && (
-                            <Text type="BodyMuted" message="None recorded yet." />
+                            <Text type="BodyMuted" message={t('team.social.empty')} />
                         )}
 
                         {social.map((row, index) => (
@@ -313,7 +305,7 @@ export function MemberDialog({
                                             )
                                         }
                                         maxLength={32}
-                                        placeholder="network"
+                                        placeholder={t('team.social.network')}
                                     />
                                 </Stack>
                                 <Stack direction="Vertical" className="min-w-0 grow">
@@ -329,7 +321,7 @@ export function MemberDialog({
                                             )
                                         }
                                         maxLength={300}
-                                        placeholder="@handle or link"
+                                        placeholder={t('team.social.handle')}
                                     />
                                 </Stack>
                                 <Button
@@ -351,7 +343,7 @@ export function MemberDialog({
                             onClick={() =>
                                 setSocial((rows) => [...rows, { network: '', handle: '' }])
                             }
-                            message="Add a network"
+                            message={t('team.social.add')}
                         />
                     </Stack>
 
@@ -365,13 +357,17 @@ export function MemberDialog({
                         <Button
                             variant="outline"
                             onClick={() => onOpenChange(false)}
-                            message="Cancel"
+                            message={t('team.dialog.cancel')}
                         />
                         <Button
                             type="submit"
                             disabled={busy || name.trim() === ''}
                             message={
-                                busy ? 'Saving…' : member === null ? 'Add member' : 'Save changes'
+                                busy
+                                    ? t('team.dialog.saving')
+                                    : member === null
+                                      ? t('team.dialog.add')
+                                      : t('team.dialog.save')
                             }
                         />
                     </DialogFooter>

@@ -1,54 +1,83 @@
 import type { TaskRunEvent } from '@/apis';
 import { cn } from '@/libs/cn';
-import { durationLabel } from '@/libs/format';
+import { durationLabel, numberLabel, timeLabel } from '@/libs/format';
+import { locale, t, tn } from '@/libs/i18n';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
 function describe(event: TaskRunEvent): { line: string; ok: boolean } {
     switch (event.kind) {
         case 'start':
-            return { line: `Started ${event.agent} on ${event.model}`, ok: true };
+            return {
+                line: t('tasks.log.start', { agent: event.agent, model: event.model }),
+                ok: true,
+            };
         case 'recipient':
-            return { line: `The result is for ${event.name}`, ok: true };
+            return { line: t('tasks.log.recipient', { name: event.name }), ok: true };
         case 'model': {
             const about = event.estimated ? '~' : '';
+            const round = t(event.ok ? 'tasks.log.model.answered' : 'tasks.log.model.failed', {
+                round: event.round,
+                model: event.model,
+                duration: durationLabel(event.duration_ms),
+                prompt: `${about}${numberLabel(event.prompt_tokens)}`,
+                completion: `${about}${numberLabel(event.completion_tokens)}`,
+            });
             const tools =
                 event.tool_calls === 0
-                    ? ''
-                    : `, asked for ${event.tool_calls} tool${event.tool_calls === 1 ? '' : 's'}`;
+                    ? round
+                    : tn('tasks.log.model.tools', event.tool_calls, { line: round });
 
             return {
-                line: `Round ${event.round}: ${event.model} ${event.ok ? 'answered' : 'failed'} in ${durationLabel(event.duration_ms)}, ${about}${event.prompt_tokens.toLocaleString()} in · ${about}${event.completion_tokens.toLocaleString()} out${tools}${event.reason === '' ? '' : ` (${event.reason})`}`,
+                line:
+                    event.reason === ''
+                        ? tools
+                        : t('tasks.log.withReason', { line: tools, reason: event.reason }),
                 ok: event.ok,
             };
         }
         case 'tool':
             return {
-                line: `Tool ${event.name} ${event.ok ? 'worked' : 'failed'} in ${durationLabel(event.duration_ms)}`,
+                line: t(event.ok ? 'tasks.log.tool.worked' : 'tasks.log.tool.failed', {
+                    name: event.name,
+                    duration: durationLabel(event.duration_ms),
+                }),
                 ok: event.ok,
             };
         case 'send':
             return {
                 line: event.ok
-                    ? `Sent to ${event.to} through ${event.bot}`
+                    ? t('tasks.log.send.sent', { to: event.to, bot: event.bot })
                     : event.bot === ''
-                      ? `Could not send to ${event.to}: they have not written to any bot here`
-                      : `Telegram would not take it for ${event.to} through ${event.bot}`,
+                      ? t('tasks.log.send.noBot', { to: event.to })
+                      : t('tasks.log.send.rejected', { to: event.to, bot: event.bot }),
                 ok: event.ok,
             };
         case 'switch':
             return {
-                line: `Rested ${event.model}; the next try uses another free model`,
+                line: t('tasks.log.switch', { model: event.model }),
                 ok: true,
             };
         case 'retry':
             return {
-                line: `Will try again at ${new Date(event.next_at).toLocaleTimeString()} (retry ${event.attempt} of ${event.of})`,
+                line: t('tasks.log.retry', {
+                    time: timeLabel(event.next_at),
+                    attempt: event.attempt,
+                    of: event.of,
+                }),
                 ok: true,
             };
         case 'end':
             return {
-                line: `Finished: ${event.outcome === 'ok' ? 'done' : 'failed'}${event.reason === '' ? '' : `, ${event.reason}`}`,
+                line:
+                    event.reason === ''
+                        ? t(event.outcome === 'ok' ? 'tasks.log.end.done' : 'tasks.log.end.failed')
+                        : t(
+                              event.outcome === 'ok'
+                                  ? 'tasks.log.end.doneReason'
+                                  : 'tasks.log.end.failedReason',
+                              { reason: event.reason },
+                          ),
                 ok: event.outcome === 'ok',
             };
     }
@@ -58,7 +87,7 @@ export function TaskRunLog({ startedAt, events }: { startedAt: string; events: T
     const origin = new Date(startedAt).getTime();
 
     if (events.length === 0) {
-        return <Text type="BodyMuted" message="No steps recorded yet." />;
+        return <Text type="BodyMuted" message={t('tasks.log.empty')} />;
     }
 
     return (
@@ -78,7 +107,13 @@ export function TaskRunLog({ startedAt, events }: { startedAt: string; events: T
                             type="DataMuted"
                             as="span"
                             className="w-14 shrink-0 text-end"
-                            message={`+${(offset / 1000).toFixed(1)}s`}
+                            message={t('tasks.log.offset', {
+                                seconds: (offset / 1000).toLocaleString(locale, {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 1,
+                                    useGrouping: false,
+                                }),
+                            })}
                         />
                         <Stack direction="Vertical" as="span" className="min-w-0 gap-1">
                             <Text
@@ -93,13 +128,15 @@ export function TaskRunLog({ startedAt, events }: { startedAt: string; events: T
                                         type="DataMuted"
                                         as="span"
                                         className="break-anywhere"
-                                        message={`asked: ${event.args}`}
+                                        message={t('tasks.log.tool.args', { args: event.args })}
                                     />
                                     <Text
                                         type="DataMuted"
                                         as="span"
                                         className="break-anywhere"
-                                        message={`gave: ${event.result}`}
+                                        message={t('tasks.log.tool.result', {
+                                            result: event.result,
+                                        })}
                                     />
                                 </>
                             )}

@@ -50,6 +50,38 @@ const messages = {
     'errors.WALLET_NONCE_INVALID': 'The sign-in request expired. Please try again.',
     'errors.WALLET_SIGNATURE_INVALID': 'The wallet signature did not match.',
     'errors.WEBHOOK_REJECTED': 'Telegram would not accept the webhook address.',
+    'errors.BOT_PROFILES_INVALID': 'Pick people from this project only.',
+    'errors.IMPORT_FILE_REQUIRED': 'Choose a project zip first.',
+    'errors.IMPORT_ZIP_INVALID': 'That file is not a zip this app can read, or it is damaged.',
+    'errors.IMPORT_FILE_INVALID': 'A file inside the zip is not valid JSON.',
+    'errors.IMPORT_FORMAT_UNKNOWN': 'That zip is not a NuraAI project export.',
+    'errors.PLUGIN_NAME_REQUIRED': 'Give the plugin a name.',
+    'errors.PLUGIN_NAME_TAKEN': 'Another plugin in this project already has that name.',
+    'errors.PLUGIN_FIELD_REQUIRED': 'Fill in every required field.',
+    'errors.PLUGIN_TOKEN_INVALID': 'That does not look like a bot token from @BotFather.',
+    'errors.PLUGIN_CHANNEL_INVALID': 'A channel id is a long number.',
+    'errors.PLUGIN_URL_INVALID': 'Enter a full http or https address.',
+    'errors.PLUGIN_HOOK_URL_INVALID':
+        'The forwarding address must be a full http or https address.',
+    'errors.PLUGIN_AGENT_NOT_FOUND': 'That agent is no longer in this project.',
+    'errors.PLUGIN_KIND_INVALID': 'Pick what kind of plugin it is.',
+    'errors.PLUGIN_NOT_FOUND': 'That plugin is no longer in this project.',
+    'errors.MODEL_UNREACHABLE': 'The endpoint could not be reached.',
+    'errors.MODEL_KEY_REJECTED': 'The endpoint refused the API key.',
+    'errors.MODEL_CLIENT_REJECTED':
+        'The endpoint refused this app as a client, even with a valid key.',
+    'errors.MODEL_ENDPOINT_REJECTED': 'The endpoint answered with an error.',
+    'errors.MODEL_RESPONSE_UNEXPECTED':
+        'The endpoint answered in a format this app does not understand.',
+    'errors.CATALOG_UNREACHABLE': 'The model list could not be fetched from OpenRouter.',
+    'errors.BOT_ID_INVALID': 'That bot address is not valid.',
+    'errors.BOT_TOKEN_REJECTED': 'Telegram refused the token.',
+    'errors.BOT_UNREACHABLE': 'Telegram could not be reached.',
+    'errors.BOT_PUBLIC_URL_NOT_SET': 'Set a public address before registering the webhook.',
+    'errors.PLUGIN_ID_INVALID': 'That plugin address is not valid.',
+    'errors.PLUGIN_INVALID': 'That plugin could not be saved. Check its fields.',
+    'errors.DOCUMENT_ID_INVALID': 'That file address is not valid.',
+    'errors.INTERNAL_ERROR': 'Something went wrong on the server. Try again.',
 } as const;
 
 export default messages;

@@ -2,7 +2,6 @@ import { ArrowUpRight, Plus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     agentList,
     agentPermissionUpdate,
     type RosterMember,
@@ -12,7 +11,8 @@ import {
 } from '@/apis';
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
-import { ROSTER_ACCESS, ROSTER_ERRORS } from '@/libs/constant';
+import { ROSTER_ACCESS } from '@/libs/constant';
+import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -22,7 +22,6 @@ import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
-
 import { MemberDialog } from './member-dialog';
 
 export function TeamPanel({ teamId }: { teamId: number }) {
@@ -47,11 +46,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                 if (active) {
                     setMembers([]);
                     setAgents([]);
-                    setError(
-                        cause instanceof ApiError
-                            ? (ROSTER_ERRORS[cause.result] ?? cause.result)
-                            : 'The team could not be loaded.',
-                    );
+                    setError(apiError(cause, 'team.errors.loadFailed'));
                 }
             });
 
@@ -67,11 +62,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
             try {
                 setMembers((await rosterMemberRemove(teamId, name)).members);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? (ROSTER_ERRORS[cause.result] ?? cause.result)
-                        : 'The member could not be removed.',
-                );
+                setError(apiError(cause, 'team.errors.removeFailed'));
             }
         },
         [teamId],
@@ -98,11 +89,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                         ) ?? null,
                 );
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The capability could not be changed.',
-                );
+                setError(apiError(cause, 'team.errors.permissionFailed'));
             } finally {
                 setSaving(null);
             }
@@ -111,7 +98,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
     );
 
     const addButton = (
-        <Button onClick={() => setEditing('new')} icon={<Plus />} message="Add member" />
+        <Button onClick={() => setEditing('new')} icon={<Plus />} message={t('team.addMember')} />
     );
 
     return (
@@ -138,9 +125,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                 <Text
                     type="BodyMuted"
                     message={
-                        members === null
-                            ? 'Loading the team.'
-                            : `${members.length.toLocaleString()} ${members.length === 1 ? 'person' : 'people'} in team.json.`
+                        members === null ? t('team.loading') : tn('team.summary', members.length)
                     }
                 />
 
@@ -158,8 +143,8 @@ export function TeamPanel({ teamId }: { teamId: number }) {
             {members !== null && members.length === 0 && (
                 <EmptyState
                     icon={Users}
-                    title="Nobody on the team yet"
-                    description="Add the people agents should know about: their roles, what they do and where to find them. Pick them from the profiles that have written to your bots, or type them in."
+                    title={t('team.empty.title')}
+                    description={t('team.empty.description')}
                     action={addButton}
                 />
             )}
@@ -216,8 +201,8 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                                                 variant="outline"
                                                 size="sm"
                                                 link={`/dashboard/team/${teamId}/profile/${member.profile_id}`}
-                                                icon={<ArrowUpRight />}
-                                                message="Profile"
+                                                icon={<ArrowUpRight className="rtl:-scale-x-100" />}
+                                                message={t('team.member.profile')}
                                             />
                                         )}
 
@@ -225,16 +210,16 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setEditing(member)}
-                                            message="Modify"
+                                            message={t('team.member.modify')}
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
-                                            label="Remove"
-                                            title={`Remove ${member.name}?`}
-                                            description="They are taken out of team.json, and the agents stop knowing about them."
-                                            confirmLabel="Remove member"
+                                            label={t('team.remove.label')}
+                                            title={t('team.remove.title', { name: member.name })}
+                                            description={t('team.remove.description')}
+                                            confirmLabel={t('team.remove.confirm')}
                                             onConfirm={() => void remove(member.name)}
                                         />
                                     </Stack>
@@ -247,19 +232,15 @@ export function TeamPanel({ teamId }: { teamId: number }) {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Agents that answer from it</CardTitle>
-                    <CardDescription>
-                        An agent that may read team.json has it in its instructions and answers
-                        questions about the team from it. Adding, updating and removing members are
-                        separate tools, each granted on its own.
-                    </CardDescription>
+                    <CardTitle>{t('team.agents.title')}</CardTitle>
+                    <CardDescription>{t('team.agents.description')}</CardDescription>
                 </CardHeader>
 
                 <CardContent className="grid gap-1">
                     {agents === null && <Skeleton className="h-16" />}
 
                     {agents !== null && agents.length === 0 && (
-                        <Text type="BodyMuted" message="This project has no agents yet." />
+                        <Text type="BodyMuted" message={t('team.agents.empty')} />
                     )}
 
                     {agents?.map((agent) => (
@@ -287,7 +268,12 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                                             disabled={saving === `${agent.id}:${key}`}
                                             onCheckedChange={() => void toggle(agent, key)}
                                         />
-                                        <Text type="Body" as="label" htmlFor={id} message={label} />
+                                        <Text
+                                            type="Body"
+                                            as="label"
+                                            htmlFor={id}
+                                            message={t(label)}
+                                        />
                                     </Stack>
                                 );
                             })}
@@ -300,7 +286,7 @@ export function TeamPanel({ teamId }: { teamId: number }) {
                 <Card>
                     <CardHeader>
                         <CardTitle>team.json</CardTitle>
-                        <CardDescription>The file as the agents are given it.</CardDescription>
+                        <CardDescription>{t('team.file.description')}</CardDescription>
                     </CardHeader>
 
                     <CardContent>

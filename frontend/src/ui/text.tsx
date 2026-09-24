@@ -1,6 +1,7 @@
 import type * as React from 'react';
 
 import { cn } from '@/libs/cn';
+import { isolated } from '@/libs/i18n';
 
 const textType = {
     Title: 'text-page font-semibold tracking-tight leading-display',
@@ -47,7 +48,7 @@ function Text({
             data-type={type}
             className={cn('m-0', textType[type], className)}
             {...props}>
-            {message}
+            {isolated(message) ? <bdi>{message}</bdi> : message}
         </Comp>
     );
 }

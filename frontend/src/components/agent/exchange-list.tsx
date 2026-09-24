@@ -3,7 +3,8 @@ import { useState } from 'react';
 import type { AgentExchange } from '@/apis';
 import { cn } from '@/libs/cn';
 import { PROBE_TONE } from '@/libs/constant';
-import { durationLabel } from '@/libs/format';
+import { dateTimeLabel, durationLabel, numberLabel } from '@/libs/format';
+import { t, tn } from '@/libs/i18n';
 import { CodeBlock } from '@/ui/code-block';
 import { Pressable } from '@/ui/pressable';
 import { Stack } from '@/ui/stack';
@@ -30,9 +31,17 @@ export function ExchangeList({
                 const about = exchange.tokens_estimated ? '~' : '';
                 const tokens =
                     exchange.prompt_tokens + exchange.completion_tokens > 0
-                        ? `${about}${exchange.prompt_tokens.toLocaleString()} in · ${about}${exchange.completion_tokens.toLocaleString()} out`
-                        : 'No tokens';
-                const what = `Round ${exchange.round}, ${exchange.tool_calls} tool call${exchange.tool_calls === 1 ? '' : 's'}`;
+                        ? t('agents.tokensInOut', {
+                              prompt: `${about}${numberLabel(exchange.prompt_tokens)}`,
+                              completion: `${about}${numberLabel(exchange.completion_tokens)}`,
+                          })
+                        : t('agents.exchanges.noTokens');
+                const what = tn('agents.exchanges.round', exchange.tool_calls, {
+                    round: exchange.round,
+                });
+                const outcome = t(
+                    exchange.outcome === 'ok' ? 'agents.exchanges.ok' : 'agents.exchanges.failed',
+                );
 
                 return (
                     <Stack
@@ -50,7 +59,7 @@ export function ExchangeList({
                                 as="time"
                                 className="shrink-0"
                                 dateTime={exchange.created_at}
-                                message={new Date(exchange.created_at).toLocaleString(undefined, {
+                                message={dateTimeLabel(exchange.created_at, {
                                     month: 'short',
                                     day: 'numeric',
                                     hour: '2-digit',
@@ -64,7 +73,13 @@ export function ExchangeList({
                                 className="min-w-0 grow truncate"
                                 message={
                                     showAgent
-                                        ? `${exchange.agent_name === '' ? 'Removed agent' : exchange.agent_name} · ${what}`
+                                        ? t('agents.exchanges.withAgent', {
+                                              agent:
+                                                  exchange.agent_name === ''
+                                                      ? t('agents.exchanges.removedAgent')
+                                                      : exchange.agent_name,
+                                              what,
+                                          })
                                         : what
                                 }
                             />
@@ -90,7 +105,14 @@ export function ExchangeList({
                                     'shrink-0',
                                     PROBE_TONE[exchange.outcome === 'ok' ? 'ok' : 'error'],
                                 )}
-                                message={`${exchange.outcome === 'ok' ? 'OK' : 'Failed'}${exchange.reason === '' ? '' : ` · ${exchange.reason}`}`}
+                                message={
+                                    exchange.reason === ''
+                                        ? outcome
+                                        : t('agents.exchanges.withReason', {
+                                              outcome,
+                                              reason: exchange.reason,
+                                          })
+                                }
                             />
                         </Pressable>
 
@@ -100,18 +122,21 @@ export function ExchangeList({
                                     type="DataMuted"
                                     message={
                                         exchange.tokens_estimated
-                                            ? `${tokens}, estimated: the provider gave no count`
+                                            ? t('agents.exchanges.estimated', { tokens })
                                             : tokens
                                     }
                                 />
 
                                 <Stack direction="Vertical" className="gap-1.5">
-                                    <Text type="BodyMuted" message="Sent" />
+                                    <Text type="BodyMuted" message={t('agents.exchanges.sent')} />
                                     <CodeBlock className="max-h-64" message={exchange.request} />
                                 </Stack>
 
                                 <Stack direction="Vertical" className="gap-1.5">
-                                    <Text type="BodyMuted" message="Came back" />
+                                    <Text
+                                        type="BodyMuted"
+                                        message={t('agents.exchanges.cameBack')}
+                                    />
                                     <CodeBlock className="max-h-64" message={exchange.response} />
                                 </Stack>
                             </Stack>

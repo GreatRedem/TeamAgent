@@ -2,7 +2,6 @@ import { RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     type Paged,
     type PluginActionStats,
     type PluginCall,
@@ -12,7 +11,8 @@ import {
 import { Pager } from '@/components/pager';
 import { Stat } from '@/components/stat';
 import { PLUGIN_DIRECTIONS } from '@/libs/constant';
-import { compactCount, durationLabel } from '@/libs/format';
+import { compactCount, dateTimeLabel, durationLabel, numberLabel } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -66,9 +66,7 @@ export function PluginCallsDialog({
                 setError(null);
             } catch (cause) {
                 setCalls((current) => current ?? []);
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The activity could not be loaded.',
-                );
+                setError(apiError(cause, 'tools.errors.activityLoadFailed'));
             } finally {
                 setBusy(false);
             }
@@ -101,22 +99,22 @@ export function PluginCallsDialog({
         <Dialog open={plugin !== null} onOpenChange={onOpenChange}>
             <DialogContent size="lg" className="max-h-[85dvh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{plugin?.name ?? 'Activity'}</DialogTitle>
-                    <DialogDescription>
-                        Every request it made for an agent, everything that arrived through it, the
-                        replies it sent and the events it forwarded.
-                    </DialogDescription>
+                    <DialogTitle>{plugin?.name ?? t('tools.calls.title')}</DialogTitle>
+                    <DialogDescription>{t('tools.calls.description')}</DialogDescription>
                 </DialogHeader>
 
                 {stats !== undefined && (
                     <Stack direction="Vertical" className="gap-3 sm:grid sm:grid-cols-4">
                         <Stat
-                            label="Requests"
+                            label={t('tools.calls.requests')}
                             value={compactCount(stats.requests)}
-                            note={`${stats.day.toLocaleString()} today · ${stats.week.toLocaleString()} this week`}
+                            note={t('tools.calls.requestsNote', {
+                                day: stats.day,
+                                week: stats.week,
+                            })}
                         />
                         <Stat
-                            label="Failed"
+                            label={t('tools.calls.failed')}
                             value={compactCount(stats.failures)}
                             tone="destructive"
                             meter={
@@ -124,19 +122,23 @@ export function PluginCallsDialog({
                             }
                             note={
                                 stats.requests === 0
-                                    ? 'Nothing sent yet'
-                                    : `${Math.round((stats.failures / stats.requests) * 100)}% of requests`
+                                    ? t('tools.calls.nothingSent')
+                                    : t('tools.calls.failedShare', {
+                                          percent: Math.round(
+                                              (stats.failures / stats.requests) * 100,
+                                          ),
+                                      })
                             }
                         />
                         <Stat
-                            label="Received"
+                            label={t('tools.calls.received')}
                             value={compactCount(stats.inbound)}
-                            note={`${stats.replies.toLocaleString()} answered by an agent`}
+                            note={t('tools.calls.repliesNote', { replies: stats.replies })}
                         />
                         <Stat
-                            label="Average"
+                            label={t('tools.calls.average')}
                             value={stats.average_ms === 0 ? '–' : durationLabel(stats.average_ms)}
-                            note="Per request that worked"
+                            note={t('tools.calls.averageNote')}
                         />
                     </Stack>
                 )}
@@ -149,16 +151,24 @@ export function PluginCallsDialog({
 
                 {actions.length > 0 && (
                     <Stack direction="Vertical" className="gap-2">
-                        <Text type="BodyStrong" message="By action" />
+                        <Text type="BodyStrong" message={t('tools.calls.byAction')} />
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Action</TableHead>
-                                    <TableHead>Kind</TableHead>
-                                    <TableHead className="text-end">Count</TableHead>
-                                    <TableHead className="text-end">Failed</TableHead>
-                                    <TableHead className="text-end">Average</TableHead>
-                                    <TableHead className="text-end">Last</TableHead>
+                                    <TableHead>{t('tools.calls.column.action')}</TableHead>
+                                    <TableHead>{t('tools.calls.column.kind')}</TableHead>
+                                    <TableHead className="text-end">
+                                        {t('tools.calls.column.count')}
+                                    </TableHead>
+                                    <TableHead className="text-end">
+                                        {t('tools.calls.column.failed')}
+                                    </TableHead>
+                                    <TableHead className="text-end">
+                                        {t('tools.calls.column.average')}
+                                    </TableHead>
+                                    <TableHead className="text-end">
+                                        {t('tools.calls.column.last')}
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -171,14 +181,14 @@ export function PluginCallsDialog({
                                             <Text
                                                 type="BodyMuted"
                                                 as="span"
-                                                message={PLUGIN_DIRECTIONS[row.direction]}
+                                                message={t(PLUGIN_DIRECTIONS[row.direction])}
                                             />
                                         </TableCell>
                                         <TableCell className="text-end">
                                             <Text
                                                 type="Data"
                                                 as="span"
-                                                message={row.count.toLocaleString()}
+                                                message={numberLabel(row.count)}
                                             />
                                         </TableCell>
                                         <TableCell className="text-end">
@@ -189,7 +199,7 @@ export function PluginCallsDialog({
                                                         : 'DataMuted'
                                                 }
                                                 as="span"
-                                                message={row.failures.toLocaleString()}
+                                                message={numberLabel(row.failures)}
                                             />
                                         </TableCell>
                                         <TableCell className="text-end">
@@ -208,7 +218,7 @@ export function PluginCallsDialog({
                                                 type="DataMuted"
                                                 as="time"
                                                 dateTime={row.last_at}
-                                                message={new Date(row.last_at).toLocaleString()}
+                                                message={dateTimeLabel(row.last_at)}
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -219,21 +229,21 @@ export function PluginCallsDialog({
                 )}
 
                 <Stack direction="Horizontal" className="items-center justify-between gap-3">
-                    <Text type="BodyStrong" message="Recent" />
+                    <Text type="BodyStrong" message={t('tools.calls.recent')} />
                     <Button
                         variant="outline"
                         size="sm"
                         disabled={busy}
                         onClick={() => void load(page?.offset ?? 0)}
                         icon={<RefreshCw />}
-                        message="Refresh"
+                        message={t('tools.calls.refresh')}
                     />
                 </Stack>
 
                 {calls === null && <Skeleton radius="lg" className="h-32" />}
 
                 {calls !== null && calls.length === 0 && (
-                    <Text type="BodyMuted" message="Nothing has gone through it yet." />
+                    <Text type="BodyMuted" message={t('tools.calls.empty')} />
                 )}
 
                 {calls?.map((call) => {
@@ -246,9 +256,11 @@ export function PluginCallsDialog({
                             key={call.id}>
                             <Stack direction="Horizontal" className="flex-wrap items-center gap-2">
                                 <Badge variant={call.ok ? 'secondary' : 'destructive'}>
-                                    {call.ok ? 'OK' : 'Failed'}
+                                    {call.ok ? t('tools.calls.ok') : t('tools.calls.failedBadge')}
                                 </Badge>
-                                <Badge variant="outline">{PLUGIN_DIRECTIONS[call.direction]}</Badge>
+                                <Badge variant="outline">
+                                    {t(PLUGIN_DIRECTIONS[call.direction])}
+                                </Badge>
                                 <Text type="DataStrong" as="span" message={call.action} />
                                 {call.agent_name !== '' && (
                                     <Text type="BodyMuted" as="span" message={call.agent_name} />
@@ -258,14 +270,23 @@ export function PluginCallsDialog({
                                     <Text
                                         type="DataMuted"
                                         as="span"
-                                        message={`${call.status === 0 ? 'no answer' : call.status} · ${durationLabel(call.duration_ms)}`}
+                                        message={
+                                            call.status === 0
+                                                ? t('tools.calls.noAnswer', {
+                                                      duration: durationLabel(call.duration_ms),
+                                                  })
+                                                : t('tools.calls.status', {
+                                                      status: String(call.status),
+                                                      duration: durationLabel(call.duration_ms),
+                                                  })
+                                        }
                                     />
                                 )}
                                 <Text
                                     type="DataMuted"
                                     as="time"
                                     dateTime={call.created_at}
-                                    message={new Date(call.created_at).toLocaleString()}
+                                    message={dateTimeLabel(call.created_at)}
                                 />
                             </Stack>
 
@@ -283,7 +304,11 @@ export function PluginCallsDialog({
                                     size="sm"
                                     className="self-start"
                                     onClick={() => toggle(call.id)}
-                                    message={open ? 'Hide details' : 'Show details'}
+                                    message={
+                                        open
+                                            ? t('tools.calls.hideDetails')
+                                            : t('tools.calls.showDetails')
+                                    }
                                 />
                             )}
 
@@ -291,7 +316,11 @@ export function PluginCallsDialog({
                                 <Stack direction="Vertical" className="gap-1">
                                     <Text
                                         type="Caption"
-                                        message={call.direction === 'in' ? 'What arrived' : 'Sent'}
+                                        message={
+                                            call.direction === 'in'
+                                                ? t('tools.calls.arrived')
+                                                : t('tools.calls.sent')
+                                        }
                                     />
                                     <CodeBlock message={pretty(call.request)} />
                                 </Stack>
@@ -303,10 +332,10 @@ export function PluginCallsDialog({
                                         type="Caption"
                                         message={
                                             call.direction === 'in'
-                                                ? 'From'
+                                                ? t('tools.calls.from')
                                                 : call.direction === 'reply'
-                                                  ? 'Reply'
-                                                  : 'Answer'
+                                                  ? t('tools.calls.reply')
+                                                  : t('tools.calls.answer')
                                         }
                                     />
                                     <CodeBlock message={pretty(call.response)} />
@@ -321,7 +350,7 @@ export function PluginCallsDialog({
                         page={page}
                         shown={calls.length}
                         busy={busy}
-                        noun="requests"
+                        noun={t('tools.calls.noun')}
                         onPage={(offset) => void load(offset)}
                     />
                 )}

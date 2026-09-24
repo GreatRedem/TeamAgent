@@ -71,8 +71,8 @@ function TableHead({
         <th
             data-slot="table-head"
             className={cn(
-                'h-10 px-2 align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-                numeric ? 'text-right' : 'text-left',
+                'h-10 px-2 align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pe-0 [&>[role=checkbox]]:translate-y-[2px]',
+                numeric ? 'text-end' : 'text-start',
                 className,
             )}
             {...props}
@@ -89,8 +89,8 @@ function TableCell({
         <td
             data-slot="table-cell"
             className={cn(
-                'p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-                numeric && 'text-right',
+                'p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0 [&>[role=checkbox]]:translate-y-[2px]',
+                numeric && 'text-end',
                 className,
             )}
             {...props}

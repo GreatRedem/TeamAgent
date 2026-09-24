@@ -45,7 +45,7 @@ function AlertDialogHeader({ className, ...props }: React.ComponentProps<'div'>)
         <div
             data-slot="alert-dialog-header"
             className={cn(
-                'grid place-items-center gap-1.5 text-center sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left',
+                'grid place-items-center gap-1.5 text-center sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-start',
                 className,
             )}
             {...props}

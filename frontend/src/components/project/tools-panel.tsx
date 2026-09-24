@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     agentList,
     agentPermissionCatalog,
     agentPermissionUpdate,
@@ -10,6 +9,7 @@ import {
     type Permission,
     type TeamAgent,
 } from '@/apis';
+import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
@@ -43,9 +43,7 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
             .catch((cause: unknown) => {
                 if (active) {
                     setTools([]);
-                    setError(
-                        cause instanceof ApiError ? cause.result : 'The tools could not be loaded.',
-                    );
+                    setError(apiError(cause, 'tools.errors.toolsLoadFailed'));
                 }
             });
 
@@ -72,11 +70,7 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
                     ),
                 );
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The capability could not be changed.',
-                );
+                setError(apiError(cause, 'tools.errors.capabilityFailed'));
             } finally {
                 setSaving(null);
             }
@@ -97,8 +91,11 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
                 type="BodyMuted"
                 message={
                     tools === null
-                        ? 'Loading the tools.'
-                        : `${tools.length} tools in ${groups.length} capabilities. An agent can call a tool once it holds the capability above it; everything is off until you grant it.`
+                        ? t('tools.mcp.loading')
+                        : t('tools.mcp.summary', {
+                              tools: tools.length,
+                              capabilities: groups.length,
+                          })
                 }
             />
 
@@ -141,10 +138,10 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
                         </Stack>
 
                         <Stack direction="Vertical" className="gap-2">
-                            <Text type="BodyStrong" message="Agents that can use these" />
+                            <Text type="BodyStrong" message={t('tools.mcp.agentsTitle')} />
 
                             {agents.length === 0 && (
-                                <Text type="BodyMuted" message="This project has no agents yet." />
+                                <Text type="BodyMuted" message={t('tools.noAgents')} />
                             )}
 
                             <Stack direction="Horizontal" className="flex-wrap gap-x-6 gap-y-3">

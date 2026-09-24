@@ -60,7 +60,9 @@
     --radius: 0.5rem;
 
     --font-ui: Vazirmatn, "Segoe UI", system-ui, sans-serif;
-    --font-data: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+    --font-data:
+        "Vazirmatn Persian", ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas,
+        monospace;
 
     --elevation-raised: 0 1px 0 rgb(255 255 255 / 4%) inset;
     --elevation-float: 0 12px 30px rgb(0 0 0 / 45%), 0 1px 0 rgb(255 255 255 / 4%) inset;
@@ -105,6 +107,17 @@
     unicode-range:
         U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E,
         U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+    font-family: "Vazirmatn Persian";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url("/fonts/vazirmatn-arabic-wght-normal.woff2") format("woff2-variations");
+    unicode-range:
+        U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E,
+        U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
 }
 
 @theme inline {

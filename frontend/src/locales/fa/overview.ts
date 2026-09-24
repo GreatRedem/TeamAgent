@@ -1,6 +1,47 @@
 import type en from '../en/overview';
 import type { Messages } from '../types';
 
-const messages: Messages<typeof en> = {};
+const messages: Messages<typeof en> = {
+    'overview.errors.loadFailed': 'نمای کلی بارگذاری نشد.',
+    'overview.week.title': 'این هفته',
+    'overview.week.description': 'هفت روز گذشته، همراه با ۲۴ ساعت گذشته.',
+    'overview.week.profiles': 'افراد',
+    'overview.week.profilesNote': '{new} نفر تازه، {active} نفر فعال در این هفته',
+    'overview.week.chats': 'گفتگوهای تازه',
+    'overview.week.lastDay': '{count} در ۲۴ ساعت گذشته',
+    'overview.week.messages': 'پیام‌های ورودی',
+    'overview.week.requests': 'درخواست‌های مدل',
+    'overview.week.requestsNote': '{today} در ۲۴ ساعت گذشته، {failed} ناموفق در این هفته',
+    'overview.week.replies': 'پاسخ‌ها',
+    'overview.week.repliesNote': 'پاسخ‌هایی که ایجنت‌ها کامل کردند',
+    'overview.week.tokens': 'توکن‌ها',
+    'overview.week.tokensNote': '{input} ورودی، {output} خروجی',
+    'overview.usage.title': 'مصرف مدل‌ها',
+    'overview.usage.loading': 'در حال جمع زدن مصرف هر مدل.',
+    'overview.usage.summary': 'روی هم {total} توکن: {input} ورودی، {output} خروجی.',
+    'overview.usage.empty': 'این پروژه هنوز مدلی ندارد.',
+    'overview.usage.model': '{replies} پاسخ، {failures} ناموفق، {input} ورودی، {output} خروجی',
+    'overview.usage.calls': 'همهٔ فراخوانی‌ها، به تفکیک مدل',
+    'overview.machine.errors.noAnswer': 'سرور پاسخ نداد.',
+    'overview.machine.retry': '{error} آمار سرور خودکار دوباره خوانده می‌شود.',
+    'overview.machine.title': 'سرور',
+    'overview.machine.loading': 'در حال خواندن وضعیت سرور.',
+    'overview.machine.running': 'به مدت {uptime} روی {cores} هسته در حال کار است.',
+    'overview.machine.processor': 'پردازنده',
+    'overview.machine.cores': '{cores} هسته',
+    'overview.machine.memory': 'حافظه',
+    'overview.machine.disk': 'دیسک',
+    'overview.machine.inUse': '{used} از {total} در حال استفاده',
+    'overview.machine.diskUnreadable': 'روی این سرور قابل خواندن نیست',
+    'overview.machine.signedIn': 'افراد واردشده',
+    'overview.machine.signedInNote': 'در پنج دقیقهٔ گذشته درخواستی داده‌اند',
+    'overview.machine.connections': 'اتصال‌های باز',
+    'overview.machine.connectionsNote': 'سوکت‌هایی که API همین حالا باز نگه داشته است',
+    'overview.machine.uptime': 'زمان روشن‌بودن',
+    'overview.machine.uptimeNote': 'از آخرین راه‌اندازی سرور',
+    'overview.heatmap.cell': '{date}: {count} {noun}',
+    'overview.heatmap.fewer': 'کمتر',
+    'overview.heatmap.more': 'بیشتر',
+};
 
 export default messages;

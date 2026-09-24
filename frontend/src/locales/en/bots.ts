@@ -1,3 +1,64 @@
-const messages = {} as const;
+const messages = {
+    'bots.loading': 'Loading bots.',
+    'bots.connectedCount.one': '{count} bot connected to Telegram.',
+    'bots.connectedCount.other': '{count} bots connected to Telegram.',
+    'bots.pager.noun': 'bots',
+    'bots.probe.asking': 'Asking Telegram…',
+    'bots.probe.refused': 'Telegram refused the token.',
+    'bots.probe.connected': 'Connected.',
+    'bots.probe.connectedAs': 'Connected as @{username}.',
+    'bots.probe.privacy':
+        '{connected} Privacy mode is on, so in groups Telegram only sends it replies to its own messages and /commands, not @mentions. Make it a group admin, or send /setprivacy to @BotFather, choose Disable, then add the bot to the group again.',
+    'bots.probe.noAnswer': 'No answer from Telegram.',
+    'bots.errors.loadFailed': 'The bots could not be loaded.',
+    'bots.errors.addFailed': 'The bot could not be added.',
+    'bots.errors.webhookRejected': 'Telegram would not accept the address.',
+    'bots.errors.addressFailed': 'The address could not be saved.',
+    'bots.errors.updateFailed': 'The bot could not be updated.',
+    'bots.errors.removeFailed': 'The bot could not be removed.',
+    'bots.create.action': 'Connect a bot',
+    'bots.create.title': 'Connect a bot',
+    'bots.create.description':
+        'Create the bot with BotFather on Telegram first, then paste its token here.',
+    'bots.create.name': 'Name',
+    'bots.create.nameHint': 'Only you see this. It labels the bot inside Nura.',
+    'bots.create.namePlaceholder': 'Support bot',
+    'bots.create.token': 'BotFather token',
+    'bots.create.tokenHint':
+        'Stored write-only. Nura shows you the last four characters and nothing more.',
+    'bots.create.publicUrl': 'Public address',
+    'bots.create.publicUrlHint':
+        'Leave blank and Nura will poll Telegram instead of receiving webhooks.',
+    'bots.create.cancel': 'Cancel',
+    'bots.create.submit': 'Connect bot',
+    'bots.create.submitting': 'Connecting…',
+    'bots.empty.title': 'No bots connected',
+    'bots.empty.description':
+        'A bot is how people reach your agents. Create one with BotFather, then paste its token here.',
+    'bots.card.status': 'Bot {name}',
+    'bots.card.webhook': 'Webhook',
+    'bots.card.polling': 'Polling',
+    'bots.card.token': 'Token',
+    'bots.card.tokenUnset': 'Not set yet',
+    'bots.card.tokenMissing':
+        'This bot came from an import without its token. Paste it from BotFather to switch it on.',
+    'bots.card.saveToken': 'Save token',
+    'bots.card.agent': 'Answered by',
+    'bots.card.agentPlaceholder': 'Nobody yet',
+    'bots.card.agentNone': 'Nobody',
+    'bots.card.groups': 'Answer in groups when @mentioned or replied to',
+    'bots.card.peopleAll': 'Answers everyone who may chat. Pick people to answer only them.',
+    'bots.card.peopleSome': 'Answers only these people',
+    'bots.card.publicUrl': 'Public address',
+    'bots.card.save': 'Save',
+    'bots.card.saving': 'Saving…',
+    'bots.card.test': 'Test token',
+    'bots.card.testing': 'Testing…',
+    'bots.remove.label': 'Remove',
+    'bots.remove.title': 'Remove {name}?',
+    'bots.remove.description':
+        'Nura forgets the token and stops answering for this bot. Telegram keeps the bot itself.',
+    'bots.remove.confirm': 'Remove bot',
+} as const;
 
 export default messages;

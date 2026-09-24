@@ -28,6 +28,7 @@ import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
 import { UsageStats } from '@/components/usage-stats';
 import { AGENT_TABS, type AgentTab } from '@/libs/constant';
+import { apiError, t } from '@/libs/i18n';
 import { teamPath } from '@/libs/navigation';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -121,9 +122,7 @@ export function Agent() {
                     return;
                 }
 
-                setError(
-                    cause instanceof ApiError ? cause.result : 'This agent could not be loaded.',
-                );
+                setError(apiError(cause, 'agents.errors.loadFailed'));
             });
 
         return () => {
@@ -151,9 +150,7 @@ export function Agent() {
                 );
                 setSaved(true);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The agent could not be saved.',
-                );
+                setError(apiError(cause, 'agents.errors.saveFailed'));
             } finally {
                 setSavingAgent(false);
             }
@@ -171,11 +168,7 @@ export function Agent() {
                 setExchanges(next.exchanges);
                 setExchangePage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The round-trips could not be loaded.',
-                );
+                setError(apiError(cause, 'agents.errors.exchangesFailed'));
             } finally {
                 setPaging(false);
             }
@@ -203,9 +196,7 @@ export function Agent() {
                 );
                 setNewName('');
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The file could not be created.',
-                );
+                setError(apiError(cause, 'agents.errors.fileCreateFailed'));
             } finally {
                 setAddingFile(false);
             }
@@ -229,11 +220,7 @@ export function Agent() {
             try {
                 setAgent(await agentPermissionUpdate(teamId, thisAgent, next));
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The capability could not be changed.',
-                );
+                setError(apiError(cause, 'agents.errors.capabilityFailed'));
             } finally {
                 setSavingCapability(null);
             }
@@ -244,7 +231,7 @@ export function Agent() {
     if (idsInvalid) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>That agent address is not valid.</AlertDescription>
+                <AlertDescription>{t('agents.errors.addressInvalid')}</AlertDescription>
             </Alert>
         );
     }
@@ -252,20 +239,20 @@ export function Agent() {
     return (
         <>
             <PageHeader
-                title={agent?.name ?? 'Agent'}
+                title={agent?.name ?? t('agents.detail.fallbackTitle')}
                 description={
                     agent === null
-                        ? 'Loading this agent.'
+                        ? t('agents.detail.loading')
                         : agent.description === ''
-                          ? 'No description yet.'
+                          ? t('agents.noDescription')
                           : agent.description
                 }
                 actions={
                     <Button
                         variant="outline"
                         link={teamPath(teamId, 'agents')}
-                        icon={<ArrowLeft />}
-                        message="All agents"
+                        icon={<ArrowLeft className="rtl:-scale-x-100" />}
+                        message={t('agents.detail.back')}
                     />
                 }
             />
@@ -285,7 +272,7 @@ export function Agent() {
 
             {agent !== null && (
                 <Tabs
-                    tabs={AGENT_TABS}
+                    tabs={AGENT_TABS.map((item) => ({ ...item, label: t(item.label) }))}
                     value={tab}
                     onValueChange={setTab}
                     panels={{
@@ -293,10 +280,9 @@ export function Agent() {
                             <Stack direction="Vertical" className="gap-6">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>Identity</CardTitle>
+                                        <CardTitle>{t('agents.identity.title')}</CardTitle>
                                         <CardDescription>
-                                            What this agent is called and which model answers for
-                                            it.
+                                            {t('agents.identity.description')}
                                         </CardDescription>
                                     </CardHeader>
 
@@ -306,7 +292,7 @@ export function Agent() {
                                             as="form"
                                             className="gap-5 lg:grid lg:grid-cols-3"
                                             onSubmit={saveAgent}>
-                                            <Field label="Name">
+                                            <Field label={t('agents.field.name')}>
                                                 {(fieldId) => (
                                                     <Input
                                                         id={fieldId}
@@ -322,7 +308,9 @@ export function Agent() {
                                                 )}
                                             </Field>
 
-                                            <Field label="What it does" hint="Optional.">
+                                            <Field
+                                                label={t('agents.field.whatItDoes')}
+                                                hint={t('agents.identity.optional')}>
                                                 {(fieldId) => (
                                                     <Input
                                                         id={fieldId}
@@ -336,7 +324,7 @@ export function Agent() {
                                                 )}
                                             </Field>
 
-                                            <Field label="Model">
+                                            <Field label={t('agents.field.model')}>
                                                 {(fieldId) => (
                                                     <Select
                                                         value={modelId}
@@ -345,8 +333,12 @@ export function Agent() {
                                                             setSaved(false);
                                                         }}
                                                         id={fieldId}
-                                                        placeholder="Pick a model">
-                                                        <SelectItem value="0">No model</SelectItem>
+                                                        placeholder={t(
+                                                            'agents.field.modelPlaceholder',
+                                                        )}>
+                                                        <SelectItem value="0">
+                                                            {t('agents.noModel')}
+                                                        </SelectItem>
                                                         {models.map((model) => (
                                                             <SelectItem
                                                                 key={model.id}
@@ -365,7 +357,9 @@ export function Agent() {
                                                     type="submit"
                                                     disabled={savingAgent}
                                                     message={
-                                                        savingAgent ? 'Saving…' : 'Save changes'
+                                                        savingAgent
+                                                            ? t('agents.identity.saving')
+                                                            : t('agents.identity.save')
                                                     }
                                                 />
 
@@ -374,7 +368,7 @@ export function Agent() {
                                                         type="Body"
                                                         as="output"
                                                         className="text-primary"
-                                                        message="Saved."
+                                                        message={t('agents.identity.saved')}
                                                     />
                                                 )}
                                             </Stack>
@@ -385,26 +379,23 @@ export function Agent() {
                                 {usage !== null && (
                                     <Card>
                                         <CardHeader>
-                                            <CardTitle>Usage</CardTitle>
+                                            <CardTitle>{t('agents.usage.title')}</CardTitle>
                                             <CardDescription>
-                                                What this agent has answered and what it cost, over
-                                                every round-trip on record. Open one below to see
-                                                what was sent and what came back.
+                                                {t('agents.usage.description')}
                                             </CardDescription>
                                         </CardHeader>
 
                                         <CardContent>
-                                            <UsageStats usage={usage} who="This agent" />
+                                            <UsageStats usage={usage} who={t('agents.usage.who')} />
                                         </CardContent>
                                     </Card>
                                 )}
 
                                 <Card gap={0} flush>
                                     <CardHeader className="border-b py-5">
-                                        <CardTitle>Recent round-trips</CardTitle>
+                                        <CardTitle>{t('agents.exchanges.title')}</CardTitle>
                                         <CardDescription>
-                                            What this agent last sent to its model, and what came
-                                            back.
+                                            {t('agents.exchanges.description')}
                                         </CardDescription>
                                     </CardHeader>
 
@@ -412,7 +403,7 @@ export function Agent() {
                                         <ExchangeList
                                             key={exchangePage?.offset ?? 0}
                                             exchanges={exchanges}
-                                            empty="This agent has not answered anything yet."
+                                            empty={t('agents.exchanges.empty')}
                                         />
                                     </CardContent>
 
@@ -422,7 +413,7 @@ export function Agent() {
                                                 page={exchangePage}
                                                 shown={exchanges.length}
                                                 busy={paging}
-                                                noun="round-trips"
+                                                noun={t('agents.exchanges.pagerNoun')}
                                                 onPage={(offset) => void goToExchanges(offset)}
                                             />
                                         </CardFooter>
@@ -433,8 +424,8 @@ export function Agent() {
 
                         capabilities: (
                             <PermissionsPanel
-                                title="Capabilities"
-                                description="What this agent may do through the internal tools. Everything is off until you grant it."
+                                title={t('agents.capabilities.title')}
+                                description={t('agents.capabilities.description')}
                                 catalog={capabilities}
                                 granted={agent.permissions}
                                 saving={savingCapability}
@@ -449,10 +440,10 @@ export function Agent() {
                                     direction="Horizontal"
                                     className="flex-wrap items-end justify-between gap-3">
                                     <Stack direction="Vertical" className="gap-1">
-                                        <Text type="Heading" message="Instructions" />
+                                        <Text type="Heading" message={t('agents.files.title')} />
                                         <Text
                                             type="BodyMuted"
-                                            message="Markdown files that tell this agent how to behave."
+                                            message={t('agents.files.description')}
                                         />
                                     </Stack>
 
@@ -461,7 +452,7 @@ export function Agent() {
                                         as="form"
                                         className="items-end gap-2"
                                         onSubmit={addDocument}>
-                                        <Field label="New file">
+                                        <Field label={t('agents.files.newFile')}>
                                             {(fieldId) => (
                                                 <Input
                                                     compact
@@ -472,7 +463,7 @@ export function Agent() {
                                                         setNewName(event.target.value)
                                                     }
                                                     pattern="[a-z0-9._-]+\.md"
-                                                    title="Lowercase name ending in .md"
+                                                    title={t('agents.files.nameRule')}
                                                     required
                                                     placeholder="examples.md"
                                                 />
@@ -484,7 +475,7 @@ export function Agent() {
                                             variant="outline"
                                             disabled={addingFile}
                                             icon={<FilePlus />}
-                                            message="Add"
+                                            message={t('agents.files.add')}
                                         />
                                     </Stack>
                                 </Stack>
@@ -492,8 +483,8 @@ export function Agent() {
                                 {documents.length === 0 && (
                                     <EmptyState
                                         icon={FileText}
-                                        title="No instructions yet"
-                                        description="Create instructions.md to tell this agent who it is and how to answer."
+                                        title={t('agents.files.empty.title')}
+                                        description={t('agents.files.empty.description')}
                                     />
                                 )}
 

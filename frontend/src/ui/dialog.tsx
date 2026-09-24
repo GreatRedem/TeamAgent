@@ -1,6 +1,7 @@
 import { XIcon } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/libs/cn';
+import { t } from '@/libs/i18n';
 import { Button } from '@/ui/button';
 import { Slot } from '@/ui/slot';
 
@@ -153,7 +154,7 @@ function DialogContent({
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="absolute top-3 right-3"
+                        className="absolute top-3 end-3"
                         icon={<XIcon />}
                     />
                 </DialogClose>
@@ -166,7 +167,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
     return (
         <div
             data-slot="dialog-header"
-            className={cn('flex flex-col gap-2 text-center sm:text-left', className)}
+            className={cn('flex flex-col gap-2 text-center sm:text-start', className)}
             {...props}
         />
     );
@@ -196,7 +197,7 @@ function DialogFooter({
             {children}
             {showCloseButton && (
                 <DialogClose asChild>
-                    <Button variant="outline" message="Close" />
+                    <Button variant="outline" message={t('common.close')} />
                 </DialogClose>
             )}
         </div>

@@ -1,6 +1,7 @@
 import type { HeatmapDay } from '@/apis';
 import { cn } from '@/libs/cn';
-import { WEEKDAYS } from '@/libs/constant';
+import { weekdayLabel } from '@/libs/format';
+import { t } from '@/libs/i18n';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
@@ -67,11 +68,11 @@ export function Heatmap({
                     style={{
                         gridTemplateColumns: `auto repeat(${weeks.length}, minmax(0.625rem, 1fr))`,
                     }}>
-                    {WEEKDAYS.map((label, i) => (
+                    {[0, 1, 2, 3, 4, 5, 6].map(weekdayLabel).map((label, i) => (
                         <Text
                             type="Caption"
                             as="span"
-                            className="flex items-center pr-1"
+                            className="flex items-center pe-1"
                             key={label}
                             message={i % 2 === 1 ? label : ''}
                         />
@@ -101,7 +102,11 @@ export function Heatmap({
                                     scale[level(value, busiest)],
                                 )}
                                 key={day.date}
-                                title={`${day.date}: ${value} ${value === 1 ? noun[0] : noun[1]}`}
+                                title={t('overview.heatmap.cell', {
+                                    date: day.date,
+                                    count: value,
+                                    noun: value === 1 ? noun[0] : noun[1],
+                                })}
                             />
                         );
                     })}
@@ -109,7 +114,7 @@ export function Heatmap({
             </Stack>
 
             <Stack direction="Horizontal" className="flex-wrap items-center gap-2">
-                <Text type="Caption" as="span" message="Fewer" />
+                <Text type="Caption" as="span" message={t('overview.heatmap.fewer')} />
                 {scale.map((fill) => (
                     <Stack
                         direction="Horizontal"
@@ -118,7 +123,7 @@ export function Heatmap({
                         key={fill}
                     />
                 ))}
-                <Text type="Caption" as="span" message="More" />
+                <Text type="Caption" as="span" message={t('overview.heatmap.more')} />
             </Stack>
         </Stack>
     );

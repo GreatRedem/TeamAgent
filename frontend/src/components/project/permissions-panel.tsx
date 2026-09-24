@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import type { Permission } from '@/apis';
+import { t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/ui/item';
@@ -51,7 +52,7 @@ export function PermissionsPanel({
                 )}
 
                 {catalog !== null && catalog.length === 0 && (
-                    <Text type="BodyMuted" message="There is nothing to grant here yet." />
+                    <Text type="BodyMuted" message={t('agents.capabilities.empty')} />
                 )}
 
                 {catalog !== null && catalog.length > 0 && (

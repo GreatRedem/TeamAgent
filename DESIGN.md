@@ -89,7 +89,10 @@ carries everything the machine produced.
   the `@font-face` rules are what load it.
 - `--font-data` is the platform mono stack. Vazirmatn has no monospace cut, so
   machine values fall back to the system face rather than pulling a second
-  family over the network.
+  family over the network. Its first entry, `Vazirmatn Persian`, is the same
+  Arabic-script woff2 limited to Persian code points, so a translated value in
+  a data slot keeps Vazirmatn's letterforms while Latin letters and ASCII digits
+  stay mono.
 
 The scale is Tailwind's, plus three named steps. Nothing outside it.
 

@@ -19,7 +19,8 @@ import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
 import { PermissionsPanel } from '@/components/project/permissions-panel';
 import { cn } from '@/libs/cn';
-import { tokenLabel } from '@/libs/format';
+import { dateLabel, dateTimeLabel, numberLabel, tokenLabel } from '@/libs/format';
+import { apiError, t, tn } from '@/libs/i18n';
 import { teamPath } from '@/libs/navigation';
 import { profileName } from '@/libs/profileName';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
@@ -110,9 +111,7 @@ export function ProfilePage() {
                     return;
                 }
 
-                setError(
-                    cause instanceof ApiError ? cause.result : 'This person could not be loaded.',
-                );
+                setError(apiError(cause, 'people.errors.profileFailed'));
             });
 
         return () => {
@@ -130,9 +129,7 @@ export function ProfilePage() {
                 setFiles(next.files);
                 setFilePage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The notes could not be loaded.',
-                );
+                setError(apiError(cause, 'people.errors.notesFailed'));
             } finally {
                 setPaging(false);
             }
@@ -160,11 +157,7 @@ export function ProfilePage() {
 
                 setDetails((current) => (current === null ? null : { ...current, profile }));
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError
-                        ? cause.result
-                        : 'The permission could not be changed.',
-                );
+                setError(apiError(cause, 'people.errors.permissionFailed'));
             } finally {
                 setSaving(null);
             }
@@ -175,7 +168,7 @@ export function ProfilePage() {
     if (idsInvalid) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>That person address is not valid.</AlertDescription>
+                <AlertDescription>{t('errors.PROFILE_ID_INVALID')}</AlertDescription>
             </Alert>
         );
     }
@@ -183,18 +176,24 @@ export function ProfilePage() {
     return (
         <>
             <PageHeader
-                title={details === null ? 'Person' : profileName(details.profile)}
+                title={details === null ? t('people.profile.title') : profileName(details.profile)}
                 description={
                     details === null
-                        ? 'Loading this person.'
-                        : `${details.profile.message_count.toLocaleString()} message${details.profile.message_count === 1 ? '' : 's'} across ${details.bots.length} bot${details.bots.length === 1 ? '' : 's'}.`
+                        ? t('people.profile.loading')
+                        : t('people.profile.summary', {
+                              messages: tn(
+                                  'people.profile.messages',
+                                  details.profile.message_count,
+                              ),
+                              bots: tn('people.profile.bots', details.bots.length),
+                          })
                 }
                 actions={
                     <Button
                         variant="outline"
                         link={teamPath(teamId, 'bots')}
-                        icon={<ArrowLeft />}
-                        message="All people"
+                        icon={<ArrowLeft className="rtl:-scale-x-100" />}
+                        message={t('people.profile.back')}
                     />
                 }
             />
@@ -219,15 +218,18 @@ export function ProfilePage() {
                     <Stack direction="Vertical" className="gap-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Recent messages</CardTitle>
+                                <CardTitle>{t('people.profile.messagesTitle')}</CardTitle>
                                 <CardDescription>
-                                    The newest messages Nura has stored for this person.
+                                    {t('people.profile.messagesDescription')}
                                 </CardDescription>
                             </CardHeader>
 
                             <CardContent className="flex max-h-125 flex-col-reverse gap-3 overflow-y-auto">
                                 {details.messages.length === 0 && (
-                                    <Text type="BodyMuted" message="No messages stored yet." />
+                                    <Text
+                                        type="BodyMuted"
+                                        message={t('people.profile.noMessages')}
+                                    />
                                 )}
 
                                 {details.messages.toReversed().map((message) => (
@@ -249,7 +251,7 @@ export function ProfilePage() {
                                             type="DataMuted"
                                             as="time"
                                             dateTime={message.sent_at}
-                                            message={new Date(message.sent_at).toLocaleString()}
+                                            message={dateTimeLabel(message.sent_at)}
                                         />
                                     </Stack>
                                 ))}
@@ -258,18 +260,15 @@ export function ProfilePage() {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle>Notes the agents keep</CardTitle>
+                                <CardTitle>{t('people.profile.notesTitle')}</CardTitle>
                                 <CardDescription>
-                                    Each agent keeps its own files about this person.
+                                    {t('people.profile.notesDescription')}
                                 </CardDescription>
                             </CardHeader>
 
                             <CardContent className="grid gap-3">
                                 {files.length === 0 && (
-                                    <Text
-                                        type="BodyMuted"
-                                        message="No agent has written anything about this person yet."
-                                    />
+                                    <Text type="BodyMuted" message={t('people.profile.noNotes')} />
                                 )}
 
                                 {files.map((file) => (
@@ -286,9 +285,9 @@ export function ProfilePage() {
                                                 <Badge variant="secondary">
                                                     <Bot />
                                                     {file.agent_id === 0
-                                                        ? 'Before per-agent notes'
+                                                        ? t('people.profile.legacyNotes')
                                                         : file.agent_name === ''
-                                                          ? 'Removed agent'
+                                                          ? t('people.profile.removedAgent')
                                                           : file.agent_name}
                                                 </Badge>
                                                 <Text type="DataStrong" message={file.name} />
@@ -310,7 +309,7 @@ export function ProfilePage() {
                                         page={filePage}
                                         shown={files.length}
                                         busy={paging}
-                                        noun="notes"
+                                        noun={t('people.pager.notes')}
                                         onPage={(offset) => void goToFiles(offset)}
                                     />
                                 </CardFooter>
@@ -321,20 +320,20 @@ export function ProfilePage() {
                     <Stack direction="Vertical" className="gap-6 xl:sticky xl:top-32">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Identity</CardTitle>
+                                <CardTitle>{t('people.profile.identityTitle')}</CardTitle>
                                 <CardDescription>
-                                    What Telegram reports about this person.
+                                    {t('people.profile.identityDescription')}
                                 </CardDescription>
                             </CardHeader>
 
                             <CardContent>
                                 <DataList>
                                     <Detail
-                                        label="Telegram id"
+                                        label={t('people.profile.telegramId')}
                                         value={details.profile.telegram_id}
                                     />
                                     <Detail
-                                        label="Username"
+                                        label={t('people.profile.username')}
                                         value={
                                             details.profile.username === ''
                                                 ? ''
@@ -342,20 +341,16 @@ export function ProfilePage() {
                                         }
                                     />
                                     <Detail
-                                        label="Language"
+                                        label={t('people.profile.language')}
                                         value={details.profile.language_code}
                                     />
                                     <Detail
-                                        label="First seen"
-                                        value={new Date(
-                                            details.profile.created_at,
-                                        ).toLocaleDateString()}
+                                        label={t('people.profile.firstSeen')}
+                                        value={dateLabel(details.profile.created_at)}
                                     />
                                     <Detail
-                                        label="Last seen"
-                                        value={new Date(
-                                            details.profile.last_seen_at,
-                                        ).toLocaleString()}
+                                        label={t('people.profile.lastSeen')}
+                                        value={dateTimeLabel(details.profile.last_seen_at)}
                                     />
                                 </DataList>
 
@@ -380,7 +375,7 @@ export function ProfilePage() {
                                                     type="DataMuted"
                                                     as="span"
                                                     className="shrink-0"
-                                                    message={bot.message_count.toLocaleString()}
+                                                    message={numberLabel(bot.message_count)}
                                                 />
                                             </Stack>
                                         ))}
@@ -390,8 +385,8 @@ export function ProfilePage() {
                         </Card>
 
                         <PermissionsPanel
-                            title="Permissions"
-                            description="What this person may ask an agent to do. Anything not granted is refused."
+                            title={t('people.profile.permissionsTitle')}
+                            description={t('people.profile.permissionsDescription')}
                             catalog={catalog}
                             granted={details.profile.permissions}
                             saving={saving}

@@ -18,6 +18,8 @@ import { TeamPanel } from '@/components/project/team-panel';
 import { ToolsPanel } from '@/components/project/tools-panel';
 import { TransferCard } from '@/components/project/transfer-card';
 import { TEAM_NAMES, TEAM_TITLES } from '@/libs/constant';
+import { dateLabel } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { teamPath } from '@/libs/navigation';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -82,9 +84,7 @@ export function Project() {
                     return;
                 }
 
-                setError(
-                    cause instanceof ApiError ? cause.result : 'This project could not be loaded.',
-                );
+                setError(apiError(cause, 'projects.errors.projectLoadFailed'));
             });
 
         return () => {
@@ -108,9 +108,7 @@ export function Project() {
                 setDescription(updated.description);
                 setSaved(true);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The changes could not be saved.',
-                );
+                setError(apiError(cause, 'projects.errors.saveFailed'));
             } finally {
                 setBusy(false);
             }
@@ -126,9 +124,7 @@ export function Project() {
             try {
                 setTeam(await teamArchive(teamId, archived));
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The project could not be updated.',
-                );
+                setError(apiError(cause, 'projects.errors.updateFailed'));
             } finally {
                 setArchiving(false);
             }
@@ -146,9 +142,7 @@ export function Project() {
 
             void navigate('/dashboard', { replace: true });
         } catch (cause) {
-            setError(
-                cause instanceof ApiError ? cause.result : 'The project could not be deleted.',
-            );
+            setError(apiError(cause, 'projects.errors.deleteFailed'));
             setArchiving(false);
         }
     }, [teamId, navigate]);
@@ -161,9 +155,7 @@ export function Project() {
         return (
             <Alert variant="destructive">
                 <AlertDescription>
-                    {idInvalid
-                        ? 'That project address is not valid.'
-                        : 'There is no such section in this project.'}
+                    {idInvalid ? t('errors.TEAM_ID_INVALID') : t('projects.errors.noSection')}
                 </AlertDescription>
             </Alert>
         );
@@ -172,12 +164,12 @@ export function Project() {
     return (
         <>
             <PageHeader
-                title={meta.title}
+                title={t(meta.title)}
                 description={
                     team === null
-                        ? meta.description
+                        ? t(meta.description)
                         : team.description === ''
-                          ? meta.description
+                          ? t(meta.description)
                           : team.description
                 }
             />
@@ -225,16 +217,18 @@ export function Project() {
             {team !== null && tab === 'settings' && (
                 <Card className="max-w-xl">
                     <CardHeader>
-                        <CardTitle>Project details</CardTitle>
+                        <CardTitle>{t('projects.settings.title')}</CardTitle>
                         <CardDescription>
-                            Created {new Date(team.created_at).toLocaleDateString()}, last changed{' '}
-                            {new Date(team.updated_at).toLocaleDateString()}.
+                            {t('projects.settings.dates', {
+                                created: dateLabel(team.created_at),
+                                changed: dateLabel(team.updated_at),
+                            })}
                         </CardDescription>
                     </CardHeader>
 
                     <CardContent>
                         <Stack direction="Vertical" as="form" className="gap-5" onSubmit={save}>
-                            <Field label="Name">
+                            <Field label={t('projects.field.name')}>
                                 {(fieldId) => (
                                     <Input
                                         id={fieldId}
@@ -250,7 +244,9 @@ export function Project() {
                                 )}
                             </Field>
 
-                            <Field label="What it is for" hint="Optional.">
+                            <Field
+                                label={t('projects.field.purpose')}
+                                hint={t('projects.field.optional')}>
                                 {(fieldId) => (
                                     <Input
                                         id={fieldId}
@@ -260,7 +256,7 @@ export function Project() {
                                             setSaved(false);
                                         }}
                                         maxLength={280}
-                                        placeholder="Support cover outside office hours"
+                                        placeholder={t('projects.field.purposePlaceholder')}
                                     />
                                 )}
                             </Field>
@@ -269,7 +265,11 @@ export function Project() {
                                 <Button
                                     type="submit"
                                     disabled={busy}
-                                    message={busy ? 'Saving…' : 'Save changes'}
+                                    message={
+                                        busy
+                                            ? t('projects.settings.saving')
+                                            : t('projects.settings.save')
+                                    }
                                 />
 
                                 {saved && (
@@ -277,7 +277,7 @@ export function Project() {
                                         type="Body"
                                         as="output"
                                         className="text-primary"
-                                        message="Saved."
+                                        message={t('projects.settings.saved')}
                                     />
                                 )}
                             </Stack>
@@ -292,12 +292,16 @@ export function Project() {
                 <Card className="max-w-xl">
                     <CardHeader>
                         <CardTitle>
-                            {team.archived_at === null ? 'Archive' : 'This project is archived'}
+                            {team.archived_at === null
+                                ? t('projects.archive.title')
+                                : t('projects.archive.archivedTitle')}
                         </CardTitle>
                         <CardDescription>
                             {team.archived_at === null
-                                ? 'An archived project leaves the project list. Its bots keep their settings, and you can restore it or delete it from here.'
-                                : `Archived ${new Date(team.archived_at).toLocaleDateString()}. Restore it to bring it back to the project list, or delete it for good.`}
+                                ? t('projects.archive.description')
+                                : t('projects.archive.archivedDescription', {
+                                      date: dateLabel(team.archived_at),
+                                  })}
                         </CardDescription>
                     </CardHeader>
 
@@ -307,7 +311,11 @@ export function Project() {
                                 variant="outline"
                                 disabled={archiving}
                                 onClick={() => void archive(true)}
-                                message={archiving ? 'Archiving…' : 'Archive project'}
+                                message={
+                                    archiving
+                                        ? t('projects.archive.archiving')
+                                        : t('projects.archive.archive')
+                                }
                             />
                         ) : (
                             <>
@@ -315,13 +323,17 @@ export function Project() {
                                     variant="outline"
                                     disabled={archiving}
                                     onClick={() => void archive(false)}
-                                    message={archiving ? 'Restoring…' : 'Unarchive'}
+                                    message={
+                                        archiving
+                                            ? t('projects.archive.restoring')
+                                            : t('projects.archive.restore')
+                                    }
                                 />
                                 <ConfirmButton
-                                    label="Delete project"
-                                    title="Delete this project?"
-                                    description="Its bots, agents, models, conversations and records are removed with it. This cannot be undone."
-                                    confirmLabel="Delete for good"
+                                    label={t('projects.delete.label')}
+                                    title={t('projects.delete.title')}
+                                    description={t('projects.delete.description')}
+                                    confirmLabel={t('projects.delete.confirm')}
                                     disabled={archiving}
                                     onConfirm={() => void remove()}
                                 />

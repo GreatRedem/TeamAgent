@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import {
-    ApiError,
     type PluginKind,
     type PluginKindKey,
     pluginCreate,
@@ -10,7 +9,8 @@ import {
     type TeamPlugin,
 } from '@/apis';
 import { Field } from '@/components/field';
-import { API_BASE_URL, PLUGIN_ERRORS, PLUGIN_EVENT_LABELS } from '@/libs/constant';
+import { API_BASE_URL, PLUGIN_EVENT_LABELS } from '@/libs/constant';
+import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { CodeBlock } from '@/ui/code-block';
@@ -113,11 +113,7 @@ export function PluginDialog({
             );
             onOpenChange(false);
         } catch (cause) {
-            setError(
-                cause instanceof ApiError
-                    ? (PLUGIN_ERRORS[cause.result] ?? cause.result)
-                    : 'The plugin could not be saved.',
-            );
+            setError(apiError(cause, 'tools.errors.saveFailed'));
         } finally {
             setBusy(false);
         }
@@ -136,17 +132,18 @@ export function PluginDialog({
                     }}>
                     <DialogHeader>
                         <DialogTitle>
-                            {plugin === null ? 'Add a plugin' : `Modify ${plugin.name}`}
+                            {plugin === null
+                                ? t('tools.form.titleNew')
+                                : t('tools.form.titleEdit', { name: plugin.name })}
                         </DialogTitle>
                         <DialogDescription>
-                            {kind?.description ??
-                                'Connect an app the agents can post to, reply on and read from.'}
+                            {kind?.description ?? t('tools.form.description')}
                         </DialogDescription>
                     </DialogHeader>
 
                     <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
                         {plugin === null && (
-                            <Field label="Kind">
+                            <Field label={t('tools.form.kind')}>
                                 {(id) => (
                                     <Select
                                         id={id}
@@ -165,7 +162,7 @@ export function PluginDialog({
                             </Field>
                         )}
 
-                        <Field label="Name" hint="How agents and this page refer to it.">
+                        <Field label={t('tools.form.name')} hint={t('tools.form.nameHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -174,7 +171,13 @@ export function PluginDialog({
                                     maxLength={64}
                                     autoComplete="off"
                                     required
-                                    placeholder={`${kind?.label ?? 'Plugin'} main`}
+                                    placeholder={
+                                        kind === undefined
+                                            ? t('tools.form.namePlaceholderDefault')
+                                            : t('tools.form.namePlaceholder', {
+                                                  kind: kind.label,
+                                              })
+                                    }
                                 />
                             )}
                         </Field>
@@ -187,12 +190,21 @@ export function PluginDialog({
                         return (
                             <Field
                                 key={field.key}
-                                label={field.required ? field.label : `${field.label} (optional)`}
+                                label={
+                                    field.required
+                                        ? field.label
+                                        : t('tools.optionalField', {
+                                              label: field.label,
+                                          })
+                                }
                                 hint={
                                     field.secret && saved !== undefined
                                         ? removing
-                                            ? 'Removed when you save.'
-                                            : `Saved as ${saved}. Leave it blank to keep it. ${field.hint}`
+                                            ? t('tools.form.secretRemoved')
+                                            : t('tools.form.secretSaved', {
+                                                  saved,
+                                                  hint: field.hint,
+                                              })
                                         : field.hint
                                 }>
                                 {(id) => (
@@ -236,7 +248,9 @@ export function PluginDialog({
                                                     )
                                                 }
                                                 message={
-                                                    revealed.includes(field.key) ? 'Hide' : 'Show'
+                                                    revealed.includes(field.key)
+                                                        ? t('tools.form.hide')
+                                                        : t('tools.form.show')
                                                 }
                                             />
                                         )}
@@ -248,7 +262,11 @@ export function PluginDialog({
                                                         toggle(current, field.key),
                                                     )
                                                 }
-                                                message={removing ? 'Keep' : 'Remove'}
+                                                message={
+                                                    removing
+                                                        ? t('tools.form.keep')
+                                                        : t('tools.form.remove')
+                                                }
                                             />
                                         )}
                                     </Stack>
@@ -267,23 +285,27 @@ export function PluginDialog({
                             type="Body"
                             as="label"
                             htmlFor="plugin-enabled"
-                            message={
-                                enabled ? 'On' : 'Off: agents cannot use it and it does not answer'
-                            }
+                            message={enabled ? t('tools.form.on') : t('tools.form.off')}
                         />
                     </Stack>
 
                     <Separator />
 
                     <Stack direction="Vertical" className="gap-3">
-                        <Text type="BodyStrong" message="Agents that may use it" />
+                        <Text type="BodyStrong" message={t('tools.form.agentsTitle')} />
                         <Text
                             type="Caption"
-                            message={`They get ${kind?.tools.map((tool) => tool.name).join(', ') ?? 'its tools'}.`}
+                            message={
+                                kind === undefined
+                                    ? t('tools.form.agentsToolsDefault')
+                                    : t('tools.form.agentsTools', {
+                                          tools: kind.tools.map((tool) => tool.name).join(', '),
+                                      })
+                            }
                         />
 
                         {agents.length === 0 && (
-                            <Text type="BodyMuted" message="This project has no agents yet." />
+                            <Text type="BodyMuted" message={t('tools.noAgents')} />
                         )}
 
                         <Stack direction="Horizontal" className="flex-wrap gap-x-6 gap-y-3">
@@ -318,18 +340,17 @@ export function PluginDialog({
 
                     <Stack direction="Vertical" className="gap-5">
                         <Stack direction="Vertical" className="gap-1">
-                            <Text type="BodyStrong" message="Hooks" />
-                            <Text
-                                type="Caption"
-                                message="What happens when something arrives, and where events are sent."
-                            />
+                            <Text type="BodyStrong" message={t('tools.form.hooksTitle')} />
+                            <Text type="Caption" message={t('tools.form.hooksDescription')} />
                         </Stack>
 
                         {kind !== undefined && kind.inbound !== 'none' && (
-                            <Field label="Answered by" hint={kind.inbound_hint}>
+                            <Field label={t('tools.form.answeredBy')} hint={kind.inbound_hint}>
                                 {(id) => (
                                     <Select id={id} value={hookAgent} onValueChange={setHookAgent}>
-                                        <SelectItem value="0">Nobody, only record it</SelectItem>
+                                        <SelectItem value="0">
+                                            {t('tools.form.answeredByNobody')}
+                                        </SelectItem>
                                         {agents.map((agent) => (
                                             <SelectItem key={agent.id} value={String(agent.id)}>
                                                 {agent.name}
@@ -342,11 +363,11 @@ export function PluginDialog({
 
                         {kind?.inbound === 'webhook' && (
                             <Stack direction="Vertical" className="gap-2">
-                                <Text type="BodyStrong" message="Webhook address" />
+                                <Text type="BodyStrong" message={t('tools.form.webhookTitle')} />
                                 {plugin === null || plugin.hook_path === '' ? (
                                     <Text
                                         type="BodyMuted"
-                                        message="The address and its secret appear here once the plugin is saved."
+                                        message={t('tools.form.webhookPending')}
                                     />
                                 ) : (
                                     <>
@@ -357,8 +378,8 @@ export function PluginDialog({
                                             type="Caption"
                                             message={
                                                 kind.key === 'instagram'
-                                                    ? 'Verify token'
-                                                    : 'Secret, sent in the x-nura-secret header'
+                                                    ? t('tools.form.verifyToken')
+                                                    : t('tools.form.secretHeader')
                                             }
                                         />
                                         <CodeBlock message={plugin.hook_secret} />
@@ -368,11 +389,13 @@ export function PluginDialog({
                         )}
 
                         <Field
-                            label="Forward events to (optional)"
+                            label={t('tools.form.forward')}
                             hint={
                                 plugin === null
-                                    ? 'Each event is posted there as JSON, signed in x-nura-signature with a secret shown after saving.'
-                                    : `Each event is posted there as JSON, signed in x-nura-signature with HMAC-SHA256 of the body and ${plugin.hook_secret.slice(0, 6)}….`
+                                    ? t('tools.form.forwardHintNew')
+                                    : t('tools.form.forwardHint', {
+                                          secret: plugin.hook_secret.slice(0, 6),
+                                      })
                             }>
                             {(id) => (
                                 <Input
@@ -410,7 +433,11 @@ export function PluginDialog({
                                                 type="Body"
                                                 as="label"
                                                 htmlFor={id}
-                                                message={PLUGIN_EVENT_LABELS[event] ?? event}
+                                                message={
+                                                    PLUGIN_EVENT_LABELS[event] === undefined
+                                                        ? event
+                                                        : t(PLUGIN_EVENT_LABELS[event])
+                                                }
                                             />
                                         </Stack>
                                     );
@@ -429,17 +456,17 @@ export function PluginDialog({
                         <Button
                             variant="outline"
                             onClick={() => onOpenChange(false)}
-                            message="Cancel"
+                            message={t('tools.form.cancel')}
                         />
                         <Button
                             type="submit"
                             disabled={busy}
                             message={
                                 busy
-                                    ? 'Saving and testing…'
+                                    ? t('tools.form.saving')
                                     : plugin === null
-                                      ? 'Add plugin'
-                                      : 'Save changes'
+                                      ? t('tools.form.add')
+                                      : t('tools.form.save')
                             }
                         />
                     </DialogFooter>

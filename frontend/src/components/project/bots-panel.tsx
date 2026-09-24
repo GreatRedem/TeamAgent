@@ -2,7 +2,6 @@ import { MessageSquare, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-    ApiError,
     agentList,
     type Paged,
     type TeamAgent,
@@ -21,6 +20,7 @@ import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
 import { ProfilePicker } from '@/components/profile-picker';
 import { PROBE_TONE } from '@/libs/constant';
+import { apiError, t, tk, tn } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
@@ -53,20 +53,22 @@ function probeState(probe: TeamBotProbe | 'testing'): string {
 
 function probeLabel(probe: TeamBotProbe | 'testing', groups: boolean): string {
     if (probe === 'testing') {
-        return 'Asking Telegram…';
+        return t('bots.probe.asking');
     }
 
     if (!probe.ok) {
-        return probe.reason ?? 'Telegram refused the token.';
+        return probe.reason === undefined
+            ? t('bots.probe.refused')
+            : tk(`errors.${probe.reason}`, probe.reason);
     }
 
     const connected =
         probe.username !== undefined && probe.username !== ''
-            ? `Connected as @${probe.username}.`
-            : 'Connected.';
+            ? t('bots.probe.connectedAs', { username: probe.username })
+            : t('bots.probe.connected');
 
     return groups && probe.reads_groups === false
-        ? `${connected} Privacy mode is on, so in groups Telegram only sends it replies to its own messages and /commands, not @mentions. Make it a group admin, or send /setprivacy to @BotFather, choose Disable, then add the bot to the group again.`
+        ? t('bots.probe.privacy', { connected })
         : connected;
 }
 
@@ -115,9 +117,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
             .catch((cause: unknown) => {
                 if (active) {
                     setBots([]);
-                    setError(
-                        cause instanceof ApiError ? cause.result : 'The bots could not be loaded.',
-                    );
+                    setError(apiError(cause, 'bots.errors.loadFailed'));
                 }
             });
 
@@ -148,9 +148,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                 setPublicUrl('');
                 setCreating(false);
             } catch (cause) {
-                setFormError(
-                    cause instanceof ApiError ? cause.result : 'The bot could not be added.',
-                );
+                setFormError(apiError(cause, 'bots.errors.addFailed'));
             } finally {
                 setBusy(false);
             }
@@ -186,15 +184,12 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                             ? { ok: true, username: '' }
                             : {
                                   ok: false,
-                                  reason:
-                                      registered.reason ?? 'Telegram would not accept the address.',
+                                  reason: registered.reason ?? t('bots.errors.webhookRejected'),
                               },
                     }));
                 }
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The address could not be saved.',
-                );
+                setError(apiError(cause, 'bots.errors.addressFailed'));
             } finally {
                 setSaving(null);
             }
@@ -215,8 +210,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                     ...current,
                     [botId]: {
                         ok: false,
-                        reason:
-                            cause instanceof ApiError ? cause.result : 'No answer from Telegram.',
+                        reason: apiError(cause, 'bots.probe.noAnswer'),
                     },
                 }));
             }
@@ -245,9 +239,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                     void test(bot.id);
                 }
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The bot could not be updated.',
-                );
+                setError(apiError(cause, 'bots.errors.updateFailed'));
             } finally {
                 setSaving(null);
             }
@@ -271,9 +263,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                     return rest;
                 });
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The bot could not be removed.',
-                );
+                setError(apiError(cause, 'bots.errors.removeFailed'));
             }
         },
         [teamId],
@@ -289,9 +279,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                 setBots(next.bots);
                 setPage(next);
             } catch (cause) {
-                setError(
-                    cause instanceof ApiError ? cause.result : 'The bots could not be loaded.',
-                );
+                setError(apiError(cause, 'bots.errors.loadFailed'));
             } finally {
                 setPaging(false);
             }
@@ -306,7 +294,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                 setCreating(true);
             }}
             icon={<Plus />}
-            message="Connect a bot"
+            message={t('bots.create.action')}
         />
     );
 
@@ -317,8 +305,8 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                     type="BodyMuted"
                     message={
                         bots === null
-                            ? 'Loading bots.'
-                            : `${page?.total.toLocaleString() ?? bots.length} bot${(page?.total ?? bots.length) === 1 ? '' : 's'} connected to Telegram.`
+                            ? t('bots.loading')
+                            : tn('bots.connectedCount', page?.total ?? bots.length)
                     }
                 />
 
@@ -329,16 +317,11 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                 <DialogContent>
                     <Stack direction="Vertical" as="form" className="gap-5" onSubmit={add}>
                         <DialogHeader>
-                            <DialogTitle>Connect a bot</DialogTitle>
-                            <DialogDescription>
-                                Create the bot with BotFather on Telegram first, then paste its
-                                token here.
-                            </DialogDescription>
+                            <DialogTitle>{t('bots.create.title')}</DialogTitle>
+                            <DialogDescription>{t('bots.create.description')}</DialogDescription>
                         </DialogHeader>
 
-                        <Field
-                            label="Name"
-                            hint="Only you see this. It labels the bot inside Nura.">
+                        <Field label={t('bots.create.name')} hint={t('bots.create.nameHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -347,14 +330,12 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                     minLength={2}
                                     maxLength={64}
                                     required
-                                    placeholder="Support bot"
+                                    placeholder={t('bots.create.namePlaceholder')}
                                 />
                             )}
                         </Field>
 
-                        <Field
-                            label="BotFather token"
-                            hint="Stored write-only. Nura shows you the last four characters and nothing more.">
+                        <Field label={t('bots.create.token')} hint={t('bots.create.tokenHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -371,8 +352,8 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                         </Field>
 
                         <Field
-                            label="Public address"
-                            hint="Leave blank and Nura will poll Telegram instead of receiving webhooks.">
+                            label={t('bots.create.publicUrl')}
+                            hint={t('bots.create.publicUrlHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -397,12 +378,14 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                 type="button"
                                 variant="outline"
                                 onClick={() => setCreating(false)}
-                                message="Cancel"
+                                message={t('bots.create.cancel')}
                             />
                             <Button
                                 type="submit"
                                 disabled={busy}
-                                message={busy ? 'Connecting…' : 'Connect bot'}
+                                message={
+                                    busy ? t('bots.create.submitting') : t('bots.create.submit')
+                                }
                             />
                         </DialogFooter>
                     </Stack>
@@ -426,8 +409,8 @@ export function BotsPanel({ teamId }: { teamId: number }) {
             {bots !== null && bots.length === 0 && (
                 <EmptyState
                     icon={MessageSquare}
-                    title="No bots connected"
-                    description="A bot is how people reach your agents. Create one with BotFather, then paste its token here."
+                    title={t('bots.empty.title')}
+                    description={t('bots.empty.description')}
                     action={createButton}
                 />
             )}
@@ -449,7 +432,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                         <CardTitle className="flex min-w-0 items-center gap-2">
                                             <StatusDot
                                                 status={dotState(probe)}
-                                                label={`Bot ${bot.name}`}
+                                                label={t('bots.card.status', { name: bot.name })}
                                             />
                                             <Text
                                                 type="Foreground"
@@ -466,21 +449,27 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 variant={
                                                     bot.mode === 'webhook' ? 'secondary' : 'outline'
                                                 }>
-                                                {bot.mode === 'webhook' ? 'Webhook' : 'Polling'}
+                                                {bot.mode === 'webhook'
+                                                    ? t('bots.card.webhook')
+                                                    : t('bots.card.polling')}
                                             </Badge>
                                         </Stack>
                                     </CardHeader>
 
                                     <CardContent className="grid gap-4">
                                         <DataList dense>
-                                            <Text type="ForegroundMuted" as="dt" message="Token" />
+                                            <Text
+                                                type="ForegroundMuted"
+                                                as="dt"
+                                                message={t('bots.card.token')}
+                                            />
                                             <Text
                                                 type="Data"
                                                 as="dd"
                                                 className="truncate"
                                                 message={
                                                     bot.token_hint === ''
-                                                        ? 'Not set yet'
+                                                        ? t('bots.card.tokenUnset')
                                                         : bot.token_hint
                                                 }
                                             />
@@ -492,7 +481,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                     type="BodyMuted"
                                                     as="label"
                                                     htmlFor={`bot-token-${bot.id}`}
-                                                    message="This bot came from an import without its token. Paste it from BotFather to switch it on."
+                                                    message={t('bots.card.tokenMissing')}
                                                 />
 
                                                 <Stack direction="Horizontal" className="gap-2">
@@ -524,7 +513,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                                 (tokens[bot.id] ?? '').trim(),
                                                             )
                                                         }
-                                                        message="Save token"
+                                                        message={t('bots.card.saveToken')}
                                                     />
                                                 </Stack>
                                             </Stack>
@@ -535,7 +524,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 type="BodyMuted"
                                                 as="label"
                                                 htmlFor={`bot-agent-${bot.id}`}
-                                                message="Answered by"
+                                                message={t('bots.card.agent')}
                                             />
 
                                             <Select
@@ -545,8 +534,10 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                     void change(bot, { agent_id: Number(value) })
                                                 }
                                                 id={`bot-agent-${bot.id}`}
-                                                placeholder="Nobody yet">
-                                                <SelectItem value="0">Nobody</SelectItem>
+                                                placeholder={t('bots.card.agentPlaceholder')}>
+                                                <SelectItem value="0">
+                                                    {t('bots.card.agentNone')}
+                                                </SelectItem>
                                                 {agents.map((agent) => (
                                                     <SelectItem
                                                         key={agent.id}
@@ -572,7 +563,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 type="Body"
                                                 as="label"
                                                 htmlFor={`bot-groups-${bot.id}`}
-                                                message="Answer in groups when @mentioned or replied to"
+                                                message={t('bots.card.groups')}
                                             />
                                         </Stack>
 
@@ -583,8 +574,8 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 htmlFor={`bot-people-${bot.id}`}
                                                 message={
                                                     bot.profiles.length === 0
-                                                        ? 'Answers everyone who may chat. Pick people to answer only them.'
-                                                        : 'Answers only these people'
+                                                        ? t('bots.card.peopleAll')
+                                                        : t('bots.card.peopleSome')
                                                 }
                                             />
 
@@ -641,7 +632,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                 type="BodyMuted"
                                                 as="label"
                                                 htmlFor={`bot-url-${bot.id}`}
-                                                message="Public address"
+                                                message={t('bots.card.publicUrl')}
                                             />
 
                                             <Stack direction="Horizontal" className="gap-2">
@@ -663,7 +654,11 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                                     variant="outline"
                                                     disabled={!dirty || saving === bot.id}
                                                     onClick={() => void saveUrl(bot)}
-                                                    message={saving === bot.id ? 'Saving…' : 'Save'}
+                                                    message={
+                                                        saving === bot.id
+                                                            ? t('bots.card.saving')
+                                                            : t('bots.card.save')
+                                                    }
                                                 />
                                             </Stack>
                                         </Stack>
@@ -685,17 +680,19 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                                             disabled={probe === 'testing'}
                                             onClick={() => void test(bot.id)}
                                             message={
-                                                probe === 'testing' ? 'Testing…' : 'Test token'
+                                                probe === 'testing'
+                                                    ? t('bots.card.testing')
+                                                    : t('bots.card.test')
                                             }
                                         />
 
                                         <Stack direction="Horizontal" as="span" className="grow" />
 
                                         <ConfirmButton
-                                            label="Remove"
-                                            title={`Remove ${bot.name}?`}
-                                            description="Nura forgets the token and stops answering for this bot. Telegram keeps the bot itself."
-                                            confirmLabel="Remove bot"
+                                            label={t('bots.remove.label')}
+                                            title={t('bots.remove.title', { name: bot.name })}
+                                            description={t('bots.remove.description')}
+                                            confirmLabel={t('bots.remove.confirm')}
                                             onConfirm={() => void remove(bot.id)}
                                         />
                                     </CardFooter>
@@ -712,7 +709,7 @@ export function BotsPanel({ teamId }: { teamId: number }) {
                     page={page}
                     shown={bots.length}
                     busy={paging}
-                    noun="bots"
+                    noun={t('bots.pager.noun')}
                     onPage={(offset) => void goTo(offset)}
                 />
             )}

@@ -1,6 +1,52 @@
 import type en from '../en/activity';
 import type { Messages } from '../types';
 
-const messages: Messages<typeof en> = {};
+const messages: Messages<typeof en> = {
+    'activity.result.ok': 'موفق',
+    'activity.result.error': 'ناموفق',
+    'activity.result.skipped': 'رد شد',
+    'activity.errors.loadFailed': 'سابقهٔ فعالیت بارگذاری نشد.',
+    'activity.succeeded.title': 'موفق',
+    'activity.succeeded.loading': 'در حال شمردن کارهایی که این پروژه انجام داده است.',
+    'activity.succeeded.summary.one': '{count} کار در سال گذشته انجام شد.',
+    'activity.succeeded.summary.other': '{count} کار در سال گذشته انجام شد.',
+    'activity.failed.title': 'ناموفق',
+    'activity.failed.loading': 'در حال شمردن خطاها.',
+    'activity.failed.none': 'در سال گذشته هیچ خطایی رخ نداده است.',
+    'activity.failed.summary.one': '{count} خطا در سال گذشته.',
+    'activity.failed.summary.other': '{count} خطا در سال گذشته.',
+    'activity.noun.action': 'کار',
+    'activity.noun.actions': 'کار',
+    'activity.noun.failure': 'خطا',
+    'activity.noun.failures': 'خطا',
+    'activity.trail.title': 'سابقه',
+    'activity.trail.description': 'چه چیزی فرستاده شد، چه چیزی برگشت، و چقدر طول کشید.',
+    'activity.trail.all': 'همه',
+    'activity.trail.failures': 'خطاها',
+    'activity.trail.emptyTitle': 'هنوز اتفاقی نیفتاده است',
+    'activity.trail.emptyDescription':
+        'هر اجرای مدل و هر تغییری در این پروژه اینجا نمایش داده می‌شود.',
+    'activity.trail.noFailuresTitle': 'در این صفحه خطایی نیست',
+    'activity.trail.noFailuresDescription': 'همهٔ اجراهای این صفحه بی‌خطا تمام شدند.',
+    'activity.trail.sizes': '{messages} پیام ورودی / {chars} نویسه',
+    'activity.trail.entries': 'مورد',
+    'activity.detail.nothingSelected': 'چیزی انتخاب نشده است',
+    'activity.detail.roundTrip': 'رفت‌وبرگشت با مدل',
+    'activity.detail.pick': 'برای دیدن جزئیات، یک ردیف را انتخاب کنید.',
+    'activity.detail.agent': 'ایجنت',
+    'activity.detail.model': 'مدل',
+    'activity.detail.messagesIn': 'پیام‌های ورودی',
+    'activity.detail.action': 'کار',
+    'activity.detail.target': 'هدف',
+    'activity.detail.actor': 'انجام‌دهنده',
+    'activity.detail.took': 'مدت',
+    'activity.detail.detail': 'جزئیات',
+    'activity.detail.cameBack': 'پاسخ برگشتی',
+    'activity.detail.text': '{chars} نویسه متن',
+    'activity.detail.textAfterTools.one': '{chars} نویسه متن پس از {count} فراخوانی ابزار',
+    'activity.detail.textAfterTools.other': '{chars} نویسه متن پس از {count} فراخوانی ابزار',
+    'activity.detail.nothingRecorded': 'چیزی ثبت نشده است.',
+    'activity.detail.changes': 'تغییرات',
+};
 
 export default messages;

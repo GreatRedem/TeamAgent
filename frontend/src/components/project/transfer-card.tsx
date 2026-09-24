@@ -1,9 +1,11 @@
 import { Download, Upload } from 'lucide-react';
 import { useState } from 'react';
 
-import { ApiError, type ImportReport, teamExport, teamImport } from '@/apis';
+import { type ImportReport, teamExport, teamImport } from '@/apis';
 import { Field } from '@/components/field';
-import { TRANSFER_ERRORS, TRANSFER_LABELS, TRANSFER_UPLOAD_MAX } from '@/libs/constant';
+import { TRANSFER_LABELS, TRANSFER_UPLOAD_MAX } from '@/libs/constant';
+import { numberLabel } from '@/libs/format';
+import { apiError, locale, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
@@ -13,10 +15,14 @@ import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
 function counted(counts: Record<string, number>): string {
-    return Object.entries(counts)
-        .filter(([, count]) => count > 0)
-        .map(([key, count]) => `${count.toLocaleString()} ${TRANSFER_LABELS[key] ?? key}`)
-        .join(', ');
+    return new Intl.ListFormat(locale, { type: 'conjunction', style: 'narrow' }).format(
+        Object.entries(counts)
+            .filter(([, count]) => count > 0)
+            .map(
+                ([key, count]) =>
+                    `${numberLabel(count)} ${TRANSFER_LABELS[key] === undefined ? key : t(TRANSFER_LABELS[key])}`,
+            ),
+    );
 }
 
 export function TransferCard({ teamId }: { teamId: number }) {
@@ -25,9 +31,6 @@ export function TransferCard({ teamId }: { teamId: number }) {
     const [file, setFile] = useState<File | null>(null);
     const [report, setReport] = useState<ImportReport | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    const failure = (cause: unknown, fallback: string) =>
-        cause instanceof ApiError ? (TRANSFER_ERRORS[cause.result] ?? cause.result) : fallback;
 
     const download = async () => {
         setError(null);
@@ -38,7 +41,7 @@ export function TransferCard({ teamId }: { teamId: number }) {
 
             saveFile(exported.file, exported.name);
         } catch (cause) {
-            setError(failure(cause, 'The project could not be exported.'));
+            setError(apiError(cause, 'projects.transfer.errors.exportFailed'));
         } finally {
             setExporting(false);
         }
@@ -55,7 +58,7 @@ export function TransferCard({ teamId }: { teamId: number }) {
         setReport(null);
 
         if (file.size > TRANSFER_UPLOAD_MAX) {
-            setError('That zip is larger than 64 MB.');
+            setError(t('projects.transfer.tooLarge'));
 
             return;
         }
@@ -65,7 +68,7 @@ export function TransferCard({ teamId }: { teamId: number }) {
         try {
             setReport(await teamImport(teamId, file));
         } catch (cause) {
-            setError(failure(cause, 'The project could not be imported.'));
+            setError(apiError(cause, 'projects.transfer.errors.importFailed'));
         } finally {
             setImporting(false);
         }
@@ -74,11 +77,8 @@ export function TransferCard({ teamId }: { teamId: number }) {
     return (
         <Card className="max-w-xl">
             <CardHeader>
-                <CardTitle>Export and import</CardTitle>
-                <CardDescription>
-                    Save this whole project as a zip, or add one exported from another project. API
-                    keys, bot tokens and plugin secrets never go into the file.
-                </CardDescription>
+                <CardTitle>{t('projects.transfer.title')}</CardTitle>
+                <CardDescription>{t('projects.transfer.description')}</CardDescription>
             </CardHeader>
 
             <CardContent>
@@ -89,14 +89,18 @@ export function TransferCard({ teamId }: { teamId: number }) {
                             icon={<Download />}
                             disabled={exporting}
                             onClick={() => void download()}
-                            message={exporting ? 'Exporting…' : 'Export project'}
+                            message={
+                                exporting
+                                    ? t('projects.transfer.exporting')
+                                    : t('projects.transfer.export')
+                            }
                         />
                     </Stack>
 
                     <Stack direction="Vertical" as="form" className="gap-3" onSubmit={upload}>
                         <Field
-                            label="Import a project zip"
-                            hint="Everything in it is added next to what this project already has. Nothing here is changed or removed.">
+                            label={t('projects.transfer.importLabel')}
+                            hint={t('projects.transfer.importHint')}>
                             {(id) => (
                                 <Input
                                     id={id}
@@ -116,7 +120,11 @@ export function TransferCard({ teamId }: { teamId: number }) {
                                 type="submit"
                                 icon={<Upload />}
                                 disabled={file === null || importing}
-                                message={importing ? 'Importing…' : 'Import'}
+                                message={
+                                    importing
+                                        ? t('projects.transfer.importing')
+                                        : t('projects.transfer.import')
+                                }
                             />
                         </Stack>
                     </Stack>
@@ -133,12 +141,29 @@ export function TransferCard({ teamId }: { teamId: number }) {
                                 <Stack direction="Vertical" className="gap-2">
                                     <Text
                                         type="Body"
-                                        message={`Added from ${report.from === '' ? 'the zip' : report.from}: ${counted(report.imported) || 'nothing new'}.`}
+                                        message={
+                                            counted(report.imported) === ''
+                                                ? report.from === ''
+                                                    ? t('projects.transfer.report.nothingFromZip')
+                                                    : t('projects.transfer.report.nothing', {
+                                                          from: report.from,
+                                                      })
+                                                : report.from === ''
+                                                  ? t('projects.transfer.report.addedFromZip', {
+                                                        items: counted(report.imported),
+                                                    })
+                                                  : t('projects.transfer.report.added', {
+                                                        from: report.from,
+                                                        items: counted(report.imported),
+                                                    })
+                                        }
                                     />
                                     {counted(report.skipped) !== '' && (
                                         <Text
                                             type="BodyMuted"
-                                            message={`Not added: ${counted(report.skipped)}.`}
+                                            message={t('projects.transfer.report.skipped', {
+                                                items: counted(report.skipped),
+                                            })}
                                         />
                                     )}
                                     {report.notes.map((note) => (

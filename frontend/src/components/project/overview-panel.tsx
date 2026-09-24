@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { ApiError, type ProjectOverview, projectOverview } from '@/apis';
+import { type ProjectOverview, projectOverview } from '@/apis';
 import { Stat } from '@/components/stat';
 import { compactCount } from '@/libs/format';
+import { apiError, t } from '@/libs/i18n';
 import { teamPath } from '@/libs/navigation';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -27,11 +28,7 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
             })
             .catch((cause: unknown) => {
                 if (active) {
-                    setError(
-                        cause instanceof ApiError
-                            ? cause.result
-                            : 'The overview could not be loaded.',
-                    );
+                    setError(apiError(cause, 'overview.errors.loadFailed'));
                 }
             });
 
@@ -54,10 +51,8 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
         <>
             <Card>
                 <CardHeader>
-                    <CardTitle>This week</CardTitle>
-                    <CardDescription>
-                        The last seven days, with the last 24 hours alongside.
-                    </CardDescription>
+                    <CardTitle>{t('overview.week.title')}</CardTitle>
+                    <CardDescription>{t('overview.week.description')}</CardDescription>
                 </CardHeader>
 
                 <CardContent>
@@ -74,36 +69,45 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
                             direction="Vertical"
                             className="gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-3">
                             <Stat
-                                label="Profiles"
+                                label={t('overview.week.profiles')}
                                 value={compactCount(data.profiles.total)}
-                                note={`${data.profiles.new_week.toLocaleString()} new, ${data.profiles.active_week.toLocaleString()} active this week`}
+                                note={t('overview.week.profilesNote', {
+                                    new: data.profiles.new_week,
+                                    active: data.profiles.active_week,
+                                })}
                             />
                             <Stat
-                                label="New chats"
+                                label={t('overview.week.chats')}
                                 value={compactCount(data.chats.week)}
-                                note={`${data.chats.today.toLocaleString()} in the last day`}
+                                note={t('overview.week.lastDay', { count: data.chats.today })}
                             />
                             <Stat
-                                label="Messages in"
+                                label={t('overview.week.messages')}
                                 value={compactCount(data.messages.week)}
-                                note={`${data.messages.today.toLocaleString()} in the last day`}
+                                note={t('overview.week.lastDay', { count: data.messages.today })}
                             />
                             <Stat
-                                label="Model requests"
+                                label={t('overview.week.requests')}
                                 value={compactCount(data.requests.week)}
-                                note={`${data.requests.today.toLocaleString()} in the last day, ${data.requests.failed_week.toLocaleString()} failed this week`}
+                                note={t('overview.week.requestsNote', {
+                                    today: data.requests.today,
+                                    failed: data.requests.failed_week,
+                                })}
                             />
                             <Stat
-                                label="Replies"
+                                label={t('overview.week.replies')}
                                 value={compactCount(data.requests.replies_week)}
-                                note="Answers the agents finished"
+                                note={t('overview.week.repliesNote')}
                             />
                             <Stat
-                                label="Tokens"
+                                label={t('overview.week.tokens')}
                                 value={compactCount(
                                     data.tokens.prompt_week + data.tokens.completion_week,
                                 )}
-                                note={`${compactCount(data.tokens.prompt_week)} in, ${compactCount(data.tokens.completion_week)} out`}
+                                note={t('overview.week.tokensNote', {
+                                    input: compactCount(data.tokens.prompt_week),
+                                    output: compactCount(data.tokens.completion_week),
+                                })}
                             />
                         </Stack>
                     )}
@@ -112,11 +116,15 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Model usage</CardTitle>
+                    <CardTitle>{t('overview.usage.title')}</CardTitle>
                     <CardDescription>
                         {data === null
-                            ? 'Adding up what each model has used.'
-                            : `${compactCount(allTokens)} tokens in all: ${compactCount(data.tokens.prompt_total)} in, ${compactCount(data.tokens.completion_total)} out.`}
+                            ? t('overview.usage.loading')
+                            : t('overview.usage.summary', {
+                                  total: compactCount(allTokens),
+                                  input: compactCount(data.tokens.prompt_total),
+                                  output: compactCount(data.tokens.completion_total),
+                              })}
                     </CardDescription>
                 </CardHeader>
 
@@ -124,7 +132,7 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
                     {data === null && <Skeleton radius="lg" className="h-24" />}
 
                     {data !== null && data.models.length === 0 && (
-                        <Text type="BodyMuted" message="This project has no models yet." />
+                        <Text type="BodyMuted" message={t('overview.usage.empty')} />
                     )}
 
                     {data?.models.map((model) => {
@@ -138,7 +146,12 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
                                     <Text type="Strong" className="truncate" message={model.name} />
                                     <Text
                                         type="DataMuted"
-                                        message={`${model.replies.toLocaleString()} replies, ${model.failures.toLocaleString()} failed, ${compactCount(model.prompt_tokens)} in, ${compactCount(model.completion_tokens)} out`}
+                                        message={t('overview.usage.model', {
+                                            replies: model.replies,
+                                            failures: model.failures,
+                                            input: compactCount(model.prompt_tokens),
+                                            output: compactCount(model.completion_tokens),
+                                        })}
                                     />
                                 </Stack>
 
@@ -157,7 +170,7 @@ export function OverviewPanel({ teamId }: { teamId: number }) {
                             size="sm"
                             className="justify-self-start"
                             link={teamPath(teamId, 'models')}
-                            message="Every call, per model"
+                            message={t('overview.usage.calls')}
                         />
                     )}
                 </CardContent>

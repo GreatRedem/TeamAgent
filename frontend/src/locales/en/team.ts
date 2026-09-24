@@ -1,3 +1,57 @@
-const messages = {} as const;
+const messages = {
+    'team.access.read': 'Reads it',
+    'team.access.create': 'Adds members',
+    'team.access.update': 'Updates members',
+    'team.access.delete': 'Removes members',
+    'team.errors.loadFailed': 'The team could not be loaded.',
+    'team.errors.removeFailed': 'The member could not be removed.',
+    'team.errors.permissionFailed': 'The capability could not be changed.',
+    'team.errors.saveFailed': 'The member could not be saved.',
+    'team.addMember': 'Add member',
+    'team.loading': 'Loading the team.',
+    'team.summary.one': '{count} person in team.json.',
+    'team.summary.other': '{count} people in team.json.',
+    'team.empty.title': 'Nobody on the team yet',
+    'team.empty.description':
+        'Add the people agents should know about: their roles, what they do and where to find them. Pick them from the profiles that have written to your bots, or type them in.',
+    'team.member.profile': 'Profile',
+    'team.member.modify': 'Modify',
+    'team.remove.label': 'Remove',
+    'team.remove.title': 'Remove {name}?',
+    'team.remove.description':
+        'They are taken out of team.json, and the agents stop knowing about them.',
+    'team.remove.confirm': 'Remove member',
+    'team.agents.title': 'Agents that answer from it',
+    'team.agents.description':
+        'An agent that may read team.json has it in its instructions and answers questions about the team from it. Adding, updating and removing members are separate tools, each granted on its own.',
+    'team.agents.empty': 'This project has no agents yet.',
+    'team.file.description': 'The file as the agents are given it.',
+    'team.dialog.addTitle': 'Add a team member',
+    'team.dialog.editTitle': 'Modify {name}',
+    'team.dialog.description':
+        'What goes here is written to team.json, which agents allowed to read it answer from.',
+    'team.dialog.theirProfile': 'their Telegram profile',
+    'team.dialog.cancel': 'Cancel',
+    'team.dialog.saving': 'Saving…',
+    'team.dialog.add': 'Add member',
+    'team.dialog.save': 'Save changes',
+    'team.field.profile.label': 'From a profile',
+    'team.field.profile.hint': 'Optional. Pick someone who has written to a bot to link them.',
+    'team.field.profile.hintLinked': 'Linked to {name}.',
+    'team.field.profile.unlink': 'Unlink',
+    'team.field.name.label': 'Name',
+    'team.field.name.hint': 'How the agents will refer to them.',
+    'team.field.roles.label': 'Roles',
+    'team.field.roles.hint':
+        'Everything they are on the team, such as Administrator and Senior software engineer. Press Enter after each one, up to {max}.',
+    'team.field.roles.placeholder': 'Add a role',
+    'team.field.description.label': 'Description',
+    'team.field.description.hint': 'What they do, and what to ask them about.',
+    'team.social.title': 'Social networks',
+    'team.social.empty': 'None recorded yet.',
+    'team.social.network': 'network',
+    'team.social.handle': '@handle or link',
+    'team.social.add': 'Add a network',
+} as const;
 
 export default messages;

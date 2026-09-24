@@ -1,7 +1,8 @@
-import { LogOut } from 'lucide-react';
+import { Languages, LogOut } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/libs/cn';
-import { DESTINATIONS, TEAM_NAMES } from '@/libs/constant';
+import { DESTINATIONS, LOCALES, TEAM_NAMES } from '@/libs/constant';
+import { chooseLocale, locale, t } from '@/libs/i18n';
 import { activeTeamId, teamPath } from '@/libs/navigation';
 import { clearAccessToken } from '@/libs/session';
 import { Brand } from '@/ui/brand';
@@ -16,6 +17,7 @@ export function AppHeader() {
     const { pathname } = useLocation();
 
     const teamId = activeTeamId(pathname);
+    const other = LOCALES.find((entry) => entry.code !== locale) ?? LOCALES[0];
 
     const signOut = () => {
         clearAccessToken();
@@ -45,9 +47,18 @@ export function AppHeader() {
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
+                        onClick={() => chooseLocale(other.code)}
+                        icon={<Languages />}
+                        message={other.name}
+                    />
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground [&>[data-slot=button-message]]:hidden sm:[&>[data-slot=button-message]]:inline"
                         onClick={signOut}
                         icon={<LogOut />}
-                        message="Sign out"
+                        message={t('layout.signOut')}
                     />
                 </Stack>
 
@@ -76,7 +87,7 @@ export function AppHeader() {
                                             size={16}
                                             className={isActive ? 'text-primary' : undefined}
                                         />
-                                        {label}
+                                        {t(label)}
                                     </>
                                 )}
                             </NavLink>

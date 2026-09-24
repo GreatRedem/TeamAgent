@@ -1,4 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
+import { numberLabel } from '@/libs/format';
+import { t } from '@/libs/i18n';
 import { Button } from '@/ui/button';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
@@ -9,16 +11,18 @@ export function NotFound() {
             direction="Vertical"
             as="section"
             className="mx-auto w-full max-w-sm items-center gap-4 text-center">
-            <Text type="DataMuted" message="404" />
+            <Text type="DataMuted" message={numberLabel(404)} />
 
-            <Text type="Title" message="This page does not exist" />
+            <Text type="Title" message={t('layout.notFound.title')} />
 
-            <Text
-                type="ForegroundMuted"
-                message="Check the address, or head back to where you started."
+            <Text type="ForegroundMuted" message={t('layout.notFound.description')} />
+
+            <Button
+                variant="outline"
+                link="/"
+                icon={<ArrowLeft className="rtl:-scale-x-100" />}
+                message={t('layout.notFound.back')}
             />
-
-            <Button variant="outline" link="/" icon={<ArrowLeft />} message="Back to sign in" />
         </Stack>
     );
 }
