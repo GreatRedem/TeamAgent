@@ -105,6 +105,12 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
             'Lets this agent add notes about any member of the team. It can only append, so nothing already recorded is lost.',
     },
     {
+        key: 'team.chat',
+        label: 'May switch chat with the model for people',
+        description:
+            'Lets this agent turn Chat with model on or off for someone who has written to your bots, but only when the person asking is on team.json with at least one role. It changes nothing else about them. Grant team.read too, so it can look people up.',
+    },
+    {
         key: 'roster.read',
         label: 'May read the team file',
         description:
@@ -324,6 +330,7 @@ export const PERSONAL_TOOLS = [
     'preferences_append',
     'profile_get',
     'conversation_search',
+    'team_member_chat',
 ];
 
 export const TOOLS: ToolDefinition[] = [
@@ -445,6 +452,23 @@ export const TOOLS: ToolDefinition[] = [
                 name: { type: 'string', description: 'File name, defaults to preferences.md' },
             },
             required: ['member_id', 'content'],
+        },
+    },
+    {
+        name: 'team_member_chat',
+        description:
+            'Turn chat with the model on or off for one member of the team, so their messages are answered or not. It only works when the person asking you is on team.json with a role; if it is refused, tell them so. Use the member_id from team_members.',
+        permission: 'team.chat',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                member_id: { type: 'integer', description: 'The member_id from team_members' },
+                enabled: {
+                    type: 'boolean',
+                    description: 'true to turn it on, false to turn it off',
+                },
+            },
+            required: ['member_id', 'enabled'],
         },
     },
     {

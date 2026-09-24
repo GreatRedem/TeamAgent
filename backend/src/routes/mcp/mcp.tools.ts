@@ -13,8 +13,9 @@ import {
 
 import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission, parseAgentPermissions } from '../agent/agent.permission.js';
-import { audit } from '../audit/audit.log.js';
+import { audit, changed } from '../audit/audit.log.js';
 import { isPluginTool, pluginTools, runPluginTool } from '../plugin/plugin.tools.js';
+import { profileLabel } from '../task/task.plan.js';
 import { TeamDocument } from '../team/team.entity.js';
 import {
     findMember,
@@ -30,7 +31,11 @@ import {
     TelegramUser,
     TelegramUserDocument,
 } from '../telegram/telegram.entity.js';
-import { hasPermission } from '../telegram/telegram.permission.js';
+import {
+    hasPermission,
+    parsePermissions,
+    serializePermissions,
+} from '../telegram/telegram.permission.js';
 import { searchWeb } from './mcp.search.js';
 import { weatherFor } from './mcp.weather.js';
 import { fetchPublicUrl } from './mcp.web.js';
@@ -561,6 +566,69 @@ export async function runTool(
         return {
             ok: true,
             content: JSON.stringify({ member_id: member.id, name: noteName, chars: merged.length }),
+        };
+    }
+
+    if (tool.name === 'team_member_chat') {
+        const memberId = Number(args['member_id']);
+        const enabled = args['enabled'];
+
+        if (!Number.isInteger(memberId) || memberId <= 0 || typeof enabled !== 'boolean') {
+            return refuse('member_id and enabled are required; get member_id from team_members');
+        }
+
+        let roster: Roster;
+
+        try {
+            roster = parseRoster(await readRosterContent(fastify, agent.team_id));
+        } catch (cause) {
+            return refuse(
+                cause instanceof RosterError ? cause.message : 'team.json could not be read',
+            );
+        }
+
+        const asker = roster.members.find((member) => member['profile_id'] === user.id);
+
+        if (user.id === 0 || !asker || (asker.roles?.length ?? 0) === 0) {
+            return refuse(
+                'only someone on team.json with a role may switch chat with the model on or off',
+            );
+        }
+
+        const users = fastify.db.getRepository(TelegramUser);
+        const member = await users.findOneBy({ id: memberId, team_id: agent.team_id });
+
+        if (!member) {
+            return refuse('no such member of this team');
+        }
+
+        const held = parsePermissions(member.permissions);
+        const permissions = serializePermissions(
+            enabled ? [...held, 'model'] : held.filter((key) => key !== 'model'),
+        );
+
+        await users.update({ id: member.id, team_id: agent.team_id }, { permissions });
+
+        await audit(fastify, fastify.log, {
+            teamId: agent.team_id,
+            actor: 'agent',
+            action: 'profile.permissions',
+            target: `profile:${member.id}`,
+            detail: `${agent.name} turned chat with model ${enabled ? 'on' : 'off'} for ${profileLabel(member)}, asked by ${asker.name}`,
+            changes: {
+                agent_id: agent.id,
+                asked_by: user.id,
+                ...changed({ permissions: held }, { permissions: parsePermissions(permissions) }),
+            },
+        });
+
+        return {
+            ok: true,
+            content: JSON.stringify({
+                member_id: member.id,
+                chat_with_model: enabled,
+                may_message_bots: hasPermission(permissions, 'chat'),
+            }),
         };
     }
 

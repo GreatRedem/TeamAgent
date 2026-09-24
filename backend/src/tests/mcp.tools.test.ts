@@ -5,6 +5,7 @@ import {
     DEFAULT_PERMISSIONS,
     DOCUMENT_NAME_PATTERN,
     PERMISSIONS,
+    PERSONAL_TOOLS,
     TOOLS,
 } from '../constant.js';
 
@@ -75,9 +76,16 @@ function main() {
         ],
 
         [
-            'no tool can touch permissions',
+            'only team_member_chat touches permissions, and only behind team.chat',
             () => {
                 const keys = AGENT_PERMISSIONS.map((p) => p.key);
+                const chat = TOOLS.filter((t) => t.permission === 'team.chat');
+
+                assert.deepEqual(
+                    chat.map((t) => t.name),
+                    ['team_member_chat'],
+                );
+                assert.ok(PERSONAL_TOOLS.includes('team_member_chat'), 'it needs a person asking');
 
                 for (const tool of TOOLS) {
                     assert.equal(
