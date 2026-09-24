@@ -295,6 +295,14 @@ export async function ingestUpdate(
             target: `profile:${user.id}`,
             outcome: 'skipped',
             detail: `bot ${bot.id} - sender lacks the chat permission`,
+            changes: {
+                bot_id: bot.id,
+                chat_id: inbound.chatId,
+                group: inbound.group,
+                from: inbound.from,
+                permissions: user.permissions,
+                text: inbound.text,
+            },
         });
 
         return 'blocked';
@@ -796,6 +804,7 @@ export async function runAgent(
                     }
 
                     const sending = fitToContext(messages, target.context);
+                    const callStartedAt = Date.now();
                     const result = await sendCompletion({
                         baseUrl: model.base_url,
                         apiKey: model.api_key,
@@ -810,6 +819,37 @@ export async function runAgent(
                     served = target.id;
 
                     const own = target === fixed;
+                    const callStatus =
+                        result.status === 0 ? 'no response' : `http ${result.status}`;
+
+                    await audit(fastify, log, {
+                        teamId,
+                        actor: 'agent',
+                        action: 'model.call',
+                        target: `model:${model.id}`,
+                        outcome: result.ok ? 'ok' : 'error',
+                        durationMs: Date.now() - callStartedAt,
+                        detail: `${agent.name} sent round ${round} to ${target.id}${own ? '' : ` instead of ${model.model}`} at ${model.base_url} · ${callStatus}`,
+                        changes: {
+                            endpoint: model.base_url,
+                            saved_model: model.model,
+                            chosen_model: target.id,
+                            why: own
+                                ? 'the saved model'
+                                : auto
+                                  ? 'picked from the free models'
+                                  : `fallback, attempt ${attempt}`,
+                            round,
+                            attempt,
+                            profile_id: user.id,
+                            messages_sent: sending.length,
+                            messages_trimmed: messages.length - sending.length,
+                            tools_offered: offered?.length ?? 0,
+                            max_tokens: completionCap(target.context),
+                            status: result.status,
+                            ...(!result.ok && { error: readError(result.payload) }),
+                        },
+                    });
                     const refused = withTools && isToolRefusal(result.payload);
 
                     if (own && refused) {
@@ -994,6 +1034,14 @@ export async function runAgent(
                     outcome: result.ok ? 'ok' : 'error',
                     durationMs: Date.now() - toolStartedAt,
                     detail: `${call.name} · agent ${agent.id} (${agent.name}) · round ${round} · args ${Object.keys(call.arguments).join(',') || 'none'}${result.ok ? '' : ` · ${result.content.slice(0, 90)}`}`,
+                    changes: {
+                        agent_id: agent.id,
+                        model: served,
+                        round,
+                        tool: call.name,
+                        args: call.arguments,
+                        result: result.content.slice(0, TRACE_TEXT_MAX),
+                    },
                 });
 
                 trace?.({
@@ -1119,6 +1167,14 @@ async function deliverAgentReply(
     log: FastifyBaseLogger,
 ) {
     const { chatId, text: incoming } = inbound;
+    const asked = {
+        bot_id: bot.id,
+        profile_id: user.id,
+        chat_id: chatId,
+        group: inbound.group,
+        message_id: messageId,
+        text: incoming,
+    };
 
     if (bot.agent_id === 0) {
         return;
@@ -1139,6 +1195,7 @@ async function deliverAgentReply(
             target: `bot:${bot.id}`,
             outcome: 'skipped',
             detail: `profile ${user.id} is not one of the ${allowed.length} people ${bot.name} answers`,
+            changes: { ...asked, answers_only: allowed },
         });
 
         return;
@@ -1157,6 +1214,7 @@ async function deliverAgentReply(
             target: `bot:${bot.id}`,
             outcome: 'skipped',
             detail: `profile ${user.id} lacks the model permission`,
+            changes: { ...asked, permissions: user.permissions },
         });
 
         return;
@@ -1179,6 +1237,11 @@ async function deliverAgentReply(
             target: `agent:${bot.agent_id}`,
             outcome: 'skipped',
             detail: `bot ${bot.id} - agent missing or has no model attached`,
+            changes: {
+                ...asked,
+                agent_id: bot.agent_id,
+                reason: agent ? 'the agent has no model attached' : 'the agent no longer exists',
+            },
         });
 
         return;
@@ -1201,6 +1264,7 @@ async function deliverAgentReply(
             target: `agent:${agent.id}`,
             outcome: 'skipped',
             detail: `agent ${agent.name} - model ${agent.model_id} missing`,
+            changes: { ...asked, agent_id: agent.id, model_id: agent.model_id },
         });
 
         return;
@@ -1267,6 +1331,17 @@ async function deliverAgentReply(
     }
 
     const { text, failure, lastStatus, served, toolRuns } = run;
+    const ran = {
+        ...asked,
+        agent_id: agent.id,
+        model_id: model.id,
+        endpoint: model.base_url,
+        saved_model: model.model,
+        chosen_model: served,
+        messages_in: messages.length,
+        tools_offered: tools.length,
+        tool_calls: toolRuns,
+    };
 
     if (run.unreachable) {
         log.warn(
@@ -1282,6 +1357,10 @@ async function deliverAgentReply(
             outcome: 'error',
             durationMs: Date.now() - startedAt,
             detail: `agent ${agent.id} (${agent.name}) - model ${model.id} (${served}) unreachable`,
+            changes: {
+                ...ran,
+                failure: failure === '' ? 'the model could not be reached' : failure,
+            },
         });
 
         await streamer.discard();
@@ -1307,6 +1386,7 @@ async function deliverAgentReply(
             outcome: 'error',
             durationMs: Date.now() - startedAt,
             detail: `agent ${agent.id} (${agent.name}) - model ${model.id} returned no usable completion after ${toolRuns} tool call(s) - ${reason}`,
+            changes: { ...ran, failure: reason, last_status: lastStatus },
         });
 
         await streamer.discard();
@@ -1337,6 +1417,7 @@ async function deliverAgentReply(
                 target: `bot:${bot.id}`,
                 outcome: 'error',
                 detail: `telegram refused with ${sent.status} - ${text.length} chars`,
+                changes: { ...ran, status: sent.status, telegram: sent.result ?? null, text },
             });
 
             await streamer.discard();
@@ -1370,11 +1451,9 @@ async function deliverAgentReply(
         actor: 'agent',
         detail: `agent ${agent.id} (${agent.name}) · model ${model.id} (${served}) · profile ${user.id} · ${messages.length} messages in · ${text.length} chars out · ${toolRuns} tool call(s)`,
         changes: {
-            message_id: reply.id,
-            answering: messageId,
-            bot_id: bot.id,
-            chat_id: chatId,
-            text,
+            ...ran,
+            reply_id: reply.id,
+            answer: text,
         },
     });
 }

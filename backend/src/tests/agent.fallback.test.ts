@@ -9,9 +9,22 @@ import { runAgent } from '../routes/telegram/telegram.service.js';
 
 async function main() {
     const realFetch = globalThis.fetch;
+    const saved: Record<string, unknown>[] = [];
     const fastify = {
-        db: { getRepository: () => ({ save: async (row: unknown) => row }) },
+        db: {
+            getRepository: () => ({
+                save: async (row: Record<string, unknown>) => {
+                    saved.push(row);
+
+                    return row;
+                },
+            }),
+        },
     } as unknown as FastifyInstance;
+    const calls = () =>
+        saved
+            .filter((row) => row['action'] === 'model.call')
+            .map((row) => JSON.parse(String(row['changes'])) as Record<string, unknown>);
     const log = {
         info() {},
         warn() {},
@@ -94,6 +107,17 @@ async function main() {
                 assert.equal(first.served, 'backup');
                 assert.deepEqual(first.asked, ['main', 'backup']);
                 assert.equal(isSetAside('model:7'), true);
+                assert.deepEqual(
+                    calls().map((call) => [call['chosen_model'], call['status'], call['why']]),
+                    [
+                        ['main', 403, 'the saved model'],
+                        ['backup', 200, 'fallback, attempt 2'],
+                    ],
+                    'the audit log names the model each request went to, and why',
+                );
+                assert.equal(calls()[0]?.['endpoint'], base);
+                assert.equal(calls()[0]?.['error'], 'http 403');
+                saved.length = 0;
 
                 const second = await run(7, base, ['main', 'backup'], replies);
 

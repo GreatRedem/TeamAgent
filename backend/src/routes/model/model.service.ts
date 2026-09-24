@@ -625,6 +625,15 @@ export function modelProbe(fastify: FastifyInstance) {
             target: `endpoint:${new URL(baseUrl).host}`,
             outcome: probe.ok ? 'ok' : 'error',
             detail: probe.ok ? `${probe.models ?? 0} models listed` : (probe.reason ?? 'failed'),
+            changes: {
+                base_url: baseUrl,
+                model,
+                ok: probe.ok,
+                reason: probe.reason ?? null,
+                models: probe.models ?? 0,
+                found: probe.found ?? null,
+                context: probe.context ?? null,
+            },
         });
 
         reply.send(probe);
