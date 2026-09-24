@@ -272,7 +272,12 @@ export async function runTask(
         }
 
         const last = await fastify.db.getRepository(TelegramMessage).findOne({
-            where: { team_id: task.team_id, user_id: recipient.id, direction: 'in' },
+            where: {
+                team_id: task.team_id,
+                user_id: recipient.id,
+                direction: 'in',
+                chat_id: recipient.telegram_id,
+            },
             order: { id: 'DESC' },
         });
         const bot = last
@@ -288,7 +293,7 @@ export async function runTask(
                 'error',
                 text,
                 false,
-                'done, but not sent: this person has not written to any bot of this project',
+                'done, but not sent: this person has never messaged a bot of this project privately, and results only go by direct message',
             );
 
             return true;
