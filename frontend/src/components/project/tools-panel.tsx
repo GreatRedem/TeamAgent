@@ -9,6 +9,7 @@ import {
     type Permission,
     type TeamAgent,
 } from '@/apis';
+import { CapabilityHelp } from '@/components/project/capability-help';
 import { capabilityText, toolText } from '@/libs/catalog';
 import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -124,6 +125,7 @@ export function ToolsPanel({ teamId }: { teamId: number }) {
                                 message={capabilityText(capability.key, 'label', capability.label)}
                             />
                             <Badge variant="outline">{capability.key}</Badge>
+                            <CapabilityHelp capability={capability} />
                         </CardTitle>
                         <CardDescription>
                             {capabilityText(capability.key, 'description', capability.description)}
