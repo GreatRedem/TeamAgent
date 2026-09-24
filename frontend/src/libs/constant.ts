@@ -87,7 +87,11 @@ export const SOCIAL_NETWORKS = [
 
 export const TASK_REPEAT_LABELS: Record<string, MessageKey> = {
     none: 'tasks.repeat.none',
+    every30m: 'tasks.repeat.every30m',
     hourly: 'tasks.repeat.hourly',
+    every2h: 'tasks.repeat.every2h',
+    every5h: 'tasks.repeat.every5h',
+    every6h: 'tasks.repeat.every6h',
     daily: 'tasks.repeat.daily',
     weekly: 'tasks.repeat.weekly',
 };

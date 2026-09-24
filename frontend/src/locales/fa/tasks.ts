@@ -3,7 +3,11 @@ import type { Messages } from '../types';
 
 const messages: Messages<typeof en> = {
     'tasks.repeat.none': 'یک بار',
+    'tasks.repeat.every30m': 'هر ۳۰ دقیقه',
     'tasks.repeat.hourly': 'هر ساعت',
+    'tasks.repeat.every2h': 'هر ۲ ساعت',
+    'tasks.repeat.every5h': 'هر ۵ ساعت',
+    'tasks.repeat.every6h': 'هر ۶ ساعت',
     'tasks.repeat.daily': 'هر روز',
     'tasks.repeat.weekly': 'هر هفته',
     'tasks.status.scheduled': 'زمان‌بندی‌شده',

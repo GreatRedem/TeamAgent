@@ -1,6 +1,10 @@
 const messages = {
     'tasks.repeat.none': 'Once',
+    'tasks.repeat.every30m': 'Every 30 minutes',
     'tasks.repeat.hourly': 'Every hour',
+    'tasks.repeat.every2h': 'Every 2 hours',
+    'tasks.repeat.every5h': 'Every 5 hours',
+    'tasks.repeat.every6h': 'Every 6 hours',
     'tasks.repeat.daily': 'Every day',
     'tasks.repeat.weekly': 'Every week',
     'tasks.status.scheduled': 'Scheduled',

@@ -738,7 +738,16 @@ export const DAY = "now() - interval '1 day'";
 
 export const WEEK = "now() - interval '7 days'";
 
-export const TASK_REPEATS = ['none', 'hourly', 'daily', 'weekly'] as const;
+export const TASK_REPEATS = [
+    'none',
+    'every30m',
+    'hourly',
+    'every2h',
+    'every5h',
+    'every6h',
+    'daily',
+    'weekly',
+] as const;
 
 export const TASK_STATUSES = ['scheduled', 'running', 'done', 'failed', 'cancelled'] as const;
 
@@ -750,7 +759,11 @@ export const GOAL_MAX = 2000;
 
 export const PERIOD: Record<TaskRepeat, number> = {
     none: 0,
+    every30m: 1_800_000,
     hourly: 3_600_000,
+    every2h: 7_200_000,
+    every5h: 18_000_000,
+    every6h: 21_600_000,
     daily: 86_400_000,
     weekly: 604_800_000,
 };

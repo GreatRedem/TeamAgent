@@ -118,6 +118,23 @@ function main() {
             nextStart(nine, 'weekly', new Date(nine.getTime() + 60_000))?.toISOString(),
             '2026-09-30T09:00:00.000Z',
         );
+        assert.deepEqual(
+            (['every30m', 'every2h', 'every5h', 'every6h'] as const).map((repeat) =>
+                nextStart(nine, repeat, new Date(nine.getTime() + 60_000))?.toISOString(),
+            ),
+            [
+                '2026-09-23T09:30:00.000Z',
+                '2026-09-23T11:00:00.000Z',
+                '2026-09-23T14:00:00.000Z',
+                '2026-09-23T15:00:00.000Z',
+            ],
+            'the shorter intervals step from the start time',
+        );
+        assert.equal(
+            readTaskBody({ title: 'x', agent_id: 1, start_at: '2026-09-24', repeat: 'every6h' })
+                .repeat,
+            'every6h',
+        );
         assert.equal(
             nextStart(nine, 'daily', new Date(nine.getTime() - 3_600_000))?.toISOString(),
             nine.toISOString(),
