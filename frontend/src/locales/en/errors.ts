@@ -60,6 +60,10 @@ const messages = {
     'errors.PLUGIN_FIELD_REQUIRED': 'Fill in every required field.',
     'errors.PLUGIN_TOKEN_INVALID': 'That does not look like a bot token from @BotFather.',
     'errors.PLUGIN_CHANNEL_INVALID': 'A channel id is a long number.',
+    'errors.PLUGIN_SOURCE_INVALID':
+        'Give the channel as @name, its t.me link, or an id starting with -100.',
+    'errors.PLUGIN_TARGET_INVALID':
+        'Give the group as @name or an id such as -1001234567890, different from the channel.',
     'errors.PLUGIN_URL_INVALID': 'Enter a full http or https address.',
     'errors.PLUGIN_HOOK_URL_INVALID':
         'The forwarding address must be a full http or https address.',

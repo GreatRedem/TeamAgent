@@ -16,6 +16,7 @@ import { argText, failed, type PluginOutcome, postSigned, settingsOf } from './p
 import { discordAct, discordProbe } from './plugin.discord.js';
 import { TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import { instagramAct, instagramProbe } from './plugin.instagram.js';
+import { relayProbe } from './plugin.relay.js';
 import { telegramAct, telegramProbe } from './plugin.telegram.js';
 import { xAct, xProbe } from './plugin.x.js';
 
@@ -149,6 +150,10 @@ function clientOf(plugin: TeamPlugin) {
         x: { act: act(xAct), probe: () => xProbe(settings) },
         instagram: { act: act(instagramAct), probe: () => instagramProbe(settings) },
         browser: { act: act(browserAct), probe: async () => browserProbe(settings) },
+        relay: {
+            act: async () => failed('this plugin has no actions'),
+            probe: () => relayProbe(settings),
+        },
         webhook: {
             act: (
                 name: string,

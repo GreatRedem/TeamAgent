@@ -64,6 +64,10 @@ const messages: Messages<typeof en> = {
     'errors.PLUGIN_FIELD_REQUIRED': 'همهٔ فیلدهای ضروری را پر کنید.',
     'errors.PLUGIN_TOKEN_INVALID': 'این شبیه توکن رباتی از ‎@BotFather نیست.',
     'errors.PLUGIN_CHANNEL_INVALID': 'شناسهٔ کانال یک عدد طولانی است.',
+    'errors.PLUGIN_SOURCE_INVALID':
+        'کانال را به‌صورت ‎@name، پیوند t.me آن، یا شناسه‌ای که با ‎-100 شروع می‌شود وارد کنید.',
+    'errors.PLUGIN_TARGET_INVALID':
+        'گروه را به‌صورت ‎@name یا شناسه‌ای مثل ‎-1001234567890 وارد کنید؛ متفاوت با کانال.',
     'errors.PLUGIN_URL_INVALID': 'یک نشانی کامل http یا https وارد کنید.',
     'errors.PLUGIN_HOOK_URL_INVALID': 'نشانی ارسال باید یک نشانی کامل http یا https باشد.',
     'errors.PLUGIN_AGENT_NOT_FOUND': 'این ایجنت دیگر در این پروژه نیست.',

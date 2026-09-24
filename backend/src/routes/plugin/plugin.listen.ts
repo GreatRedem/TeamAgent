@@ -21,7 +21,7 @@ import { TeamPlugin } from './plugin.entity.js';
 import { receiveInbound } from './plugin.inbound.js';
 import { telegramInbound } from './plugin.telegram.js';
 
-function report(plugin: TeamPlugin, listening: boolean, error = '') {
+export function report(plugin: TeamPlugin, listening: boolean, error = '') {
     PLUGIN_STATUS.set(plugin.id, { listening, error });
 }
 

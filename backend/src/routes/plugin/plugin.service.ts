@@ -320,8 +320,13 @@ export function pluginUpdate(fastify: FastifyInstance) {
         );
         const next = columns(body);
         const diff = changed(plugin, next);
+        const moved =
+            plugin.kind === 'relay' &&
+            settingsOf(plugin).config['source'] !== body.config['source'];
 
-        await fastify.db.getRepository(TeamPlugin).update({ id: plugin.id }, next);
+        await fastify.db
+            .getRepository(TeamPlugin)
+            .update({ id: plugin.id }, { ...next, ...(moved && { poll_offset: '0' }) });
 
         const saved = { ...plugin, ...next } as TeamPlugin;
 

@@ -4,6 +4,8 @@ import {
     PLUGIN_FIELD_MAX,
     PLUGIN_NAME_MAX,
     PLUGIN_URL_MAX,
+    RELAY_SOURCE_PATTERN,
+    RELAY_TARGET_PATTERN,
 } from '../../constant.js';
 
 import type { PluginKind, PluginSettings } from './plugin.common.js';
@@ -89,8 +91,23 @@ export function readPluginBody(
         }
     }
 
-    if (kind.key === 'telegram' && !BOT_TOKEN_PATTERN.test(secrets['token'] ?? '')) {
+    if (
+        (kind.key === 'telegram' || kind.key === 'relay') &&
+        !BOT_TOKEN_PATTERN.test(secrets['token'] ?? '')
+    ) {
         throw new PluginError('PLUGIN_TOKEN_INVALID');
+    }
+
+    if (kind.key === 'relay' && !RELAY_SOURCE_PATTERN.test(config['source'] ?? '')) {
+        throw new PluginError('PLUGIN_SOURCE_INVALID');
+    }
+
+    if (
+        kind.key === 'relay' &&
+        (!RELAY_TARGET_PATTERN.test(config['target'] ?? '') ||
+            config['target']?.toLowerCase() === config['source']?.toLowerCase())
+    ) {
+        throw new PluginError('PLUGIN_TARGET_INVALID');
     }
 
     if (kind.key === 'discord' && !/^$|^\d{5,25}$/.test(config['default_channel'] ?? '')) {

@@ -5,6 +5,7 @@ import {
     Camera,
     Cpu,
     FileText,
+    Forward,
     Globe,
     LayoutGrid,
     ListChecks,
@@ -226,6 +227,7 @@ export const BRAND_SIZES: Record<'sm' | 'lg', string> = {
 
 export const PLUGIN_ICONS: Record<PluginKindKey, LucideIcon> = {
     telegram: Send,
+    relay: Forward,
     x: AtSign,
     discord: MessagesSquare,
     instagram: Camera,

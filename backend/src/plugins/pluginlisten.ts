@@ -6,9 +6,16 @@ import { LOGGER, PLUGIN_KINDS, PLUGIN_STATUS, RESCAN_INTERVAL } from '../constan
 import { sleep } from '../routes/plugin/plugin.common.js';
 import { TeamPlugin } from '../routes/plugin/plugin.entity.js';
 import { listenDiscord, listenTelegram } from '../routes/plugin/plugin.listen.js';
+import { listenRelay } from '../routes/plugin/plugin.relay.js';
 
 function stampOf(plugin: TeamPlugin): string {
-    return [plugin.secrets, plugin.hook_agent_id, plugin.hook_url, plugin.hook_events].join('|');
+    return [
+        plugin.secrets,
+        plugin.config,
+        plugin.hook_agent_id,
+        plugin.hook_url,
+        plugin.hook_events,
+    ].join('|');
 }
 
 export default fastifyPlugin(async (fastify: FastifyInstance) => {
@@ -17,6 +24,12 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
     const running = new Map<number, { controller: AbortController; stamp: string }>();
 
     const supervisor = new AbortController();
+
+    const listeners: Record<string, typeof listenTelegram> = {
+        telegram: listenTelegram,
+        discord: listenDiscord,
+        relay: listenRelay,
+    };
 
     async function rescan() {
         const plugins = await fastify.db.getRepository(TeamPlugin).findBy({
@@ -49,13 +62,17 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
                 continue;
             }
 
+            const listen = listeners[plugin.kind];
+
+            if (listen === undefined) {
+                continue;
+            }
+
             const controller = new AbortController();
 
             running.set(plugin.id, { controller, stamp: stampOf(plugin) });
 
             log.info({ pluginId: plugin.id, kind: plugin.kind }, 'listening started');
-
-            const listen = plugin.kind === 'telegram' ? listenTelegram : listenDiscord;
 
             void listen(fastify, plugin, controller.signal, log)
                 .catch((error: unknown) =>

@@ -302,52 +302,60 @@ export function PluginDialog({
                         />
                     </Stack>
 
-                    <Separator />
+                    {(kind === undefined || kind.tools.length > 0) && (
+                        <>
+                            <Separator />
 
-                    <Stack direction="Vertical" className="gap-3">
-                        <Text type="BodyStrong" message={t('tools.form.agentsTitle')} />
-                        <Text
-                            type="Caption"
-                            message={
-                                kind === undefined
-                                    ? t('tools.form.agentsToolsDefault')
-                                    : t('tools.form.agentsTools', {
-                                          tools: kind.tools.map((tool) => tool.name).join(', '),
-                                      })
-                            }
-                        />
+                            <Stack direction="Vertical" className="gap-3">
+                                <Text type="BodyStrong" message={t('tools.form.agentsTitle')} />
+                                <Text
+                                    type="Caption"
+                                    message={
+                                        kind === undefined
+                                            ? t('tools.form.agentsToolsDefault')
+                                            : t('tools.form.agentsTools', {
+                                                  tools: kind.tools
+                                                      .map((tool) => tool.name)
+                                                      .join(', '),
+                                              })
+                                    }
+                                />
 
-                        {agents.length === 0 && (
-                            <Text type="BodyMuted" message={t('tools.noAgents')} />
-                        )}
+                                {agents.length === 0 && (
+                                    <Text type="BodyMuted" message={t('tools.noAgents')} />
+                                )}
 
-                        <Stack direction="Horizontal" className="flex-wrap gap-x-6 gap-y-3">
-                            {agents.map((agent) => {
-                                const id = `plugin-agent-${agent.id}`;
+                                <Stack direction="Horizontal" className="flex-wrap gap-x-6 gap-y-3">
+                                    {agents.map((agent) => {
+                                        const id = `plugin-agent-${agent.id}`;
 
-                                return (
-                                    <Stack
-                                        direction="Horizontal"
-                                        className="items-center gap-2"
-                                        key={agent.id}>
-                                        <Switch
-                                            id={id}
-                                            checked={access.includes(agent.id)}
-                                            onCheckedChange={() =>
-                                                setAccess((current) => toggle(current, agent.id))
-                                            }
-                                        />
-                                        <Text
-                                            type="Body"
-                                            as="label"
-                                            htmlFor={id}
-                                            message={agent.name}
-                                        />
-                                    </Stack>
-                                );
-                            })}
-                        </Stack>
-                    </Stack>
+                                        return (
+                                            <Stack
+                                                direction="Horizontal"
+                                                className="items-center gap-2"
+                                                key={agent.id}>
+                                                <Switch
+                                                    id={id}
+                                                    checked={access.includes(agent.id)}
+                                                    onCheckedChange={() =>
+                                                        setAccess((current) =>
+                                                            toggle(current, agent.id),
+                                                        )
+                                                    }
+                                                />
+                                                <Text
+                                                    type="Body"
+                                                    as="label"
+                                                    htmlFor={id}
+                                                    message={agent.name}
+                                                />
+                                            </Stack>
+                                        );
+                                    })}
+                                </Stack>
+                            </Stack>
+                        </>
+                    )}
 
                     <Separator />
 

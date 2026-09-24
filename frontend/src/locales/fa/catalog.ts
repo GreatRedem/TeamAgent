@@ -162,6 +162,23 @@ const messages: Record<string, string> = {
     'catalog.kind.telegram.field.default_chat.label': 'گفتگوی پیش‌فرض',
     'catalog.kind.telegram.field.default_chat.hint':
         'وقتی ایجنت گفتگویی را نام نبرد استفاده می‌شود: ‎@channelname یا شناسهٔ یک گفتگو.',
+    'catalog.kind.relay.label': 'بازنشر کانال',
+    'catalog.kind.relay.description':
+        'یک کانال تلگرام را زیر نظر می‌گیرد و هر پست تازه را به دست یک ایجنت، مطابق دستور شما بازنویسی می‌کند و نتیجه را در یک گروه می‌فرستد.',
+    'catalog.kind.relay.inbound_hint':
+        'این ایجنت هر پست تازه را بازنویسی می‌کند. اگر ربات مدیر کانال باشد پست‌ها بی‌درنگ می‌رسند؛ وگرنه کانال باید عمومی باشد و صفحهٔ آن هر دو دقیقه خوانده می‌شود.',
+    'catalog.kind.relay.field.token.label': 'توکن ربات',
+    'catalog.kind.relay.field.token.hint':
+        'از ‎@BotFather. ربات را به گروهی که در آن پست می‌گذارد اضافه کنید. از رباتی استفاده کنید که در بخش ربات‌ها یا پلاگین دیگری نیست.',
+    'catalog.kind.relay.field.source.label': 'کانالی که زیر نظر است',
+    'catalog.kind.relay.field.source.hint':
+        '‎@channelname یا پیوند t.me آن. برای کانال خصوصی، ربات را مدیر کانال کنید و شناسهٔ کانال را بدهید.',
+    'catalog.kind.relay.field.target.label': 'گروهی که در آن پست می‌گذارد',
+    'catalog.kind.relay.field.target.hint':
+        'شناسهٔ گروه، مثل ‎-1001234567890، یا ‎@groupname برای گروه عمومی.',
+    'catalog.kind.relay.field.brief.label': 'چگونه بازنویسی شود',
+    'catalog.kind.relay.field.brief.hint':
+        'کاری که ایجنت با هر پست می‌کند؛ مثلاً آن را به کدام پروژه ربط دهد و چقدر کوتاه باشد.',
     'catalog.kind.x.label': 'X',
     'catalog.kind.x.description':
         'در X پست می‌گذارد، پاسخ می‌دهد، نقل می‌کند، لایک و بازنشر و حذف می‌کند، و منشن‌ها، جستجوها و پست‌ها را می‌خواند. هر درخواست از اعتبار API ایکس کم می‌کند.',
@@ -259,6 +276,7 @@ const messages: Record<string, string> = {
     'catalog.action.plugin.action': 'کار پلاگین',
     'catalog.action.plugin.create': 'افزودن پلاگین',
     'catalog.action.plugin.inbound': 'دریافت از پلاگین',
+    'catalog.action.plugin.relay': 'بازنشر پست کانال',
     'catalog.action.plugin.remove': 'حذف پلاگین',
     'catalog.action.plugin.reply': 'پاسخ از طریق پلاگین',
     'catalog.action.plugin.test': 'آزمایش پلاگین',

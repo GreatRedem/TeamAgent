@@ -946,6 +946,28 @@ export const WEATHER_CODES: Record<number, string> = {
     99: 'thunderstorm with hail',
 };
 
+export const RELAY_PAGE = 'https://t.me/s/';
+
+export const RELAY_PAGE_INTERVAL = 120_000;
+
+export const RELAY_RECHECK = 600_000;
+
+export const RELAY_FETCH_TIMEOUT = 20_000;
+
+export const RELAY_SOURCE_PATTERN =
+    /^(?:(?:https?:\/\/)?t\.me\/(?:s\/)?|@)?([A-Za-z][A-Za-z0-9_]{3,31})\/?$|^(-100\d{5,15})$/;
+
+export const RELAY_TARGET_PATTERN = /^@[A-Za-z][A-Za-z0-9_]{3,31}$|^-\d{5,20}$/;
+
+export const RELAY_MEDIA_METHODS = {
+    photo: 'sendPhoto',
+    video: 'sendVideo',
+    animation: 'sendAnimation',
+    document: 'sendDocument',
+};
+
+export const TELEGRAM_CAPTION_MAX = 1024;
+
 export const PLUGIN_EVENTS = ['message.received', 'agent.replied', 'agent.action', 'agent.failed'];
 
 export const PLUGIN_STATUS = new Map<number, { listening: boolean; error: string }>();
@@ -1499,6 +1521,50 @@ export const PLUGIN_KINDS: PluginKind[] = [
                 required: false,
                 hint: 'Used when the agent does not name one: @channelname or a chat id.',
                 placeholder: '@mychannel',
+            },
+        ],
+    },
+    {
+        key: 'relay',
+        label: 'Channel relay',
+        description:
+            'Watches a Telegram channel and, for every new post, has an agent rewrite it to your brief and posts the result to a group.',
+        inbound: 'listen',
+        inbound_hint:
+            'This agent rewrites each new post. With the bot as an admin of the channel, posts arrive at once; otherwise the channel must be public, and its page is read every two minutes.',
+        fields: [
+            {
+                key: 'token',
+                label: 'Bot token',
+                secret: true,
+                required: true,
+                hint: 'From @BotFather. Add the bot to the group it posts in. Use a bot that is not also under Bots or another plugin.',
+                placeholder: '123456789:AA...',
+            },
+            {
+                key: 'source',
+                label: 'Channel to watch',
+                secret: false,
+                required: true,
+                hint: '@channelname or its t.me link. For a private channel, make the bot an admin and give the channel id.',
+                placeholder: '@newschannel',
+            },
+            {
+                key: 'target',
+                label: 'Group to post in',
+                secret: false,
+                required: true,
+                hint: 'The group id, such as -1001234567890, or @groupname for a public group.',
+                placeholder: '-1001234567890',
+            },
+            {
+                key: 'brief',
+                label: 'How to rewrite',
+                secret: false,
+                required: true,
+                hint: 'What the agent does with every post, for example which project to tie it to and how long to keep it.',
+                placeholder:
+                    'Relate it to NuraChain and write it for our community, in the same language.',
             },
         ],
     },
