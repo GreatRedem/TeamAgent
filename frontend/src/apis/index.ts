@@ -20,12 +20,14 @@ export { type AuditEntry, auditHeatmap, auditList, type HeatmapDay } from './aud
 export {
     type TeamBot,
     type TeamBotProbe,
+    type TelegramGroup,
     teamBotCreate,
     teamBotList,
     teamBotRemove,
     teamBotTest,
     teamBotUpdate,
     teamBotWebhookRegister,
+    teamGroups,
 } from './bot';
 export { ApiError, type Paged, pageQuery, request, send } from './client';
 export {

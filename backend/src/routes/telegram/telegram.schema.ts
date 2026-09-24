@@ -60,6 +60,33 @@ export function schemaConversationList() {
     } as const;
 }
 
+export function schemaTelegramGroups() {
+    return {
+        response: {
+            200: {
+                type: 'object',
+                required: ['groups'],
+                properties: {
+                    groups: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['bot_id', 'bot_name', 'chat_id', 'title', 'last_at'],
+                            properties: {
+                                bot_id: { type: 'integer' },
+                                bot_name: { type: 'string' },
+                                chat_id: { type: 'string' },
+                                title: { type: 'string' },
+                                last_at: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    } as const;
+}
+
 export function schemaConversationMessages() {
     return {
         response: {

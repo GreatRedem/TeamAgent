@@ -16,6 +16,7 @@ import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
 import {
     agentInstructions,
+    groupTitles,
     placeholderUser,
     runAgent,
     runFailure,
@@ -30,6 +31,99 @@ import {
     type TaskRepeat,
     taskMessages,
 } from './task.plan.js';
+
+export async function deliverTask(
+    fastify: FastifyInstance,
+    task: TeamTask,
+    recipient: TelegramUser | null,
+    group: string,
+    text: string,
+    note: (event: Record<string, unknown>) => void,
+): Promise<{ delivered: number; failures: string[]; retryable: boolean }> {
+    const targets: { botId: number; chatId: string; to: string; userId: number }[] = [];
+    const failures: string[] = [];
+    let delivered = 0;
+    let retryable = false;
+
+    if (task.group_chat_id !== '') {
+        targets.push({
+            botId: task.group_bot_id,
+            chatId: task.group_chat_id,
+            to: group,
+            userId: 0,
+        });
+    }
+
+    if (recipient) {
+        const last = await fastify.db.getRepository(TelegramMessage).findOne({
+            where: {
+                team_id: task.team_id,
+                user_id: recipient.id,
+                direction: 'in',
+                chat_id: recipient.telegram_id,
+            },
+            order: { id: 'DESC' },
+        });
+
+        if (last) {
+            targets.push({
+                botId: last.bot_id,
+                chatId: last.chat_id,
+                to: profileLabel(recipient),
+                userId: recipient.id,
+            });
+        } else {
+            note({ kind: 'send', ok: false, to: profileLabel(recipient), bot: '' });
+            failures.push(
+                `${profileLabel(recipient)} has never messaged a bot of this project privately, and results only go to them by direct message`,
+            );
+        }
+    }
+
+    for (const target of targets) {
+        const bot = await fastify.db
+            .getRepository(TeamBot)
+            .findOneBy({ id: target.botId, team_id: task.team_id });
+
+        if (!bot || bot.token === '') {
+            note({ kind: 'send', ok: false, to: target.to, bot: bot?.name ?? '' });
+            failures.push(`the bot for ${target.to} is no longer connected to this project`);
+            continue;
+        }
+
+        const sent = await telegramText(
+            bot.token,
+            'sendMessage',
+            { chat_id: target.chatId },
+            text.slice(0, TELEGRAM_TEXT_MAX),
+        );
+
+        note({ kind: 'send', ok: sent.ok, to: target.to, bot: bot.name });
+
+        if (!sent.ok) {
+            failures.push(`Telegram refused it for ${target.to} (${sent.status})`);
+            retryable ||= sendRetryable(sent.status);
+            continue;
+        }
+
+        delivered += 1;
+
+        if (target.userId !== 0) {
+            await fastify.db.getRepository(TelegramMessage).save({
+                team_id: task.team_id,
+                user_id: target.userId,
+                bot_id: bot.id,
+                update_id: String(-Date.now()),
+                chat_id: target.chatId,
+                text,
+                direction: 'out',
+                sent_at: new Date(),
+            });
+        }
+    }
+
+    return { delivered, failures, retryable: retryable && delivered === 0 };
+}
 
 async function earlierOutputs(
     fastify: FastifyInstance,
@@ -206,6 +300,13 @@ export async function runTask(
             note({ kind: 'recipient', name: profileLabel(recipient) });
         }
 
+        const group =
+            task.group_chat_id === ''
+                ? ''
+                : ((await groupTitles(fastify, task.team_id, [task.group_chat_id])).get(
+                      task.group_chat_id,
+                  ) ?? task.group_chat_id);
+
         if (task.profile_id !== 0 && !recipient) {
             await finish('error', '', false, 'the person it was for is no longer in this project');
 
@@ -231,6 +332,7 @@ export async function runTask(
                 recipient ? profileLabel(recipient) : '',
                 startedAt,
                 task.repeat === 'none' ? [] : await earlierOutputs(fastify, task.id, run.id),
+                group,
             ),
             tools,
             trace: (event) => {
@@ -265,71 +367,25 @@ export async function runTask(
 
         const text = result.text;
 
-        if (!recipient) {
+        if (!recipient && task.group_chat_id === '') {
             await finish('ok', text, false, '');
 
             return true;
         }
 
-        const last = await fastify.db.getRepository(TelegramMessage).findOne({
-            where: {
-                team_id: task.team_id,
-                user_id: recipient.id,
-                direction: 'in',
-                chat_id: recipient.telegram_id,
-            },
-            order: { id: 'DESC' },
-        });
-        const bot = last
-            ? await fastify.db
-                  .getRepository(TeamBot)
-                  .findOneBy({ id: last.bot_id, team_id: task.team_id })
-            : null;
+        const sent = await deliverTask(fastify, task, recipient, group, text, note);
 
-        if (!last || !bot) {
-            note({ kind: 'send', ok: false, to: profileLabel(recipient), bot: '' });
-
+        if (sent.failures.length > 0) {
             await finish(
                 'error',
                 text,
-                false,
-                'done, but not sent: this person has never messaged a bot of this project privately, and results only go by direct message',
+                sent.delivered > 0,
+                `done, but ${sent.failures.join('; ')}`,
+                sent.retryable,
             );
 
             return true;
         }
-
-        const sent = await telegramText(
-            bot.token,
-            'sendMessage',
-            { chat_id: last.chat_id },
-            text.slice(0, TELEGRAM_TEXT_MAX),
-        );
-
-        note({ kind: 'send', ok: sent.ok, to: profileLabel(recipient), bot: bot.name });
-
-        if (!sent.ok) {
-            await finish(
-                'error',
-                text,
-                false,
-                `done, but Telegram refused it (${sent.status})`,
-                sendRetryable(sent.status),
-            );
-
-            return true;
-        }
-
-        await fastify.db.getRepository(TelegramMessage).save({
-            team_id: task.team_id,
-            user_id: recipient.id,
-            bot_id: bot.id,
-            update_id: String(-Date.now()),
-            chat_id: last.chat_id,
-            text,
-            direction: 'out',
-            sent_at: new Date(),
-        });
 
         await finish('ok', text, true, '');
     } catch (cause) {

@@ -31,6 +31,14 @@ async (page) => {
             ...paged,
             total: 2,
         },
+        'GET /team/1/group': { groups: [{ bot_id: 1, bot_name: 'Front desk', chat_id: '-100123', title: 'Nura community', last_at: at }] },
+        'GET /team/1/task': {
+            tasks: [
+                { id: 1, title: 'Morning news', description: '', goal: 'Three headlines for the community', agent_id: 2, agent_name: 'Social', profile_id: 3, profile_name: 'Sara K', group_bot_id: 1, group_chat_id: '-100123', group_title: 'Nura community', start_at: at, repeat: 'daily', status: 'scheduled', last_run_at: at, run_count: 4, retry_count: 0, retry_at: null, ok_count: 4, error_count: 0, last_outcome: 'ok', created_at: at },
+            ],
+            ...paged,
+            total: 1,
+        },
         'GET /team/1/plugin': {
             plugins: [
                 plugin({ id: 1, kind: 'telegram', name: 'News channel', agents: [1, 2], hook_agent_id: 1, account: '@nura_news_bot', listening: true, stats: stats({ requests: 130, failures: 2, inbound: 40, replies: 38, week: 124, day: 18, average_ms: 640, last_at: at }) }),

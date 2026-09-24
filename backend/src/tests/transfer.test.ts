@@ -275,6 +275,8 @@ async function main() {
                         description: '',
                         goal: '',
                         profile_id: 3,
+                        group_bot_id: 6,
+                        group_chat_id: '-100555',
                         start_at: when,
                         repeat: 'hourly',
                         status: 'scheduled',
@@ -493,6 +495,8 @@ async function main() {
                 assert.equal(plugin?.['agents'], String(agent?.['id']));
                 assert.equal(task?.['status'], 'cancelled');
                 assert.equal(task?.['profile_id'], person?.['id']);
+                assert.equal(task?.['group_bot_id'], bot?.['id']);
+                assert.equal(task?.['group_chat_id'], '-100555');
                 assert.equal(target.rowsOf(TeamTaskRun)[0]?.['task_id'], task?.['id']);
                 assert.equal(target.rowsOf(TelegramUserDocument)[0]?.['user_id'], person?.['id']);
                 assert.equal(target.rowsOf(TelegramMessage)[0]?.['bot_id'], bot?.['id']);

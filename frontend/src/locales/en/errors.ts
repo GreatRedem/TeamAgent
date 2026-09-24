@@ -82,6 +82,8 @@ const messages = {
     'errors.PLUGIN_INVALID': 'That plugin could not be saved. Check its fields.',
     'errors.DOCUMENT_ID_INVALID': 'That file address is not valid.',
     'errors.INTERNAL_ERROR': 'Something went wrong on the server. Try again.',
+    'errors.TASK_GROUP_INVALID': 'Pick the group again.',
+    'errors.TASK_GROUP_NOT_FOUND': 'The bots of this project no longer know that group.',
 } as const;
 
 export default messages;

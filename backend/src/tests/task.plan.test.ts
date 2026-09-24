@@ -67,6 +67,36 @@ function main() {
             ),
             'TASK_PROFILE_INVALID',
         );
+
+        const grouped = readTaskBody({
+            title: 'x',
+            agent_id: 1,
+            start_at: '2026-09-24',
+            group_bot_id: 2,
+            group_chat_id: '-100123',
+        });
+
+        assert.equal(grouped.group_bot_id, 2);
+        assert.equal(grouped.group_chat_id, '-100123');
+        assert.equal(
+            readTaskBody({ title: 'x', agent_id: 1, start_at: '2026-09-24' }).group_chat_id,
+            '',
+        );
+
+        for (const group of [
+            { group_bot_id: 2 },
+            { group_chat_id: '-100123' },
+            { group_bot_id: 2, group_chat_id: '555' },
+            { group_bot_id: -1, group_chat_id: '-1' },
+        ]) {
+            assert.equal(
+                code(() =>
+                    readTaskBody({ title: 'x', agent_id: 1, start_at: '2026-09-24', ...group }),
+                ),
+                'TASK_GROUP_INVALID',
+                JSON.stringify(group),
+            );
+        }
     }
 
     {
@@ -120,6 +150,19 @@ function main() {
         const [kept] = taskMessages('', { title: 'Search', goal: '', description: '' }, '', now);
 
         assert.ok(kept.content.includes('nobody is sent it'));
+
+        const [posted] = taskMessages(
+            '',
+            { title: 'News', goal: '', description: '' },
+            'Sara',
+            now,
+            [],
+            'Team chat',
+        );
+
+        assert.ok(posted.content.includes('Telegram group "Team chat"'));
+        assert.ok(posted.content.includes('never include anything private about Sara'));
+        assert.ok(!posted.content.includes('nobody is sent it'));
         assert.ok(!kept.content.startsWith('\n'), 'no empty instructions section');
         assert.ok(!kept.content.includes('This task repeats'), 'a one-off is not told it repeats');
 

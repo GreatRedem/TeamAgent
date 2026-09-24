@@ -13,6 +13,9 @@ export interface TeamTask {
     agent_name: string;
     profile_id: number;
     profile_name: string;
+    group_bot_id: number;
+    group_chat_id: string;
+    group_title: string;
     start_at: string;
     repeat: TaskRepeat;
     status: TaskStatus;
@@ -32,6 +35,8 @@ export interface TaskDraft {
     goal: string;
     agent_id: number;
     profile_id: number;
+    group_bot_id: number;
+    group_chat_id: string;
     start_at: string;
     repeat: TaskRepeat;
 }

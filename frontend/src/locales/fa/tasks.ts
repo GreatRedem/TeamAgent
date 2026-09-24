@@ -75,7 +75,7 @@ const messages: Messages<typeof en> = {
     'tasks.field.sendTo.label': 'ارسال به',
     'tasks.field.sendTo.hint': 'اختیاری. اگر کسی انتخاب نشود، نتیجه فقط همین‌جا نگه داشته می‌شود.',
     'tasks.field.sendTo.hintPicked':
-        'از طریق رباتی که {name} آخرین بار به آن پیام داده، برایش فرستاده می‌شود.',
+        'با پیام خصوصی و از طریق رباتی که {name} آخرین بار به آن پیام خصوصی داده، برایش فرستاده می‌شود.',
     'tasks.field.sendTo.clear': 'پاک کردن',
     'tasks.field.startAt.label': 'زمان اجرا',
     'tasks.field.startAt.hint': 'به وقت محلی شما.',
@@ -126,6 +126,15 @@ const messages: Messages<typeof en> = {
     'tasks.log.end.failed': 'پایان: ناموفق',
     'tasks.log.end.doneReason': 'پایان: انجام شد، {reason}',
     'tasks.log.end.failedReason': 'پایان: ناموفق، {reason}',
+    'tasks.field.group.label': 'ارسال در گروه',
+    'tasks.field.group.none': 'بدون گروه',
+    'tasks.field.group.option': '{title} · با {bot}',
+    'tasks.field.group.hint':
+        'اختیاری. همهٔ اعضای گروه نتیجه را می‌خوانند، پس به ایجنت گفته می‌شود جزئیات خصوصی را کنار بگذارد.',
+    'tasks.field.group.empty':
+        'هنوز گروهی نیست. هر گروه وقتی اینجا دیده می‌شود که کسی در آن، رباتی را که در گروه‌ها پاسخ می‌دهد منشن کند.',
+    'tasks.card.group': 'گروه {title}',
+    'tasks.card.personAndGroup': '{name} و گروه {title}',
 };
 
 export default messages;

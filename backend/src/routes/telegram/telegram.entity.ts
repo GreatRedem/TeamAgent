@@ -96,6 +96,9 @@ export class TelegramMessage {
     @Column({ type: 'bigint' })
     chat_id: string;
 
+    @Column({ type: 'varchar', length: 255, default: '' })
+    chat_title: string;
+
     @Column({ type: 'text' })
     text: string;
 

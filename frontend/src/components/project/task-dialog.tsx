@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 
-import { type TaskRepeat, type TeamAgent, type TeamTask, taskCreate, taskUpdate } from '@/apis';
+import {
+    type TaskRepeat,
+    type TeamAgent,
+    type TeamTask,
+    type TelegramGroup,
+    taskCreate,
+    taskUpdate,
+    teamGroups,
+} from '@/apis';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
 import { TASK_REPEAT_LABELS } from '@/libs/constant';
@@ -45,6 +53,8 @@ export function TaskDialog({
     const [profile, setProfile] = useState('');
     const [startAt, setStartAt] = useState('');
     const [repeat, setRepeat] = useState<TaskRepeat>('none');
+    const [group, setGroup] = useState('');
+    const [groups, setGroups] = useState<TelegramGroup[]>([]);
 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -66,8 +76,23 @@ export function TaskDialog({
             ),
         );
         setRepeat(task?.repeat ?? 'none');
+        setGroup(
+            task === null || task.group_chat_id === ''
+                ? ''
+                : `${task.group_bot_id}:${task.group_chat_id}`,
+        );
         setError(null);
     }, [open, task, agents]);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        teamGroups(teamId)
+            .then((result) => setGroups(result.groups))
+            .catch(() => setGroups([]));
+    }, [open, teamId]);
 
     const save = async () => {
         setBusy(true);
@@ -79,6 +104,8 @@ export function TaskDialog({
             description: description.trim(),
             agent_id: Number(agentId),
             profile_id: profileId,
+            group_bot_id: group === '' ? 0 : Number(group.slice(0, group.indexOf(':'))),
+            group_chat_id: group === '' ? '' : group.slice(group.indexOf(':') + 1),
             start_at: new Date(startAt).toISOString(),
             repeat,
         };
@@ -202,6 +229,38 @@ export function TaskDialog({
                                     />
                                 )}
                             </Stack>
+                        )}
+                    </Field>
+
+                    <Field
+                        label={t('tasks.field.group.label')}
+                        hint={
+                            groups.length === 0 && group === ''
+                                ? t('tasks.field.group.empty')
+                                : t('tasks.field.group.hint')
+                        }>
+                        {(id) => (
+                            <Select id={id} value={group} onValueChange={setGroup}>
+                                <SelectItem value="">{t('tasks.field.group.none')}</SelectItem>
+                                {groups.map((item) => (
+                                    <SelectItem
+                                        key={`${item.bot_id}:${item.chat_id}`}
+                                        value={`${item.bot_id}:${item.chat_id}`}>
+                                        {t('tasks.field.group.option', {
+                                            title: item.title,
+                                            bot: item.bot_name,
+                                        })}
+                                    </SelectItem>
+                                ))}
+                                {group !== '' &&
+                                    !groups.some(
+                                        (item) => `${item.bot_id}:${item.chat_id}` === group,
+                                    ) && (
+                                        <SelectItem value={group}>
+                                            {task?.group_title || group}
+                                        </SelectItem>
+                                    )}
+                            </Select>
                         )}
                     </Field>
 

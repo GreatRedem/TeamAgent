@@ -13,6 +13,14 @@ export interface TeamBot {
     created_at: string;
 }
 
+export interface TelegramGroup {
+    bot_id: number;
+    bot_name: string;
+    chat_id: string;
+    title: string;
+    last_at: string;
+}
+
 export interface TeamBotProbe {
     ok: boolean;
     username?: string;
@@ -52,4 +60,8 @@ export function teamBotWebhookRegister(teamId: number, botId: number) {
         'POST',
         `/team/${teamId}/bot/${botId}/webhook`,
     );
+}
+
+export function teamGroups(teamId: number) {
+    return request<{ groups: TelegramGroup[] }>('GET', `/team/${teamId}/group`);
 }

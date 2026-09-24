@@ -82,7 +82,7 @@ function transferTables(): Table[] {
         {
             file: 'tasks',
             entity: TeamTask,
-            refs: { agent_id: 'agents', profile_id: 'people' },
+            refs: { agent_id: 'agents', profile_id: 'people', group_bot_id: 'bots' },
             required: ['agent_id'],
         },
         {

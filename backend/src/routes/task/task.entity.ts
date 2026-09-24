@@ -31,6 +31,12 @@ export class TeamTask {
     @Column({ type: 'int', default: 0 })
     profile_id: number;
 
+    @Column({ type: 'int', default: 0 })
+    group_bot_id: number;
+
+    @Column({ type: 'varchar', length: 24, default: '' })
+    group_chat_id: string;
+
     @Index()
     @Column({ type: 'timestamptz' })
     start_at: Date;

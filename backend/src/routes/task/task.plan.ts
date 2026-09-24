@@ -27,6 +27,8 @@ export interface TaskBody {
     goal: string;
     agent_id: number;
     profile_id: number;
+    group_bot_id: number;
+    group_chat_id: string;
     start_at: Date;
     repeat: TaskRepeat;
 }
@@ -57,6 +59,18 @@ export function readTaskBody(body: unknown): TaskBody {
         throw new TaskError('TASK_PROFILE_INVALID');
     }
 
+    const groupBotId = source['group_bot_id'] === undefined ? 0 : Number(source['group_bot_id']);
+    const groupChatId = text('group_chat_id', 24);
+
+    if (
+        !Number.isInteger(groupBotId) ||
+        groupBotId < 0 ||
+        (groupBotId === 0) !== (groupChatId === '') ||
+        (groupChatId !== '' && !/^-\d{1,20}$/.test(groupChatId))
+    ) {
+        throw new TaskError('TASK_GROUP_INVALID');
+    }
+
     const startAt = new Date(String(source['start_at'] ?? ''));
 
     if (Number.isNaN(startAt.getTime())) {
@@ -75,6 +89,8 @@ export function readTaskBody(body: unknown): TaskBody {
         goal: text('goal', GOAL_MAX),
         agent_id: agentId,
         profile_id: profileId,
+        group_bot_id: groupBotId,
+        group_chat_id: groupChatId,
         start_at: startAt,
         repeat,
     };
@@ -103,6 +119,7 @@ export function taskMessages(
     recipient: string,
     now: Date,
     earlier: { at: string; output: string }[] = [],
+    group = '',
 ): ChatMessage[] {
     const repeats = task.repeat !== undefined && task.repeat !== 'none';
 
@@ -110,9 +127,11 @@ export function taskMessages(
         '# Scheduled task',
         '',
         `You are carrying out a task you were given in advance, not answering a message. It is ${now.toISOString()}.`,
-        recipient === ''
-            ? 'Your reply is kept as the result of the task; nobody is sent it.'
-            : `Your reply is sent to ${recipient} on Telegram as it is, so write it to them: the message itself, with no preamble about the task.`,
+        group !== ''
+            ? `Your reply is posted as it is in the Telegram group "${group}", where everyone in the group reads it, so write it for them: the message itself, with no preamble about the task.${recipient === '' ? '' : ` It is also sent to ${recipient} privately, but the group reads the same words, so never include anything private about ${recipient} or anyone else.`}`
+            : recipient === ''
+              ? 'Your reply is kept as the result of the task; nobody is sent it.'
+              : `Your reply is sent to ${recipient} on Telegram as it is, so write it to them: the message itself, with no preamble about the task.`,
         'Use your tools where the task needs them. Do not invent facts you could not find.',
         ...(repeats
             ? [

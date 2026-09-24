@@ -84,6 +84,8 @@ const messages: Messages<typeof en> = {
     'errors.PLUGIN_INVALID': 'این پلاگین ذخیره نشد. فیلدهایش را بررسی کنید.',
     'errors.DOCUMENT_ID_INVALID': 'نشانی این فایل معتبر نیست.',
     'errors.INTERNAL_ERROR': 'در سرور مشکلی پیش آمد. دوباره تلاش کنید.',
+    'errors.TASK_GROUP_INVALID': 'گروه را دوباره انتخاب کنید.',
+    'errors.TASK_GROUP_NOT_FOUND': 'این گروه دیگر برای ربات‌های این پروژه شناخته‌شده نیست.',
 };
 
 export default messages;

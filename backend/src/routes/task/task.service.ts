@@ -7,7 +7,9 @@ import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent } from '../agent/agent.entity.js';
 import { audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
-import { TelegramUser } from '../telegram/telegram.entity.js';
+import { TeamBot } from '../team/team.entity.js';
+import { TelegramMessage, TelegramUser } from '../telegram/telegram.entity.js';
+import { groupTitles } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import { profileLabel, readTaskBody, type TaskBody, TaskError } from './task.plan.js';
 import { runTask } from './task.run.js';
@@ -75,6 +77,10 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
         ).map((person) => [person.id, profileLabel(person)]),
     );
 
+    const groups = await groupTitles(fastify, teamId, [
+        ...new Set(tasks.map((task) => task.group_chat_id).filter((id) => id !== '')),
+    ]);
+
     const tallies = new Map(
         (
             await fastify.db
@@ -112,6 +118,10 @@ async function taskViews(fastify: FastifyInstance, teamId: number, tasks: TeamTa
         agent_name: agents.get(task.agent_id) ?? '',
         profile_id: task.profile_id,
         profile_name: profiles.get(task.profile_id) ?? '',
+        group_bot_id: task.group_bot_id,
+        group_chat_id: task.group_chat_id,
+        group_title:
+            task.group_chat_id === '' ? '' : (groups.get(task.group_chat_id) ?? task.group_chat_id),
         start_at: task.start_at.toISOString(),
         repeat: task.repeat,
         status: task.status,
@@ -154,6 +164,22 @@ async function readCheckedBody(
             .existsBy({ id: body.profile_id, team_id: teamId }))
     ) {
         throw new BadRequestResponse('TASK_PROFILE_NOT_FOUND');
+    }
+
+    if (
+        body.group_chat_id !== '' &&
+        !(
+            (await fastify.db
+                .getRepository(TeamBot)
+                .existsBy({ id: body.group_bot_id, team_id: teamId })) &&
+            (await fastify.db.getRepository(TelegramMessage).existsBy({
+                team_id: teamId,
+                bot_id: body.group_bot_id,
+                chat_id: body.group_chat_id,
+            }))
+        )
+    ) {
+        throw new BadRequestResponse('TASK_GROUP_NOT_FOUND');
     }
 
     return body;

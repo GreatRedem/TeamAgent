@@ -246,9 +246,18 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 as="dd"
                                                 className="truncate"
                                                 message={
-                                                    task.profile_id === 0
-                                                        ? t('tasks.card.keptHere')
-                                                        : task.profile_name
+                                                    task.group_chat_id === ''
+                                                        ? task.profile_id === 0
+                                                            ? t('tasks.card.keptHere')
+                                                            : task.profile_name
+                                                        : task.profile_id === 0
+                                                          ? t('tasks.card.group', {
+                                                                title: task.group_title,
+                                                            })
+                                                          : t('tasks.card.personAndGroup', {
+                                                                name: task.profile_name,
+                                                                title: task.group_title,
+                                                            })
                                                 }
                                             />
 

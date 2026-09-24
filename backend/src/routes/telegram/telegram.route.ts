@@ -6,6 +6,7 @@ import {
     permissionCatalog,
     profileDetails,
     profilePermissionUpdate,
+    telegramGroups,
     telegramWebhook,
     telegramWebhookRegister,
 } from './telegram.service.js';
@@ -20,6 +21,7 @@ export default async function (fastify: FastifyInstance) {
     fastify.patch('/team/:id/profile/:profileId/permission', profilePermissionUpdate(fastify));
 
     fastify.get('/team/:id/permission', permissionCatalog(fastify));
+    fastify.get('/team/:id/group', telegramGroups(fastify));
 
     fastify.post('/team/:id/bot/:botId/webhook', telegramWebhookRegister(fastify));
 }

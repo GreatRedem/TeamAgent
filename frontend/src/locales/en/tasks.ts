@@ -71,7 +71,8 @@ const messages = {
     'tasks.field.agent.placeholder': 'Pick an agent',
     'tasks.field.sendTo.label': 'Send to',
     'tasks.field.sendTo.hint': 'Optional. Nobody picked: the result is only kept here.',
-    'tasks.field.sendTo.hintPicked': 'Sent to {name} through the bot they last wrote to.',
+    'tasks.field.sendTo.hintPicked':
+        'Sent to {name} by direct message, through the bot they last messaged privately.',
     'tasks.field.sendTo.clear': 'Clear',
     'tasks.field.startAt.label': 'Runs at',
     'tasks.field.startAt.hint': 'Your local time.',
@@ -121,6 +122,15 @@ const messages = {
     'tasks.log.end.failed': 'Finished: failed',
     'tasks.log.end.doneReason': 'Finished: done, {reason}',
     'tasks.log.end.failedReason': 'Finished: failed, {reason}',
+    'tasks.field.group.label': 'Post in a group',
+    'tasks.field.group.none': 'Not in a group',
+    'tasks.field.group.option': '{title} · via {bot}',
+    'tasks.field.group.hint':
+        'Optional. Everyone in the group reads the result, so the agent is told to leave private details out.',
+    'tasks.field.group.empty':
+        'No groups yet. A group appears here once someone @mentions a bot that answers in groups.',
+    'tasks.card.group': 'Group {title}',
+    'tasks.card.personAndGroup': '{name} and group {title}',
 } as const;
 
 export default messages;

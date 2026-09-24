@@ -84,6 +84,7 @@ import {
     schemaPermissionCatalog,
     schemaProfileDetails,
     schemaProfilePermissionUpdate,
+    schemaTelegramGroups,
     schemaTelegramWebhook,
     schemaTelegramWebhookRegister,
 } from './telegram.schema.js';
@@ -314,6 +315,7 @@ export async function ingestUpdate(
         bot_id: bot.id,
         update_id: inbound.updateId,
         chat_id: inbound.chatId,
+        chat_title: inbound.group,
         text: inbound.text,
         direction: 'in',
         sent_at: inbound.sentAt,
@@ -1512,6 +1514,77 @@ export function conversationList(fastify: FastifyInstance) {
     };
 
     return { schema: schemaConversationList(), config: { ...authGuard() }, handler };
+}
+
+export async function groupTitles(
+    fastify: FastifyInstance,
+    teamId: number,
+    chatIds: string[],
+): Promise<Map<string, string>> {
+    if (chatIds.length === 0) {
+        return new Map();
+    }
+
+    const rows = await fastify.db
+        .getRepository(TelegramMessage)
+        .createQueryBuilder('m')
+        .distinctOn(['m.chat_id'])
+        .select(['m.chat_id', 'm.chat_title'])
+        .where('m.team_id = :teamId', { teamId })
+        .andWhere('m.chat_id IN (:...chatIds)', { chatIds })
+        .andWhere("m.chat_title <> ''")
+        .orderBy('m.chat_id')
+        .addOrderBy('m.id', 'DESC')
+        .getMany();
+
+    return new Map(rows.map((row) => [String(row.chat_id), row.chat_title]));
+}
+
+export function telegramGroups(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const teamId = readParamId(request, 'id', 'TEAM_ID_INVALID');
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const rows = await fastify.db
+            .getRepository(TelegramMessage)
+            .createQueryBuilder('m')
+            .select('m.bot_id', 'bot_id')
+            .addSelect('m.chat_id', 'chat_id')
+            .addSelect('MAX(m.sent_at)', 'last_at')
+            .where('m.team_id = :teamId', { teamId })
+            .andWhere('m.chat_id < 0')
+            .groupBy('m.bot_id')
+            .addGroupBy('m.chat_id')
+            .orderBy('last_at', 'DESC')
+            .getRawMany<{ bot_id: number; chat_id: string; last_at: Date }>();
+
+        const bots = new Map(
+            (await fastify.db.getRepository(TeamBot).findBy({ team_id: teamId })).map((bot) => [
+                bot.id,
+                bot.name,
+            ]),
+        );
+        const titles = await groupTitles(
+            fastify,
+            teamId,
+            rows.map((row) => String(row.chat_id)),
+        );
+
+        reply.send({
+            groups: rows
+                .filter((row) => bots.has(Number(row.bot_id)))
+                .map((row) => ({
+                    bot_id: Number(row.bot_id),
+                    bot_name: bots.get(Number(row.bot_id)) ?? '',
+                    chat_id: String(row.chat_id),
+                    title: titles.get(String(row.chat_id)) ?? String(row.chat_id),
+                    last_at: new Date(row.last_at).toISOString(),
+                })),
+        });
+    };
+
+    return { schema: schemaTelegramGroups(), config: { ...authGuard() }, handler };
 }
 
 export function conversationMessages(fastify: FastifyInstance) {
