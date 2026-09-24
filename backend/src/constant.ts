@@ -44,6 +44,10 @@ export const CATALOG_CACHE: { entry: { at: number; models: CatalogModel[] } | nu
     entry: null,
 };
 
+export const ENDPOINT_MODELS = new Map<string, { at: number; models: CatalogModel[] }>();
+
+export const NON_CHAT_MODEL = /embed|whisper|tts|dall-e|image|audio|moderation|rerank|transcribe/i;
+
 export const SESSION_ACCESS_TIME = 15 * 60 * 1000;
 
 export const SESSION_REFRESH_TIME = 30 * 24 * 60 * 60 * 1000;

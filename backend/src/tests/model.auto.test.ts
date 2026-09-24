@@ -4,8 +4,10 @@ import { REST_BUSY, REST_DOWN, REST_GONE } from '../constant.js';
 import {
     freeCandidates,
     freeQuotaUntil,
+    isSetAside,
     judge,
     pickFree,
+    pickNext,
     rest,
     setAside,
     wake,
@@ -69,10 +71,37 @@ function main() {
 
         rest('free/large', REST_GONE, now);
         assert.equal(
-            pickFree(pool, new Set(), now)?.id,
-            'free/small',
-            'when all rest, the one that wakes first is still tried',
+            pickFree(pool, new Set(), now),
+            null,
+            'a limited model is out of the rotation until its limit ends',
         );
+
+        wake();
+        setAside('model:7:gpt-x', { kind: 'rest', until: now + REST_DOWN });
+        setAside('free/small', { kind: 'quota', until: now + 3_600_000 });
+        assert.equal(
+            pickNext(
+                [
+                    { id: 'gpt-x', key: 'model:7:gpt-x' },
+                    { id: 'glm', key: 'model:7:glm' },
+                ],
+                new Set(),
+                now,
+            )?.id,
+            'glm',
+            'an endpoint model is set aside under its own key, and the free quota is not its concern',
+        );
+        assert.equal(
+            pickNext([{ id: 'gpt-x', key: 'model:8:gpt-x' }], new Set(), now)?.id,
+            'gpt-x',
+            'the same model id on another saved model is unaffected',
+        );
+
+        wake();
+        setAside('model:7', { kind: 'rest', until: now + REST_BUSY });
+        assert.equal(isSetAside('model:7', now), true, 'a failed fixed model is skipped');
+        assert.equal(isSetAside('model:8', now), false, 'only that model row');
+        assert.equal(isSetAside('model:7', now + REST_BUSY), false, 'and it comes back');
 
         wake();
         setAside('free/small', { kind: 'hide', until: now + 60_000 });
@@ -114,6 +143,21 @@ function main() {
             kind: 'rest',
             until: now + REST_BUSY,
         });
+        assert.deepEqual(
+            judge(
+                429,
+                {
+                    error: {
+                        message: 'rate limited',
+                        metadata: { headers: { 'X-RateLimit-Reset': String(now / 1000 + 600) } },
+                    },
+                },
+                false,
+                now,
+            ),
+            { kind: 'rest', until: now + 600_000 },
+            'a limit that says when it ends is kept until then, in seconds or milliseconds',
+        );
         assert.deepEqual(judge(402, {}, false, now), { kind: 'hide', until: now + REST_GONE });
         assert.deepEqual(judge(404, {}, false, now), { kind: 'hide', until: now + REST_GONE });
         assert.deepEqual(
@@ -123,6 +167,12 @@ function main() {
         assert.deepEqual(judge(400, {}, true, now), { kind: 'hide', until: now + REST_GONE });
         assert.deepEqual(judge(503, {}, false, now), { kind: 'rest', until: now + REST_DOWN });
         assert.deepEqual(judge(0, {}, false, now), { kind: 'rest', until: now + REST_DOWN });
+        assert.deepEqual(
+            judge(403, { error: { message: 'forbidden' } }, false, now),
+            { kind: 'rest', until: now + REST_DOWN },
+            'a forbidden model hands over to the next',
+        );
+        assert.deepEqual(judge(413, {}, false, now), { kind: 'rest', until: now + REST_DOWN });
         assert.equal(
             judge(401, {}, false, now),
             null,

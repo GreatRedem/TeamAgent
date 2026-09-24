@@ -30,25 +30,28 @@ export function freeCandidates(models: CatalogModel[], needTools: boolean): Cata
         .toSorted((a, b) => a.rank - b.rank || b.context - a.context || a.id.localeCompare(b.id));
 }
 
-export function pickFree(
-    candidates: CatalogModel[],
+export function isSetAside(key: string, now = Date.now()): boolean {
+    return (hidden.get(key) ?? 0) > now || (resting.get(key) ?? 0) > now;
+}
+
+export function pickNext<T extends { id: string; key?: string }>(
+    candidates: T[],
     tried: ReadonlySet<string>,
     now = Date.now(),
-): CatalogModel | null {
-    if (FREE_QUOTA.until > now) {
-        return null;
-    }
-
-    const open = candidates.filter(
-        (model) => !tried.has(model.id) && (hidden.get(model.id) ?? 0) <= now,
+): T | null {
+    return (
+        candidates.find(
+            (model) => !tried.has(model.id) && !isSetAside(model.key ?? model.id, now),
+        ) ?? null
     );
-    const ready = open.find((model) => (resting.get(model.id) ?? 0) <= now);
+}
 
-    if (ready !== undefined) {
-        return ready;
-    }
-
-    return open.toSorted((a, b) => (resting.get(a.id) ?? 0) - (resting.get(b.id) ?? 0))[0] ?? null;
+export function pickFree<T extends { id: string; key?: string }>(
+    candidates: T[],
+    tried: ReadonlySet<string>,
+    now = Date.now(),
+): T | null {
+    return FREE_QUOTA.until > now ? null : pickNext(candidates, tried, now);
 }
 
 function errorOf(payload: unknown): {
@@ -68,11 +71,18 @@ function errorOf(payload: unknown): {
     };
 }
 
-function resetAt(headers: Record<string, unknown>, now: number): number {
-    const reset = Number(headers['X-RateLimit-Reset'] ?? headers['x-ratelimit-reset']);
+function headerReset(headers: Record<string, unknown>, now: number): number | null {
+    const raw = Number(headers['X-RateLimit-Reset'] ?? headers['x-ratelimit-reset']);
+    const reset = raw < 1e12 ? raw * 1000 : raw;
 
-    if (Number.isFinite(reset) && reset > now) {
-        return reset < 1e12 ? reset * 1000 : reset;
+    return Number.isFinite(reset) && reset > now ? reset : null;
+}
+
+function resetAt(headers: Record<string, unknown>, now: number): number {
+    const reset = headerReset(headers, now);
+
+    if (reset !== null) {
+        return reset;
     }
 
     const midnight = new Date(now);
@@ -93,7 +103,7 @@ export function judge(
     if (status === 429) {
         return /free-models-per-(day|min)/i.test(message)
             ? { kind: 'quota', until: resetAt(headers, now) }
-            : { kind: 'rest', until: now + REST_BUSY };
+            : { kind: 'rest', until: headerReset(headers, now) ?? now + REST_BUSY };
     }
 
     if (
@@ -106,11 +116,11 @@ export function judge(
         return { kind: 'hide', until: now + REST_GONE };
     }
 
-    if (status === 0 || status === 408 || status >= 500) {
-        return { kind: 'rest', until: now + REST_DOWN };
+    if (status === 400 || status === 401) {
+        return null;
     }
 
-    return null;
+    return { kind: 'rest', until: now + REST_DOWN };
 }
 
 export function setAside(model: string, verdict: SetAside): void {

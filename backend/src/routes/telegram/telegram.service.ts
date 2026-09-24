@@ -12,6 +12,7 @@ import {
     MAX_TOOL_ROUNDS,
     MESSAGE_PAGE,
     PERMISSIONS,
+    PROVIDERS,
     STREAM_EDIT_INTERVAL,
     STREAM_FIRST_CHARS,
     TELEGRAM_API,
@@ -42,7 +43,7 @@ import {
     readToolCalls,
     toolGuidance,
 } from '../agent/agent.reply.js';
-import { sendCompletion } from '../agent/agent.transport.js';
+import { type CompletionResult, isOpenRouter, sendCompletion } from '../agent/agent.transport.js';
 import { audit, changed } from '../audit/audit.log.js';
 import {
     agentTools,
@@ -56,11 +57,13 @@ import {
     freeCandidates,
     freeQuotaUntil,
     isAutoFree,
+    isSetAside,
     judge,
     pickFree,
+    pickNext,
     setAside,
 } from '../model/model.auto.js';
-import { fetchCatalog } from '../model/model.provider.js';
+import { fetchCatalog, fetchEndpointModels } from '../model/model.provider.js';
 import { profileLabel } from '../task/task.plan.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
@@ -713,13 +716,45 @@ export async function runAgent(
         });
 
     const auto = isAutoFree(model.model);
-    const catalog = auto ? (await fetchCatalog()).models : [];
-    const toolReady = freeCandidates(catalog, tools.length > 0);
-    const pool = toolReady.length > 0 ? toolReady : freeCandidates(catalog, false);
+    const free = auto || isOpenRouter(model.base_url);
 
-    let chosen: { id: string; context: number } | null = auto
-        ? null
-        : { id: model.model, context: model.context_tokens };
+    const fixed: { id: string; context: number; key?: string } = {
+        id: model.model,
+        context: model.context_tokens,
+    };
+    const fixedKey = `model:${model.id}`;
+
+    const loadPool = async () => {
+        if (free) {
+            const catalog = (await fetchCatalog()).models;
+            const toolReady = freeCandidates(catalog, tools.length > 0);
+
+            return toolReady.length > 0 ? toolReady : freeCandidates(catalog, false);
+        }
+
+        const fetched = await fetchEndpointModels(model.base_url, model.api_key);
+        const known =
+            fetched.length > 0
+                ? fetched
+                : (PROVIDERS.find((provider) => provider.url === model.base_url)?.models ?? []);
+
+        return known
+            .filter((listed) => listed.id !== model.model)
+            .map((listed) => ({ ...listed, key: `${fixedKey}:${listed.id}` }));
+    };
+
+    let pool: ReturnType<typeof loadPool> | undefined;
+
+    const nextModel = async (tried: ReadonlySet<string>) => {
+        pool ??= loadPool();
+
+        const listed: { id: string; context: number; key?: string }[] = await pool;
+
+        return free ? pickFree(listed, tried) : pickNext(listed, tried);
+    };
+
+    let chosen: { id: string; context: number; key?: string } | null =
+        auto || isSetAside(fixedKey) ? null : fixed;
     let served = model.model;
 
     let text: string | undefined;
@@ -739,11 +774,22 @@ export async function runAgent(
                 const tried = new Set<string>();
                 const offered = withTools ? toOpenAITools(tools) : undefined;
 
+                let last:
+                    | (CompletionResult & { sending: ChatMessage[]; offered: typeof offered })
+                    | undefined;
+
                 for (let attempt = 1; ; attempt += 1) {
-                    const target = chosen ?? pickFree(pool, tried);
+                    const target =
+                        chosen ??
+                        (await nextModel(tried)) ??
+                        (auto || tried.has(fixed.id) ? null : fixed);
 
                     if (target === null) {
-                        const until = freeQuotaUntil();
+                        if (last !== undefined) {
+                            return last;
+                        }
+
+                        const until = free ? freeQuotaUntil() : null;
 
                         return {
                             ok: false,
@@ -751,9 +797,11 @@ export async function runAgent(
                             payload: {
                                 error: {
                                     message:
-                                        until === null
-                                            ? 'no free model is available'
-                                            : `the free models are used up until ${new Date(until).toISOString()}`,
+                                        until !== null
+                                            ? `the free models are used up until ${new Date(until).toISOString()}`
+                                            : free
+                                              ? 'no free model is available'
+                                              : 'no other model on this endpoint is available',
                                 },
                             },
                             sending: messages,
@@ -775,7 +823,10 @@ export async function runAgent(
 
                     served = target.id;
 
-                    if (!auto) {
+                    const own = target === fixed;
+                    const refused = withTools && isToolRefusal(result.payload);
+
+                    if (own && refused) {
                         return { ...result, sending, offered };
                     }
 
@@ -783,14 +834,10 @@ export async function runAgent(
 
                     const verdict = result.ok
                         ? null
-                        : judge(
-                              result.status,
-                              result.payload,
-                              withTools && isToolRefusal(result.payload),
-                          );
+                        : judge(result.status, result.payload, refused);
 
                     if (verdict !== null) {
-                        setAside(target.id, verdict);
+                        setAside(own ? fixedKey : (target.key ?? target.id), verdict);
                     }
 
                     if (
@@ -805,18 +852,19 @@ export async function runAgent(
                     }
 
                     chosen = null;
+                    last = { ...result, sending, offered };
 
                     log.warn(
                         {
                             module: 'agent',
                             agentId: agent.id,
                             modelId: model.id,
-                            free: target.id,
+                            failed: target.id,
                             status: result.status,
                             setAside: verdict.kind,
                             until: new Date(verdict.until).toISOString(),
                         },
-                        'free model failed: switching to the next',
+                        'model failed: switching to the next',
                     );
 
                     const spent = countTokens(
@@ -912,7 +960,10 @@ export async function runAgent(
                 ...tokenColumns(spent),
                 duration_ms: Date.now() - roundStartedAt,
                 outcome: ok ? 'ok' : 'error',
-                reason: auto ? [served, status].filter((part) => part !== '').join(' - ') : status,
+                reason:
+                    served === model.model
+                        ? status
+                        : [served, status].filter((part) => part !== '').join(' - '),
             });
 
             traceModel(

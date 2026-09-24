@@ -1,4 +1,12 @@
-import { CATALOG_CACHE, CATALOG_TIMEOUT, CATALOG_TTL, CATALOG_URL } from '../../constant.js';
+import {
+    CATALOG_CACHE,
+    CATALOG_TIMEOUT,
+    CATALOG_TTL,
+    CATALOG_URL,
+    ENDPOINT_MODELS,
+    NON_CHAT_MODEL,
+    REST_DOWN,
+} from '../../constant.js';
 
 export interface ProviderModel {
     id: string;
@@ -178,4 +186,38 @@ export async function fetchCatalog(now = Date.now()): Promise<CatalogResult> {
             ? { models: cached.models, stale: true, reason: 'CATALOG_UNREACHABLE' }
             : { models: [], stale: false, reason: 'CATALOG_UNREACHABLE' };
     }
+}
+
+export async function fetchEndpointModels(
+    baseUrl: string,
+    apiKey: string,
+    now = Date.now(),
+): Promise<CatalogModel[]> {
+    const key = `${baseUrl} ${apiKey}`;
+    const cached = ENDPOINT_MODELS.get(key);
+
+    if (cached !== undefined && now - cached.at < CATALOG_TTL) {
+        return cached.models;
+    }
+
+    let models = cached?.models ?? [];
+    let fresh = false;
+
+    try {
+        const response = await fetch(`${baseUrl}/models`, {
+            headers: apiKey === '' ? {} : { authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(CATALOG_TIMEOUT),
+        });
+
+        if (response.ok) {
+            models = readCatalog(await response.json()).filter(
+                (model) => model.text && !NON_CHAT_MODEL.test(model.id),
+            );
+            fresh = true;
+        }
+    } catch {}
+
+    ENDPOINT_MODELS.set(key, { at: fresh ? now : now - CATALOG_TTL + REST_DOWN, models });
+
+    return models;
 }

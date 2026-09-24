@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
-import { AGENTROUTER_URL, OPENROUTER_URL, PROVIDERS } from '../constant.js';
+import { AGENTROUTER_URL, CATALOG_TTL, OPENROUTER_URL, PROVIDERS, REST_DOWN } from '../constant.js';
 
-import { readCatalog, readContextLength } from '../routes/model/model.provider.js';
+import {
+    fetchEndpointModels,
+    readCatalog,
+    readContextLength,
+} from '../routes/model/model.provider.js';
 import { probeModel } from '../routes/model/model.service.js';
 
 async function main() {
@@ -551,6 +555,43 @@ async function main() {
                         );
                     });
                 }
+            },
+        ],
+
+        [
+            'the fallback list comes from the endpoint, chat models only, kept for an hour',
+            async () => {
+                const base = 'https://fallback.example.com/v1';
+                const now = 5_000_000;
+                const ids = async (at: number) =>
+                    (await fetchEndpointModels(base, KEY, at)).map((model) => model.id);
+
+                await withFetch(json(200, listing), async (calls) => {
+                    assert.deepEqual(await ids(now), ['gpt-4o', 'gpt-4o-mini']);
+                    await ids(now + 1000);
+                    assert.equal(calls.length, 1, 'served from the cache');
+                    assert.equal(calls[0]?.url, `${base}/models`);
+                    assert.equal(calls[0]?.auth, `Bearer ${KEY}`);
+                });
+
+                await withFetch(json(500, {}), async (calls) => {
+                    assert.deepEqual(
+                        await ids(now + CATALOG_TTL),
+                        ['gpt-4o', 'gpt-4o-mini'],
+                        'a failed refresh keeps the last good list',
+                    );
+                    assert.equal(calls.length, 1, 'asked again once the hour is up');
+                    await ids(now + CATALOG_TTL + 1000);
+                    assert.equal(calls.length, 1, 'a failure is not retried on every request');
+                });
+
+                await withFetch(json(200, { data: [{ id: 'glm-5.2' }] }), async () => {
+                    assert.deepEqual(
+                        await ids(now + CATALOG_TTL + REST_DOWN),
+                        ['glm-5.2'],
+                        'but soon after, and the refresh picks up what changed',
+                    );
+                });
             },
         ],
     ];
