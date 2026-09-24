@@ -671,6 +671,8 @@ export const hidden = new Map<string, number>();
 
 export const FREE_QUOTA = { until: 0 };
 
+export const REPLY_QUEUES = new Map<number, Promise<void>>();
+
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1';
 
 export const AGENTROUTER_URL = 'https://agentrouter.org/v1';

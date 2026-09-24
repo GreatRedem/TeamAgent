@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { ILike } from 'typeorm';
+import { ILike, LessThan } from 'typeorm';
 import {
     AGENT_TIMEOUT,
     AUTO_ATTEMPTS,
@@ -13,6 +13,7 @@ import {
     MESSAGE_PAGE,
     PERMISSIONS,
     PROVIDERS,
+    REPLY_QUEUES,
     STREAM_EDIT_INTERVAL,
     STREAM_FIRST_CHARS,
     TELEGRAM_API,
@@ -25,6 +26,7 @@ import {
 
 import { authGuard } from '../../plugins/authentication.js';
 import { idList } from '../../utils/ids.js';
+import { enqueue } from '../../utils/queue.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { agentHasPermission } from '../agent/agent.permission.js';
@@ -332,8 +334,10 @@ export async function ingestUpdate(
         },
     });
 
-    void deliverAgentReply(fastify, bot, user, inbound, stored.id, log).catch((error: unknown) =>
-        log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'),
+    void enqueue(REPLY_QUEUES, bot.id, () =>
+        deliverAgentReply(fastify, bot, user, inbound, stored.id, log).catch((error: unknown) =>
+            log.error({ module: 'agent', botId: bot.id, err: error }, 'agent reply crashed'),
+        ),
     );
 
     return 'stored';
@@ -571,24 +575,6 @@ function startTyping(token: string, chatId: string, log: FastifyBaseLogger): () 
     guard.unref();
 
     return stop;
-}
-
-async function supersededBy(
-    fastify: FastifyInstance,
-    userId: number,
-    chatId: string,
-    messageId: number,
-): Promise<boolean> {
-    const newer = await fastify.db
-        .getRepository(TelegramMessage)
-        .createQueryBuilder('message')
-        .where('message.user_id = :userId', { userId })
-        .andWhere('message.chat_id = :chatId', { chatId })
-        .andWhere('message.direction = :direction', { direction: 'in' })
-        .andWhere('message.id > :messageId', { messageId })
-        .getCount();
-
-    return newer > 0;
 }
 
 export function placeholderUser(teamId: number, at: Date): TelegramUser {
@@ -1220,8 +1206,12 @@ async function deliverAgentReply(
         return;
     }
 
+    const scope = { team_id: bot.team_id, user_id: user.id, chat_id: chatId };
     const history = await fastify.db.getRepository(TelegramMessage).find({
-        where: { team_id: bot.team_id, user_id: user.id, chat_id: chatId },
+        where: [
+            { ...scope, direction: 'out' },
+            { ...scope, direction: 'in', id: LessThan(messageId) },
+        ],
         order: { id: 'DESC' },
         take: HISTORY_LIMIT + 1,
     });
@@ -1253,24 +1243,6 @@ async function deliverAgentReply(
             reply_parameters: { message_id: inbound.messageId, allow_sending_without_reply: true },
         }),
     };
-
-    if (await supersededBy(fastify, user.id, chatId, messageId)) {
-        log.info(
-            { module: 'agent', botId: bot.id, userId: user.id, messageId },
-            'agent reply stood down: newer message arrived',
-        );
-
-        await audit(fastify, log, {
-            teamId: bot.team_id,
-            actor: 'agent',
-            action: 'agent.request',
-            target: `agent:${agent.id}`,
-            outcome: 'skipped',
-            detail: `message ${messageId} superseded before the model was called`,
-        });
-
-        return;
-    }
 
     const stopTyping = startTyping(bot.token, chatId, log);
 
@@ -1340,27 +1312,6 @@ async function deliverAgentReply(
         await streamer.discard();
 
         await notifyFailure(bot, chatId, lastStatus, log);
-
-        return;
-    }
-
-    if (await supersededBy(fastify, user.id, chatId, messageId)) {
-        log.info(
-            { module: 'agent', botId: bot.id, userId: user.id, messageId },
-            'agent reply discarded: newer message arrived while composing',
-        );
-
-        await audit(fastify, log, {
-            teamId: bot.team_id,
-            actor: 'agent',
-            action: 'agent.request',
-            target: `agent:${agent.id}`,
-            outcome: 'skipped',
-            durationMs: Date.now() - startedAt,
-            detail: `message ${messageId} superseded while composing - ${text.length} chars discarded`,
-        });
-
-        await streamer.discard();
 
         return;
     }
