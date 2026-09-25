@@ -4,7 +4,24 @@ import type { Messages } from '../types';
 const messages: Messages<typeof en> = {
     'auth.wallet.nura': 'ساخته‌شده برای Nura؛ بدون ترک برنامه امضا می‌کند',
     'auth.wallet.metamask': 'افزونهٔ مرورگری که شاید از قبل داشته باشید',
-    'auth.intro': 'با امضای کیف پول وارد شوید. رمز عبوری در کار نیست که گم شود.',
+    'auth.intro':
+        'با کیف پول خود یا کدی که به تلفنتان پیامک می‌شود وارد شوید. رمزی در کار نیست که گم شود.',
+    'auth.tab.wallet': 'کیف پول',
+    'auth.tab.phone': 'تلفن',
+    'auth.phone.label': 'شمارهٔ موبایل',
+    'auth.phone.hint':
+        'یک کد ۶ رقمی برایتان پیامک می‌کنیم. شماره‌های ایران می‌توانند با ۰۹ شروع شوند.',
+    'auth.phone.placeholder': '0912 345 6789',
+    'auth.phone.send': 'کد را برایم بفرست',
+    'auth.phone.sending': 'در حال ارسال…',
+    'auth.phone.sendFailed': 'کد ارسال نشد.',
+    'auth.phone.codeLabel': 'کد',
+    'auth.phone.codeHint': 'به {phone} فرستاده شد. تا ۵ دقیقه معتبر است.',
+    'auth.phone.verify': 'ورود',
+    'auth.phone.checking': 'در حال بررسی…',
+    'auth.phone.change': 'شمارهٔ دیگری وارد کنید',
+    'auth.phone.resend': 'ارسال کد تازه',
+    'auth.phone.resendIn': 'کد تازه تا {seconds} ثانیهٔ دیگر',
     'auth.signIn': 'ورود با کیف پول',
     'auth.dialog.title': 'یک کیف پول انتخاب کنید',
     'auth.dialog.description':

@@ -21,6 +21,8 @@ async (page) => {
                 { key: 'custom', price: null, limits: null },
             ],
         },
+        'POST /account/sms/send': { phone: '+989121234567', resend_after: 60 },
+        'POST /account/sms/sign-in': { accessToken: 'mock-session' },
         'GET /team': { teams: [team], ...paged, total: 1 },
         'GET /team/1': team,
         'GET /team/1/agent': { agents: [agent(1, 'Support'), agent(2, 'Social')], ...paged, total: 2 },

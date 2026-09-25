@@ -15,6 +15,12 @@ const messages: Messages<typeof en> = {
     'errors.DOCUMENT_NOT_FOUND': 'این فایل دیگر وجود ندارد.',
     'errors.ERROR_MAX_LENGTH': 'این مقدار بیش از حد طولانی است.',
     'errors.ERROR_MIN_LENGTH': 'این مقدار بیش از حد کوتاه است.',
+    'errors.PHONE_INVALID':
+        'این شماره موبایلی نیست که بتوانیم به آن پیامک بدهیم. رقم‌ها را بررسی کنید.',
+    'errors.SMS_TOO_SOON': 'همین الان یک کد فرستاده شد. یک دقیقه صبر کنید و بعد کد تازه بخواهید.',
+    'errors.SMS_UNAVAILABLE':
+        'الان نمی‌شود پیامک فرستاد. بعداً دوباره تلاش کنید یا با کیف پول وارد شوید.',
+    'errors.SMS_CODE_INVALID': 'این کد اشتباه است یا منقضی شده. کد تازه بخواهید.',
     'errors.PLAN_LIMIT_PROJECTS':
         'طرح شما جای پروژهٔ دیگری ندارد. از بخش پشتیبانی طرح بزرگ‌تری بخواهید.',
     'errors.PLAN_LIMIT_AGENTS':

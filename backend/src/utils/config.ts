@@ -74,5 +74,8 @@ export function readConfig() {
         SESSION_REFRESH_SECRET: readString('SESSION_REFRESH_SECRET'),
 
         TAVILY_API_KEY: process.env['TAVILY_API_KEY'] ?? '',
+
+        SMS_API_URL: process.env['SMS_API_URL'] ?? '',
+        SMS_API_KEY: process.env['SMS_API_KEY'] ?? '',
     };
 }

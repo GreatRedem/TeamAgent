@@ -238,7 +238,9 @@ so its text does not re-wrap when the scrollbar appears.
 the person chooses between Nura Wallet and MetaMask. Wallets are discovered over
 EIP-6963, so a row shows the wallet's own icon when it is installed and reads
 "Not installed in this browser" when it is not. Failures appear in the picker,
-against the wallet that produced them.
+against the wallet that produced them. A second tab, Phone, asks for a mobile
+number, texts a 6-digit code, then asks for the code; the resend unlocks after a
+minute. Phone numbers are typed left to right in both languages.
 
 **Projects.** Card grid. Name, what it is for, when it was made, one way in.
 Under it, the account's plan: its name, when it ends, projects used and the

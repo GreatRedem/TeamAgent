@@ -88,6 +88,7 @@ export function schemaAccountMe() {
                     'id',
                     'admin',
                     'wallet',
+                    'phone',
                     'plan',
                     'chosen_plan',
                     'plan_until',
@@ -98,11 +99,57 @@ export function schemaAccountMe() {
                     id: { type: 'integer' },
                     admin: { type: 'boolean' },
                     wallet: { type: ['string', 'null'] },
+                    phone: { type: ['string', 'null'] },
                     plan: { type: 'string' },
                     chosen_plan: { type: 'string' },
                     plan_until: { type: ['string', 'null'] },
                     limits: limits(),
                     projects: { type: 'integer' },
+                },
+            },
+        },
+    } as const;
+}
+
+export function schemaAccountSmsSend() {
+    return {
+        body: {
+            type: 'object',
+            required: ['phone'],
+            properties: {
+                phone: { type: 'string' },
+                locale: { type: 'string' },
+            },
+        },
+        response: {
+            200: {
+                type: 'object',
+                required: ['phone', 'resend_after'],
+                properties: {
+                    phone: { type: 'string' },
+                    resend_after: { type: 'integer' },
+                },
+            },
+        },
+    } as const;
+}
+
+export function schemaAccountSmsSignIn() {
+    return {
+        body: {
+            type: 'object',
+            required: ['phone', 'code'],
+            properties: {
+                phone: { type: 'string' },
+                code: { type: 'string' },
+            },
+        },
+        response: {
+            200: {
+                type: 'object',
+                required: ['accessToken'],
+                properties: {
+                    accessToken: { type: 'string' },
                 },
             },
         },

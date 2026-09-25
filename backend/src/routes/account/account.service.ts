@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { IsNull } from 'typeorm';
 import { getAddress, isAddress, recoverMessageAddress } from 'viem';
@@ -7,6 +7,12 @@ import {
     APP_NAME,
     PLANS,
     SESSION_REFRESH_TIME,
+    SMS_CODE_ATTEMPTS,
+    SMS_CODE_TIME,
+    SMS_HOURLY_MAX,
+    SMS_RESEND_GAP,
+    SMS_SENT,
+    SMS_TEXT,
     WALLET_NONCE_TIME,
 } from '../../constant.js';
 
@@ -15,14 +21,17 @@ import { rateLimit } from '../../plugins/ratelimit.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { audit } from '../audit/audit.log.js';
 import { Team } from '../team/team.entity.js';
-import { Account, AccountNonce, AccountSession } from './account.entity.js';
+import { Account, AccountNonce, AccountSession, AccountSmsCode } from './account.entity.js';
 import { activePlan } from './account.plan.js';
 import {
     schemaAccountMe,
     schemaAccountPlans,
+    schemaAccountSmsSend,
+    schemaAccountSmsSignIn,
     schemaAccountWalletNonce,
     schemaAccountWalletSignIn,
 } from './account.schema.js';
+import { codeHash, normalizePhone, plainDigits, sameHash, sendSms } from './account.sms.js';
 
 function buildSignInMessage(address: string, nonce: string, issuedAt: Date, expiresAt: Date) {
     return [
@@ -221,6 +230,7 @@ export function accountMe(fastify: FastifyInstance) {
             id: account.id,
             admin: request.account_role >= ADMIN_ROLE,
             wallet: account.wallet,
+            phone: account.phone,
             plan: plan.key,
             chosen_plan: account.plan,
             plan_until: account.plan_until?.toISOString() ?? null,
@@ -230,4 +240,139 @@ export function accountMe(fastify: FastifyInstance) {
     };
 
     return { schema: schemaAccountMe(), config: { ...authGuard() }, handler };
+}
+
+function readPhone(request: FastifyRequest): string {
+    const phone = normalizePhone(request.getBody('phone').min(4).max(32).asString());
+
+    if (phone === null) {
+        throw new BadRequestResponse('PHONE_INVALID');
+    }
+
+    return phone;
+}
+
+export function smsSend(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const phone = readPhone(request);
+        const locale = (request.body as { locale?: unknown }).locale;
+        const now = Date.now();
+        const recent = (SMS_SENT.get(phone) ?? []).filter((at) => now - at < 60 * 60 * 1000);
+
+        if (recent.length >= SMS_HOURLY_MAX || (recent.at(-1) ?? 0) > now - SMS_RESEND_GAP) {
+            throw new BadRequestResponse('SMS_TOO_SOON');
+        }
+
+        SMS_SENT.set(phone, [...recent, now]);
+
+        const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+        const codes = fastify.db.getRepository(AccountSmsCode);
+
+        await codes.update({ phone, consumed_at: IsNull() }, { consumed_at: new Date(now) });
+        await codes.save({
+            phone,
+            code_hash: codeHash(phone, code),
+            attempts: 0,
+            expires_at: new Date(now + SMS_CODE_TIME),
+            consumed_at: null,
+        });
+
+        const text = (
+            SMS_TEXT[typeof locale === 'string' ? locale : 'en'] ??
+            SMS_TEXT['en'] ??
+            ''
+        ).replace('{code}', code);
+        const sent = await sendSms(request.log, phone, text);
+
+        if (!sent.ok) {
+            request.log.error({ module: 'sms', phone, error: sent.error }, 'sms not sent');
+
+            throw new BadRequestResponse('SMS_UNAVAILABLE');
+        }
+
+        request.log.info({ module: 'account', phone }, 'sms code sent');
+
+        reply.send({ phone, resend_after: SMS_RESEND_GAP / 1000 });
+    };
+
+    return {
+        schema: schemaAccountSmsSend(),
+        config: { ...rateLimit('account-sms-send', 10, 10 * 60 * 1000) },
+        handler,
+    };
+}
+
+export function smsSignIn(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const phone = readPhone(request);
+        const code = plainDigits(request.getBody('code').min(4).max(12).asString()).replace(
+            /\s/g,
+            '',
+        );
+        const codes = fastify.db.getRepository(AccountSmsCode);
+
+        const challenge = await codes.findOne({
+            where: { phone, consumed_at: IsNull() },
+            order: { id: 'DESC' },
+        });
+
+        if (
+            !challenge ||
+            challenge.expires_at < new Date() ||
+            challenge.attempts >= SMS_CODE_ATTEMPTS
+        ) {
+            throw new BadRequestResponse('SMS_CODE_INVALID');
+        }
+
+        if (!sameHash(challenge.code_hash, codeHash(phone, code))) {
+            await codes.increment({ id: challenge.id }, 'attempts', 1);
+
+            request.log.warn({ module: 'account', phone }, 'sms code rejected');
+
+            throw new BadRequestResponse('SMS_CODE_INVALID');
+        }
+
+        const consumed = await codes
+            .createQueryBuilder()
+            .update(AccountSmsCode)
+            .set({ consumed_at: new Date() })
+            .where('id = :id', { id: challenge.id })
+            .andWhere('consumed_at IS NULL')
+            .execute();
+
+        if (consumed.affected !== 1) {
+            throw new BadRequestResponse('SMS_CODE_INVALID');
+        }
+
+        let account = await fastify.db.getRepository(Account).findOneBy({ phone });
+        const created = !account;
+
+        if (!account) {
+            account = await fastify.db.getRepository(Account).save({ phone });
+
+            request.log.info({ module: 'account', accountId: account.id }, 'account created');
+        }
+
+        const accessToken = await startSession(fastify, request, reply, account);
+
+        await audit(fastify, request.log, {
+            accountId: account.id,
+            action: created ? 'account.create' : 'account.sign_in',
+            target: `account:${account.id}`,
+            detail: `${phone}${created ? ' · new account' : ''}`,
+            changes: {
+                phone,
+                ip: request.ip,
+                agent: request.headers['user-agent'] ?? '',
+            },
+        });
+
+        reply.send({ accessToken });
+    };
+
+    return {
+        schema: schemaAccountSmsSignIn(),
+        config: { ...rateLimit('account-sms-sign-in', 20, 10 * 60 * 1000) },
+        handler,
+    };
 }

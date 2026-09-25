@@ -75,6 +75,23 @@ export const APP_NAME = 'NuraAI';
 
 export const WALLET_NONCE_TIME = 5 * 60 * 1000;
 
+export const SMS_CODE_TIME = 5 * 60 * 1000;
+
+export const SMS_CODE_ATTEMPTS = 5;
+
+export const SMS_RESEND_GAP = 60 * 1000;
+
+export const SMS_HOURLY_MAX = 5;
+
+export const SMS_TIMEOUT = 15_000;
+
+export const SMS_SENT = new Map<string, number[]>();
+
+export const SMS_TEXT: Record<string, string> = {
+    en: `Your ${APP_NAME} sign-in code is {code}. It works for 5 minutes.`,
+    fa: `کد ورود شما به ${APP_NAME}: {code}\nتا ۵ دقیقه معتبر است.`,
+};
+
 export const ADMIN_ROLE = 1;
 
 export const PLANS: Plan[] = [

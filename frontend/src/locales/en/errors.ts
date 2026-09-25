@@ -11,6 +11,11 @@ const messages = {
     'errors.DOCUMENT_NOT_FOUND': 'That file no longer exists.',
     'errors.ERROR_MAX_LENGTH': 'That is too long.',
     'errors.ERROR_MIN_LENGTH': 'That is too short.',
+    'errors.PHONE_INVALID': 'That is not a mobile number we can text. Check the digits.',
+    'errors.SMS_TOO_SOON': 'A code was sent a moment ago. Wait a minute before asking for another.',
+    'errors.SMS_UNAVAILABLE':
+        'Text messages cannot be sent right now. Try again later, or sign in with a wallet.',
+    'errors.SMS_CODE_INVALID': 'That code is wrong or has expired. Ask for a new one.',
     'errors.PLAN_LIMIT_PROJECTS':
         'Your plan has no room for another project. Ask for a bigger plan from Support.',
     'errors.PLAN_LIMIT_AGENTS':

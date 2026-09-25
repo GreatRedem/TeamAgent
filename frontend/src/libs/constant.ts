@@ -121,6 +121,8 @@ export const TASK_AFTER_LABELS: Record<TaskAfterOutcome, MessageKey> = {
 
 export const TASK_CHOICES_MAX = 200;
 
+export const SMS_CODE_LENGTH = 6;
+
 export const PLAN_TEXT: Record<PlanKey, { name: MessageKey; blurb: MessageKey }> = {
     free: { name: 'plans.free.name', blurb: 'plans.free.blurb' },
     pro: { name: 'plans.pro.name', blurb: 'plans.pro.blurb' },

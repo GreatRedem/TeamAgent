@@ -11,6 +11,17 @@ export function walletSignIn(address: string, signature: string) {
     });
 }
 
+export function smsSend(phone: string, locale: string) {
+    return request<{ phone: string; resend_after: number }>('POST', '/account/sms/send', {
+        phone,
+        locale,
+    });
+}
+
+export function smsSignIn(phone: string, code: string) {
+    return request<{ accessToken: string }>('POST', '/account/sms/sign-in', { phone, code });
+}
+
 export type PlanKey = 'free' | 'pro' | 'business' | 'custom';
 
 export interface PlanLimits {
@@ -30,6 +41,7 @@ export interface AccountMe {
     id: number;
     admin: boolean;
     wallet: string | null;
+    phone: string | null;
     plan: PlanKey;
     chosen_plan: PlanKey;
     plan_until: string | null;

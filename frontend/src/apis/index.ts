@@ -5,6 +5,8 @@ export {
     type Plan,
     type PlanKey,
     type PlanLimits,
+    smsSend,
+    smsSignIn,
     walletNonce,
     walletSignIn,
 } from './account';

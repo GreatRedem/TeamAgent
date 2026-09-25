@@ -8,8 +8,11 @@ export class Account {
     @Column({ type: 'int', default: 0 })
     role: number;
 
-    @Column({ type: 'varchar', length: 42, unique: true })
-    wallet: string;
+    @Column({ type: 'varchar', length: 42, unique: true, nullable: true })
+    wallet: string | null;
+
+    @Column({ type: 'varchar', length: 16, unique: true, nullable: true })
+    phone: string | null;
 
     @Column({ type: 'varchar', length: 16, default: 'free' })
     plan: string;
@@ -60,6 +63,31 @@ export class AccountNonce {
 
     @Column({ type: 'varchar', length: 1024 })
     message: string;
+
+    @Column({ type: 'timestamp', nullable: true })
+    consumed_at: Date | null;
+
+    @Column({ type: 'timestamp' })
+    expires_at: Date;
+
+    @CreateDateColumn()
+    created_at: Date;
+}
+
+@Entity({ name: 'account_sms_code' })
+export class AccountSmsCode {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Index()
+    @Column({ type: 'varchar', length: 16 })
+    phone: string;
+
+    @Column({ type: 'varchar', length: 64 })
+    code_hash: string;
+
+    @Column({ type: 'int', default: 0 })
+    attempts: number;
 
     @Column({ type: 'timestamp', nullable: true })
     consumed_at: Date | null;
