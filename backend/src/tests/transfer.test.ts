@@ -85,6 +85,10 @@ async function main() {
         const manager = {
             connection: source,
             find: async (entity: unknown, options?: { where?: Row }) => select(entity, options),
+            getRepository: (entity: unknown) => ({
+                findOneBy: async (where: Row) => select(entity, { where })[0] ?? null,
+                countBy: async (where: Row) => select(entity, { where }).length,
+            }),
             insert: async (entity: unknown, rows: Row[]) => ({
                 identifiers: rows.map((row) => {
                     next += 1;
