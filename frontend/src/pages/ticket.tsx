@@ -51,7 +51,7 @@ export function TicketPage() {
         } catch (cause) {
             if (cause instanceof ApiError && cause.status === 401) {
                 clearAccessToken();
-                await navigate('/', { replace: true });
+                await navigate('/sign-in', { replace: true });
 
                 return;
             }

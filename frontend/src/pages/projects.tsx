@@ -56,7 +56,7 @@ export function Projects() {
 
     useEffect(() => {
         if (token === null) {
-            void navigate('/', { replace: true });
+            void navigate('/sign-in', { replace: true });
         }
     }, [token, navigate]);
 

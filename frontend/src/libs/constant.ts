@@ -1,24 +1,37 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+    Activity,
     AppWindow,
     AtSign,
+    BookUser,
     Bot,
+    Brain,
+    CalendarClock,
     Camera,
     Cpu,
     FileText,
     Forward,
     Globe,
+    Headphones,
+    Languages,
     LayoutGrid,
     ListChecks,
+    Megaphone,
     MessageSquare,
     MessagesSquare,
     Mic,
+    Newspaper,
+    PackageOpen,
+    Paperclip,
     Plug,
+    Search,
     Send,
     Settings2,
     ShieldCheck,
     Users,
+    UsersRound,
     Webhook,
+    Workflow,
     Wrench,
 } from 'lucide-react';
 
@@ -548,4 +561,48 @@ Friendly, patient and clear. No jargon.
 
 ${AGENT_ROLE_ANSWERING}`,
     },
+];
+
+export const LANDING_FEATURES: { icon: LucideIcon; title: MessageKey; text: MessageKey }[] = [
+    { icon: FileText, title: 'landing.feature.agents.title', text: 'landing.feature.agents.text' },
+    { icon: Send, title: 'landing.feature.bots.title', text: 'landing.feature.bots.text' },
+    { icon: Cpu, title: 'landing.feature.models.title', text: 'landing.feature.models.text' },
+    {
+        icon: CalendarClock,
+        title: 'landing.feature.tasks.title',
+        text: 'landing.feature.tasks.text',
+    },
+    { icon: Plug, title: 'landing.feature.plugins.title', text: 'landing.feature.plugins.text' },
+    { icon: Forward, title: 'landing.feature.relay.title', text: 'landing.feature.relay.text' },
+    { icon: Paperclip, title: 'landing.feature.files.title', text: 'landing.feature.files.text' },
+    {
+        icon: ShieldCheck,
+        title: 'landing.feature.permissions.title',
+        text: 'landing.feature.permissions.text',
+    },
+    { icon: Users, title: 'landing.feature.roster.title', text: 'landing.feature.roster.text' },
+    { icon: Brain, title: 'landing.feature.memory.title', text: 'landing.feature.memory.text' },
+    { icon: Bot, title: 'landing.feature.panel.title', text: 'landing.feature.panel.text' },
+    { icon: Activity, title: 'landing.feature.record.title', text: 'landing.feature.record.text' },
+    {
+        icon: PackageOpen,
+        title: 'landing.feature.transfer.title',
+        text: 'landing.feature.transfer.text',
+    },
+    {
+        icon: Languages,
+        title: 'landing.feature.language.title',
+        text: 'landing.feature.language.text',
+    },
+];
+
+export const LANDING_USES: { icon: LucideIcon; title: MessageKey; text: MessageKey }[] = [
+    { icon: Headphones, title: 'landing.use.support.title', text: 'landing.use.support.text' },
+    { icon: UsersRound, title: 'landing.use.community.title', text: 'landing.use.community.text' },
+    { icon: Megaphone, title: 'landing.use.content.title', text: 'landing.use.content.text' },
+    { icon: Newspaper, title: 'landing.use.reports.title', text: 'landing.use.reports.text' },
+    { icon: Search, title: 'landing.use.research.title', text: 'landing.use.research.text' },
+    { icon: BookUser, title: 'landing.use.assistant.title', text: 'landing.use.assistant.text' },
+    { icon: Workflow, title: 'landing.use.operations.title', text: 'landing.use.operations.text' },
+    { icon: Mic, title: 'landing.use.voice.title', text: 'landing.use.voice.text' },
 ];

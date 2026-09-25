@@ -9,6 +9,10 @@ export function AppShell() {
     const { pathname } = useLocation();
 
     if (readAccessToken() === null) {
+        if (pathname === '/') {
+            return <Outlet />;
+        }
+
         return (
             <Stack direction="Vertical" className="min-h-dvh">
                 <Stack

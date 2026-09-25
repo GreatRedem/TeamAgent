@@ -234,7 +234,14 @@ so its text does not re-wrap when the scrollbar appears.
 
 ## 8. Screens
 
-**Sign in.** No header. One card sits centred on the solid background. The button opens a wallet picker rather than connecting straight away, so
+**Landing.** At `/` for anyone signed out; a signed-in visitor goes straight to
+Projects. A brand row with the language switch and Sign in, then one column of
+four sections: the pitch with Start free, what Nura does (feature cards, three-up
+from `lg`), what it is for (use-case rows, two-up from `sm`) and the plans
+(four-up from `lg`, Pro on the `live` rail). Every price and limit comes from the
+API. No imagery, no testimonials, no numbers the product cannot back.
+
+**Sign in.** At `/sign-in`. No header. One card sits centred on the solid background. The button opens a wallet picker rather than connecting straight away, so
 the person chooses between Nura Wallet and MetaMask. Wallets are discovered over
 EIP-6963, so a row shows the wallet's own icon when it is installed and reads
 "Not installed in this browser" when it is not. Failures appear in the picker,

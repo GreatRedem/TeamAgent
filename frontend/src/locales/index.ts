@@ -4,6 +4,7 @@ import enAuth from './en/auth';
 import enBots from './en/bots';
 import enCommon from './en/common';
 import enErrors from './en/errors';
+import enLanding from './en/landing';
 import enLayout from './en/layout';
 import enModels from './en/models';
 import enOverview from './en/overview';
@@ -21,6 +22,7 @@ import faBots from './fa/bots';
 import faCatalog from './fa/catalog';
 import faCommon from './fa/common';
 import faErrors from './fa/errors';
+import faLanding from './fa/landing';
 import faLayout from './fa/layout';
 import faModels from './fa/models';
 import faOverview from './fa/overview';
@@ -49,6 +51,7 @@ const en = {
     ...enTools,
     ...enPlans,
     ...enSupport,
+    ...enLanding,
     ...enErrors,
 };
 
@@ -69,6 +72,7 @@ const fa: Messages<typeof en> = {
     ...faTools,
     ...faPlans,
     ...faSupport,
+    ...faLanding,
     ...faErrors,
 };
 

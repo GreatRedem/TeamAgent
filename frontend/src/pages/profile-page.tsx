@@ -75,7 +75,7 @@ export function ProfilePage() {
 
     useEffect(() => {
         if (readAccessToken() === null) {
-            void navigate('/', { replace: true });
+            void navigate('/sign-in', { replace: true });
 
             return;
         }
@@ -107,7 +107,7 @@ export function ProfilePage() {
                 if (cause instanceof ApiError && cause.status === 401) {
                     clearAccessToken();
 
-                    void navigate('/', { replace: true });
+                    void navigate('/sign-in', { replace: true });
 
                     return;
                 }

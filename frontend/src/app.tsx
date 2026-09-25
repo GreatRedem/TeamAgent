@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 
 import { AppShell } from '@/components/layout/app-shell';
 import { Agent } from '@/pages/agent';
+import { Landing } from '@/pages/landing';
 import { NotFound } from '@/pages/not-found';
 import { ProfilePage } from '@/pages/profile-page';
 import { Project } from '@/pages/project';
@@ -14,7 +15,8 @@ export function App() {
     return (
         <Routes>
             <Route element={<AppShell />}>
-                <Route index element={<SignIn />} />
+                <Route index element={<Landing />} />
+                <Route path="sign-in" element={<SignIn />} />
                 <Route path="dashboard" element={<Projects />} />
                 <Route path="dashboard/support" element={<SupportInbox />} />
                 <Route path="dashboard/support/:ticketId" element={<TicketPage />} />

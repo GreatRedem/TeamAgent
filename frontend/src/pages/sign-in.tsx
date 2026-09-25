@@ -1,9 +1,11 @@
 import { MessageSquareText, Wallet } from 'lucide-react';
 import { useState } from 'react';
+import { Navigate } from 'react-router';
 
 import { PhoneSignIn } from '@/components/phone-sign-in';
 import { WalletSignIn } from '@/components/wallet-sign-in';
 import { t } from '@/libs/i18n';
+import { readAccessToken } from '@/libs/session';
 import { Brand } from '@/ui/brand';
 import { Stack } from '@/ui/stack';
 import { Tabs } from '@/ui/tabs';
@@ -11,6 +13,10 @@ import { Text } from '@/ui/text';
 
 export function SignIn() {
     const [method, setMethod] = useState<'wallet' | 'phone'>('wallet');
+
+    if (readAccessToken() !== null) {
+        return <Navigate to="/dashboard" replace />;
+    }
 
     return (
         <Stack direction="Vertical" as="section" className="mx-auto w-full max-w-sm">
