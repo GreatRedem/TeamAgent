@@ -979,6 +979,19 @@ export const RELAY_MEDIA_METHODS = {
 
 export const TELEGRAM_CAPTION_MAX = 1024;
 
+export const FILE_MAX_BYTES = 20 * 1024 * 1024;
+
+export const FILE_TEXT_MAX = 20_000;
+
+export const FILE_TIMEOUT = 60_000;
+
+export const TRANSCRIBE_TIMEOUT = 120_000;
+
+export const ATTACHMENT_TOKENS = 1500;
+
+export const TEXT_FILE_PATTERN =
+    /^text\/|^application\/(json|xml|x-yaml|yaml|csv|x-sh|javascript|typescript|sql)$|\.(txt|md|markdown|csv|tsv|json|xml|ya?ml|log|ini|toml|html?|css|js|ts|py|sql|sh)$/i;
+
 export const PLUGIN_EVENTS = ['message.received', 'agent.replied', 'agent.action', 'agent.failed'];
 
 export const PLUGIN_STATUS = new Map<number, { listening: boolean; error: string }>();
@@ -1576,6 +1589,49 @@ export const PLUGIN_KINDS: PluginKind[] = [
                 hint: 'What the agent does with every post, for example which project to tie it to and how long to keep it.',
                 placeholder:
                     'Relate it to NuraChain and write it for our community, in the same language.',
+            },
+        ],
+    },
+    {
+        key: 'voice',
+        label: 'Speech to text',
+        description:
+            'Turns voice messages people send your bots into text, so the agent can act on what they said. Works with any OpenAI-compatible transcription service, such as OpenAI or Groq.',
+        inbound: 'none',
+        inbound_hint: '',
+        fields: [
+            {
+                key: 'base_url',
+                label: 'Service address',
+                secret: false,
+                required: true,
+                format: 'url',
+                hint: 'OpenAI: https://api.openai.com/v1. Groq: https://api.groq.com/openai/v1.',
+                placeholder: 'https://api.openai.com/v1',
+            },
+            {
+                key: 'api_key',
+                label: 'API key',
+                secret: true,
+                required: true,
+                hint: 'The key for that service.',
+                placeholder: 'sk-...',
+            },
+            {
+                key: 'model',
+                label: 'Model',
+                secret: false,
+                required: true,
+                hint: 'OpenAI: whisper-1 or gpt-4o-mini-transcribe. Groq: whisper-large-v3-turbo.',
+                placeholder: 'whisper-1',
+            },
+            {
+                key: 'language',
+                label: 'Language',
+                secret: false,
+                required: false,
+                hint: 'Optional: a two-letter code such as fa or en when everyone speaks one language. Leave it empty to detect the language.',
+                placeholder: 'fa',
             },
         ],
     },

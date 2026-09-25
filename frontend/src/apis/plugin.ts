@@ -3,6 +3,7 @@ import { type Paged, pageQuery, request } from './client';
 export type PluginKindKey =
     | 'telegram'
     | 'relay'
+    | 'voice'
     | 'x'
     | 'discord'
     | 'instagram'

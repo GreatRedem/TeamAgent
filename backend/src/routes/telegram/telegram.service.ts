@@ -43,6 +43,7 @@ import {
     readCompletion,
     readError,
     readToolCalls,
+    recordable,
     toolGuidance,
 } from '../agent/agent.reply.js';
 import { type CompletionResult, isOpenRouter, sendCompletion } from '../agent/agent.transport.js';
@@ -72,6 +73,7 @@ import { TeamBot, TeamModel } from '../team/team.entity.js';
 import { rosterPrompt } from '../team/team.roster.js';
 import { addressedText, telegramMethod, telegramRich } from './telegram.client.js';
 import { TelegramMessage, TelegramUser } from './telegram.entity.js';
+import { type InboundFile, inboundFile, readAttachment } from './telegram.files.js';
 import {
     hasPermission,
     isKnownPermission,
@@ -125,6 +127,7 @@ interface InboundMessage {
     messageId: number;
     group: string;
     text: string;
+    file?: InboundFile;
     sentAt: Date;
     from: {
         id: string;
@@ -155,7 +158,7 @@ export function readInboundMessage(
         return undefined;
     }
 
-    const { chat, from, text, date } = message as Record<string, unknown>;
+    const { chat, from, text, caption, date } = message as Record<string, unknown>;
 
     if (typeof chat !== 'object' || chat === null || typeof from !== 'object' || from === null) {
         return undefined;
@@ -173,11 +176,20 @@ export function readInboundMessage(
         return undefined;
     }
 
-    if (typeof text !== 'string' || text === '') {
+    const file = inboundFile(message as Record<string, unknown>);
+    const written = typeof text === 'string' ? text : typeof caption === 'string' ? caption : '';
+
+    if (written === '' && file === undefined) {
         return undefined;
     }
 
-    const said = direct ? text : bot && addressedText({ ...(message as object), text }, bot);
+    const replied = (message as { reply_to_message?: { from?: { id?: unknown } } }).reply_to_message
+        ?.from?.id;
+    const said = direct
+        ? written
+        : bot &&
+          (addressedText({ ...(message as object), text: written }, bot) ??
+              (file !== undefined && written === '' && replied === bot.id ? '' : undefined));
 
     if (said === undefined) {
         return undefined;
@@ -204,6 +216,7 @@ export function readInboundMessage(
         messageId: typeof messageId === 'number' ? messageId : 0,
         group: direct ? '' : text_(chatRecord['title']) || String(chatId),
         text: said.slice(0, TEXT_MAX),
+        ...(file !== undefined && { file }),
         sentAt: typeof date === 'number' ? new Date(date * 1000) : new Date(),
         from: {
             id: String(senderId),
@@ -316,7 +329,12 @@ export async function ingestUpdate(
         update_id: inbound.updateId,
         chat_id: inbound.chatId,
         chat_title: inbound.group,
-        text: inbound.text,
+        text:
+            inbound.file === undefined
+                ? inbound.text
+                : [`[${inbound.file.kind} ${inbound.file.name}]`, inbound.text]
+                      .filter((part) => part !== '')
+                      .join(' '),
         direction: 'in',
         sent_at: inbound.sentAt,
     });
@@ -908,7 +926,7 @@ export async function runAgent(
                         model_id: model.id,
                         user_id: user.id,
                         round,
-                        request: JSON.stringify(sending),
+                        request: JSON.stringify(recordable(sending)),
                         response: JSON.stringify(result.payload ?? null),
                         tool_calls: 0,
                         ...tokenColumns(spent),
@@ -944,7 +962,7 @@ export async function runAgent(
                     model_id: model.id,
                     user_id: user.id,
                     round,
-                    request: JSON.stringify(sending),
+                    request: JSON.stringify(recordable(sending)),
                     response: JSON.stringify(payload ?? null),
                     tool_calls: 0,
                     ...tokenColumns(refused),
@@ -982,7 +1000,7 @@ export async function runAgent(
                 model_id: model.id,
                 user_id: user.id,
                 round,
-                request: JSON.stringify(sending),
+                request: JSON.stringify(recordable(sending)),
                 response: JSON.stringify(readAssistantTurn(payload) ?? payload ?? null),
                 tool_calls: calls.length,
                 ...tokenColumns(spent),
@@ -1284,6 +1302,28 @@ async function deliverAgentReply(
 
     const earlier = earlierTurns(history, messageId);
 
+    const attached =
+        inbound.file === undefined
+            ? null
+            : await readAttachment(fastify, log, bot.team_id, bot.token, inbound.file);
+    const request =
+        attached === null
+            ? incoming
+            : [attached.text, incoming].filter((part) => part !== '').join('\n\n') ||
+              '[They sent a photo.]';
+
+    if (attached !== null) {
+        await fastify.db.getRepository(TelegramMessage).update(
+            { id: messageId },
+            {
+                text: [attached.saved, incoming]
+                    .filter((part) => part !== '')
+                    .join('\n')
+                    .slice(0, TEXT_MAX),
+            },
+        );
+    }
+
     const tools = await agentTools(fastify, agent, user);
 
     const messages: ChatMessage[] = buildMessages(
@@ -1300,7 +1340,8 @@ async function deliverAgentReply(
                   ].join('\n'),
         ),
         earlier,
-        incoming,
+        request,
+        attached?.parts ?? [],
     );
 
     const opening = {

@@ -4,6 +4,33 @@ import { OpenRouterError } from '@openrouter/sdk/models/errors/openroutererror.j
 
 import type { ChatMessage } from './agent.reply.js';
 
+export function wireMessages(messages: ChatMessage[], sdk: boolean): unknown[] {
+    return messages.map(({ parts, ...message }) =>
+        parts === undefined || parts.length === 0
+            ? message
+            : {
+                  ...message,
+                  content: [
+                      { type: 'text', text: message.content },
+                      ...parts.map((part) =>
+                          part.kind === 'image'
+                              ? {
+                                    type: 'image_url',
+                                    [sdk ? 'imageUrl' : 'image_url']: { url: part.data },
+                                }
+                              : {
+                                    type: 'file',
+                                    file: {
+                                        filename: part.name,
+                                        [sdk ? 'fileData' : 'file_data']: part.data,
+                                    },
+                                },
+                      ),
+                  ],
+              },
+    );
+}
+
 export interface CompletionRequest {
     baseUrl: string;
     apiKey: string;
@@ -154,7 +181,7 @@ function send(request: CompletionRequest, stream: boolean): Promise<Response> {
         },
         body: JSON.stringify({
             model: request.model,
-            messages: request.messages,
+            messages: wireMessages(request.messages, false),
             max_tokens: request.maxTokens,
             ...(request.tools !== undefined && { tools: request.tools }),
             ...(stream && { stream: true, stream_options: { include_usage: true } }),
@@ -314,7 +341,7 @@ async function viaSdk(request: CompletionRequest): Promise<CompletionResult> {
         {
             chatRequest: {
                 model: request.model,
-                messages: request.messages as never,
+                messages: wireMessages(request.messages, true) as never,
                 maxTokens: request.maxTokens,
                 stream: false,
                 ...(request.tools !== undefined && { tools: request.tools as never }),
@@ -334,7 +361,7 @@ async function viaSdkStream(request: CompletionRequest): Promise<CompletionResul
         {
             chatRequest: {
                 model: request.model,
-                messages: request.messages as never,
+                messages: wireMessages(request.messages, true) as never,
                 maxTokens: request.maxTokens,
                 stream: true,
                 streamOptions: { includeUsage: true },

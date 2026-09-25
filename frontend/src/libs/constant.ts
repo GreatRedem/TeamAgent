@@ -11,6 +11,7 @@ import {
     ListChecks,
     MessageSquare,
     MessagesSquare,
+    Mic,
     Plug,
     Send,
     Settings2,
@@ -238,6 +239,7 @@ export const BRAND_SIZES: Record<'sm' | 'lg', string> = {
 export const PLUGIN_ICONS: Record<PluginKindKey, LucideIcon> = {
     telegram: Send,
     relay: Forward,
+    voice: Mic,
     x: AtSign,
     discord: MessagesSquare,
     instagram: Camera,

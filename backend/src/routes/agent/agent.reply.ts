@@ -1,5 +1,6 @@
 import {
     ALWAYS_INLINE,
+    ATTACHMENT_TOKENS,
     CONTEXT_MARGIN,
     DEFAULT_CONTEXT_TOKENS,
     DOCUMENT_INLINE_MAX,
@@ -27,11 +28,33 @@ export interface ToolCall {
     arguments: Record<string, unknown>;
 }
 
+export interface ContentPart {
+    kind: 'image' | 'file';
+    name: string;
+    data: string;
+}
+
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
     tool_call_id?: string;
     tool_calls?: unknown;
+    parts?: ContentPart[];
+}
+
+export function recordable(messages: ChatMessage[]): unknown[] {
+    return messages.map(({ parts, ...message }) =>
+        parts === undefined
+            ? message
+            : {
+                  ...message,
+                  parts: parts.map((part) => ({
+                      kind: part.kind,
+                      name: part.name,
+                      chars: part.data.length,
+                  })),
+              },
+    );
 }
 
 export function estimateTokens(text: string): number {
@@ -42,7 +65,12 @@ function messageTokens(message: ChatMessage): number {
     const calls =
         message.tool_calls === undefined ? 0 : estimateTokens(JSON.stringify(message.tool_calls));
 
-    return estimateTokens(message.content) + calls + MESSAGE_OVERHEAD;
+    return (
+        estimateTokens(message.content) +
+        calls +
+        (message.parts?.length ?? 0) * ATTACHMENT_TOKENS +
+        MESSAGE_OVERHEAD
+    );
 }
 
 export function completionCap(contextTokens: number): number {
@@ -162,6 +190,7 @@ export function buildMessages(
     systemPrompt: string,
     history: HistoryMessage[],
     incoming: string,
+    parts: ContentPart[] = [],
 ): ChatMessage[] {
     const messages: ChatMessage[] = [];
 
@@ -176,7 +205,7 @@ export function buildMessages(
         });
     }
 
-    messages.push({ role: 'user', content: incoming });
+    messages.push({ role: 'user', content: incoming, ...(parts.length > 0 && { parts }) });
 
     return messages;
 }

@@ -18,6 +18,7 @@ import { TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import { instagramAct, instagramProbe } from './plugin.instagram.js';
 import { relayProbe } from './plugin.relay.js';
 import { telegramAct, telegramProbe } from './plugin.telegram.js';
+import { voiceProbe } from './plugin.voice.js';
 import { xAct, xProbe } from './plugin.x.js';
 
 export function pluginAgents(plugin: { agents: string }): number[] {
@@ -153,6 +154,10 @@ function clientOf(plugin: TeamPlugin) {
         relay: {
             act: async () => failed('this plugin has no actions'),
             probe: () => relayProbe(settings),
+        },
+        voice: {
+            act: async () => failed('this plugin has no actions'),
+            probe: () => voiceProbe(settings),
         },
         webhook: {
             act: (

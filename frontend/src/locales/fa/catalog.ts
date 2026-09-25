@@ -179,6 +179,20 @@ const messages: Record<string, string> = {
     'catalog.kind.relay.field.brief.label': 'چگونه بازنویسی شود',
     'catalog.kind.relay.field.brief.hint':
         'کاری که ایجنت با هر پست می‌کند؛ مثلاً آن را به کدام پروژه ربط دهد و چقدر کوتاه باشد.',
+    'catalog.kind.voice.label': 'تبدیل گفتار به متن',
+    'catalog.kind.voice.description':
+        'پیام‌های صوتی‌ای را که مردم برای ربات‌هایتان می‌فرستند به متن تبدیل می‌کند تا ایجنت بتواند طبق حرفشان کار کند. با هر سرویس تبدیل گفتار سازگار با OpenAI، مثل OpenAI یا Groq، کار می‌کند.',
+    'catalog.kind.voice.field.base_url.label': 'نشانی سرویس',
+    'catalog.kind.voice.field.base_url.hint':
+        'OpenAI: ‎https://api.openai.com/v1. Groq: ‎https://api.groq.com/openai/v1.',
+    'catalog.kind.voice.field.api_key.label': 'کلید API',
+    'catalog.kind.voice.field.api_key.hint': 'کلید همان سرویس.',
+    'catalog.kind.voice.field.model.label': 'مدل',
+    'catalog.kind.voice.field.model.hint':
+        'OpenAI: ‎whisper-1 یا gpt-4o-mini-transcribe. Groq: ‎whisper-large-v3-turbo.',
+    'catalog.kind.voice.field.language.label': 'زبان',
+    'catalog.kind.voice.field.language.hint':
+        'اختیاری: وقتی همه به یک زبان صحبت می‌کنند، یک کد دوحرفی مثل fa یا en. برای تشخیص خودکار زبان خالی بگذارید.',
     'catalog.kind.x.label': 'X',
     'catalog.kind.x.description':
         'در X پست می‌گذارد، پاسخ می‌دهد، نقل می‌کند، لایک و بازنشر و حذف می‌کند، و منشن‌ها، جستجوها و پست‌ها را می‌خواند. هر درخواست از اعتبار API ایکس کم می‌کند.',
