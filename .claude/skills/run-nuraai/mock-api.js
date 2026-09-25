@@ -9,7 +9,18 @@ async (page) => {
     const field = (key, label, secret) => ({ key, label, secret, required: secret, hint: '', placeholder: '' });
     const call = (id, direction, action, ok) => ({ id, direction, action, ok, status: ok ? 200 : 400, duration_ms: 400 + id * 30, agent_id: 0, agent_name: '', thread: '', request: '{"text":"Sample"}', response: ok ? '{"message_id":812}' : '', error: ok ? '' : 'Bad Request: chat not found', created_at: at });
 
+    const limits = (projects, agents, bots, tasks) => ({ projects, agents, bots, tasks });
+
     const fixtures = {
+        'GET /account/me': { id: 1, admin: true, wallet: '0x52908400098527886E0F7030069857D2E4169EE7', plan: 'pro', chosen_plan: 'pro', plan_until: '2026-10-26T00:00:00.000Z', limits: limits(5, 15, 5, 100), projects: 1 },
+        'GET /account/plans': {
+            plans: [
+                { key: 'free', price: 0, limits: limits(1, 3, 1, 10) },
+                { key: 'pro', price: 1000000, limits: limits(5, 15, 5, 100) },
+                { key: 'business', price: 5000000, limits: limits(25, 100, 25, 1000) },
+                { key: 'custom', price: null, limits: null },
+            ],
+        },
         'GET /team': { teams: [team], ...paged, total: 1 },
         'GET /team/1': team,
         'GET /team/1/agent': { agents: [agent(1, 'Support'), agent(2, 'Social')], ...paged, total: 2 },

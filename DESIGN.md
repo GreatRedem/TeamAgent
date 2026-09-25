@@ -241,6 +241,9 @@ EIP-6963, so a row shows the wallet's own icon when it is installed and reads
 against the wallet that produced them.
 
 **Projects.** Card grid. Name, what it is for, when it was made, one way in.
+Under it, the account's plan: its name, when it ends, projects used and the
+limits. A plan that lapsed carries the `degraded` rail and says the Free limits
+apply; nothing is removed.
 
 **Overview.** Server load as six stat tiles, twelve weeks of activity as a
 heatmap, then the trail as a table with a detail panel beside it from `xl`. The

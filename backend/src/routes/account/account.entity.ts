@@ -11,6 +11,12 @@ export class Account {
     @Column({ type: 'varchar', length: 42, unique: true })
     wallet: string;
 
+    @Column({ type: 'varchar', length: 16, default: 'free' })
+    plan: string;
+
+    @Column({ type: 'timestamptz', nullable: true, default: null })
+    plan_until: Date | null;
+
     @CreateDateColumn()
     created_at: Date;
 }

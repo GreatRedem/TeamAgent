@@ -10,3 +10,37 @@ export function walletSignIn(address: string, signature: string) {
         signature,
     });
 }
+
+export type PlanKey = 'free' | 'pro' | 'business' | 'custom';
+
+export interface PlanLimits {
+    projects: number;
+    agents: number;
+    bots: number;
+    tasks: number;
+}
+
+export interface Plan {
+    key: PlanKey;
+    price: number | null;
+    limits: PlanLimits | null;
+}
+
+export interface AccountMe {
+    id: number;
+    admin: boolean;
+    wallet: string | null;
+    plan: PlanKey;
+    chosen_plan: PlanKey;
+    plan_until: string | null;
+    limits: PlanLimits | null;
+    projects: number;
+}
+
+export function accountMe() {
+    return request<AccountMe>('GET', '/account/me');
+}
+
+export function accountPlans() {
+    return request<{ plans: Plan[] }>('GET', '/account/plans');
+}

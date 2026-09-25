@@ -1,3 +1,4 @@
+import type { Plan } from './routes/account/account.plan.js';
 import type { AgentPermission } from './routes/agent/agent.permission.js';
 import type { AgentDocumentTemplate } from './routes/agent/agent.template.js';
 import type { ExchangeUsage } from './routes/agent/agent.usage.js';
@@ -73,6 +74,19 @@ export const BACKOFF_REJECTED = 300_000;
 export const APP_NAME = 'NuraAI';
 
 export const WALLET_NONCE_TIME = 5 * 60 * 1000;
+
+export const ADMIN_ROLE = 1;
+
+export const PLANS: Plan[] = [
+    { key: 'free', price: 0, limits: { projects: 1, agents: 3, bots: 1, tasks: 10 } },
+    { key: 'pro', price: 1_000_000, limits: { projects: 5, agents: 15, bots: 5, tasks: 100 } },
+    {
+        key: 'business',
+        price: 5_000_000,
+        limits: { projects: 25, agents: 100, bots: 25, tasks: 1000 },
+    },
+    { key: 'custom', price: null, limits: null },
+];
 
 export const AGENT_PERMISSIONS: AgentPermission[] = [
     {

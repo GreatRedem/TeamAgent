@@ -22,6 +22,7 @@ import {
     Wrench,
 } from 'lucide-react';
 
+import type { PlanKey } from '@/apis/account';
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
 import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
@@ -119,6 +120,13 @@ export const TASK_AFTER_LABELS: Record<TaskAfterOutcome, MessageKey> = {
 };
 
 export const TASK_CHOICES_MAX = 200;
+
+export const PLAN_TEXT: Record<PlanKey, { name: MessageKey; blurb: MessageKey }> = {
+    free: { name: 'plans.free.name', blurb: 'plans.free.blurb' },
+    pro: { name: 'plans.pro.name', blurb: 'plans.pro.blurb' },
+    business: { name: 'plans.business.name', blurb: 'plans.business.blurb' },
+    custom: { name: 'plans.custom.name', blurb: 'plans.custom.blurb' },
+};
 
 export const PLUGIN_FIELD_MAX = 512;
 

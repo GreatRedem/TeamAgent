@@ -2,11 +2,20 @@ import { Archive, FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { ApiError, type Paged, type Team, teamCreate, teamList } from '@/apis';
+import {
+    type AccountMe,
+    ApiError,
+    accountMe,
+    type Paged,
+    type Team,
+    teamCreate,
+    teamList,
+} from '@/apis';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
+import { PlanCard } from '@/components/plan-card';
 import { dateLabel } from '@/libs/format';
 import { apiError, t } from '@/libs/i18n';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
@@ -41,6 +50,8 @@ export function Projects() {
     const [error, setError] = useState<string | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
     const [archived, setArchived] = useState(false);
+    const [me, setMe] = useState<AccountMe | null>(null);
+    const [meFailed, setMeFailed] = useState(false);
 
     useEffect(() => {
         if (token === null) {
@@ -84,6 +95,30 @@ export function Projects() {
             active = false;
         };
     }, [token, archived]);
+
+    useEffect(() => {
+        if (token === null) {
+            return;
+        }
+
+        let active = true;
+
+        accountMe()
+            .then((payload) => {
+                if (active) {
+                    setMe(payload);
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setMeFailed(true);
+                }
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [token]);
 
     const goTo = useCallback(
         async (offset: number) => {
@@ -325,6 +360,16 @@ export function Projects() {
                     onPage={(offset) => void goTo(offset)}
                 />
             )}
+
+            <Stack direction="Vertical" as="section" className="gap-3 lg:grid lg:grid-cols-3">
+                {me !== null && <PlanCard me={me} />}
+
+                {meFailed && (
+                    <Alert variant="destructive">
+                        <AlertDescription>{t('plans.card.loadFailed')}</AlertDescription>
+                    </Alert>
+                )}
+            </Stack>
         </>
     );
 }

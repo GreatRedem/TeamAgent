@@ -4,6 +4,7 @@ import { LIST_PAGE, RUN_PAGE } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
+import { teamRoom } from '../account/account.plan.js';
 import { TeamAgent } from '../agent/agent.entity.js';
 import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
@@ -227,6 +228,8 @@ export async function createTask(
 ): Promise<TeamTask> {
     const body = await readCheckedBody(fastify, raw, teamId);
     const credit = attribution(by);
+
+    await teamRoom(fastify.db, teamId, ['tasks']);
 
     const status = restingStatus(body);
     const saved = await fastify.db

@@ -8,6 +8,7 @@ import enLayout from './en/layout';
 import enModels from './en/models';
 import enOverview from './en/overview';
 import enPeople from './en/people';
+import enPlans from './en/plans';
 import enProjects from './en/projects';
 import enTasks from './en/tasks';
 import enTeam from './en/team';
@@ -23,6 +24,7 @@ import faLayout from './fa/layout';
 import faModels from './fa/models';
 import faOverview from './fa/overview';
 import faPeople from './fa/people';
+import faPlans from './fa/plans';
 import faProjects from './fa/projects';
 import faTasks from './fa/tasks';
 import faTeam from './fa/team';
@@ -43,6 +45,7 @@ const en = {
     ...enTasks,
     ...enTeam,
     ...enTools,
+    ...enPlans,
     ...enErrors,
 };
 
@@ -61,6 +64,7 @@ const fa: Messages<typeof en> = {
     ...faTasks,
     ...faTeam,
     ...faTools,
+    ...faPlans,
     ...faErrors,
 };
 

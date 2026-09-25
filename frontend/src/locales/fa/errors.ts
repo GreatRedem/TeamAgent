@@ -15,6 +15,15 @@ const messages: Messages<typeof en> = {
     'errors.DOCUMENT_NOT_FOUND': 'این فایل دیگر وجود ندارد.',
     'errors.ERROR_MAX_LENGTH': 'این مقدار بیش از حد طولانی است.',
     'errors.ERROR_MIN_LENGTH': 'این مقدار بیش از حد کوتاه است.',
+    'errors.PLAN_LIMIT_PROJECTS':
+        'طرح شما جای پروژهٔ دیگری ندارد. از بخش پشتیبانی طرح بزرگ‌تری بخواهید.',
+    'errors.PLAN_LIMIT_AGENTS':
+        'این پروژه به اندازهٔ سقف طرح شما ایجنت دارد. از بخش پشتیبانی طرح بزرگ‌تری بخواهید.',
+    'errors.PLAN_LIMIT_BOTS':
+        'این پروژه به اندازهٔ سقف طرح شما ربات دارد. از بخش پشتیبانی طرح بزرگ‌تری بخواهید.',
+    'errors.PLAN_LIMIT_TASKS':
+        'این پروژه به اندازهٔ سقف طرح شما وظیفه دارد. وظیفه‌های تمام‌شده را حذف کنید یا از بخش پشتیبانی طرح بزرگ‌تری بخواهید.',
+    'errors.ACCOUNT_NOT_FOUND': 'این حساب دیگر وجود ندارد. دوباره وارد شوید.',
     'errors.ERROR_REQUIRED': 'یک مورد ضروری وارد نشده است.',
     'errors.ERROR_TYPE_STRING': 'این مقدار متن نیست.',
     'errors.MODEL_ALREADY_ADDED': 'این مدل قبلاً اضافه شده است.',

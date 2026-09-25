@@ -40,3 +40,71 @@ export function schemaAccountWalletSignIn() {
         },
     } as const;
 }
+
+function limits() {
+    return {
+        type: ['object', 'null'],
+        required: ['projects', 'agents', 'bots', 'tasks'],
+        properties: {
+            projects: { type: 'integer' },
+            agents: { type: 'integer' },
+            bots: { type: 'integer' },
+            tasks: { type: 'integer' },
+        },
+    } as const;
+}
+
+export function schemaAccountPlans() {
+    return {
+        response: {
+            200: {
+                type: 'object',
+                required: ['plans'],
+                properties: {
+                    plans: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['key', 'price', 'limits'],
+                            properties: {
+                                key: { type: 'string' },
+                                price: { type: ['integer', 'null'] },
+                                limits: limits(),
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    } as const;
+}
+
+export function schemaAccountMe() {
+    return {
+        response: {
+            200: {
+                type: 'object',
+                required: [
+                    'id',
+                    'admin',
+                    'wallet',
+                    'plan',
+                    'chosen_plan',
+                    'plan_until',
+                    'limits',
+                    'projects',
+                ],
+                properties: {
+                    id: { type: 'integer' },
+                    admin: { type: 'boolean' },
+                    wallet: { type: ['string', 'null'] },
+                    plan: { type: 'string' },
+                    chosen_plan: { type: 'string' },
+                    plan_until: { type: ['string', 'null'] },
+                    limits: limits(),
+                    projects: { type: 'integer' },
+                },
+            },
+        },
+    } as const;
+}

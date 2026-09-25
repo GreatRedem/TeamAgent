@@ -20,6 +20,7 @@ import { authGuard } from '../../plugins/authentication.js';
 import { bodyField } from '../../plugins/validator.js';
 import { idList } from '../../utils/ids.js';
 import { BadRequestResponse } from '../../utils/response.js';
+import { projectRoom, teamRoom } from '../account/account.plan.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { AuditLog } from '../audit/audit.entity.js';
 import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
@@ -225,6 +226,8 @@ export function teamCreate(fastify: FastifyInstance) {
         if (name.length < NAME_MIN) {
             throw new BadRequestResponse('ERROR_MIN_LENGTH');
         }
+
+        await projectRoom(fastify.db, request.account_id);
 
         const team = await fastify.db
             .getRepository(Team)
@@ -457,6 +460,8 @@ export async function createBot(
     if (await repository.findOneBy({ team_id: teamId, token })) {
         throw new BadRequestResponse('BOT_ALREADY_ADDED');
     }
+
+    await teamRoom(fastify.db, teamId, ['bots']);
 
     const bot = await repository.save({
         team_id: teamId,

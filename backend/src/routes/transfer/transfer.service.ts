@@ -15,6 +15,7 @@ import { authGuard } from '../../plugins/authentication.js';
 import { idList } from '../../utils/ids.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { packFile, unzip, zip } from '../../utils/zip.js';
+import { teamRoom } from '../account/account.plan.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { AuditLog } from '../audit/audit.entity.js';
 import { audit } from '../audit/audit.log.js';
@@ -608,13 +609,17 @@ export function teamImport(fastify: FastifyInstance) {
 
         const from = typeof manifest.team?.name === 'string' ? manifest.team.name : '';
 
-        const report = await fastify.db.transaction((manager) =>
-            importTables(manager, teamId, (file) => {
+        const report = await fastify.db.transaction(async (manager) => {
+            const imported = await importTables(manager, teamId, (file) => {
                 const rows = read(`${file}.json`);
 
                 return Array.isArray(rows) ? rows : [];
-            }),
-        );
+            });
+
+            await teamRoom(manager, teamId, ['agents', 'bots', 'tasks'], 0);
+
+            return imported;
+        });
 
         const list = (counts: Record<string, number>) =>
             Object.entries(counts)

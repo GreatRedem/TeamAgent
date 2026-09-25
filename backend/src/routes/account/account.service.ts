@@ -2,14 +2,27 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { IsNull } from 'typeorm';
 import { getAddress, isAddress, recoverMessageAddress } from 'viem';
-import { APP_NAME, SESSION_REFRESH_TIME, WALLET_NONCE_TIME } from '../../constant.js';
+import {
+    ADMIN_ROLE,
+    APP_NAME,
+    PLANS,
+    SESSION_REFRESH_TIME,
+    WALLET_NONCE_TIME,
+} from '../../constant.js';
 
-import { createAccessToken, createRefreshToken } from '../../plugins/authentication.js';
+import { authGuard, createAccessToken, createRefreshToken } from '../../plugins/authentication.js';
 import { rateLimit } from '../../plugins/ratelimit.js';
 import { BadRequestResponse, UnauthorizedResponse } from '../../utils/response.js';
 import { audit } from '../audit/audit.log.js';
+import { Team } from '../team/team.entity.js';
 import { Account, AccountNonce, AccountSession } from './account.entity.js';
-import { schemaAccountWalletNonce, schemaAccountWalletSignIn } from './account.schema.js';
+import { activePlan } from './account.plan.js';
+import {
+    schemaAccountMe,
+    schemaAccountPlans,
+    schemaAccountWalletNonce,
+    schemaAccountWalletSignIn,
+} from './account.schema.js';
 
 function buildSignInMessage(address: string, nonce: string, issuedAt: Date, expiresAt: Date) {
     return [
@@ -182,4 +195,39 @@ export function walletSignIn(fastify: FastifyInstance) {
         config: { ...rateLimit('account-wallet-sign-in', 20, 2 * 60 * 1000) },
         handler,
     };
+}
+
+export function accountPlans() {
+    const handler = async (_request: FastifyRequest, reply: FastifyReply) => {
+        reply.send({ plans: PLANS });
+    };
+
+    return { schema: schemaAccountPlans(), handler };
+}
+
+export function accountMe(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const account = await fastify.db
+            .getRepository(Account)
+            .findOneBy({ id: request.account_id });
+
+        if (!account) {
+            throw new UnauthorizedResponse('ACCOUNT_NOT_FOUND');
+        }
+
+        const plan = activePlan(account);
+
+        reply.send({
+            id: account.id,
+            admin: request.account_role >= ADMIN_ROLE,
+            wallet: account.wallet,
+            plan: plan.key,
+            chosen_plan: account.plan,
+            plan_until: account.plan_until?.toISOString() ?? null,
+            limits: plan.limits,
+            projects: await fastify.db.getRepository(Team).countBy({ account_id: account.id }),
+        });
+    };
+
+    return { schema: schemaAccountMe(), config: { ...authGuard() }, handler };
 }

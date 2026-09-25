@@ -17,6 +17,7 @@ import {
 import { authGuard } from '../../plugins/authentication.js';
 import { bodyField } from '../../plugins/validator.js';
 import { BadRequestResponse } from '../../utils/response.js';
+import { teamRoom } from '../account/account.plan.js';
 import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import { TeamTask } from '../task/task.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
@@ -149,6 +150,8 @@ export async function createAgent(
     const credit = attribution(by);
     const { name, description } = readAgentBody(raw);
     const modelId = await readModelId(fastify, raw, teamId);
+
+    await teamRoom(fastify.db, teamId, ['agents']);
     const instructions =
         (raw as { instructions?: unknown } | undefined)?.instructions === undefined
             ? ''

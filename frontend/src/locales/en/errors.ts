@@ -11,6 +11,15 @@ const messages = {
     'errors.DOCUMENT_NOT_FOUND': 'That file no longer exists.',
     'errors.ERROR_MAX_LENGTH': 'That is too long.',
     'errors.ERROR_MIN_LENGTH': 'That is too short.',
+    'errors.PLAN_LIMIT_PROJECTS':
+        'Your plan has no room for another project. Ask for a bigger plan from Support.',
+    'errors.PLAN_LIMIT_AGENTS':
+        'This project has as many agents as your plan allows. Ask for a bigger plan from Support.',
+    'errors.PLAN_LIMIT_BOTS':
+        'This project has as many bots as your plan allows. Ask for a bigger plan from Support.',
+    'errors.PLAN_LIMIT_TASKS':
+        'This project has as many tasks as your plan allows. Delete finished ones, or ask for a bigger plan from Support.',
+    'errors.ACCOUNT_NOT_FOUND': 'This account no longer exists. Sign in again.',
     'errors.ERROR_REQUIRED': 'Something required is missing.',
     'errors.ERROR_TYPE_STRING': 'That value is not text.',
     'errors.MODEL_ALREADY_ADDED': 'That model is already added.',
