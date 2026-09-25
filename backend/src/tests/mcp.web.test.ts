@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { lookup } from 'node:dns/promises';
 
 import { checkPublicUrl, isPrivateAddress } from '../routes/mcp/mcp.web.js';
 
@@ -144,9 +145,13 @@ async function main() {
             'a public hostname is allowed',
             async () => {
                 const result = await checkPublicUrl('https://one.one.one.one/');
+                const answers = await lookup('one.one.one.one', { all: true }).catch(() => []);
 
-                if (result.reason === 'host does not resolve') {
-                    console.log('        (skipped: no DNS in this environment)');
+                if (
+                    answers.length === 0 ||
+                    answers.some((answer) => isPrivateAddress(answer.address))
+                ) {
+                    console.log('        (skipped: this DNS does not give the public address)');
 
                     return;
                 }
