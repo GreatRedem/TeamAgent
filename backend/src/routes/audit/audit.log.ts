@@ -19,6 +19,22 @@ export interface AuditEntry {
     changes?: unknown;
 }
 
+export interface ActedBy {
+    log: FastifyBaseLogger;
+    accountId?: number;
+    agent?: { id: number; name: string; askedBy: number; asker: string };
+}
+
+export function attribution(by: ActedBy) {
+    return by.agent === undefined
+        ? { who: { accountId: by.accountId }, note: '', changes: {} }
+        : {
+              who: { actor: 'agent' as const },
+              note: ` · by ${by.agent.name}, asked by ${by.agent.asker}`,
+              changes: { agent_id: by.agent.id, asked_by: by.agent.askedBy },
+          };
+}
+
 export function changed(before: object, after: Record<string, unknown>) {
     const was = before as Record<string, unknown>;
 

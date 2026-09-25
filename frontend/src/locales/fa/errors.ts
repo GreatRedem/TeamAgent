@@ -45,6 +45,11 @@ const messages: Messages<typeof en> = {
     'errors.TASK_PROFILE_NOT_FOUND': 'این شخص دیگر در این پروژه نیست.',
     'errors.TASK_REPEAT_INVALID': 'تعیین کنید هر چند وقت تکرار شود.',
     'errors.TASK_RUNNING': 'در حال اجراست. وقتی تمام شد دوباره تلاش کنید.',
+    'errors.TASK_AFTER_INVALID': 'وظیفه‌ای را که این پس از آن اجرا می‌شود، و زمانش را انتخاب کنید.',
+    'errors.TASK_AFTER_NOT_FOUND': 'وظیفه‌ای که این باید پس از آن اجرا شود دیگر در این پروژه نیست.',
+    'errors.TASK_AFTER_LOOP': 'این کار باعث می‌شود این وظیفه‌ها در یک حلقه منتظر هم بمانند.',
+    'errors.TASK_HAS_FOLLOWERS':
+        'وظیفه‌های دیگری پس از این وظیفه اجرا می‌شوند. اول آن‌ها را به وظیفهٔ دیگری وصل کنید یا حذفشان کنید.',
     'errors.TASK_START_INVALID': 'زمان اجرا را انتخاب کنید.',
     'errors.TASK_TITLE_REQUIRED': 'برای وظیفه عنوانی بنویسید.',
     'errors.TEAM_ID_INVALID': 'نشانی این پروژه معتبر نیست.',

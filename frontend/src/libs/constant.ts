@@ -23,6 +23,7 @@ import {
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
 import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
+import type { TaskAfterOutcome } from '@/apis/task';
 import type { MessageKey } from '@/locales';
 import type { Status } from '@/ui/status-dot';
 
@@ -102,11 +103,20 @@ export const TASK_STATUS: Record<
     { label: MessageKey; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
 > = {
     scheduled: { label: 'tasks.status.scheduled', variant: 'secondary' },
+    waiting: { label: 'tasks.status.waiting', variant: 'secondary' },
     running: { label: 'tasks.status.running', variant: 'default' },
     done: { label: 'tasks.status.done', variant: 'outline' },
     failed: { label: 'tasks.status.failed', variant: 'destructive' },
     cancelled: { label: 'tasks.status.cancelled', variant: 'outline' },
 };
+
+export const TASK_AFTER_LABELS: Record<TaskAfterOutcome, MessageKey> = {
+    ok: 'tasks.after.ok',
+    error: 'tasks.after.error',
+    any: 'tasks.after.any',
+};
+
+export const TASK_CHOICES_MAX = 200;
 
 export const TASK_LIVE_POLL = 1500;
 

@@ -749,7 +749,18 @@ export const TASK_REPEATS = [
     'weekly',
 ] as const;
 
-export const TASK_STATUSES = ['scheduled', 'running', 'done', 'failed', 'cancelled'] as const;
+export const TASK_STATUSES = [
+    'scheduled',
+    'waiting',
+    'running',
+    'done',
+    'failed',
+    'cancelled',
+] as const;
+
+export const TASK_AFTER_OUTCOMES = ['ok', 'error', 'any'] as const;
+
+export const TASK_BEFORE_CHARS = 6000;
 
 export const TITLE_MAX = 120;
 

@@ -41,6 +41,11 @@ const messages = {
     'errors.TASK_PROFILE_NOT_FOUND': 'That person is no longer in this project.',
     'errors.TASK_REPEAT_INVALID': 'Pick how often it repeats.',
     'errors.TASK_RUNNING': 'It is running right now. Try again when it finishes.',
+    'errors.TASK_AFTER_INVALID': 'Choose the task it runs after, and when.',
+    'errors.TASK_AFTER_NOT_FOUND': 'The task it should run after is no longer in this project.',
+    'errors.TASK_AFTER_LOOP': 'That would make these tasks wait for each other in a loop.',
+    'errors.TASK_HAS_FOLLOWERS':
+        'Other tasks run after this one. Point them at another task, or delete them first.',
     'errors.TASK_START_INVALID': 'Pick when it should run.',
     'errors.TASK_TITLE_REQUIRED': 'Give the task a title.',
     'errors.TEAM_ID_INVALID': 'That project address is not valid.',

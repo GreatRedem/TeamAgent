@@ -10,7 +10,9 @@ export type TaskRepeat =
     | 'daily'
     | 'weekly';
 
-export type TaskStatus = 'scheduled' | 'running' | 'done' | 'failed' | 'cancelled';
+export type TaskStatus = 'scheduled' | 'waiting' | 'running' | 'done' | 'failed' | 'cancelled';
+
+export type TaskAfterOutcome = 'ok' | 'error' | 'any';
 
 export interface TeamTask {
     id: number;
@@ -26,6 +28,9 @@ export interface TeamTask {
     group_title: string;
     start_at: string;
     repeat: TaskRepeat;
+    after_task_id: number;
+    after_task_title: string;
+    after_outcome: TaskAfterOutcome | '';
     status: TaskStatus;
     last_run_at: string | null;
     run_count: number;
@@ -47,6 +52,8 @@ export interface TaskDraft {
     group_chat_id: string;
     start_at: string;
     repeat: TaskRepeat;
+    after_task_id: number;
+    after_outcome: TaskAfterOutcome | '';
 }
 
 export type TaskRunEvent = { at: string } & (
@@ -77,6 +84,7 @@ export type TaskRunEvent = { at: string } & (
     | { kind: 'end'; outcome: 'ok' | 'error'; delivered: boolean; reason: string }
     | { kind: 'retry'; attempt: number; of: number; next_at: string }
     | { kind: 'switch'; model: string }
+    | { kind: 'chain'; started: string[] }
 );
 
 export interface TaskRun {

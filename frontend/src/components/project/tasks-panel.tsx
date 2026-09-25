@@ -14,7 +14,7 @@ import {
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Pager } from '@/components/pager';
-import { TASK_REPEAT_LABELS, TASK_STATUS } from '@/libs/constant';
+import { TASK_AFTER_LABELS, TASK_REPEAT_LABELS, TASK_STATUS } from '@/libs/constant';
 import { dateTimeLabel } from '@/libs/format';
 import { apiError, t, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
@@ -265,7 +265,8 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                 type="ForegroundMuted"
                                                 as="dt"
                                                 message={
-                                                    task.status === 'scheduled'
+                                                    task.status === 'scheduled' ||
+                                                    task.status === 'waiting'
                                                         ? t('tasks.card.runs')
                                                         : t('tasks.card.wasDue')
                                                 }
@@ -279,19 +280,32 @@ export function TasksPanel({ teamId }: { teamId: number }) {
                                                               count: task.retry_count,
                                                               time: dateTimeLabel(task.retry_at),
                                                           })
-                                                        : t('tasks.card.schedule', {
-                                                              time: dateTimeLabel(task.start_at),
-                                                              repeat:
-                                                                  TASK_REPEAT_LABELS[
-                                                                      task.repeat
-                                                                  ] === undefined
-                                                                      ? task.repeat
-                                                                      : t(
-                                                                            TASK_REPEAT_LABELS[
-                                                                                task.repeat
-                                                                            ],
-                                                                        ),
-                                                          })
+                                                        : task.after_task_id > 0
+                                                          ? t('tasks.card.afterTask', {
+                                                                title:
+                                                                    task.after_task_title ||
+                                                                    `#${task.after_task_id}`,
+                                                                when: t(
+                                                                    TASK_AFTER_LABELS[
+                                                                        task.after_outcome === ''
+                                                                            ? 'ok'
+                                                                            : task.after_outcome
+                                                                    ],
+                                                                ),
+                                                            })
+                                                          : t('tasks.card.schedule', {
+                                                                time: dateTimeLabel(task.start_at),
+                                                                repeat:
+                                                                    TASK_REPEAT_LABELS[
+                                                                        task.repeat
+                                                                    ] === undefined
+                                                                        ? task.repeat
+                                                                        : t(
+                                                                              TASK_REPEAT_LABELS[
+                                                                                  task.repeat
+                                                                              ],
+                                                                          ),
+                                                            })
                                                 }
                                             />
 

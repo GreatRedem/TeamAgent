@@ -15,6 +15,9 @@ function task() {
             'group_title',
             'start_at',
             'repeat',
+            'after_task_id',
+            'after_task_title',
+            'after_outcome',
             'status',
             'last_run_at',
             'run_count',
@@ -39,6 +42,9 @@ function task() {
             group_title: { type: 'string' },
             start_at: { type: 'string' },
             repeat: { type: 'string' },
+            after_task_id: { type: 'integer' },
+            after_task_title: { type: 'string' },
+            after_outcome: { type: 'string' },
             status: { type: 'string' },
             last_run_at: { type: ['string', 'null'] },
             run_count: { type: 'integer' },
@@ -55,7 +61,7 @@ function task() {
 function body() {
     return {
         type: 'object',
-        required: ['title', 'agent_id', 'start_at'],
+        required: ['title', 'agent_id'],
         properties: {
             title: { type: 'string' },
             description: { type: 'string' },
@@ -66,6 +72,8 @@ function body() {
             group_chat_id: { type: 'string' },
             start_at: { type: 'string' },
             repeat: { type: 'string' },
+            after_task_id: { type: 'integer' },
+            after_outcome: { type: 'string' },
         },
     } as const;
 }

@@ -56,7 +56,11 @@ export default fastifyPlugin(async (fastify: FastifyInstance) => {
                 .getRepository(TeamTask)
                 .update(
                     { id: task.id },
-                    next === null ? { status: 'failed' } : { status: 'scheduled', start_at: next },
+                    task.after_task_id > 0
+                        ? { status: 'waiting' }
+                        : next === null
+                          ? { status: 'failed' }
+                          : { status: 'scheduled', start_at: next },
                 );
         }
 

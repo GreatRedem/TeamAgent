@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
-import { Not } from 'typeorm';
+import { In, Not } from 'typeorm';
 import {
     DRAFT_INTERVAL,
     TASK_MEMORY,
@@ -24,10 +24,12 @@ import {
 } from '../telegram/telegram.service.js';
 import { TeamTask, TeamTaskRun } from './task.entity.js';
 import {
+    follows,
     nextStart,
     profileLabel,
     retryAt,
     sendRetryable,
+    type TaskBefore,
     type TaskRepeat,
     taskMessages,
 } from './task.plan.js';
@@ -142,6 +144,29 @@ async function earlierOutputs(
         .map((earlier) => ({ at: earlier.started_at.toISOString(), output: earlier.output }));
 }
 
+async function taskBefore(fastify: FastifyInstance, task: TeamTask): Promise<TaskBefore | null> {
+    if (task.after_task_id === 0) {
+        return null;
+    }
+
+    const parent = await fastify.db
+        .getRepository(TeamTask)
+        .findOneBy({ id: task.after_task_id, team_id: task.team_id });
+    const last = await fastify.db.getRepository(TeamTaskRun).findOne({
+        where: { task_id: task.after_task_id, outcome: In(['ok', 'error']) },
+        order: { id: 'DESC' },
+    });
+
+    return parent === null || last === null
+        ? null
+        : {
+              title: parent.title,
+              outcome: last.outcome === 'ok' ? 'ok' : 'error',
+              output: last.output,
+              reason: last.reason,
+          };
+}
+
 export async function runTask(
     fastify: FastifyInstance,
     log: FastifyBaseLogger,
@@ -190,8 +215,29 @@ export async function runTask(
         const now = new Date();
         const next = nextStart(task.start_at, task.repeat as TaskRepeat, now);
         const retry = outcome === 'error' && retryable ? retryAt(task.retry_count, now) : null;
+        const followers =
+            retry === null
+                ? (
+                      await tasks.find({
+                          where: {
+                              team_id: task.team_id,
+                              after_task_id: task.id,
+                              status: 'waiting',
+                          },
+                          select: { id: true, title: true, after_outcome: true },
+                      })
+                  ).filter((follower) => follows(follower.after_outcome, outcome))
+                : [];
 
         events.push({ at: now.toISOString(), kind: 'end', outcome, delivered, reason });
+
+        if (followers.length > 0) {
+            events.push({
+                at: now.toISOString(),
+                kind: 'chain',
+                started: followers.map((follower) => follower.title),
+            });
+        }
 
         if (retry !== null) {
             events.push({
@@ -239,13 +285,22 @@ export async function runTask(
                 : {
                       retry_count: 0,
                       retry_at: null,
-                      ...(next === null
-                          ? { status: outcome === 'ok' ? 'done' : 'failed' }
-                          : { status: 'scheduled', start_at: next }),
+                      ...(task.after_task_id > 0
+                          ? { status: 'waiting' }
+                          : next === null
+                            ? { status: outcome === 'ok' ? 'done' : 'failed' }
+                            : { status: 'scheduled', start_at: next }),
                   }),
         };
 
         await tasks.update({ id: task.id }, progress);
+
+        for (const follower of followers) {
+            await tasks.update(
+                { id: follower.id, status: 'waiting' },
+                { status: 'scheduled', start_at: now, retry_count: 0, retry_at: null },
+            );
+        }
 
         await audit(fastify, log, {
             teamId: task.team_id,
@@ -254,7 +309,7 @@ export async function runTask(
             target: `task:${task.id}`,
             outcome: outcome === 'ok' ? 'ok' : 'error',
             durationMs: now.getTime() - startedAt.getTime(),
-            detail: `${task.title} · agent ${task.agent_id}${delivered ? ' · sent' : ''}${reason === '' ? '' : ` · ${reason}`}`,
+            detail: `${task.title} · agent ${task.agent_id}${delivered ? ' · sent' : ''}${reason === '' ? '' : ` · ${reason}`}${followers.length > 0 ? ` · started ${followers.map((follower) => follower.title).join(', ')}` : ''}`,
             changes: {
                 run_id: run.id,
                 output,
@@ -262,6 +317,12 @@ export async function runTask(
                 reason,
                 ...spent,
                 task: changed(task, progress),
+                ...(followers.length > 0 && {
+                    started: followers.map((follower) => ({
+                        id: follower.id,
+                        title: follower.title,
+                    })),
+                }),
             },
         });
     };
@@ -333,6 +394,7 @@ export async function runTask(
                 startedAt,
                 task.repeat === 'none' ? [] : await earlierOutputs(fastify, task.id, run.id),
                 group,
+                await taskBefore(fastify, task),
             ),
             tools,
             trace: (event) => {

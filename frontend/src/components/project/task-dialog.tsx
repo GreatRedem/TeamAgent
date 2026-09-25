@@ -9,9 +9,10 @@ import {
     taskUpdate,
     teamGroups,
 } from '@/apis';
+import { type TaskAfterOutcome, taskList } from '@/apis/task';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
-import { TASK_REPEAT_LABELS } from '@/libs/constant';
+import { TASK_AFTER_LABELS, TASK_CHOICES_MAX, TASK_REPEAT_LABELS } from '@/libs/constant';
 import { localInputValue } from '@/libs/format';
 import { apiError, t } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
@@ -55,6 +56,10 @@ export function TaskDialog({
     const [repeat, setRepeat] = useState<TaskRepeat>('none');
     const [group, setGroup] = useState('');
     const [groups, setGroups] = useState<TelegramGroup[]>([]);
+    const [chained, setChained] = useState(false);
+    const [afterTaskId, setAfterTaskId] = useState('');
+    const [afterOutcome, setAfterOutcome] = useState<TaskAfterOutcome>('ok');
+    const [others, setOthers] = useState<TeamTask[]>([]);
 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -76,6 +81,9 @@ export function TaskDialog({
             ),
         );
         setRepeat(task?.repeat ?? 'none');
+        setChained((task?.after_task_id ?? 0) > 0);
+        setAfterTaskId(task === null || task.after_task_id === 0 ? '' : String(task.after_task_id));
+        setAfterOutcome(task === null || task.after_outcome === '' ? 'ok' : task.after_outcome);
         setGroup(
             task === null || task.group_chat_id === ''
                 ? ''
@@ -92,6 +100,10 @@ export function TaskDialog({
         teamGroups(teamId)
             .then((result) => setGroups(result.groups))
             .catch(() => setGroups([]));
+
+        taskList(teamId, { limit: TASK_CHOICES_MAX })
+            .then((result) => setOthers(result.tasks))
+            .catch(() => setOthers([]));
     }, [open, teamId]);
 
     const save = async () => {
@@ -106,8 +118,10 @@ export function TaskDialog({
             profile_id: profileId,
             group_bot_id: group === '' ? 0 : Number(group.slice(0, group.indexOf(':'))),
             group_chat_id: group === '' ? '' : group.slice(group.indexOf(':') + 1),
-            start_at: new Date(startAt).toISOString(),
-            repeat,
+            start_at: chained ? new Date().toISOString() : new Date(startAt).toISOString(),
+            repeat: chained ? ('none' as const) : repeat,
+            after_task_id: chained ? Number(afterTaskId) : 0,
+            after_outcome: chained ? afterOutcome : ('' as const),
         };
 
         try {
@@ -264,36 +278,101 @@ export function TaskDialog({
                         )}
                     </Field>
 
-                    <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
-                        <Field
-                            label={t('tasks.field.startAt.label')}
-                            hint={t('tasks.field.startAt.hint')}>
-                            {(id) => (
-                                <Input
-                                    id={id}
-                                    type="datetime-local"
-                                    value={startAt}
-                                    onChange={(event) => setStartAt(event.target.value)}
-                                    required
-                                />
-                            )}
-                        </Field>
+                    <Field
+                        label={t('tasks.field.when.label')}
+                        hint={t(
+                            chained ? 'tasks.field.when.afterHint' : 'tasks.field.when.timeHint',
+                        )}>
+                        {(id) => (
+                            <Select
+                                id={id}
+                                value={chained ? 'after' : 'time'}
+                                onValueChange={(value) => setChained(value === 'after')}>
+                                <SelectItem value="time">{t('tasks.field.when.time')}</SelectItem>
+                                <SelectItem value="after">{t('tasks.field.when.after')}</SelectItem>
+                            </Select>
+                        )}
+                    </Field>
 
-                        <Field label={t('tasks.field.repeat.label')}>
-                            {(id) => (
-                                <Select
-                                    id={id}
-                                    value={repeat}
-                                    onValueChange={(value) => setRepeat(value as TaskRepeat)}>
-                                    {Object.entries(TASK_REPEAT_LABELS).map(([value, label]) => (
-                                        <SelectItem key={value} value={value}>
-                                            {t(label)}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-                            )}
-                        </Field>
-                    </Stack>
+                    {chained && (
+                        <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
+                            <Field
+                                label={t('tasks.field.after.label')}
+                                hint={
+                                    others.some((item) => item.id !== task?.id)
+                                        ? undefined
+                                        : t('tasks.field.after.empty')
+                                }>
+                                {(id) => (
+                                    <Select
+                                        id={id}
+                                        value={afterTaskId}
+                                        onValueChange={setAfterTaskId}
+                                        placeholder={t('tasks.field.after.placeholder')}>
+                                        {others
+                                            .filter((item) => item.id !== task?.id)
+                                            .map((item) => (
+                                                <SelectItem key={item.id} value={String(item.id)}>
+                                                    {item.title}
+                                                </SelectItem>
+                                            ))}
+                                    </Select>
+                                )}
+                            </Field>
+
+                            <Field label={t('tasks.field.afterOutcome.label')}>
+                                {(id) => (
+                                    <Select
+                                        id={id}
+                                        value={afterOutcome}
+                                        onValueChange={(value) =>
+                                            setAfterOutcome(value as TaskAfterOutcome)
+                                        }>
+                                        {Object.entries(TASK_AFTER_LABELS).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>
+                                                {t(label)}
+                                            </SelectItem>
+                                        ))}
+                                    </Select>
+                                )}
+                            </Field>
+                        </Stack>
+                    )}
+
+                    {!chained && (
+                        <Stack direction="Vertical" className="gap-5 sm:grid sm:grid-cols-2">
+                            <Field
+                                label={t('tasks.field.startAt.label')}
+                                hint={t('tasks.field.startAt.hint')}>
+                                {(id) => (
+                                    <Input
+                                        id={id}
+                                        type="datetime-local"
+                                        value={startAt}
+                                        onChange={(event) => setStartAt(event.target.value)}
+                                        required
+                                    />
+                                )}
+                            </Field>
+
+                            <Field label={t('tasks.field.repeat.label')}>
+                                {(id) => (
+                                    <Select
+                                        id={id}
+                                        value={repeat}
+                                        onValueChange={(value) => setRepeat(value as TaskRepeat)}>
+                                        {Object.entries(TASK_REPEAT_LABELS).map(
+                                            ([value, label]) => (
+                                                <SelectItem key={value} value={value}>
+                                                    {t(label)}
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </Select>
+                                )}
+                            </Field>
+                        </Stack>
+                    )}
 
                     {error !== null && (
                         <Alert variant="destructive">
@@ -310,7 +389,10 @@ export function TaskDialog({
                         <Button
                             type="submit"
                             disabled={
-                                busy || title.trim() === '' || agentId === '' || startAt === ''
+                                busy ||
+                                title.trim() === '' ||
+                                agentId === '' ||
+                                (chained ? afterTaskId === '' : startAt === '')
                             }
                             message={
                                 busy

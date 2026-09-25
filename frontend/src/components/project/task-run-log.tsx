@@ -58,6 +58,11 @@ function describe(event: TaskRunEvent): { line: string; ok: boolean } {
                 line: t('tasks.log.switch', { model: event.model }),
                 ok: true,
             };
+        case 'chain':
+            return {
+                line: t('tasks.log.chain', { titles: event.started.join(', ') }),
+                ok: true,
+            };
         case 'retry':
             return {
                 line: t('tasks.log.retry', {

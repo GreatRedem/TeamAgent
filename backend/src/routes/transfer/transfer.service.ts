@@ -38,6 +38,7 @@ interface Table {
     hidden?: string[];
     owner?: { column: string; table: string };
     refs?: Record<string, string>;
+    selfRefs?: string[];
     lists?: Record<string, string>;
     required?: string[];
     exportOnly?: boolean;
@@ -83,6 +84,7 @@ function transferTables(): Table[] {
             file: 'tasks',
             entity: TeamTask,
             refs: { agent_id: 'agents', profile_id: 'people', group_bot_id: 'bots' },
+            selfRefs: ['after_task_id'],
             required: ['agent_id'],
         },
         {
@@ -389,7 +391,12 @@ function prepare(file: string, row: Row, existing: Existing): 'insert' | 'skip' 
         });
     }
 
-    if (file === 'tasks' && (row['status'] === 'scheduled' || row['status'] === 'running')) {
+    if (
+        file === 'tasks' &&
+        (row['status'] === 'scheduled' ||
+            row['status'] === 'running' ||
+            row['status'] === 'waiting')
+    ) {
         existing.paused += 1;
 
         Object.assign(row, { status: 'cancelled', retry_at: null, retry_count: 0 });
@@ -461,7 +468,7 @@ async function importTables(
         const metadata = manager.connection.getMetadata(table.entity);
         const owned = metadata.columns.some((column) => column.propertyName === 'team_id');
         const map = new Map<number, number>();
-        const pending: { old: number; row: Row }[] = [];
+        const pending: { old: number; row: Row; links: Row }[] = [];
         let skip = 0;
 
         ids.set(table.file, map);
@@ -490,7 +497,15 @@ async function importTables(
                 continue;
             }
 
-            pending.push({ old, row });
+            const links = Object.fromEntries(
+                (table.selfRefs ?? []).map((column) => [column, Number(row[column]) || 0]),
+            );
+
+            for (const column of table.selfRefs ?? []) {
+                row[column] = 0;
+            }
+
+            pending.push({ old, row, links });
         }
 
         for (let start = 0; start < pending.length; start += TRANSFER_INSERT_CHUNK) {
@@ -507,6 +522,21 @@ async function importTables(
                     map.set(old, Number(identifier?.['id']));
                 }
             });
+        }
+
+        for (const item of pending) {
+            const linked = Object.entries(item.links).filter(([, old]) => Number(old) > 0);
+            const id = map.get(item.old);
+
+            if (linked.length > 0 && id !== undefined) {
+                await manager.update(
+                    table.entity,
+                    { id },
+                    Object.fromEntries(
+                        linked.map(([column, old]) => [column, map.get(Number(old)) ?? 0]),
+                    ),
+                );
+            }
         }
 
         imported[table.file] = pending.length;

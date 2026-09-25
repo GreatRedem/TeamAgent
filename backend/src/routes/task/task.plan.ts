@@ -1,6 +1,8 @@
 import {
     GOAL_MAX,
     PERIOD,
+    TASK_AFTER_OUTCOMES,
+    TASK_BEFORE_CHARS,
     TASK_DESCRIPTION_MAX,
     TASK_MEMORY_CHARS,
     TASK_REPEATS,
@@ -10,6 +12,15 @@ import {
 import type { ChatMessage } from '../agent/agent.reply.js';
 
 export type TaskRepeat = (typeof TASK_REPEATS)[number];
+
+export type TaskAfterOutcome = (typeof TASK_AFTER_OUTCOMES)[number];
+
+export interface TaskBefore {
+    title: string;
+    outcome: 'ok' | 'error';
+    output: string;
+    reason: string;
+}
 
 export class TaskError extends Error {
     readonly code: string;
@@ -31,6 +42,8 @@ export interface TaskBody {
     group_chat_id: string;
     start_at: Date;
     repeat: TaskRepeat;
+    after_task_id: number;
+    after_outcome: TaskAfterOutcome | '';
 }
 
 export function readTaskBody(body: unknown): TaskBody {
@@ -71,13 +84,28 @@ export function readTaskBody(body: unknown): TaskBody {
         throw new TaskError('TASK_GROUP_INVALID');
     }
 
-    const startAt = new Date(String(source['start_at'] ?? ''));
+    const afterTaskId = source['after_task_id'] === undefined ? 0 : Number(source['after_task_id']);
+    const afterOutcome = (source['after_outcome'] ?? '') as TaskAfterOutcome;
+
+    if (
+        !Number.isInteger(afterTaskId) ||
+        afterTaskId < 0 ||
+        (afterTaskId > 0 && !TASK_AFTER_OUTCOMES.includes(afterOutcome))
+    ) {
+        throw new TaskError('TASK_AFTER_INVALID');
+    }
+
+    const chained = afterTaskId > 0;
+    const startAt =
+        chained && source['start_at'] === undefined
+            ? new Date()
+            : new Date(String(source['start_at'] ?? ''));
 
     if (Number.isNaN(startAt.getTime())) {
         throw new TaskError('TASK_START_INVALID');
     }
 
-    const repeat = (source['repeat'] ?? 'none') as TaskRepeat;
+    const repeat = (chained ? 'none' : (source['repeat'] ?? 'none')) as TaskRepeat;
 
     if (!TASK_REPEATS.includes(repeat)) {
         throw new TaskError('TASK_REPEAT_INVALID');
@@ -93,7 +121,33 @@ export function readTaskBody(body: unknown): TaskBody {
         group_chat_id: groupChatId,
         start_at: startAt,
         repeat,
+        after_task_id: afterTaskId,
+        after_outcome: chained ? afterOutcome : '',
     };
+}
+
+export function follows(condition: string, outcome: 'ok' | 'error'): boolean {
+    return condition === 'any' || condition === outcome;
+}
+
+export function makesLoop(
+    taskId: number,
+    afterTaskId: number,
+    parents: Map<number, number>,
+): boolean {
+    const seen = new Set<number>();
+    let current = afterTaskId;
+
+    while (current > 0 && !seen.has(current)) {
+        if (current === taskId) {
+            return true;
+        }
+
+        seen.add(current);
+        current = parents.get(current) ?? 0;
+    }
+
+    return current > 0;
 }
 
 export function nextStart(startAt: Date, repeat: TaskRepeat, now: Date): Date | null {
@@ -120,6 +174,7 @@ export function taskMessages(
     now: Date,
     earlier: { at: string; output: string }[] = [],
     group = '',
+    before: TaskBefore | null = null,
 ): ChatMessage[] {
     const repeats = task.repeat !== undefined && task.repeat !== 'none';
 
@@ -147,6 +202,16 @@ export function taskMessages(
                       (run) =>
                           `- ${run.at}: ${run.output.replace(/\s+/g, ' ').trim().slice(0, TASK_MEMORY_CHARS)}`,
                   ),
+              ]),
+        ...(before === null
+            ? []
+            : [
+                  '',
+                  `This task runs because the task "${before.title}" just ${before.outcome === 'ok' ? 'succeeded' : 'failed'}. What it produced is below; build on it.`,
+                  ...(before.reason === '' ? [] : [`Why it failed: ${before.reason}`]),
+                  before.output.trim() === ''
+                      ? 'It produced no text.'
+                      : before.output.trim().slice(0, TASK_BEFORE_CHARS),
               ]),
     ].join('\n');
 

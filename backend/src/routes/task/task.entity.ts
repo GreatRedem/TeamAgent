@@ -45,6 +45,13 @@ export class TeamTask {
     repeat: string;
 
     @Index()
+    @Column({ type: 'int', default: 0 })
+    after_task_id: number;
+
+    @Column({ type: 'varchar', length: 8, default: '' })
+    after_outcome: string;
+
+    @Index()
     @Column({ type: 'varchar', length: 16, default: 'scheduled' })
     status: string;
 
