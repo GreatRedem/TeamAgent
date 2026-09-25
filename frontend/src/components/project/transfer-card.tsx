@@ -9,8 +9,9 @@ import { apiError, locale, t, tk, tn } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
-import { Input } from '@/ui/input';
+import { FileInput } from '@/ui/file-input';
 import { saveFile } from '@/ui/save-file';
+import { Separator } from '@/ui/separator';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
 
@@ -91,7 +92,7 @@ export function TransferCard({ teamId }: { teamId: number }) {
     };
 
     return (
-        <Card className="max-w-xl">
+        <Card>
             <CardHeader>
                 <CardTitle>{t('projects.transfer.title')}</CardTitle>
                 <CardDescription>{t('projects.transfer.description')}</CardDescription>
@@ -113,17 +114,22 @@ export function TransferCard({ teamId }: { teamId: number }) {
                         />
                     </Stack>
 
+                    <Separator />
+
                     <Stack direction="Vertical" as="form" className="gap-3" onSubmit={upload}>
                         <Field
                             label={t('projects.transfer.importLabel')}
                             hint={t('projects.transfer.importHint')}>
                             {(id) => (
-                                <Input
+                                <FileInput
                                     id={id}
-                                    type="file"
                                     accept=".zip,application/zip"
-                                    onChange={(event) => {
-                                        setFile(event.target.files?.[0] ?? null);
+                                    choose={t('projects.transfer.chooseFile')}
+                                    empty={t('projects.transfer.noFile')}
+                                    file={file}
+                                    disabled={importing}
+                                    onFile={(chosen) => {
+                                        setFile(chosen);
                                         setReport(null);
                                         setError(null);
                                     }}

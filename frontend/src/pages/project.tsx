@@ -25,6 +25,7 @@ import { clearAccessToken, readAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { DataList, DataRow } from '@/ui/data-value';
 import { Input } from '@/ui/input';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
@@ -147,6 +148,9 @@ export function Project() {
         }
     }, [teamId, navigate]);
 
+    const edited =
+        team !== null && (name.trim() !== team.name || description.trim() !== team.description);
+
     if (!idInvalid && tab === 'activity') {
         return <Navigate to={teamPath(teamId)} replace />;
     }
@@ -215,132 +219,156 @@ export function Project() {
             {team !== null && tab === 'plugins' && <PluginsPanel teamId={teamId} />}
 
             {team !== null && tab === 'settings' && (
-                <Card className="max-w-xl">
-                    <CardHeader>
-                        <CardTitle>{t('projects.settings.title')}</CardTitle>
-                        <CardDescription>
-                            {t('projects.settings.dates', {
-                                created: dateLabel(team.created_at),
-                                changed: dateLabel(team.updated_at),
-                            })}
-                        </CardDescription>
-                    </CardHeader>
+                <Stack
+                    direction="Vertical"
+                    className="gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+                    <Stack direction="Vertical" className="gap-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('projects.settings.title')}</CardTitle>
+                            </CardHeader>
 
-                    <CardContent>
-                        <Stack direction="Vertical" as="form" className="gap-5" onSubmit={save}>
-                            <Field label={t('projects.field.name')}>
-                                {(fieldId) => (
-                                    <Input
-                                        id={fieldId}
-                                        value={name}
-                                        onChange={(event) => {
-                                            setName(event.target.value);
-                                            setSaved(false);
-                                        }}
-                                        minLength={2}
-                                        maxLength={64}
-                                        required
+                            <Stack direction="Vertical" as="form" className="gap-5" onSubmit={save}>
+                                <CardContent>
+                                    <Stack direction="Vertical" className="gap-5">
+                                        <Field label={t('projects.field.name')}>
+                                            {(fieldId) => (
+                                                <Input
+                                                    id={fieldId}
+                                                    value={name}
+                                                    onChange={(event) => {
+                                                        setName(event.target.value);
+                                                        setSaved(false);
+                                                    }}
+                                                    minLength={2}
+                                                    maxLength={64}
+                                                    required
+                                                />
+                                            )}
+                                        </Field>
+
+                                        <Field
+                                            label={t('projects.field.purpose')}
+                                            hint={t('projects.field.purposeHint')}>
+                                            {(fieldId) => (
+                                                <Input
+                                                    id={fieldId}
+                                                    value={description}
+                                                    onChange={(event) => {
+                                                        setDescription(event.target.value);
+                                                        setSaved(false);
+                                                    }}
+                                                    maxLength={280}
+                                                    placeholder={t(
+                                                        'projects.field.purposePlaceholder',
+                                                    )}
+                                                />
+                                            )}
+                                        </Field>
+                                    </Stack>
+                                </CardContent>
+
+                                <CardFooter className="gap-3 border-t">
+                                    <Button
+                                        type="submit"
+                                        disabled={busy || !edited}
+                                        message={
+                                            busy
+                                                ? t('projects.settings.saving')
+                                                : t('projects.settings.save')
+                                        }
                                     />
-                                )}
-                            </Field>
 
-                            <Field
-                                label={t('projects.field.purpose')}
-                                hint={t('projects.field.optional')}>
-                                {(fieldId) => (
-                                    <Input
-                                        id={fieldId}
-                                        value={description}
-                                        onChange={(event) => {
-                                            setDescription(event.target.value);
-                                            setSaved(false);
-                                        }}
-                                        maxLength={280}
-                                        placeholder={t('projects.field.purposePlaceholder')}
-                                    />
-                                )}
-                            </Field>
-
-                            <Stack direction="Horizontal" className="items-center gap-3">
-                                <Button
-                                    type="submit"
-                                    disabled={busy}
-                                    message={
-                                        busy
-                                            ? t('projects.settings.saving')
-                                            : t('projects.settings.save')
-                                    }
-                                />
-
-                                {saved && (
-                                    <Text
-                                        type="Body"
-                                        as="output"
-                                        className="text-primary"
-                                        message={t('projects.settings.saved')}
-                                    />
-                                )}
+                                    {saved && (
+                                        <Text
+                                            type="Body"
+                                            as="output"
+                                            className="text-primary"
+                                            message={t('projects.settings.saved')}
+                                        />
+                                    )}
+                                </CardFooter>
                             </Stack>
-                        </Stack>
-                    </CardContent>
-                </Card>
-            )}
+                        </Card>
 
-            {team !== null && tab === 'settings' && <TransferCard teamId={teamId} />}
+                        <TransferCard teamId={teamId} />
+                    </Stack>
 
-            {team !== null && tab === 'settings' && (
-                <Card className="max-w-xl">
-                    <CardHeader>
-                        <CardTitle>
-                            {team.archived_at === null
-                                ? t('projects.archive.title')
-                                : t('projects.archive.archivedTitle')}
-                        </CardTitle>
-                        <CardDescription>
-                            {team.archived_at === null
-                                ? t('projects.archive.description')
-                                : t('projects.archive.archivedDescription', {
-                                      date: dateLabel(team.archived_at),
-                                  })}
-                        </CardDescription>
-                    </CardHeader>
+                    <Stack direction="Vertical" className="gap-6 xl:sticky xl:top-32">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('projects.settings.aboutTitle')}</CardTitle>
+                            </CardHeader>
 
-                    <CardFooter className="gap-2">
-                        {team.archived_at === null ? (
-                            <Button
-                                variant="outline"
-                                disabled={archiving}
-                                onClick={() => void archive(true)}
-                                message={
-                                    archiving
-                                        ? t('projects.archive.archiving')
-                                        : t('projects.archive.archive')
-                                }
-                            />
-                        ) : (
-                            <>
-                                <Button
-                                    variant="outline"
-                                    disabled={archiving}
-                                    onClick={() => void archive(false)}
-                                    message={
-                                        archiving
-                                            ? t('projects.archive.restoring')
-                                            : t('projects.archive.restore')
-                                    }
-                                />
-                                <ConfirmButton
-                                    label={t('projects.delete.label')}
-                                    title={t('projects.delete.title')}
-                                    description={t('projects.delete.description')}
-                                    confirmLabel={t('projects.delete.confirm')}
-                                    disabled={archiving}
-                                    onConfirm={() => void remove()}
-                                />
-                            </>
-                        )}
-                    </CardFooter>
-                </Card>
+                            <CardContent>
+                                <DataList>
+                                    <DataRow label={t('projects.settings.id')} value={team.id} />
+                                    <DataRow
+                                        label={t('projects.settings.created')}
+                                        value={dateLabel(team.created_at)}
+                                    />
+                                    <DataRow
+                                        label={t('projects.settings.changed')}
+                                        value={dateLabel(team.updated_at)}
+                                    />
+                                </DataList>
+                            </CardContent>
+                        </Card>
+
+                        <Card signal={team.archived_at === null ? undefined : 'degraded'}>
+                            <CardHeader>
+                                <CardTitle>
+                                    {team.archived_at === null
+                                        ? t('projects.archive.title')
+                                        : t('projects.archive.archivedTitle')}
+                                </CardTitle>
+                                <CardDescription>
+                                    {team.archived_at === null
+                                        ? t('projects.archive.description')
+                                        : t('projects.archive.archivedDescription', {
+                                              date: dateLabel(team.archived_at),
+                                          })}
+                                </CardDescription>
+                            </CardHeader>
+
+                            <CardFooter className="flex-wrap gap-2">
+                                {team.archived_at === null ? (
+                                    <Button
+                                        variant="outline"
+                                        disabled={archiving}
+                                        onClick={() => void archive(true)}
+                                        message={
+                                            archiving
+                                                ? t('projects.archive.archiving')
+                                                : t('projects.archive.archive')
+                                        }
+                                    />
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            disabled={archiving}
+                                            onClick={() => void archive(false)}
+                                            message={
+                                                archiving
+                                                    ? t('projects.archive.restoring')
+                                                    : t('projects.archive.restore')
+                                            }
+                                        />
+                                        <ConfirmButton
+                                            label={t('projects.delete.label')}
+                                            title={t('projects.delete.title')}
+                                            description={t('projects.delete.description')}
+                                            confirmLabel={t('projects.delete.confirm')}
+                                            disabled={archiving}
+                                            onConfirm={() => void remove()}
+                                        />
+                                    </>
+                                )}
+                            </CardFooter>
+                        </Card>
+                    </Stack>
+                </Stack>
             )}
         </>
     );

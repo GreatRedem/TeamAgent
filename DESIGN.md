@@ -181,7 +181,8 @@ shadcn primitives in `src/ui`: `button`, `input`, `label`, `textarea`,
 `select`, `card`, `dialog`, `dropdown-menu`, `badge`, `separator`, `skeleton`,
 `table`, `switch`, `alert`, plus this project's `text` and `stack`, which carry
 all copy and every layout box, and `pressable`, `code-block`, `image`,
-`suggestions`, `data-value`, `brand`, `status-dot` and `tabs`.
+`suggestions`, `data-value`, `brand`, `status-dot`, `tabs` and `file-input`, which
+picks a file with a translated button and shows the chosen name in mono.
 Nothing outside `src/ui` writes raw HTML or SVG; `AGENTS.md` section 2 has the
 rule. They sit on native elements: `dialog` is a
 `<dialog>`, `dropdown-menu` a popover placed by CSS anchor positioning, `select` a
@@ -270,6 +271,11 @@ underneath. Identity and capabilities on the right, sticky.
 
 **Person detail.** Messages and agent notes on the left, identity and
 permissions on the right.
+
+**Settings.** The project's name and purpose, then export and import, on the
+left; its id and dates, then Archive, on the right, sticky from `xl`. Save stays
+disabled until something changed. An archived project's Archive card carries the
+`degraded` rail.
 
 ---
 
