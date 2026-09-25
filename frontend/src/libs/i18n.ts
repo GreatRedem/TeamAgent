@@ -99,7 +99,7 @@ export function isolated(value: unknown): boolean {
     return (
         direction === 'rtl' &&
         typeof value === 'string' &&
-        /[A-Za-z]/.test(value) &&
+        /[A-Za-z]|^\+\d/.test(value) &&
         !value.startsWith(RLM)
     );
 }
