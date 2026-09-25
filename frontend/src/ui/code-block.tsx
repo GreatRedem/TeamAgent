@@ -12,7 +12,7 @@ function CodeBlock({
             dir="auto"
             data-slot="code-block"
             className={cn(
-                'm-0 overflow-auto rounded-md border bg-well p-3 font-mono text-2xs leading-body whitespace-pre-wrap',
+                'm-0 scroll-stable overflow-auto rounded-md border bg-well p-3 font-mono text-2xs leading-body whitespace-pre-wrap',
                 className,
             )}
             {...props}>

@@ -225,6 +225,10 @@ Breakpoints are Tailwind's. Three are used: `sm` for card grids going two-up,
 `lg` for three-up, `xl` for a screen gaining its side panel. Mobile-first, and
 no screen scrolls sideways.
 
+A scrollbar never moves content. The page always reserves its gutter, and a box
+that scrolls on its own (`overflow-y-auto` with a max height) adds `scroll-stable`,
+so its text does not re-wrap when the scrollbar appears.
+
 ---
 
 ## 8. Screens

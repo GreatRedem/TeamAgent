@@ -225,7 +225,7 @@ export function ProfilePage() {
                                 </CardDescription>
                             </CardHeader>
 
-                            <CardContent className="flex max-h-125 flex-col-reverse gap-3 overflow-y-auto">
+                            <CardContent className="flex max-h-125 scroll-stable flex-col-reverse gap-3 overflow-y-auto">
                                 {details.messages.length === 0 && (
                                     <Text
                                         type="BodyMuted"

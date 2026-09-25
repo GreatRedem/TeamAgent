@@ -26,7 +26,10 @@ export function ExchangeList({
     }
 
     return (
-        <Stack direction="Vertical" as="ul" className="m-0 max-h-125 list-none overflow-y-auto p-0">
+        <Stack
+            direction="Vertical"
+            as="ul"
+            className="m-0 max-h-125 scroll-stable list-none overflow-y-auto p-0">
             {exchanges.map((exchange) => {
                 const about = exchange.tokens_estimated ? '~' : '';
                 const tokens =

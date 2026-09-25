@@ -329,7 +329,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
                         {rows.length > 0 && (
                             <Stack
                                 direction="Vertical"
-                                className="max-h-125 overflow-y-auto px-5 py-1">
+                                className="max-h-125 scroll-stable overflow-y-auto px-5 py-1">
                                 {cards(rows)}
                             </Stack>
                         )}
@@ -461,7 +461,7 @@ export function ActivityPanel({ teamId }: { teamId: number }) {
 
                                         <Stack
                                             direction="Vertical"
-                                            className="max-h-96 overflow-y-auto">
+                                            className="max-h-96 scroll-stable overflow-y-auto">
                                             <CodeBlock message={prettyJson(selected.changes)} />
                                         </Stack>
                                     </Stack>

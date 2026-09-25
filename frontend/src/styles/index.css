@@ -204,6 +204,10 @@
     overflow-wrap: anywhere;
 }
 
+@utility scroll-stable {
+    scrollbar-gutter: stable;
+}
+
 @layer base {
     * {
         @apply border-border outline-ring/50;
@@ -212,6 +216,10 @@
     button:not(:disabled),
     [role="button"]:not(:disabled) {
         cursor: pointer;
+    }
+
+    html {
+        scrollbar-gutter: stable;
     }
 
     body {
