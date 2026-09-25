@@ -1,7 +1,9 @@
 import {
     BOT_TOKEN_PATTERN,
+    BROWSER_SITES,
     PLUGIN_EVENTS,
     PLUGIN_FIELD_MAX,
+    PLUGIN_LONG_FIELD_MAX,
     PLUGIN_NAME_MAX,
     PLUGIN_URL_MAX,
     RELAY_SOURCE_PATTERN,
@@ -9,6 +11,7 @@ import {
 } from '../../constant.js';
 
 import type { PluginKind, PluginSettings } from './plugin.common.js';
+import { readSession } from './plugin.poster.js';
 
 export class PluginError extends Error {
     readonly code: string;
@@ -73,7 +76,9 @@ export function readPluginBody(
     for (const field of kind.fields) {
         const given =
             typeof fields[field.key] === 'string'
-                ? (fields[field.key] as string).trim().slice(0, PLUGIN_FIELD_MAX)
+                ? (fields[field.key] as string)
+                      .trim()
+                      .slice(0, field.long ? PLUGIN_LONG_FIELD_MAX : PLUGIN_FIELD_MAX)
                 : undefined;
         const kept = (field.secret ? stored?.secrets : stored?.config)?.[field.key] ?? '';
         const value = field.secret
@@ -112,6 +117,18 @@ export function readPluginBody(
 
     if (kind.key === 'discord' && !/^$|^\d{5,25}$/.test(config['default_channel'] ?? '')) {
         throw new PluginError('PLUGIN_CHANNEL_INVALID');
+    }
+
+    if (kind.key === 'poster' && !BROWSER_SITES.includes(config['site'] ?? '')) {
+        throw new PluginError('PLUGIN_SITE_INVALID');
+    }
+
+    if (kind.key === 'poster' && readSession(secrets['session'] ?? '') === null) {
+        throw new PluginError('PLUGIN_SESSION_INVALID');
+    }
+
+    if (kind.key === 'voice' && !isWebUrl(config['base_url'] ?? '')) {
+        throw new PluginError('PLUGIN_URL_INVALID');
     }
 
     if (kind.key === 'webhook' && !isWebUrl(config['url'] ?? '')) {

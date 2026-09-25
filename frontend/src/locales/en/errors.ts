@@ -67,6 +67,9 @@ const messages = {
     'errors.PLUGIN_CHANNEL_INVALID': 'A channel id is a long number.',
     'errors.PLUGIN_SOURCE_INVALID':
         'Give the channel as @name, its t.me link, or an id starting with -100.',
+    'errors.PLUGIN_SITE_INVALID': 'The site must be x, instagram or telegram.',
+    'errors.PLUGIN_SESSION_INVALID':
+        'That is not a saved session. Paste the whole file npm run browser:login saved.',
     'errors.PLUGIN_TARGET_INVALID':
         'Give the group as @name or an id such as -1001234567890, different from the channel.',
     'errors.PLUGIN_URL_INVALID': 'Enter a full http or https address.',

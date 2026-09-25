@@ -16,6 +16,7 @@ export interface PluginField {
     hint: string;
     placeholder: string;
     format?: 'url' | 'numeric';
+    long?: boolean;
 }
 
 export interface PluginKind {

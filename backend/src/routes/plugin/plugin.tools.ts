@@ -16,6 +16,7 @@ import { argText, failed, type PluginOutcome, postSigned, settingsOf } from './p
 import { discordAct, discordProbe } from './plugin.discord.js';
 import { TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import { instagramAct, instagramProbe } from './plugin.instagram.js';
+import { posterAct, posterProbe } from './plugin.poster.js';
 import { relayProbe } from './plugin.relay.js';
 import { telegramAct, telegramProbe } from './plugin.telegram.js';
 import { voiceProbe } from './plugin.voice.js';
@@ -158,6 +159,11 @@ function clientOf(plugin: TeamPlugin) {
         voice: {
             act: async () => failed('this plugin has no actions'),
             probe: () => voiceProbe(settings),
+        },
+        poster: {
+            act: (name: string, args: Record<string, unknown>) =>
+                posterAct(plugin.id, settings, name, args),
+            probe: () => posterProbe(settings),
         },
         webhook: {
             act: (

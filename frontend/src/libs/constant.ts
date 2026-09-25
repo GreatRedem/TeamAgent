@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+    AppWindow,
     AtSign,
     Bot,
     Camera,
@@ -118,6 +119,10 @@ export const TASK_AFTER_LABELS: Record<TaskAfterOutcome, MessageKey> = {
 };
 
 export const TASK_CHOICES_MAX = 200;
+
+export const PLUGIN_FIELD_MAX = 512;
+
+export const PLUGIN_LONG_FIELD_MAX = 256 * 1024;
 
 export const TASK_LIVE_POLL = 1500;
 
@@ -240,6 +245,7 @@ export const PLUGIN_ICONS: Record<PluginKindKey, LucideIcon> = {
     telegram: Send,
     relay: Forward,
     voice: Mic,
+    poster: AppWindow,
     x: AtSign,
     discord: MessagesSquare,
     instagram: Camera,

@@ -71,6 +71,9 @@ const messages: Messages<typeof en> = {
     'errors.PLUGIN_CHANNEL_INVALID': 'شناسهٔ کانال یک عدد طولانی است.',
     'errors.PLUGIN_SOURCE_INVALID':
         'کانال را به‌صورت ‎@name، پیوند t.me آن، یا شناسه‌ای که با ‎-100 شروع می‌شود وارد کنید.',
+    'errors.PLUGIN_SITE_INVALID': 'سایت باید x، instagram یا telegram باشد.',
+    'errors.PLUGIN_SESSION_INVALID':
+        'این یک نشست ذخیره‌شده نیست. کل فایلی را که npm run browser:login ذخیره کرد اینجا بچسبانید.',
     'errors.PLUGIN_TARGET_INVALID':
         'گروه را به‌صورت ‎@name یا شناسه‌ای مثل ‎-1001234567890 وارد کنید؛ متفاوت با کانال.',
     'errors.PLUGIN_URL_INVALID': 'یک نشانی کامل http یا https وارد کنید.',

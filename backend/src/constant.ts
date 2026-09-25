@@ -306,6 +306,7 @@ export const AUDIT_HIDDEN = new Set([
     'webhook_secret',
     'hook_secret',
     'nonce',
+    'session',
 ]);
 
 export const HEATMAP_DAYS = 364;
@@ -979,6 +980,28 @@ export const RELAY_MEDIA_METHODS = {
 
 export const TELEGRAM_CAPTION_MAX = 1024;
 
+export const PLUGIN_LONG_FIELD_MAX = 256 * 1024;
+
+export const BROWSER_SITES = ['x', 'instagram', 'telegram'];
+
+export const BROWSER_LOGIN_URLS: Record<string, string> = {
+    x: 'https://x.com/i/flow/login',
+    instagram: 'https://www.instagram.com/accounts/login/',
+    telegram: 'https://web.telegram.org/k/',
+};
+
+export const BROWSER_QUEUE = new Map<string, Promise<void>>();
+
+export const BROWSER_LAST_POST = new Map<number, number>();
+
+export const BROWSER_POST_GAP = 120_000;
+
+export const BROWSER_TIMEOUT = 150_000;
+
+export const BROWSER_STEP_TIMEOUT = 30_000;
+
+export const BROWSER_IMAGE_MAX = 8 * 1024 * 1024;
+
 export const FILE_MAX_BYTES = 20 * 1024 * 1024;
 
 export const FILE_TEXT_MAX = 20_000;
@@ -1055,6 +1078,23 @@ export const DISCORD_CHANNEL_FIELD = {
 };
 
 export const PLUGIN_TOOLS: ToolDefinition[] = [
+    {
+        name: 'browser_post',
+        description:
+            'Publish a post on X, Instagram or Telegram through a browser signed in as the account. Instagram needs an image. Posts from one account must be at least two minutes apart. Report exactly what was posted, or the error.',
+        permission: 'plugin:poster',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                text: { type: 'string', description: 'The text of the post' },
+                image_url: {
+                    type: 'string',
+                    description: 'Optional public https address of an image to attach',
+                },
+            },
+            required: ['text'],
+        },
+    },
     {
         name: 'telegram_send_message',
         description:
@@ -1632,6 +1672,41 @@ export const PLUGIN_KINDS: PluginKind[] = [
                 required: false,
                 hint: 'Optional: a two-letter code such as fa or en when everyone speaks one language. Leave it empty to detect the language.',
                 placeholder: 'fa',
+            },
+        ],
+    },
+    {
+        key: 'poster',
+        label: 'Browser posting',
+        description:
+            'Posts to X, Instagram or Telegram through a real browser signed in as your account, for accounts without API access. The sites may block accounts they see as automated, so post sparingly.',
+        inbound: 'none',
+        inbound_hint: '',
+        fields: [
+            {
+                key: 'site',
+                label: 'Site',
+                secret: false,
+                required: true,
+                hint: 'x, instagram or telegram.',
+                placeholder: 'x',
+            },
+            {
+                key: 'session',
+                label: 'Signed-in session',
+                secret: true,
+                required: true,
+                long: true,
+                hint: 'On a computer with a screen, run npm run browser:login -- x (or instagram, telegram), sign in, then paste the file it saves here and delete that file.',
+                placeholder: '{"cookies":[...],"origins":[...]}',
+            },
+            {
+                key: 'chat',
+                label: 'Telegram chat',
+                secret: false,
+                required: false,
+                hint: 'For Telegram only: the channel or group to post in, such as @mychannel.',
+                placeholder: '@mychannel',
             },
         ],
     },

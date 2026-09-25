@@ -4,6 +4,7 @@ export type PluginKindKey =
     | 'telegram'
     | 'relay'
     | 'voice'
+    | 'poster'
     | 'x'
     | 'discord'
     | 'instagram'
@@ -18,6 +19,7 @@ export interface PluginField {
     hint: string;
     placeholder: string;
     format?: 'url' | 'numeric';
+    long?: boolean;
 }
 
 export interface PluginKind {

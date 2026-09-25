@@ -57,6 +57,8 @@ const messages: Record<string, string> = {
         'آنچه را دربارهٔ یکی از اعضای تیم ثبت کرده‌اید می‌خواند. از member_id فهرست team_members استفاده کنید.',
     'catalog.tool.team_member_note':
         'با افزودن یک خط به یادداشت‌هایتان، چیزی را دربارهٔ یکی از اعضای تیم به خاطر می‌سپارد. فقط اضافه می‌کند، پس آنچه قبلاً ثبت شده از بین نمی‌رود.',
+    'catalog.tool.browser_post':
+        'با مرورگری که با حساب وارد شده، در X، اینستاگرام یا تلگرام یک پست منتشر می‌کند. اینستاگرام تصویر لازم دارد. پست‌های یک حساب باید دست‌کم دو دقیقه فاصله داشته باشند. دقیقاً بگویید چه منتشر شد، یا خطا چه بود.',
     'catalog.tool.team_member_chat':
         'گفتگو با مدل را برای یکی از اعضای تیم روشن یا خاموش می‌کند تا به پیام‌هایش پاسخ داده شود یا نشود. فقط وقتی کار می‌کند که کسی که درخواست می‌دهد در team.json نقشی داشته باشد؛ اگر رد شد، به او بگویید. از member_id فهرست team_members استفاده کنید.',
     'catalog.tool.web_search':
@@ -193,6 +195,17 @@ const messages: Record<string, string> = {
     'catalog.kind.voice.field.language.label': 'زبان',
     'catalog.kind.voice.field.language.hint':
         'اختیاری: وقتی همه به یک زبان صحبت می‌کنند، یک کد دوحرفی مثل fa یا en. برای تشخیص خودکار زبان خالی بگذارید.',
+    'catalog.kind.poster.label': 'انتشار با مرورگر',
+    'catalog.kind.poster.description':
+        'با یک مرورگر واقعی که با حساب شما وارد شده، در X، اینستاگرام یا تلگرام پست می‌گذارد؛ برای حساب‌هایی که دسترسی API ندارند. این سایت‌ها ممکن است حساب‌هایی را که خودکار می‌بینند مسدود کنند، پس کم پست بگذارید.',
+    'catalog.kind.poster.field.site.label': 'سایت',
+    'catalog.kind.poster.field.site.hint': 'x، instagram یا telegram.',
+    'catalog.kind.poster.field.session.label': 'نشست واردشده',
+    'catalog.kind.poster.field.session.hint':
+        'روی رایانه‌ای با صفحه‌نمایش npm run browser:login -- x (یا instagram، telegram) را اجرا کنید، وارد حسابتان شوید، سپس فایلی را که ذخیره می‌کند اینجا بچسبانید و آن فایل را پاک کنید.',
+    'catalog.kind.poster.field.chat.label': 'گفتگوی تلگرام',
+    'catalog.kind.poster.field.chat.hint':
+        'فقط برای تلگرام: کانال یا گروهی که در آن پست گذاشته شود، مثل ‎@mychannel.',
     'catalog.kind.x.label': 'X',
     'catalog.kind.x.description':
         'در X پست می‌گذارد، پاسخ می‌دهد، نقل می‌کند، لایک و بازنشر و حذف می‌کند، و منشن‌ها، جستجوها و پست‌ها را می‌خواند. هر درخواست از اعتبار API ایکس کم می‌کند.',

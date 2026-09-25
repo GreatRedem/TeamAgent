@@ -13,6 +13,7 @@
         "build": "npm run build:api && npm run build:web",
         "build:api": "npm --workspace backend run build",
         "build:web": "npm --workspace frontend run build",
+        "browser:login": "npm --workspace backend run browser:login --",
         "typecheck": "npm --workspace frontend run typecheck",
         "lint": "biome lint .",
         "lint:fix": "biome check --write .",

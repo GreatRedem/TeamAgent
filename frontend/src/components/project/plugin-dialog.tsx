@@ -10,7 +10,12 @@ import {
 } from '@/apis';
 import { Field } from '@/components/field';
 import { fieldText, kindText } from '@/libs/catalog';
-import { API_BASE_URL, PLUGIN_EVENT_LABELS } from '@/libs/constant';
+import {
+    API_BASE_URL,
+    PLUGIN_EVENT_LABELS,
+    PLUGIN_FIELD_MAX,
+    PLUGIN_LONG_FIELD_MAX,
+} from '@/libs/constant';
 import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -29,6 +34,7 @@ import { Separator } from '@/ui/separator';
 import { Stack } from '@/ui/stack';
 import { Switch } from '@/ui/switch';
 import { Text } from '@/ui/text';
+import { Textarea } from '@/ui/textarea';
 
 export function PluginDialog({
     open,
@@ -222,36 +228,61 @@ export function PluginDialog({
                                 }>
                                 {(id) => (
                                     <Stack direction="Horizontal" className="items-center gap-2">
-                                        <Input
-                                            id={id}
-                                            name={field.key}
-                                            type={
-                                                field.secret && !revealed.includes(field.key)
-                                                    ? 'password'
-                                                    : field.format === 'url'
-                                                      ? 'url'
-                                                      : 'text'
-                                            }
-                                            inputMode={
-                                                field.format === 'numeric' ? 'numeric' : undefined
-                                            }
-                                            autoComplete="off"
-                                            spellCheck={false}
-                                            required={field.required && saved === undefined}
-                                            value={fields[field.key] ?? ''}
-                                            disabled={removing}
-                                            onChange={(event) =>
-                                                setFields((current) => ({
-                                                    ...current,
-                                                    [field.key]: event.target.value,
-                                                }))
-                                            }
-                                            maxLength={512}
-                                            placeholder={
-                                                saved !== undefined ? saved : field.placeholder
-                                            }
-                                        />
-                                        {field.secret && (
+                                        {field.long === true ? (
+                                            <Textarea
+                                                id={id}
+                                                name={field.key}
+                                                variant="code"
+                                                autoComplete="off"
+                                                spellCheck={false}
+                                                required={field.required && saved === undefined}
+                                                value={fields[field.key] ?? ''}
+                                                disabled={removing}
+                                                onChange={(event) =>
+                                                    setFields((current) => ({
+                                                        ...current,
+                                                        [field.key]: event.target.value,
+                                                    }))
+                                                }
+                                                maxLength={PLUGIN_LONG_FIELD_MAX}
+                                                placeholder={
+                                                    saved !== undefined ? saved : field.placeholder
+                                                }
+                                            />
+                                        ) : (
+                                            <Input
+                                                id={id}
+                                                name={field.key}
+                                                type={
+                                                    field.secret && !revealed.includes(field.key)
+                                                        ? 'password'
+                                                        : field.format === 'url'
+                                                          ? 'url'
+                                                          : 'text'
+                                                }
+                                                inputMode={
+                                                    field.format === 'numeric'
+                                                        ? 'numeric'
+                                                        : undefined
+                                                }
+                                                autoComplete="off"
+                                                spellCheck={false}
+                                                required={field.required && saved === undefined}
+                                                value={fields[field.key] ?? ''}
+                                                disabled={removing}
+                                                onChange={(event) =>
+                                                    setFields((current) => ({
+                                                        ...current,
+                                                        [field.key]: event.target.value,
+                                                    }))
+                                                }
+                                                maxLength={PLUGIN_FIELD_MAX}
+                                                placeholder={
+                                                    saved !== undefined ? saved : field.placeholder
+                                                }
+                                            />
+                                        )}
+                                        {field.secret && field.long !== true && (
                                             <Button
                                                 variant="outline"
                                                 disabled={removing}
