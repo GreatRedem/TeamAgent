@@ -201,7 +201,7 @@ const messages = {
     'tools.help.panel.plugins.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. Tokens typed in a chat stay in the chat history; add secrets on the Plugins page instead.',
     'tools.help.panel.agents.summary':
-        'Lets the agent do what the Agents page does from a chat: list, create, change and delete agents, rewrite their instruction files and set their permissions. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
+        'Lets the agent do what the Agents page does from a chat: list, create, change and delete agents, rewrite their instruction files and set their permissions. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too, but cannot change permissions. Every change shows in Activity with who asked for it.',
     'tools.help.panel.agents.example1':
         'An admin writes "make a Support agent on the GPT model that answers in Persian" and the agent creates it with those instructions.',
     'tools.help.panel.agents.example2':
@@ -225,7 +225,7 @@ const messages = {
     'tools.help.panel.bots.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. Bot tokens typed in a chat stay in the chat history.',
     'tools.help.panel.people.summary':
-        'Lets the agent look after the people who write to your bots from a chat: list them, change what each may do, and read the Activity log and the overview numbers. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
+        'Lets the agent look after the people who write to your bots from a chat: list them, change what each may do, and read the Activity log and the overview numbers. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too, but cannot change permissions. Every change shows in Activity with who asked for it.',
     'tools.help.panel.people.example1':
         'A manager asks "what failed today?" and the agent reads the failures from Activity.',
     'tools.help.panel.people.example2':

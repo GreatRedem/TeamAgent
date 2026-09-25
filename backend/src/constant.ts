@@ -153,7 +153,7 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
     {
         key: 'panel.agents',
         label: 'May manage agents',
-        description: `Lets this agent list, create, change and delete this project’s agents, their models, instruction files and permissions, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it. It never changes its own permissions, and only grants permissions it has itself.`,
+        description: `Lets this agent list, create, change and delete this project’s agents, their models, instruction files and permissions, but only when the person asking is on team.json with at least one role, or in a scheduled task, which cannot change permissions. Each change is recorded in Activity with who asked for it. It never changes its own permissions, and only grants permissions it has itself.`,
     },
     {
         key: 'panel.models',
@@ -168,7 +168,7 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
     {
         key: 'panel.people',
         label: 'May manage people and read activity',
-        description: `Lets this agent list the people who wrote to your bots, change what each of them may do, and read the Activity log and overview numbers, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it.`,
+        description: `Lets this agent list the people who wrote to your bots, change what each of them may do, and read the Activity log and overview numbers, but only when the person asking is on team.json with at least one role, or in a scheduled task, which cannot change permissions. Each change is recorded in Activity with who asked for it.`,
     },
     {
         key: 'agents.call',
