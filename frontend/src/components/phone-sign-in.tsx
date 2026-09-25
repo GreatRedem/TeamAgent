@@ -85,6 +85,7 @@ export function PhoneSignIn() {
                 direction="Vertical"
                 as="form"
                 className="gap-5"
+                key="phone"
                 onSubmit={(event) => void sendCode(event)}>
                 <Field label={t('auth.phone.label')} hint={t('auth.phone.hint')}>
                     {(id) => (
@@ -123,6 +124,7 @@ export function PhoneSignIn() {
             direction="Vertical"
             as="form"
             className="gap-5"
+            key="code"
             onSubmit={(event) => void verify(event)}>
             <Field
                 label={t('auth.phone.codeLabel')}
