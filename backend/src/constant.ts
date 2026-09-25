@@ -143,32 +143,32 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
     {
         key: 'panel.tasks',
         label: 'May manage tasks',
-        description: `Lets this agent list, create, change and delete this project’s tasks, including chains, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+        description: `Lets this agent list, create, change and delete this project’s tasks, including chains, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it.`,
     },
     {
         key: 'panel.plugins',
         label: 'May manage plugins',
-        description: `Lets this agent list, add, change and delete this project’s plugins, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+        description: `Lets this agent list, add, change and delete this project’s plugins, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it.`,
     },
     {
         key: 'panel.agents',
         label: 'May manage agents',
-        description: `Lets this agent list, create, change and delete this project’s agents, their models, instruction files and permissions, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it. It never changes its own permissions, and only grants permissions it has itself.`,
+        description: `Lets this agent list, create, change and delete this project’s agents, their models, instruction files and permissions, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it. It never changes its own permissions, and only grants permissions it has itself.`,
     },
     {
         key: 'panel.models',
         label: 'May manage models',
-        description: `Lets this agent list, add, change, test and remove this project’s model endpoints, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+        description: `Lets this agent list, add, change, test and remove this project’s model endpoints, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it.`,
     },
     {
         key: 'panel.bots',
         label: 'May manage bots',
-        description: `Lets this agent list, add, change, test and remove this project’s Telegram bots and choose which agent answers them, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+        description: `Lets this agent list, add, change, test and remove this project’s Telegram bots and choose which agent answers them, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it.`,
     },
     {
         key: 'panel.people',
         label: 'May manage people and read activity',
-        description: `Lets this agent list the people who wrote to your bots, change what each of them may do, and read the Activity log and overview numbers, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+        description: `Lets this agent list the people who wrote to your bots, change what each of them may do, and read the Activity log and overview numbers, but only when the person asking is on team.json with at least one role, or in a scheduled task. Each change is recorded in Activity with who asked for it.`,
     },
     {
         key: 'agents.call',
@@ -423,6 +423,8 @@ export const PERSONAL_TOOLS = [
     'activity_list',
     'overview',
 ];
+
+export const PERMISSION_TOOLS = ['agent_permissions', 'person_permissions'];
 
 export const TOOLS: ToolDefinition[] = [
     {

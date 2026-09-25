@@ -376,7 +376,7 @@ export async function runTask(
 
         const person = recipient ?? placeholderUser(task.team_id, startedAt);
 
-        const tools = await agentTools(fastify, agent, person);
+        const tools = await agentTools(fastify, agent, person, false, task);
 
         const instructions = await agentInstructions(fastify, agent, tools);
 
@@ -397,6 +397,7 @@ export async function runTask(
                 await taskBefore(fastify, task),
             ),
             tools,
+            task,
             trace: (event) => {
                 if (event.kind === 'model') {
                     spent.model = event.model;

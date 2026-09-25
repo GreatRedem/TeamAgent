@@ -5,6 +5,7 @@ import {
     MCP_DOCUMENT_CONTENT_MAX,
     MEMORY_FILE,
     MEMORY_MAX,
+    PERMISSION_TOOLS,
     PERSONAL_TOOLS,
     PREFERENCES_TEMPLATE,
     ROSTER_FILE,
@@ -17,6 +18,7 @@ import { TeamAgent, TeamAgentDocument } from '../agent/agent.entity.js';
 import { agentHasPermission, parseAgentPermissions } from '../agent/agent.permission.js';
 import { audit, changed } from '../audit/audit.log.js';
 import { isPluginTool, pluginTools, runPluginTool } from '../plugin/plugin.tools.js';
+import type { TeamTask } from '../task/task.entity.js';
 import { profileLabel } from '../task/task.plan.js';
 import { TeamDocument } from '../team/team.entity.js';
 import {
@@ -96,11 +98,16 @@ export async function agentTools(
     agent: TeamAgent,
     person: TelegramUser,
     nested = false,
+    task?: TeamTask,
 ): Promise<ToolDefinition[]> {
     const tools = [
         ...allowedTools(agent.permissions),
         ...(await pluginTools(fastify, agent)),
-    ].filter((tool) => person.id !== 0 || !PERSONAL_TOOLS.includes(tool.name));
+    ].filter((tool) =>
+        task !== undefined && tool.permission.startsWith('panel.')
+            ? !PERMISSION_TOOLS.includes(tool.name)
+            : person.id !== 0 || !PERSONAL_TOOLS.includes(tool.name),
+    );
 
     if (!tools.some((tool) => tool.name === 'agent_call')) {
         return tools;
@@ -252,6 +259,7 @@ export async function runTool(
     user: TelegramUser,
     name: string,
     args: Record<string, unknown>,
+    task?: TeamTask,
 ): Promise<ToolResult> {
     if (isPluginTool(name)) {
         return runPluginTool(fastify, agent, name, args);
@@ -268,7 +276,7 @@ export async function runTool(
     }
 
     if (tool.permission.startsWith('panel.')) {
-        return runPanelTool(fastify, agent, user, name, args);
+        return runPanelTool(fastify, agent, user, name, args, task);
     }
 
     if (tool.name === 'time_now') {

@@ -185,7 +185,7 @@ const messages = {
     'tools.help.team.chat.caution':
         'Also turn on "May see the team roster" so the agent can find the person it should switch.',
     'tools.help.panel.tasks.summary':
-        'Lets the agent do what the Tasks page does from a chat: list, create, change, chain and delete tasks. It only works when the person asking is in team.json with at least one role, and every change shows in Activity with who asked for it.',
+        'Lets the agent do what the Tasks page does from a chat: list, create, change, chain and delete tasks. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
     'tools.help.panel.tasks.example1':
         'An admin writes "every 6 hours, have the News agent post a market summary to me" and the agent creates that task.',
     'tools.help.panel.tasks.example2':
@@ -193,7 +193,7 @@ const messages = {
     'tools.help.panel.tasks.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. Deleting a task removes its run history too.',
     'tools.help.panel.plugins.summary':
-        'Lets the agent do what the Plugins page does from a chat: list, add, change and delete plugins. It only works when the person asking is in team.json with at least one role, and every change shows in Activity with who asked for it.',
+        'Lets the agent do what the Plugins page does from a chat: list, add, change and delete plugins. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
     'tools.help.panel.plugins.example1':
         'A manager asks "which plugins are off?", then "switch the Discord one back on", and the agent changes it.',
     'tools.help.panel.plugins.example2':
@@ -201,7 +201,7 @@ const messages = {
     'tools.help.panel.plugins.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. Tokens typed in a chat stay in the chat history; add secrets on the Plugins page instead.',
     'tools.help.panel.agents.summary':
-        'Lets the agent do what the Agents page does from a chat: list, create, change and delete agents, rewrite their instruction files and set their permissions. It only works when the person asking is in team.json with at least one role, and every change shows in Activity with who asked for it.',
+        'Lets the agent do what the Agents page does from a chat: list, create, change and delete agents, rewrite their instruction files and set their permissions. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
     'tools.help.panel.agents.example1':
         'An admin writes "make a Support agent on the GPT model that answers in Persian" and the agent creates it with those instructions.',
     'tools.help.panel.agents.example2':
@@ -209,7 +209,7 @@ const messages = {
     'tools.help.panel.agents.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. The agent never changes its own permissions, only gives permissions it has itself, and cannot touch an agent that can do more than it can.',
     'tools.help.panel.models.summary':
-        'Lets the agent do what the Models page does from a chat: list, add, change, test and remove model endpoints. Keys are never shown back. It only works when the person asking is in team.json with at least one role, and every change shows in Activity with who asked for it.',
+        'Lets the agent do what the Models page does from a chat: list, add, change, test and remove model endpoints. Keys are never shown back. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
     'tools.help.panel.models.example1':
         'An admin asks "is the OpenRouter model working?" and the agent tests it and reports the answer.',
     'tools.help.panel.models.example2':
@@ -217,7 +217,7 @@ const messages = {
     'tools.help.panel.models.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. Only public https addresses are accepted, and a new address needs its key again. API keys typed in a chat stay in the chat history.',
     'tools.help.panel.bots.summary':
-        'Lets the agent do what the Bots page does from a chat: list, add, change, test and remove Telegram bots and choose which agent answers each one. Tokens are never shown back. It only works when the person asking is in team.json with at least one role, and every change shows in Activity with who asked for it.',
+        'Lets the agent do what the Bots page does from a chat: list, add, change, test and remove Telegram bots and choose which agent answers each one. Tokens are never shown back. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
     'tools.help.panel.bots.example1':
         'An admin asks "which agent answers the sales bot?", then "switch it to the Sales agent", and the agent does.',
     'tools.help.panel.bots.example2':
@@ -225,7 +225,7 @@ const messages = {
     'tools.help.panel.bots.caution':
         'Anyone who can give themselves a role in team.json can use this, so be careful who else may update team members. Bot tokens typed in a chat stay in the chat history.',
     'tools.help.panel.people.summary':
-        'Lets the agent look after the people who write to your bots from a chat: list them, change what each may do, and read the Activity log and the overview numbers. It only works when the person asking is in team.json with at least one role, and every change shows in Activity with who asked for it.',
+        'Lets the agent look after the people who write to your bots from a chat: list them, change what each may do, and read the Activity log and the overview numbers. In a chat it only works when the person asking is in team.json with at least one role; scheduled tasks may use it too. Every change shows in Activity with who asked for it.',
     'tools.help.panel.people.example1':
         'A manager asks "what failed today?" and the agent reads the failures from Activity.',
     'tools.help.panel.people.example2':

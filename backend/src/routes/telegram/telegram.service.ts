@@ -67,6 +67,7 @@ import {
     setAside,
 } from '../model/model.auto.js';
 import { fetchCatalog, fetchEndpointModels } from '../model/model.provider.js';
+import type { TeamTask } from '../task/task.entity.js';
 import { profileLabel } from '../task/task.plan.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
@@ -702,9 +703,10 @@ export async function runAgent(
         tools: ToolDefinition[];
         onText?: (text: string) => void;
         trace?: (event: AgentEvent) => void;
+        task?: TeamTask;
     },
 ): Promise<AgentRun> {
-    const { teamId, agent, model, user, messages, tools, onText, trace } = job;
+    const { teamId, agent, model, user, messages, tools, onText, trace, task } = job;
 
     const traceModel = (
         round: number,
@@ -1038,7 +1040,7 @@ export async function runAgent(
                 const result = tools.some((tool) => tool.name === call.name)
                     ? call.name === 'agent_call'
                         ? await callAgent(fastify, log, agent, user, call.arguments)
-                        : await runTool(fastify, agent, user, call.name, call.arguments)
+                        : await runTool(fastify, agent, user, call.name, call.arguments, task)
                     : {
                           ok: false,
                           content: JSON.stringify({ error: `${call.name} is not available here` }),

@@ -884,8 +884,12 @@ export async function runPanelTool(
     user: TelegramUser,
     name: string,
     args: Record<string, unknown>,
+    task?: TeamTask,
 ): Promise<ToolResult> {
-    const asker = await rosterAsker(fastify, agent.team_id, user);
+    const asker =
+        task === undefined
+            ? await rosterAsker(fastify, agent.team_id, user)
+            : { ok: true as const, name: `task ${task.id} (${task.title})` };
 
     if (!asker.ok) {
         return refuse(asker.reason);
@@ -893,7 +897,12 @@ export async function runPanelTool(
 
     const by: ActedBy = {
         log: fastify.log,
-        agent: { id: agent.id, name: agent.name, askedBy: user.id, asker: asker.name },
+        agent: {
+            id: agent.id,
+            name: agent.name,
+            askedBy: task === undefined ? user.id : 0,
+            asker: asker.name,
+        },
     };
     const teamId = agent.team_id;
     const area = TOOLS.find((tool) => tool.name === name)?.permission;

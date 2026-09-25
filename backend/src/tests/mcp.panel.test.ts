@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { AUDIT_HIDDEN, PERSONAL_TOOLS, PLUGIN_KINDS, TOOLS } from '../constant.js';
 import { TeamAgent, TeamAgentDocument } from '../routes/agent/agent.entity.js';
 import { AuditLog } from '../routes/audit/audit.entity.js';
-import { runTool } from '../routes/mcp/mcp.tools.js';
+import { agentTools, runTool } from '../routes/mcp/mcp.tools.js';
 import { TeamPlugin, TeamPluginCall } from '../routes/plugin/plugin.entity.js';
 import { TeamTask, TeamTaskRun } from '../routes/task/task.entity.js';
 import { TeamBot, TeamDocument, TeamModel } from '../routes/team/team.entity.js';
@@ -253,7 +253,7 @@ async function main() {
     assert.equal(panelTools.length, 32);
     assert.ok(
         panelTools.every((tool) => PERSONAL_TOOLS.includes(tool.name)),
-        'panel tools are never offered when nobody is asking, as in task runs',
+        'panel tools need someone asking, or a scheduled task',
     );
     assert.ok(
         PLUGIN_KINDS.every((kind) =>
@@ -266,7 +266,47 @@ async function main() {
 
     assert.equal((await call(12, 'task_list')).ok, false, 'on team.json without a role');
     assert.equal((await call(99, 'task_list')).ok, false, 'not on team.json');
-    assert.equal((await call(0, 'task_list')).ok, false, 'nobody asking, as in a task run');
+    assert.equal((await call(0, 'task_list')).ok, false, 'nobody asking, as in a webhook');
+
+    const scheduled = { id: 41, team_id: 1, title: 'Weekly plan' } as TeamTask;
+    const names = (tools: { name: string }[]) => tools.map((tool) => tool.name);
+    const inTask = names(await agentTools(fastify, admin, person(0), false, scheduled));
+
+    assert.ok(
+        inTask.includes('task_create') && inTask.includes('model_list'),
+        'a task run has them',
+    );
+    assert.ok(
+        !inTask.includes('agent_permissions') && !inTask.includes('person_permissions'),
+        'a task run never changes permissions',
+    );
+    assert.ok(!names(await agentTools(fastify, admin, person(0))).includes('task_list'));
+
+    const planned = await runTool(
+        fastify,
+        admin,
+        person(0),
+        'task_create',
+        { title: 'Plan', agent: 'news', description: 'Plan the week.' },
+        scheduled,
+    );
+
+    assert.equal(planned.ok, true, planned.content);
+    assert.match(String(audits().at(-1)?.['detail']), /by Admin, asked by task 41 \(Weekly plan\)/);
+    assert.match(String(audits().at(-1)?.['changes']), /"asked_by":0/);
+    assert.equal(
+        (
+            await runTool(
+                fastify,
+                admin,
+                person(0),
+                'task_delete',
+                { task_id: JSON.parse(planned.content)['task']['id'] },
+                scheduled,
+            )
+        ).ok,
+        true,
+    );
 
     const created = await call(11, 'task_create', {
         title: 'Market summary',
