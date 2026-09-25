@@ -40,7 +40,7 @@ const messages = {
     'support.account.id': 'Account',
     'support.account.wallet': 'Wallet',
     'support.account.phone': 'Phone',
-    'support.account.plan': 'Plan now',
+    'support.account.onPlan': 'On the {plan} plan now.',
     'support.account.setPlan': 'Plan',
     'support.account.until': 'Paid until',
     'support.account.untilHint':

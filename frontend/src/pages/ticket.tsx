@@ -22,7 +22,7 @@ import { clearAccessToken } from '@/libs/session';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
+import { Card, CardContent } from '@/ui/card';
 import { Skeleton } from '@/ui/skeleton';
 import { Stack } from '@/ui/stack';
 import { Text } from '@/ui/text';
@@ -180,7 +180,11 @@ export function TicketPage() {
                                                     direction="Horizontal"
                                                     className="flex-wrap items-baseline gap-x-2">
                                                     <Text
-                                                        type="BodyStrong"
+                                                        type={
+                                                            staffView && !message.staff
+                                                                ? 'DataStrong'
+                                                                : 'BodyStrong'
+                                                        }
                                                         as="span"
                                                         message={author(message)}
                                                     />
@@ -203,10 +207,6 @@ export function TicketPage() {
                             </Card>
 
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>{t('support.thread.replyLabel')}</CardTitle>
-                                </CardHeader>
-
                                 <CardContent>
                                     <Stack
                                         direction="Vertical"

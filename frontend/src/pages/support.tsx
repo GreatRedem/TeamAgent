@@ -84,7 +84,7 @@ export function SupportInbox() {
             )}
 
             {tickets !== null && tickets.length > 0 && (
-                <Card className="overflow-hidden" gap={0}>
+                <Card className="overflow-hidden" gap={0} flush>
                     <CardContent padding="none">
                         <TicketList tickets={tickets} showCustomer />
                     </CardContent>

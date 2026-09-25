@@ -6,7 +6,7 @@ import { PLAN_TEXT } from '@/libs/constant';
 import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
 import { DataList, DataRow } from '@/ui/data-value';
 import { Input } from '@/ui/input';
 import { Select, SelectItem } from '@/ui/select';
@@ -45,6 +45,9 @@ export function PlanControl({ account, onSaved }: { account: TicketAccount; onSa
         <Card>
             <CardHeader>
                 <CardTitle>{t('support.account.title')}</CardTitle>
+                <CardDescription>
+                    {t('support.account.onPlan', { plan: t(PLAN_TEXT[account.plan].name) })}
+                </CardDescription>
             </CardHeader>
 
             <CardContent>
@@ -57,10 +60,6 @@ export function PlanControl({ account, onSaved }: { account: TicketAccount; onSa
                         {account.wallet !== null && (
                             <DataRow label={t('support.account.wallet')} value={account.wallet} />
                         )}
-                        <DataRow
-                            label={t('support.account.plan')}
-                            value={t(PLAN_TEXT[account.plan].name)}
-                        />
                     </DataList>
 
                     <Stack

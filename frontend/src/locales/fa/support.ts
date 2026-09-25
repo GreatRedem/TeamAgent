@@ -44,7 +44,7 @@ const messages: Messages<typeof en> = {
     'support.account.id': 'حساب',
     'support.account.wallet': 'کیف پول',
     'support.account.phone': 'تلفن',
-    'support.account.plan': 'طرح فعلی',
+    'support.account.onPlan': 'اکنون روی طرح {plan} است.',
     'support.account.setPlan': 'طرح',
     'support.account.until': 'پرداخت‌شده تا',
     'support.account.untilHint':

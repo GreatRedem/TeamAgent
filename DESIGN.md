@@ -282,6 +282,19 @@ left; its id and dates, then Archive, on the right, sticky from `xl`. Save stays
 disabled until something changed. An archived project's Archive card carries the
 `degraded` rail.
 
+**Support.** On Projects, two columns wide beside the plan: the account's tickets,
+latest activity first, each with a status chip (waiting is `warning`, answered is
+`primary`, closed is outline), and New ticket. The plan card's "Ask for another
+plan" opens New ticket with the subject filled in.
+
+**Ticket.** The thread, the viewer's own messages on the end side in a primary
+tint, then the reply form. Close and Reopen sit by the status chip. Staff also see
+the customer on the right, sticky from `xl`, with the plan and paid-until date
+they can set.
+
+**Support inbox.** Staff only (account role 1 or more). Every ticket, filtered
+Waiting / Answered / Closed / All, paged like every other list.
+
 ---
 
 ## 9. Linting
