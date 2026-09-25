@@ -10,6 +10,9 @@ async (page) => {
     const call = (id, direction, action, ok) => ({ id, direction, action, ok, status: ok ? 200 : 400, duration_ms: 400 + id * 30, agent_id: 0, agent_name: '', thread: '', request: '{"text":"Sample"}', response: ok ? '{"message_id":812}' : '', error: ok ? '' : 'Bad Request: chat not found', created_at: at });
 
     const limits = (projects, agents, bots, tasks) => ({ projects, agents, bots, tasks });
+    const ticket = (id, subject, status, customer) => ({ id, subject, status, customer, created_at: at, updated_at: at });
+    const tickets = [ticket(1, 'Custom plan for 40 bots', 'answered', '+989121234567'), ticket(2, 'The bot stopped answering in our group', 'open', '0x5290…9EE7')];
+    const note = (id, staff, body) => ({ id, staff, body, created_at: at });
 
     const fixtures = {
         'GET /account/me': { id: 1, admin: true, wallet: '0x52908400098527886E0F7030069857D2E4169EE7', plan: 'pro', chosen_plan: 'pro', plan_until: '2026-10-26T00:00:00.000Z', limits: limits(5, 15, 5, 100), projects: 1 },
@@ -23,6 +26,20 @@ async (page) => {
         },
         'POST /account/sms/send': { phone: '+989121234567', resend_after: 60 },
         'POST /account/sms/sign-in': { accessToken: 'mock-session' },
+        'GET /ticket': { tickets, ...paged, total: 2 },
+        'GET /support/ticket': { tickets, ...paged, total: 2 },
+        'GET /ticket/1': {
+            ticket: tickets[0],
+            messages: [
+                note(1, false, 'We run 40 Telegram bots for our stores. Can we get a plan with room for all of them?'),
+                note(2, true, 'Yes. A Custom plan covers that. How many projects and scheduled tasks do you need?'),
+            ],
+            account: { id: 7, wallet: null, phone: '+989121234567', plan: 'free', chosen_plan: 'free', plan_until: null },
+        },
+        'POST /ticket': tickets[0],
+        'POST /ticket/1/message': note(3, true, 'Done.'),
+        'PATCH /ticket/1': { ...tickets[0], status: 'closed' },
+        'PATCH /support/account/7': { plan: 'custom', plan_until: null },
         'GET /team': { teams: [team], ...paged, total: 1 },
         'GET /team/1': team,
         'GET /team/1/agent': { agents: [agent(1, 'Support'), agent(2, 'Social')], ...paged, total: 2 },

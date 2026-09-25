@@ -11,6 +11,12 @@ const messages = {
     'errors.DOCUMENT_NOT_FOUND': 'That file no longer exists.',
     'errors.ERROR_MAX_LENGTH': 'That is too long.',
     'errors.ERROR_MIN_LENGTH': 'That is too short.',
+    'errors.TICKET_EMPTY': 'Write a subject and a message.',
+    'errors.TICKET_NOT_FOUND': 'That ticket does not exist, or it is not yours.',
+    'errors.TICKET_ID_INVALID': 'That ticket address is not valid.',
+    'errors.TICKET_FULL': 'This ticket is full. Open a new one to go on.',
+    'errors.PLAN_INVALID': 'Choose one of the plans.',
+    'errors.PLAN_UNTIL_INVALID': 'That end date is not a date.',
     'errors.PHONE_INVALID': 'That is not a mobile number we can text. Check the digits.',
     'errors.SMS_TOO_SOON': 'A code was sent a moment ago. Wait a minute before asking for another.',
     'errors.SMS_UNAVAILABLE':

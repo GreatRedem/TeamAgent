@@ -1,4 +1,4 @@
-import { Archive, FolderOpen, FolderPlus, Plus } from 'lucide-react';
+import { Archive, ArrowUpCircle, FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -16,6 +16,7 @@ import { Field } from '@/components/field';
 import { PageHeader } from '@/components/page-header';
 import { Pager } from '@/components/pager';
 import { PlanCard } from '@/components/plan-card';
+import { SupportPanel } from '@/components/support-panel';
 import { dateLabel } from '@/libs/format';
 import { apiError, t } from '@/libs/i18n';
 import { clearAccessToken, readAccessToken } from '@/libs/session';
@@ -361,8 +362,26 @@ export function Projects() {
                 />
             )}
 
-            <Stack direction="Vertical" as="section" className="gap-3 lg:grid lg:grid-cols-3">
-                {me !== null && <PlanCard me={me} />}
+            <Stack
+                direction="Vertical"
+                as="section"
+                className="gap-3 lg:grid lg:grid-cols-3 lg:items-start">
+                <SupportPanel staff={me?.admin ?? false} />
+
+                {me !== null && (
+                    <PlanCard
+                        me={me}
+                        action={
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                link="/dashboard?ticket=plan"
+                                icon={<ArrowUpCircle />}
+                                message={t('plans.card.ask')}
+                            />
+                        }
+                    />
+                )}
 
                 {meFailed && (
                     <Alert variant="destructive">

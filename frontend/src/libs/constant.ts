@@ -27,6 +27,7 @@ import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
 import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
 import type { TaskAfterOutcome } from '@/apis/task';
+import type { TicketStatus } from '@/apis/ticket';
 import type { MessageKey } from '@/locales';
 import type { Status } from '@/ui/status-dot';
 
@@ -122,6 +123,26 @@ export const TASK_AFTER_LABELS: Record<TaskAfterOutcome, MessageKey> = {
 export const TASK_CHOICES_MAX = 200;
 
 export const SMS_CODE_LENGTH = 6;
+
+export const TICKET_SUBJECT_MAX = 120;
+
+export const TICKET_BODY_MAX = 4000;
+
+export const TICKET_STATUS: Record<
+    TicketStatus,
+    { label: MessageKey; variant: 'default' | 'warning' | 'outline' }
+> = {
+    open: { label: 'support.status.open', variant: 'warning' },
+    answered: { label: 'support.status.answered', variant: 'default' },
+    closed: { label: 'support.status.closed', variant: 'outline' },
+};
+
+export const TICKET_FILTERS: { value: TicketStatus | 'all'; label: MessageKey }[] = [
+    { value: 'open', label: 'support.status.open' },
+    { value: 'answered', label: 'support.status.answered' },
+    { value: 'closed', label: 'support.status.closed' },
+    { value: 'all', label: 'support.inbox.all' },
+];
 
 export const PLAN_TEXT: Record<PlanKey, { name: MessageKey; blurb: MessageKey }> = {
     free: { name: 'plans.free.name', blurb: 'plans.free.blurb' },

@@ -7,6 +7,8 @@ import { ProfilePage } from '@/pages/profile-page';
 import { Project } from '@/pages/project';
 import { Projects } from '@/pages/projects';
 import { SignIn } from '@/pages/sign-in';
+import { SupportInbox } from '@/pages/support';
+import { TicketPage } from '@/pages/ticket';
 
 export function App() {
     return (
@@ -14,6 +16,8 @@ export function App() {
             <Route element={<AppShell />}>
                 <Route index element={<SignIn />} />
                 <Route path="dashboard" element={<Projects />} />
+                <Route path="dashboard/support" element={<SupportInbox />} />
+                <Route path="dashboard/support/:ticketId" element={<TicketPage />} />
                 <Route path="dashboard/team/:id/:tab?" element={<Project />} />
                 <Route path="dashboard/team/:id/profile/:profileId" element={<ProfilePage />} />
                 <Route path="dashboard/team/:id/agent/:agentId" element={<Agent />} />

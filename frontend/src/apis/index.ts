@@ -119,4 +119,18 @@ export {
     teamRemove,
     teamUpdate,
 } from './team';
+export {
+    accountPlanSet,
+    supportList,
+    type Ticket,
+    type TicketAccount,
+    type TicketMessage,
+    type TicketPage,
+    type TicketStatus,
+    ticketCreate,
+    ticketDetails,
+    ticketList,
+    ticketReply,
+    ticketStatusSet,
+} from './ticket';
 export { type ImportReport, teamExport, teamImport } from './transfer';

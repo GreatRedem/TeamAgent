@@ -10,6 +10,7 @@ import enOverview from './en/overview';
 import enPeople from './en/people';
 import enPlans from './en/plans';
 import enProjects from './en/projects';
+import enSupport from './en/support';
 import enTasks from './en/tasks';
 import enTeam from './en/team';
 import enTools from './en/tools';
@@ -26,6 +27,7 @@ import faOverview from './fa/overview';
 import faPeople from './fa/people';
 import faPlans from './fa/plans';
 import faProjects from './fa/projects';
+import faSupport from './fa/support';
 import faTasks from './fa/tasks';
 import faTeam from './fa/team';
 import faTools from './fa/tools';
@@ -46,6 +48,7 @@ const en = {
     ...enTeam,
     ...enTools,
     ...enPlans,
+    ...enSupport,
     ...enErrors,
 };
 
@@ -65,6 +68,7 @@ const fa: Messages<typeof en> = {
     ...faTeam,
     ...faTools,
     ...faPlans,
+    ...faSupport,
     ...faErrors,
 };
 

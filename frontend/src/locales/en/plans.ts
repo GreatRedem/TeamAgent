@@ -29,6 +29,7 @@ const messages = {
     'plans.card.lapsed':
         'Your {plan} plan ended on {date}. The Free limits apply until it is renewed; nothing was removed.',
     'plans.card.loadFailed': 'Your plan could not be loaded.',
+    'plans.card.ask': 'Ask for another plan',
 } as const;
 
 export default messages;

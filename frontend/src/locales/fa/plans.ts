@@ -32,6 +32,7 @@ const messages: Messages<typeof en> = {
     'plans.card.lapsed':
         'طرح {plan} شما در {date} تمام شد. تا تمدید آن، سقف‌های طرح رایگان اعمال می‌شود؛ چیزی حذف نشده است.',
     'plans.card.loadFailed': 'طرح شما بارگذاری نشد.',
+    'plans.card.ask': 'درخواست طرح دیگر',
 };
 
 export default messages;

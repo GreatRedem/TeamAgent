@@ -15,6 +15,12 @@ const messages: Messages<typeof en> = {
     'errors.DOCUMENT_NOT_FOUND': 'این فایل دیگر وجود ندارد.',
     'errors.ERROR_MAX_LENGTH': 'این مقدار بیش از حد طولانی است.',
     'errors.ERROR_MIN_LENGTH': 'این مقدار بیش از حد کوتاه است.',
+    'errors.TICKET_EMPTY': 'یک موضوع و یک پیام بنویسید.',
+    'errors.TICKET_NOT_FOUND': 'این تیکت وجود ندارد یا مال شما نیست.',
+    'errors.TICKET_ID_INVALID': 'نشانی این تیکت معتبر نیست.',
+    'errors.TICKET_FULL': 'این تیکت پر شده است. برای ادامه یک تیکت تازه باز کنید.',
+    'errors.PLAN_INVALID': 'یکی از طرح‌ها را انتخاب کنید.',
+    'errors.PLAN_UNTIL_INVALID': 'این تاریخ پایان، تاریخ معتبری نیست.',
     'errors.PHONE_INVALID':
         'این شماره موبایلی نیست که بتوانیم به آن پیامک بدهیم. رقم‌ها را بررسی کنید.',
     'errors.SMS_TOO_SOON': 'همین الان یک کد فرستاده شد. یک دقیقه صبر کنید و بعد کد تازه بخواهید.',

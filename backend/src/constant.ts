@@ -75,6 +75,16 @@ export const APP_NAME = 'NuraAI';
 
 export const WALLET_NONCE_TIME = 5 * 60 * 1000;
 
+export const TICKET_SUBJECT_MAX = 120;
+
+export const TICKET_BODY_MAX = 4000;
+
+export const TICKET_MESSAGES_MAX = 200;
+
+export const TICKET_PAGE = 20;
+
+export const TICKET_STATUSES = ['open', 'answered', 'closed'];
+
 export const SMS_CODE_TIME = 5 * 60 * 1000;
 
 export const SMS_CODE_ATTEMPTS = 5;
