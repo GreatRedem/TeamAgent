@@ -3,6 +3,8 @@ import {
     DOCUMENT_NAME_PATTERN,
     FETCH_TEXT_MAX,
     MCP_DOCUMENT_CONTENT_MAX,
+    MEMORY_FILE,
+    MEMORY_MAX,
     PERSONAL_TOOLS,
     PREFERENCES_TEMPLATE,
     ROSTER_FILE,
@@ -153,6 +155,55 @@ export async function rosterAsker(
     return user.id === 0 || !asker || (asker.roles?.length ?? 0) === 0
         ? { ok: false, reason: 'only someone on team.json with a role may ask for this' }
         : { ok: true, name: asker.name };
+}
+
+export async function runMemoryTool(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    name: string,
+    args: Record<string, unknown>,
+): Promise<ToolResult> {
+    const repository = fastify.db.getRepository(TeamAgentDocument);
+    const existing = await repository.findOneBy({ agent_id: agent.id, name: MEMORY_FILE });
+    const given = args[name === 'memory_remember' ? 'note' : 'content'];
+    const text = typeof given === 'string' ? given.trim() : '';
+
+    if (name === 'memory_remember' && text === '') {
+        return refuse('note is empty');
+    }
+
+    const content =
+        name === 'memory_remember'
+            ? `${(existing?.content ?? '').trimEnd()}\n- ${new Date().toISOString().slice(0, 10)}: ${text.replace(/\s+/g, ' ')}\n`.trimStart()
+            : text === ''
+              ? ''
+              : `${text}\n`;
+
+    if (content.length > MEMORY_MAX) {
+        return refuse(
+            `memory would pass ${MEMORY_MAX} characters; condense it with memory_rewrite first`,
+        );
+    }
+
+    if (existing) {
+        await repository.update({ id: existing.id }, { content });
+    } else {
+        await repository.save({ agent_id: agent.id, name: MEMORY_FILE, content });
+    }
+
+    await audit(fastify, fastify.log, {
+        teamId: agent.team_id,
+        action: 'agent.memory',
+        target: `agent:${agent.id}`,
+        actor: 'agent',
+        detail: `${agent.name} ${name === 'memory_remember' ? 'remembered something' : 'rewrote its memory'}, now ${content.length} chars`,
+        changes: { agent_id: agent.id, from: existing?.content ?? null, to: content },
+    });
+
+    return {
+        ok: true,
+        content: JSON.stringify({ chars: content.length, room_left: MEMORY_MAX - content.length }),
+    };
 }
 
 export async function readRosterContent(fastify: FastifyInstance, teamId: number): Promise<string> {
@@ -358,6 +409,10 @@ export async function runTool(
             ok: true,
             content: JSON.stringify({ result: outcome, name, members: next.members.length }),
         };
+    }
+
+    if (tool.name === 'memory_remember' || tool.name === 'memory_rewrite') {
+        return runMemoryTool(fastify, agent, tool.name, args);
     }
 
     if (tool.name === 'document_read') {

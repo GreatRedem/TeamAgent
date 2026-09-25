@@ -5,6 +5,9 @@ const messages: Record<string, string> = {
     'catalog.capability.prefs.write.label': 'نوشتن فایل‌ها',
     'catalog.capability.prefs.write.description':
         'به این ایجنت اجازه می‌دهد همان فایل‌ها را بسازد و تغییر دهد. داشتن این اجازه به معنای اجازهٔ خواندن نیست.',
+    'catalog.capability.memory.write.label': 'نگه داشتن حافظهٔ خودش',
+    'catalog.capability.memory.write.description':
+        'به این ایجنت اجازه می‌دهد آنچه را می‌خواهد به یاد بسپارد در memory.md بنویسد، فایلی مخصوص خودش که در هر گفتگو و هر وظیفه آن را می‌خواند. هر کسی که با آن صحبت می‌کند می‌تواند روی آنچه به یاد می‌سپارد اثر بگذارد، و آنچه به یاد می‌سپارد به همهٔ کسانی که با آن‌ها صحبت می‌کند می‌رسد.',
     'catalog.capability.conversation.read.label': 'جستجو در پیام‌های گذشته',
     'catalog.capability.conversation.read.description':
         'به این ایجنت اجازه می‌دهد پیام‌هایی را که هر شخص قبلاً برایش فرستاده، فراتر از چند پیام اخیری که خودش می‌بیند، مرور کند.',
@@ -65,6 +68,10 @@ const messages: Record<string, string> = {
         'کل محتوای یکی از فایل‌های markdown این شخص را جایگزین می‌کند و اگر لازم باشد آن را می‌سازد. مگر اینکه بخواهید محتوای فعلی را کنار بگذارید، اول آن را بخوانید.',
     'catalog.tool.preferences_append':
         'یک خط به انتهای یکی از فایل‌های markdown این شخص اضافه می‌کند، بی‌آنکه آن را از نو بنویسد.',
+    'catalog.tool.memory_remember':
+        'یک یادداشت به حافظهٔ خودتان اضافه می‌کند که از این به بعد در هر گفتگو و هر وظیفه آن را می‌خوانید. چیزی را نگه دارید که بعداً مهم است: یک واقعیت ماندگار، یک تصمیم، یک درس یا کاری که قبلاً انجام داده‌اید. نه جزئیات یک شخص؛ آن‌ها در فایل‌های همان شخص می‌روند.',
+    'catalog.tool.memory_rewrite':
+        'کل حافظهٔ شما را جایگزین می‌کند، برای خلاصه کردنش وقتی پر شده، اصلاحش یا فراموش کردن چیزی. محتوای خالی همه‌چیز را فراموش می‌کند.',
     'catalog.tool.profile_get':
         'اطلاعات ذخیره‌شده دربارهٔ شخص طرف گفتگو را می‌خواند: نام، نام کاربری، زبان و اینکه چقدر نوشته است.',
     'catalog.tool.conversation_search':
@@ -359,6 +366,7 @@ const messages: Record<string, string> = {
     'catalog.action.agent.document.update': 'ویرایش فایل ایجنت',
     'catalog.action.agent.file.append': 'افزودن به فایل شخص',
     'catalog.action.agent.file.write': 'نوشتن فایل شخص',
+    'catalog.action.agent.memory': 'نوشتن در حافظهٔ ایجنت',
     'catalog.action.agent.member_note': 'یادداشت دربارهٔ عضو',
     'catalog.action.agent.permissions': 'قابلیت‌های ایجنت',
     'catalog.action.agent.remove': 'حذف ایجنت',

@@ -148,6 +148,14 @@ const messages = {
         'The agent notes that a customer is interested in the yearly plan, so it can follow up later.',
     'tools.help.prefs.write.caution':
         'Writing a whole file replaces what was in it, so an agent with this can erase its own notes about a person.',
+    'tools.help.memory.write.summary':
+        'Gives the agent a memory of its own. It notes what it wants to keep in memory.md, and reads that file in every conversation and task from then on, so it remembers across people and days. You can read and edit memory.md with its other files on the agent page.',
+    'tools.help.memory.write.example1':
+        'Someone tells the agent the team moved its launch to March, and it remembers that for everyone it talks to later.',
+    'tools.help.memory.write.example2':
+        'A daily news task notes which headlines it already posted, so the next run does not repeat them.',
+    'tools.help.memory.write.caution':
+        'Anyone who talks to the agent can shape what it remembers, and what it remembers reaches everyone it talks to. Read memory.md now and then, and keep private matters in each person’s own files instead.',
     'tools.help.conversation.read.summary':
         'An agent normally sees only the last few messages of a chat. This lets it search further back, through everything that person has ever written to it.',
     'tools.help.conversation.read.example1':

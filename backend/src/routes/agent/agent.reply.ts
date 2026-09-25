@@ -7,6 +7,9 @@ import {
     ERROR_TEXT_MAX,
     HISTORY_LIMIT,
     MAX_COMPLETION_TOKENS,
+    MEMORY_FILE,
+    MEMORY_GUIDANCE,
+    MEMORY_HEADING,
     MESSAGE_OVERHEAD,
     MIN_INPUT_BUDGET,
     PLUGIN_TOOLS,
@@ -159,8 +162,12 @@ export function buildSystemPrompt(documents: AgentDocumentLike[], lazy = false):
 
     const sections = sorted
         .filter(inline)
-        .map((document) => document.content.trim())
-        .filter((content) => content !== '');
+        .filter((document) => document.content.trim() !== '')
+        .map((document) =>
+            document.name === MEMORY_FILE
+                ? `${MEMORY_HEADING}\n\n${document.content.trim()}`
+                : document.content.trim(),
+        );
 
     const deferred = sorted.filter((document) => !inline(document));
 
@@ -407,7 +414,7 @@ export function countTokens(
 export function toolGuidance(tools: readonly string[]): string {
     const web = ['web_search', 'weather', 'web_fetch'].filter((name) => tools.includes(name));
     const apps = tools.filter((name) => PLUGIN_TOOLS.some((tool) => tool.name === name));
-    const sections: string[] = [];
+    const sections: string[] = tools.includes('memory_remember') ? [MEMORY_GUIDANCE] : [];
 
     if (web.length > 0) {
         sections.push(
