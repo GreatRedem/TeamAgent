@@ -76,23 +76,27 @@ function main() {
         ],
 
         [
-            'only team_member_chat touches permissions, and only behind team.chat',
+            'permissions are only edited behind team.chat, panel.agents and panel.people',
             () => {
                 const keys = AGENT_PERMISSIONS.map((p) => p.key);
                 const chat = TOOLS.filter((t) => t.permission === 'team.chat');
+                const editors = TOOLS.filter((t) => /permission|grant|revoke/i.test(t.name));
 
                 assert.deepEqual(
                     chat.map((t) => t.name),
                     ['team_member_chat'],
                 );
                 assert.ok(PERSONAL_TOOLS.includes('team_member_chat'), 'it needs a person asking');
+                assert.deepEqual(
+                    editors.map((t) => `${t.name}:${t.permission}`),
+                    ['agent_permissions:panel.agents', 'person_permissions:panel.people'],
+                );
+                assert.ok(
+                    editors.every((t) => PERSONAL_TOOLS.includes(t.name)),
+                    'permission changes need a person asking',
+                );
 
                 for (const tool of TOOLS) {
-                    assert.equal(
-                        /permission|grant|revoke/i.test(tool.name),
-                        false,
-                        `${tool.name} looks like it edits permissions`,
-                    );
                     assert.ok(
                         keys.includes(tool.permission),
                         `${tool.name} requires an unknown permission`,

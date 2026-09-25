@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { In } from 'typeorm';
 import {
     DAY,
@@ -14,10 +14,10 @@ import {
 import { authGuard } from '../../plugins/authentication.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent } from '../agent/agent.entity.js';
-import { audit, changed } from '../audit/audit.log.js';
+import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { type PluginBody, PluginError, readPluginBody } from './plugin.body.js';
-import { type PluginKind, settingsOf } from './plugin.common.js';
+import { type PluginKind, type PluginOutcome, settingsOf } from './plugin.common.js';
 import { TeamPlugin, TeamPluginCall } from './plugin.entity.js';
 import {
     schemaPluginCalls,
@@ -44,7 +44,7 @@ function hint(secret: string): string {
     return secret.length > 12 ? `${secret.slice(0, 3)}…${secret.slice(-4)}` : '••••';
 }
 
-function kindOf(key: string): PluginKind {
+export function kindOf(key: string): PluginKind {
     const kind = PLUGIN_KINDS.find((candidate) => candidate.key === key);
 
     if (!kind) {
@@ -166,7 +166,7 @@ async function pluginViews(fastify: FastifyInstance, plugins: TeamPlugin[]) {
 
 async function checkedBody(
     fastify: FastifyInstance,
-    request: FastifyRequest,
+    raw: unknown,
     teamId: number,
     kind: PluginKind,
     stored: TeamPlugin | null,
@@ -174,7 +174,7 @@ async function checkedBody(
     let body: PluginBody;
 
     try {
-        body = readPluginBody(request.body, kind, stored ? settingsOf(stored) : null);
+        body = readPluginBody(raw, kind, stored ? settingsOf(stored) : null);
     } catch (cause) {
         throw new BadRequestResponse(cause instanceof PluginError ? cause.code : 'PLUGIN_INVALID');
     }
@@ -215,13 +215,13 @@ function columns(body: PluginBody) {
 
 async function probeAndRecord(
     fastify: FastifyInstance,
-    request: FastifyRequest,
+    log: FastifyBaseLogger,
     plugin: TeamPlugin,
 ) {
     const startedAt = Date.now();
     const probe = await probePlugin(plugin);
 
-    await recordCall(fastify, request.log, plugin, {
+    await recordCall(fastify, log, plugin, {
         direction: 'test',
         action: 'test',
         outcome: probe,
@@ -237,6 +237,93 @@ async function probeAndRecord(
     }
 
     return probe;
+}
+
+export async function createPlugin(
+    fastify: FastifyInstance,
+    teamId: number,
+    kind: PluginKind,
+    raw: unknown,
+    by: ActedBy,
+): Promise<{ plugin: TeamPlugin; probe: PluginOutcome }> {
+    const body = await checkedBody(fastify, raw, teamId, kind, null);
+    const credit = attribution(by);
+
+    const saved = await fastify.db.getRepository(TeamPlugin).save({
+        team_id: teamId,
+        kind: kind.key,
+        hook_secret: randomBytes(24).toString('hex'),
+        ...columns(body),
+    });
+
+    const probe = await probeAndRecord(fastify, by.log, saved);
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'plugin.create',
+        target: `plugin:${saved.id}`,
+        detail: `${kind.label} · ${saved.name} · ${body.agents.length} agent(s)${credit.note}`,
+        changes: { kind: kind.key, ...columns(body), account: saved.account, ...credit.changes },
+    });
+
+    return { plugin: saved, probe };
+}
+
+export async function updatePlugin(
+    fastify: FastifyInstance,
+    plugin: TeamPlugin,
+    raw: unknown,
+    by: ActedBy,
+): Promise<{ plugin: TeamPlugin; probe: PluginOutcome | null }> {
+    const body = await checkedBody(fastify, raw, plugin.team_id, kindOf(plugin.kind), plugin);
+    const credit = attribution(by);
+    const next = columns(body);
+    const diff = changed(plugin, next);
+    const moved =
+        plugin.kind === 'relay' && settingsOf(plugin).config['source'] !== body.config['source'];
+
+    await fastify.db
+        .getRepository(TeamPlugin)
+        .update({ id: plugin.id }, { ...next, ...(moved && { poll_offset: '0' }) });
+
+    const saved = { ...plugin, ...next } as TeamPlugin;
+
+    const probe =
+        next.secrets !== plugin.secrets || next.config !== plugin.config
+            ? await probeAndRecord(fastify, by.log, saved)
+            : null;
+
+    await audit(fastify, by.log, {
+        teamId: plugin.team_id,
+        ...credit.who,
+        action: 'plugin.update',
+        target: `plugin:${plugin.id}`,
+        detail: `${saved.name} · changed ${Object.keys(diff).join(', ') || 'nothing'}${credit.note}`,
+        changes: { ...diff, ...credit.changes },
+    });
+
+    return { plugin: saved, probe };
+}
+
+export async function removePlugin(fastify: FastifyInstance, plugin: TeamPlugin, by: ActedBy) {
+    const credit = attribution(by);
+    const calls = await fastify.db.getRepository(TeamPluginCall).delete({ plugin_id: plugin.id });
+
+    await fastify.db.getRepository(TeamPlugin).delete({ id: plugin.id });
+
+    PLUGIN_STATUS.delete(plugin.id);
+
+    await audit(fastify, by.log, {
+        teamId: plugin.team_id,
+        ...credit.who,
+        action: 'plugin.remove',
+        target: `plugin:${plugin.id}`,
+        detail: `${plugin.kind} · ${plugin.name} · ${calls.affected ?? 0} request records removed${credit.note}`,
+        changes: { plugin, requests_removed: calls.affected ?? 0, ...credit.changes },
+    });
+
+    return calls.affected ?? 0;
 }
 
 export function pluginCatalog(fastify: FastifyInstance) {
@@ -280,24 +367,9 @@ export function pluginCreate(fastify: FastifyInstance) {
         await findOwnedTeam(fastify, teamId, request.account_id);
 
         const kind = kindOf(String((request.body as { kind?: unknown } | undefined)?.kind ?? ''));
-        const body = await checkedBody(fastify, request, teamId, kind, null);
-
-        const saved = await fastify.db.getRepository(TeamPlugin).save({
-            team_id: teamId,
-            kind: kind.key,
-            hook_secret: randomBytes(24).toString('hex'),
-            ...columns(body),
-        });
-
-        await probeAndRecord(fastify, request, saved);
-
-        await audit(fastify, request.log, {
-            teamId,
+        const { plugin: saved } = await createPlugin(fastify, teamId, kind, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'plugin.create',
-            target: `plugin:${saved.id}`,
-            detail: `${kind.label} · ${saved.name} · ${body.agents.length} agent(s)`,
-            changes: { kind: kind.key, ...columns(body), account: saved.account },
         });
 
         const [view] = await pluginViews(fastify, [saved]);
@@ -311,36 +383,9 @@ export function pluginCreate(fastify: FastifyInstance) {
 export function pluginUpdate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const plugin = await findOwnedPlugin(fastify, request);
-        const body = await checkedBody(
-            fastify,
-            request,
-            plugin.team_id,
-            kindOf(plugin.kind),
-            plugin,
-        );
-        const next = columns(body);
-        const diff = changed(plugin, next);
-        const moved =
-            plugin.kind === 'relay' &&
-            settingsOf(plugin).config['source'] !== body.config['source'];
-
-        await fastify.db
-            .getRepository(TeamPlugin)
-            .update({ id: plugin.id }, { ...next, ...(moved && { poll_offset: '0' }) });
-
-        const saved = { ...plugin, ...next } as TeamPlugin;
-
-        if (next.secrets !== plugin.secrets || next.config !== plugin.config) {
-            await probeAndRecord(fastify, request, saved);
-        }
-
-        await audit(fastify, request.log, {
-            teamId: plugin.team_id,
+        const { plugin: saved } = await updatePlugin(fastify, plugin, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'plugin.update',
-            target: `plugin:${plugin.id}`,
-            detail: `${saved.name} · changed ${Object.keys(diff).join(', ') || 'nothing'}`,
-            changes: diff,
         });
 
         const [view] = await pluginViews(fastify, [saved]);
@@ -355,21 +400,7 @@ export function pluginRemove(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const plugin = await findOwnedPlugin(fastify, request);
 
-        const calls = await fastify.db
-            .getRepository(TeamPluginCall)
-            .delete({ plugin_id: plugin.id });
-        await fastify.db.getRepository(TeamPlugin).delete({ id: plugin.id });
-
-        PLUGIN_STATUS.delete(plugin.id);
-
-        await audit(fastify, request.log, {
-            teamId: plugin.team_id,
-            accountId: request.account_id,
-            action: 'plugin.remove',
-            target: `plugin:${plugin.id}`,
-            detail: `${plugin.kind} · ${plugin.name} · ${calls.affected ?? 0} request records removed`,
-            changes: { plugin, requests_removed: calls.affected ?? 0 },
-        });
+        await removePlugin(fastify, plugin, { log: request.log, accountId: request.account_id });
 
         reply.send({ result: 'removed' });
     };
@@ -381,7 +412,7 @@ export function pluginTest(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const plugin = await findOwnedPlugin(fastify, request);
         const account = plugin.account;
-        const probe = await probeAndRecord(fastify, request, plugin);
+        const probe = await probeAndRecord(fastify, request.log, plugin);
         const [view] = await pluginViews(fastify, [plugin]);
 
         await audit(fastify, request.log, {

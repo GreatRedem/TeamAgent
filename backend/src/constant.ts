@@ -135,6 +135,36 @@ export const AGENT_PERMISSIONS: AgentPermission[] = [
             'Lets this agent take a person out of team.json. The one team.json action that loses information, so grant it sparingly.',
     },
     {
+        key: 'panel.tasks',
+        label: 'May manage tasks',
+        description: `Lets this agent list, create, change and delete this project’s tasks, including chains, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+    },
+    {
+        key: 'panel.plugins',
+        label: 'May manage plugins',
+        description: `Lets this agent list, add, change and delete this project’s plugins, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+    },
+    {
+        key: 'panel.agents',
+        label: 'May manage agents',
+        description: `Lets this agent list, create, change and delete this project’s agents, their models, instruction files and permissions, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it. It never changes its own permissions, and only grants permissions it has itself.`,
+    },
+    {
+        key: 'panel.models',
+        label: 'May manage models',
+        description: `Lets this agent list, add, change, test and remove this project’s model endpoints, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+    },
+    {
+        key: 'panel.bots',
+        label: 'May manage bots',
+        description: `Lets this agent list, add, change, test and remove this project’s Telegram bots and choose which agent answers them, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+    },
+    {
+        key: 'panel.people',
+        label: 'May manage people and read activity',
+        description: `Lets this agent list the people who wrote to your bots, change what each of them may do, and read the Activity log and overview numbers, but only when the person asking is on team.json with at least one role. Each change is recorded in Activity with who asked for it.`,
+    },
+    {
         key: 'agents.call',
         label: 'May ask other agents',
         description:
@@ -157,6 +187,7 @@ export const AGENT_KNOWN = new Set(AGENT_PERMISSIONS.map((permission) => permiss
 
 export const SPLIT: Record<string, string[]> = {
     'roster.write': ['roster.create', 'roster.update', 'roster.delete'],
+    'panel.manage': ['panel.tasks', 'panel.plugins'],
 };
 
 export const DEFAULT_AGENT_PERMISSIONS: string[] = [];
@@ -306,6 +337,11 @@ export const AUDIT_HIDDEN = new Set([
     'webhook_secret',
     'hook_secret',
     'nonce',
+    'api_secret',
+    'access_token',
+    'access_secret',
+    'app_secret',
+    'tavily_key',
     'session',
 ]);
 
@@ -324,6 +360,10 @@ What this person wants remembered between conversations.
 - (nothing recorded yet)
 `;
 
+export const PANEL_LIST_MAX = 50;
+
+export const ACTIVITY_LIST_DEFAULT = 20;
+
 export const PERSONAL_TOOLS = [
     'preferences_list',
     'preferences_read',
@@ -332,6 +372,38 @@ export const PERSONAL_TOOLS = [
     'profile_get',
     'conversation_search',
     'team_member_chat',
+    'task_list',
+    'task_create',
+    'task_update',
+    'task_delete',
+    'plugin_kinds',
+    'plugin_list',
+    'plugin_create',
+    'plugin_update',
+    'plugin_delete',
+    'agent_list',
+    'agent_create',
+    'agent_update',
+    'agent_delete',
+    'agent_permissions',
+    'agent_files',
+    'agent_file_read',
+    'agent_file_write',
+    'agent_file_delete',
+    'model_list',
+    'model_create',
+    'model_update',
+    'model_test',
+    'model_delete',
+    'bot_list',
+    'bot_create',
+    'bot_update',
+    'bot_test',
+    'bot_delete',
+    'people_list',
+    'person_permissions',
+    'activity_list',
+    'overview',
 ];
 
 export const TOOLS: ToolDefinition[] = [
@@ -470,6 +542,657 @@ export const TOOLS: ToolDefinition[] = [
                 },
             },
             required: ['member_id', 'enabled'],
+        },
+    },
+    {
+        name: 'task_list',
+        description:
+            "List this project's tasks: id, title, the agent that runs it, when it starts, how often it repeats, its status and how its last run went.",
+        permission: 'panel.tasks',
+        inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+        name: 'task_create',
+        description:
+            "Create a task: an agent runs the instructions at start_at and again on every repeat, or right after another task finishes, which chains them and hands it that task's result. Repeat is one of none, every30m, hourly, every2h, every5h, every6h, daily, weekly. The result goes to the chosen profile by direct message.",
+        permission: 'panel.tasks',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                title: { type: 'string', description: 'A short name for the task' },
+                agent: { type: 'string', description: 'The name or id of the agent that runs it' },
+                description: { type: 'string', description: 'What the agent should do each run' },
+                goal: { type: 'string', description: 'What a good result looks like' },
+                start_at: {
+                    type: 'string',
+                    description: 'First run, as an ISO 8601 date and time. Leave out to start now',
+                },
+                repeat: {
+                    type: 'string',
+                    description:
+                        'none, every30m, hourly, every2h, every5h, every6h, daily or weekly',
+                },
+                profile_id: {
+                    type: 'integer',
+                    description:
+                        'Who receives the result by direct message: a member_id from team_members',
+                },
+                after_task_id: {
+                    type: 'integer',
+                    description:
+                        'Run it only after this task (an id from task_list) finishes, instead of at a time. 0 to go back to a time',
+                },
+                after_outcome: {
+                    type: 'string',
+                    description:
+                        'When to run after that task: ok when it succeeded, error when it failed, any either way',
+                },
+            },
+            required: ['title', 'agent'],
+        },
+    },
+    {
+        name: 'task_update',
+        description:
+            'Change a task. Only the fields you pass change. It cannot change a task while it is running.',
+        permission: 'panel.tasks',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_id: { type: 'integer', description: 'The id from task_list' },
+                title: { type: 'string', description: 'A new name' },
+                agent: { type: 'string', description: 'The name or id of the agent that runs it' },
+                description: { type: 'string', description: 'What the agent should do each run' },
+                goal: { type: 'string', description: 'What a good result looks like' },
+                start_at: { type: 'string', description: 'Next run, as an ISO 8601 date and time' },
+                repeat: {
+                    type: 'string',
+                    description:
+                        'none, every30m, hourly, every2h, every5h, every6h, daily or weekly',
+                },
+                profile_id: {
+                    type: 'integer',
+                    description:
+                        'Who receives the result: a member_id from team_members, or 0 for nobody',
+                },
+                after_task_id: {
+                    type: 'integer',
+                    description:
+                        'Run it only after this task (an id from task_list) finishes, instead of at a time. 0 to go back to a time',
+                },
+                after_outcome: {
+                    type: 'string',
+                    description:
+                        'When to run after that task: ok when it succeeded, error when it failed, any either way',
+                },
+            },
+            required: ['task_id'],
+        },
+    },
+    {
+        name: 'task_delete',
+        description:
+            'Delete a task and its run history. It cannot be undone, so confirm with the person first.',
+        permission: 'panel.tasks',
+        inputSchema: {
+            type: 'object',
+            properties: { task_id: { type: 'integer', description: 'The id from task_list' } },
+            required: ['task_id'],
+        },
+    },
+    {
+        name: 'plugin_kinds',
+        description:
+            'The kinds of plugin that can be added and the fields each one needs. Read it before plugin_create.',
+        permission: 'panel.plugins',
+        inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+        name: 'plugin_list',
+        description:
+            "List this project's plugins: id, kind, name, whether it is on, the account it works as, the agents that may use it, the agent that answers for it, whether it is listening, and which secret fields are set. Secret values are never shown.",
+        permission: 'panel.plugins',
+        inputSchema: { type: 'object', properties: {}, required: [] },
+    },
+    {
+        name: 'plugin_create',
+        description:
+            'Add a plugin. Get the kind and its fields from plugin_kinds. It is tested once saved, and the result says whether that worked.',
+        permission: 'panel.plugins',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                kind: { type: 'string', description: 'A kind key from plugin_kinds' },
+                name: { type: 'string', description: 'A name for it, unique in this project' },
+                fields: {
+                    type: 'object',
+                    description:
+                        'The field values by key, e.g. {"token":"123:AA...","default_chat":"@news"}',
+                },
+                agents: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Names or ids of the agents that may use its tools',
+                },
+                answered_by: {
+                    type: 'string',
+                    description:
+                        'Name or id of the agent that answers for it, where the kind listens. Leave out for nobody',
+                },
+                enabled: { type: 'boolean', description: 'false to add it switched off' },
+            },
+            required: ['kind', 'name'],
+        },
+    },
+    {
+        name: 'plugin_update',
+        description:
+            'Change a plugin. Only what you pass changes: fields you leave out, secrets included, keep their values.',
+        permission: 'panel.plugins',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                plugin_id: { type: 'integer', description: 'The id from plugin_list' },
+                name: { type: 'string', description: 'A new name' },
+                fields: {
+                    type: 'object',
+                    description: 'Field values to change, by key',
+                },
+                agents: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description:
+                        'The full new list of agents that may use its tools, by name or id',
+                },
+                answered_by: {
+                    type: 'string',
+                    description: 'Name or id of the agent that answers for it, or "none"',
+                },
+                enabled: { type: 'boolean', description: 'Switch it on or off' },
+            },
+            required: ['plugin_id'],
+        },
+    },
+    {
+        name: 'plugin_delete',
+        description:
+            'Delete a plugin and its request history. It cannot be undone, so confirm with the person first.',
+        permission: 'panel.plugins',
+        inputSchema: {
+            type: 'object',
+            properties: { plugin_id: { type: 'integer', description: 'The id from plugin_list' } },
+            required: ['plugin_id'],
+        },
+    },
+    {
+        name: 'agent_list',
+        description:
+            "List this project's agents: id, name, what they do, their model, their permissions and how many instruction files they have.",
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+        },
+    },
+    {
+        name: 'agent_create',
+        description:
+            'Create an agent. It starts with the default files and permissions; use agent_file_write and agent_permissions to shape it.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'A name for the agent',
+                },
+                model: {
+                    type: 'string',
+                    description: 'The name or id of the model it answers with, from model_list',
+                },
+                description: {
+                    type: 'string',
+                    description: 'One line on what it does',
+                },
+                instructions: {
+                    type: 'string',
+                    description: 'What goes in its instructions.md',
+                },
+            },
+            required: ['name', 'model'],
+        },
+    },
+    {
+        name: 'agent_update',
+        description: 'Change an agent’s name, description or model. Only what you pass changes.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+                name: {
+                    type: 'string',
+                    description: 'A new name',
+                },
+                description: {
+                    type: 'string',
+                    description: 'A new description',
+                },
+                model: {
+                    type: 'string',
+                    description: 'The name or id of the model it answers with',
+                },
+            },
+            required: ['agent_id'],
+        },
+    },
+    {
+        name: 'agent_delete',
+        description:
+            'Delete an agent with its files; its bots stop answering and its scheduled tasks are cancelled. It cannot be undone, so confirm with the person first.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+            },
+            required: ['agent_id'],
+        },
+    },
+    {
+        name: 'agent_permissions',
+        description:
+            'Set everything an agent may do, as the full new list of permission keys. You cannot change your own permissions, nor grant one you do not have.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+                permissions: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Every permission key it should have, e.g. ["basics","web.fetch"]',
+                },
+            },
+            required: ['agent_id', 'permissions'],
+        },
+    },
+    {
+        name: 'agent_files',
+        description: 'List the instruction files of an agent, with their sizes.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+            },
+            required: ['agent_id'],
+        },
+    },
+    {
+        name: 'agent_file_read',
+        description: 'Read one instruction file of an agent.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+                name: {
+                    type: 'string',
+                    description: 'The file name, e.g. instructions.md',
+                },
+            },
+            required: ['agent_id', 'name'],
+        },
+    },
+    {
+        name: 'agent_file_write',
+        description: 'Create an instruction file of an agent, or replace its whole content.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+                name: {
+                    type: 'string',
+                    description: 'A markdown file name, e.g. instructions.md',
+                },
+                content: {
+                    type: 'string',
+                    description: 'The full new content',
+                },
+            },
+            required: ['agent_id', 'name', 'content'],
+        },
+    },
+    {
+        name: 'agent_file_delete',
+        description:
+            'Delete an instruction file of an agent. It cannot be undone, so confirm with the person first.',
+        permission: 'panel.agents',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agent_id: {
+                    type: 'integer',
+                    description: 'The id from agent_list',
+                },
+                name: {
+                    type: 'string',
+                    description: 'The file name',
+                },
+            },
+            required: ['agent_id', 'name'],
+        },
+    },
+    {
+        name: 'model_list',
+        description:
+            "List this project's model endpoints: id, name, model id, address, token window and whether a key is set. Keys are never shown.",
+        permission: 'panel.models',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+        },
+    },
+    {
+        name: 'model_create',
+        description:
+            'Add a model endpoint that speaks the OpenAI chat API. It is checked once saved.',
+        permission: 'panel.models',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'A name for it',
+                },
+                base_url: {
+                    type: 'string',
+                    description: 'The https address of the API, e.g. https://openrouter.ai/api/v1',
+                },
+                model: {
+                    type: 'string',
+                    description: 'The model id at that address',
+                },
+                api_key: {
+                    type: 'string',
+                    description: 'The API key, if the address needs one',
+                },
+                context_tokens: {
+                    type: 'integer',
+                    description: 'Its token window, 0 to detect it',
+                },
+            },
+            required: ['name', 'base_url', 'model'],
+        },
+    },
+    {
+        name: 'model_update',
+        description:
+            'Change a model endpoint. Only what you pass changes; the key is kept unless you give a new one.',
+        permission: 'panel.models',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                model_id: {
+                    type: 'integer',
+                    description: 'The id from model_list',
+                },
+                name: {
+                    type: 'string',
+                    description: 'A new name',
+                },
+                base_url: {
+                    type: 'string',
+                    description: 'A new https address',
+                },
+                model: {
+                    type: 'string',
+                    description: 'A new model id',
+                },
+                api_key: {
+                    type: 'string',
+                    description: 'A new API key',
+                },
+                context_tokens: {
+                    type: 'integer',
+                    description: 'A new token window',
+                },
+            },
+            required: ['model_id'],
+        },
+    },
+    {
+        name: 'model_test',
+        description: 'Check that a model endpoint answers and knows the model.',
+        permission: 'panel.models',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                model_id: {
+                    type: 'integer',
+                    description: 'The id from model_list',
+                },
+            },
+            required: ['model_id'],
+        },
+    },
+    {
+        name: 'model_delete',
+        description:
+            'Remove a model endpoint; agents that used it are left without a model. It cannot be undone, so confirm with the person first.',
+        permission: 'panel.models',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                model_id: {
+                    type: 'integer',
+                    description: 'The id from model_list',
+                },
+            },
+            required: ['model_id'],
+        },
+    },
+    {
+        name: 'bot_list',
+        description:
+            "List this project's Telegram bots: id, name, the agent that answers, whether it reads groups, who it answers and whether a token is set. Tokens are never shown.",
+        permission: 'panel.bots',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+        },
+    },
+    {
+        name: 'bot_create',
+        description:
+            'Add a Telegram bot from its @BotFather token, and optionally the agent that answers it.',
+        permission: 'panel.bots',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'A name for it',
+                },
+                token: {
+                    type: 'string',
+                    description: 'The token from @BotFather',
+                },
+                agent: {
+                    type: 'string',
+                    description: 'The name or id of the agent that answers it',
+                },
+            },
+            required: ['name', 'token'],
+        },
+    },
+    {
+        name: 'bot_update',
+        description: 'Change a bot. Only what you pass changes.',
+        permission: 'panel.bots',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                bot_id: {
+                    type: 'integer',
+                    description: 'The id from bot_list',
+                },
+                name: {
+                    type: 'string',
+                    description: 'A new name',
+                },
+                token: {
+                    type: 'string',
+                    description: 'A new token from @BotFather',
+                },
+                agent: {
+                    type: 'string',
+                    description: 'The name or id of the agent that answers it, or "none"',
+                },
+                groups: {
+                    type: 'boolean',
+                    description: 'true to answer in groups when mentioned',
+                },
+                answers_only: {
+                    type: 'array',
+                    items: {
+                        type: 'integer',
+                    },
+                    description:
+                        'Profile ids from people_list it answers; an empty list answers everyone',
+                },
+            },
+            required: ['bot_id'],
+        },
+    },
+    {
+        name: 'bot_test',
+        description: 'Check that a bot token works and see the bot’s username.',
+        permission: 'panel.bots',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                bot_id: {
+                    type: 'integer',
+                    description: 'The id from bot_list',
+                },
+            },
+            required: ['bot_id'],
+        },
+    },
+    {
+        name: 'bot_delete',
+        description:
+            'Remove a Telegram bot from this project. It cannot be undone, so confirm with the person first.',
+        permission: 'panel.bots',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                bot_id: {
+                    type: 'integer',
+                    description: 'The id from bot_list',
+                },
+            },
+            required: ['bot_id'],
+        },
+    },
+    {
+        name: 'people_list',
+        description:
+            'List the people who have written to this project’s bots: profile id, name, username, what they may do, how many messages and when they were last seen.',
+        permission: 'panel.people',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'Part of a name or username to look for',
+                },
+                offset: {
+                    type: 'integer',
+                    description: 'How many to skip, for the next page',
+                },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'person_permissions',
+        description:
+            'Set what a person may do, as the full new list: chat (write to the bots), model (be answered by the model), delegate (have requests passed to other agents).',
+        permission: 'panel.people',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                profile_id: {
+                    type: 'integer',
+                    description: 'The profile id from people_list',
+                },
+                permissions: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'e.g. ["chat","model"]; an empty list revokes everything',
+                },
+            },
+            required: ['profile_id', 'permissions'],
+        },
+    },
+    {
+        name: 'activity_list',
+        description:
+            "Read this project's Activity log, newest first: what happened, the outcome and when.",
+        permission: 'panel.people',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                limit: {
+                    type: 'integer',
+                    description: 'How many entries, at most 50',
+                },
+                failures_only: {
+                    type: 'boolean',
+                    description: 'true to show only what went wrong',
+                },
+            },
+            required: [],
+        },
+    },
+    {
+        name: 'overview',
+        description:
+            "This project's numbers for the last day and week: people, chats, messages, model requests, failures and tokens per model.",
+        permission: 'panel.people',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
         },
     },
     {

@@ -36,6 +36,7 @@ import {
     parsePermissions,
     serializePermissions,
 } from '../telegram/telegram.permission.js';
+import { runPanelTool } from './mcp.panel.js';
 import { searchWeb } from './mcp.search.js';
 import { weatherFor } from './mcp.weather.js';
 import { fetchPublicUrl } from './mcp.web.js';
@@ -131,6 +132,29 @@ export function refuse(reason: string): ToolResult {
     return { ok: false, content: JSON.stringify({ error: reason }) };
 }
 
+export async function rosterAsker(
+    fastify: FastifyInstance,
+    teamId: number,
+    user: TelegramUser,
+): Promise<{ ok: true; name: string } | { ok: false; reason: string }> {
+    let roster: Roster;
+
+    try {
+        roster = parseRoster(await readRosterContent(fastify, teamId));
+    } catch (cause) {
+        return {
+            ok: false,
+            reason: cause instanceof RosterError ? cause.message : 'team.json could not be read',
+        };
+    }
+
+    const asker = roster.members.find((member) => member['profile_id'] === user.id);
+
+    return user.id === 0 || !asker || (asker.roles?.length ?? 0) === 0
+        ? { ok: false, reason: 'only someone on team.json with a role may ask for this' }
+        : { ok: true, name: asker.name };
+}
+
 export async function readRosterContent(fastify: FastifyInstance, teamId: number): Promise<string> {
     const row = await fastify.db
         .getRepository(TeamDocument)
@@ -190,6 +214,10 @@ export async function runTool(
 
     if (!agentHasPermission(agent.permissions, tool.permission)) {
         return refuse(`not permitted: this agent does not have ${tool.permission}`);
+    }
+
+    if (tool.permission.startsWith('panel.')) {
+        return runPanelTool(fastify, agent, user, name, args);
     }
 
     if (tool.name === 'time_now') {
@@ -577,22 +605,10 @@ export async function runTool(
             return refuse('member_id and enabled are required; get member_id from team_members');
         }
 
-        let roster: Roster;
+        const asker = await rosterAsker(fastify, agent.team_id, user);
 
-        try {
-            roster = parseRoster(await readRosterContent(fastify, agent.team_id));
-        } catch (cause) {
-            return refuse(
-                cause instanceof RosterError ? cause.message : 'team.json could not be read',
-            );
-        }
-
-        const asker = roster.members.find((member) => member['profile_id'] === user.id);
-
-        if (user.id === 0 || !asker || (asker.roles?.length ?? 0) === 0) {
-            return refuse(
-                'only someone on team.json with a role may switch chat with the model on or off',
-            );
+        if (!asker.ok) {
+            return refuse(asker.reason);
         }
 
         const users = fastify.db.getRepository(TelegramUser);

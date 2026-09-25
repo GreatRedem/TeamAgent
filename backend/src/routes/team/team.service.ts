@@ -17,11 +17,12 @@ import {
 } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
+import { bodyField } from '../../plugins/validator.js';
 import { idList } from '../../utils/ids.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from '../agent/agent.entity.js';
 import { AuditLog } from '../audit/audit.entity.js';
-import { audit, changed } from '../audit/audit.log.js';
+import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import { TeamTask, TeamTaskRun } from '../task/task.entity.js';
 import { profileLabel } from '../task/task.plan.js';
 import {
@@ -57,7 +58,7 @@ import {
     schemaTeamUpdate,
 } from './team.schema.js';
 
-interface BotProbe {
+export interface BotProbe {
     ok: boolean;
     username?: string;
     reads_groups?: boolean;
@@ -94,7 +95,7 @@ function readBotId(request: FastifyRequest) {
     return readParamId(request, 'botId', 'BOT_ID_INVALID');
 }
 
-function toBotView(bot: TeamBot, agentName = '', people = new Map<number, string>()) {
+export function toBotView(bot: TeamBot, agentName = '', people = new Map<number, string>()) {
     return {
         id: bot.id,
         name: bot.name,
@@ -109,7 +110,7 @@ function toBotView(bot: TeamBot, agentName = '', people = new Map<number, string
     };
 }
 
-async function profileNames(
+export async function profileNames(
     fastify: FastifyInstance,
     teamId: number,
     bots: TeamBot[],
@@ -157,7 +158,10 @@ async function readBotProfiles(
     return ids as number[];
 }
 
-async function agentNames(fastify: FastifyInstance, teamId: number): Promise<Map<number, string>> {
+export async function agentNames(
+    fastify: FastifyInstance,
+    teamId: number,
+): Promise<Map<number, string>> {
     const agents = await fastify.db.getRepository(TeamAgent).findBy({ team_id: teamId });
 
     return new Map(agents.map((agent) => [agent.id, agent.name]));
@@ -165,12 +169,10 @@ async function agentNames(fastify: FastifyInstance, teamId: number): Promise<Map
 
 async function readAgentId(
     fastify: FastifyInstance,
-    request: FastifyRequest,
+    body: unknown,
     teamId: number,
 ): Promise<number> {
-    const raw = (request.body as { agent_id?: unknown } | undefined)?.agent_id;
-
-    const agentId = Number(raw ?? 0);
+    const agentId = Number((body as { agent_id?: unknown } | undefined)?.agent_id ?? 0);
 
     if (!Number.isInteger(agentId) || agentId < 0) {
         throw new BadRequestResponse('AGENT_ID_INVALID');
@@ -187,8 +189,8 @@ async function readAgentId(
     return agentId;
 }
 
-function readPublicUrl(request: FastifyRequest): string {
-    const value = request.getBody('public_url').max(PUBLIC_URL_MAX).asString().trim();
+function readPublicUrl(body: unknown): string {
+    const value = bodyField(body, 'public_url').max(PUBLIC_URL_MAX).asString().trim();
 
     if (value === '') {
         return '';
@@ -426,11 +428,67 @@ export function teamRemove(fastify: FastifyInstance) {
     return { schema: schemaTeamRemove(), config: { ...authGuard() }, handler };
 }
 
+function readBotBasics(raw: unknown) {
+    const name = bodyField(raw, 'name').min(NAME_MIN).max(NAME_MAX).asString().trim();
+
+    if (name.length < NAME_MIN) {
+        throw new BadRequestResponse('ERROR_MIN_LENGTH');
+    }
+
+    return name;
+}
+
+export async function createBot(
+    fastify: FastifyInstance,
+    teamId: number,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamBot> {
+    const credit = attribution(by);
+    const name = readBotBasics(raw);
+    const token = bodyField(raw, 'token').min(BOT_TOKEN_MIN).max(BOT_TOKEN_MAX).asString().trim();
+
+    if (!BOT_TOKEN_PATTERN.test(token)) {
+        throw new BadRequestResponse('BOT_TOKEN_INVALID');
+    }
+
+    const repository = fastify.db.getRepository(TeamBot);
+
+    if (await repository.findOneBy({ team_id: teamId, token })) {
+        throw new BadRequestResponse('BOT_ALREADY_ADDED');
+    }
+
+    const bot = await repository.save({
+        team_id: teamId,
+        name,
+        token,
+        public_url: readPublicUrl(raw),
+        webhook_secret: createWebhookSecret(),
+    });
+
+    by.log.info(
+        { module: 'team', teamId, botId: bot.id, accountId: by.accountId },
+        'team bot added',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'bot.create',
+        target: `bot:${bot.id}`,
+        detail: `${name}${credit.note}`,
+        changes: { name, token, public_url: bot.public_url, ...credit.changes },
+    });
+
+    return bot;
+}
+
 export function teamBotCreate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
 
-        const name = request.getBody('name').min(NAME_MIN).max(NAME_MAX).asString().trim();
+        readBotBasics(request.body);
+
         const token = request
             .getBody('token')
             .min(BOT_TOKEN_MIN)
@@ -438,42 +496,15 @@ export function teamBotCreate(fastify: FastifyInstance) {
             .asString()
             .trim();
 
-        if (name.length < NAME_MIN) {
-            throw new BadRequestResponse('ERROR_MIN_LENGTH');
-        }
-
         if (!BOT_TOKEN_PATTERN.test(token)) {
             throw new BadRequestResponse('BOT_TOKEN_INVALID');
         }
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const repository = fastify.db.getRepository(TeamBot);
-
-        if (await repository.findOneBy({ team_id: teamId, token })) {
-            throw new BadRequestResponse('BOT_ALREADY_ADDED');
-        }
-
-        const bot = await repository.save({
-            team_id: teamId,
-            name,
-            token,
-            public_url: readPublicUrl(request),
-            webhook_secret: createWebhookSecret(),
-        });
-
-        request.log.info(
-            { module: 'team', teamId, botId: bot.id, accountId: request.account_id },
-            'team bot added',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        const bot = await createBot(fastify, teamId, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'bot.create',
-            target: `bot:${bot.id}`,
-            detail: name,
-            changes: { name, token, public_url: bot.public_url },
         });
 
         reply.send(toBotView(bot));
@@ -531,41 +562,73 @@ async function findOwnedBot(
     return bot;
 }
 
+export async function testBot(fastify: FastifyInstance, bot: TeamBot, by: ActedBy) {
+    const credit = attribution(by);
+    const probe = await probeTelegram(bot.token);
+
+    by.log.info(
+        {
+            module: 'team',
+            teamId: bot.team_id,
+            botId: bot.id,
+            accountId: by.accountId,
+            ok: probe.ok,
+            reason: probe.reason,
+        },
+        'team bot tested',
+    );
+
+    await audit(fastify, by.log, {
+        teamId: bot.team_id,
+        ...credit.who,
+        action: 'bot.test',
+        target: `bot:${bot.id}`,
+        outcome: probe.ok ? 'ok' : 'error',
+        detail: `${bot.name} · ${probe.reason ?? 'connected'}${credit.note}`,
+        changes: { ...probe, ...credit.changes },
+    });
+
+    return probe;
+}
+
 export function teamBotTest(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
-        const botId = readBotId(request);
+        const bot = await findOwnedBot(fastify, teamId, readBotId(request), request.account_id);
 
-        const bot = await findOwnedBot(fastify, teamId, botId, request.account_id);
-
-        const probe = await probeTelegram(bot.token);
-
-        request.log.info(
-            {
-                module: 'team',
-                teamId,
-                botId,
-                accountId: request.account_id,
-                ok: probe.ok,
-                reason: probe.reason,
-            },
-            'team bot tested',
+        reply.send(
+            await testBot(fastify, bot, { log: request.log, accountId: request.account_id }),
         );
-
-        await audit(fastify, request.log, {
-            teamId,
-            accountId: request.account_id,
-            action: 'bot.test',
-            target: `bot:${botId}`,
-            outcome: probe.ok ? 'ok' : 'error',
-            detail: `${bot.name} · ${probe.reason ?? 'connected'}`,
-            changes: probe,
-        });
-
-        reply.send(probe);
     };
 
     return { schema: schemaTeamBotTest(), config: { ...authGuard() }, handler };
+}
+
+export async function removeBot(
+    fastify: FastifyInstance,
+    teamId: number,
+    botId: number,
+    by: ActedBy,
+) {
+    const credit = attribution(by);
+    const gone = await fastify.db.getRepository(TeamBot).findOneBy({ id: botId, team_id: teamId });
+
+    const removed = await fastify.db.getRepository(TeamBot).delete({ id: botId, team_id: teamId });
+
+    if (removed.affected !== 1) {
+        throw new BadRequestResponse('BOT_NOT_FOUND');
+    }
+
+    by.log.info({ module: 'team', teamId, botId, accountId: by.accountId }, 'team bot removed');
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'bot.remove',
+        target: `bot:${botId}`,
+        detail: `${gone?.name ?? ''}${credit.note}`,
+        changes: { bot: gone, ...credit.changes },
+    });
 }
 
 export function teamBotRemove(fastify: FastifyInstance) {
@@ -574,31 +637,9 @@ export function teamBotRemove(fastify: FastifyInstance) {
         const botId = readBotId(request);
 
         await findOwnedTeam(fastify, teamId, request.account_id);
-
-        const gone = await fastify.db
-            .getRepository(TeamBot)
-            .findOneBy({ id: botId, team_id: teamId });
-
-        const removed = await fastify.db
-            .getRepository(TeamBot)
-            .delete({ id: botId, team_id: teamId });
-
-        if (removed.affected !== 1) {
-            throw new BadRequestResponse('BOT_NOT_FOUND');
-        }
-
-        request.log.info(
-            { module: 'team', teamId, botId, accountId: request.account_id },
-            'team bot removed',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        await removeBot(fastify, teamId, botId, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'bot.remove',
-            target: `bot:${botId}`,
-            detail: gone?.name ?? '',
-            changes: { bot: gone },
         });
 
         reply.send({ result: 'OK' });
@@ -607,86 +648,94 @@ export function teamBotRemove(fastify: FastifyInstance) {
     return { schema: schemaTeamBotRemove(), config: { ...authGuard() }, handler };
 }
 
+export async function updateBot(
+    fastify: FastifyInstance,
+    bot: TeamBot,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamBot> {
+    const credit = attribution(by);
+    const teamId = bot.team_id;
+    const name = readBotBasics(raw);
+    const publicUrl = readPublicUrl(raw);
+    const agentId = await readAgentId(fastify, raw, teamId);
+    const body = raw as { groups?: unknown; profiles?: unknown; token?: unknown } | undefined;
+    const groups = typeof body?.groups === 'boolean' ? body.groups : bot.groups;
+    const token = typeof body?.token === 'string' ? body.token.trim() : '';
+
+    if (token !== '') {
+        if (
+            token.length < BOT_TOKEN_MIN ||
+            token.length > BOT_TOKEN_MAX ||
+            !BOT_TOKEN_PATTERN.test(token)
+        ) {
+            throw new BadRequestResponse('BOT_TOKEN_INVALID');
+        }
+
+        const holder = await fastify.db
+            .getRepository(TeamBot)
+            .findOneBy({ team_id: teamId, token });
+
+        if (holder && holder.id !== bot.id) {
+            throw new BadRequestResponse('BOT_ALREADY_ADDED');
+        }
+    }
+
+    const profiles =
+        body?.profiles === undefined
+            ? bot.profiles
+            : (await readBotProfiles(fastify, teamId, body.profiles)).join(',');
+    const changes = { name, public_url: publicUrl, agent_id: agentId, groups, profiles };
+    const diff = changed(bot, token === '' ? changes : { ...changes, token });
+
+    await fastify.db
+        .getRepository(TeamBot)
+        .update(
+            { id: bot.id, team_id: teamId },
+            token === '' ? changes : { ...changes, token, poll_offset: '0' },
+        );
+
+    by.log.info(
+        {
+            module: 'team',
+            teamId,
+            botId: bot.id,
+            mode: publicUrl === '' ? 'polling' : 'webhook',
+        },
+        'team bot updated',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'bot.update',
+        target: `bot:${bot.id}`,
+        detail: `${bot.name} - changed ${Object.keys(diff).join(', ') || 'nothing'}${credit.note}`,
+        changes: { ...diff, ...credit.changes },
+    });
+
+    return { ...bot, ...changes, ...(token !== '' && { token }) };
+}
+
 export function teamBotUpdate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
         const botId = readBotId(request);
 
-        const name = request.getBody('name').min(NAME_MIN).max(NAME_MAX).asString().trim();
-        const publicUrl = readPublicUrl(request);
-
-        if (name.length < NAME_MIN) {
-            throw new BadRequestResponse('ERROR_MIN_LENGTH');
-        }
+        readBotBasics(request.body);
+        readPublicUrl(request.body);
 
         const bot = await findOwnedBot(fastify, teamId, botId, request.account_id);
-
-        const agentId = await readAgentId(fastify, request, teamId);
-        const body = request.body as
-            | { groups?: unknown; profiles?: unknown; token?: unknown }
-            | undefined;
-        const groups = typeof body?.groups === 'boolean' ? body.groups : bot.groups;
-        const token = typeof body?.token === 'string' ? body.token.trim() : '';
-
-        if (token !== '') {
-            if (
-                token.length < BOT_TOKEN_MIN ||
-                token.length > BOT_TOKEN_MAX ||
-                !BOT_TOKEN_PATTERN.test(token)
-            ) {
-                throw new BadRequestResponse('BOT_TOKEN_INVALID');
-            }
-
-            const holder = await fastify.db
-                .getRepository(TeamBot)
-                .findOneBy({ team_id: teamId, token });
-
-            if (holder && holder.id !== bot.id) {
-                throw new BadRequestResponse('BOT_ALREADY_ADDED');
-            }
-        }
-
-        const profiles =
-            body?.profiles === undefined
-                ? bot.profiles
-                : (await readBotProfiles(fastify, teamId, body.profiles)).join(',');
-        const changes = { name, public_url: publicUrl, agent_id: agentId, groups, profiles };
-
-        const diff = changed(bot, token === '' ? changes : { ...changes, token });
-
-        await fastify.db
-            .getRepository(TeamBot)
-            .update(
-                { id: bot.id, team_id: teamId },
-                token === '' ? changes : { ...changes, token, poll_offset: '0' },
-            );
-
-        request.log.info(
-            {
-                module: 'team',
-                teamId,
-                botId: bot.id,
-                mode: publicUrl === '' ? 'polling' : 'webhook',
-            },
-            'team bot updated',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        const updated = await updateBot(fastify, bot, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'bot.update',
-            target: `bot:${bot.id}`,
-            detail: `${bot.name} - changed ${Object.keys(diff).join(', ') || 'nothing'}`,
-            changes: diff,
         });
-
         const names = await agentNames(fastify, teamId);
-        const updated = { ...bot, ...changes, ...(token !== '' && { token }) };
 
         reply.send(
             toBotView(
                 updated,
-                names.get(agentId) ?? '',
+                names.get(updated.agent_id) ?? '',
                 await profileNames(fastify, teamId, [updated]),
             ),
         );

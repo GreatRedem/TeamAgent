@@ -47,7 +47,7 @@ import {
     toolGuidance,
 } from '../agent/agent.reply.js';
 import { type CompletionResult, isOpenRouter, sendCompletion } from '../agent/agent.transport.js';
-import { audit, changed } from '../audit/audit.log.js';
+import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import {
     agentTools,
     readRosterContent,
@@ -1751,6 +1751,65 @@ export function permissionCatalog(fastify: FastifyInstance) {
     return { schema: schemaPermissionCatalog(), config: { ...authGuard() }, handler };
 }
 
+export async function setProfilePermissions(
+    fastify: FastifyInstance,
+    teamId: number,
+    profileId: number,
+    requested: unknown,
+    by: ActedBy,
+): Promise<TelegramUser> {
+    const credit = attribution(by);
+
+    if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string')) {
+        throw new BadRequestResponse('PERMISSIONS_INVALID');
+    }
+
+    for (const key of requested as string[]) {
+        if (!isKnownPermission(key)) {
+            throw new BadRequestResponse('PERMISSION_UNKNOWN');
+        }
+    }
+
+    const users = fastify.db.getRepository(TelegramUser);
+    const user = await users.findOneBy({ id: profileId, team_id: teamId });
+
+    if (!user) {
+        throw new BadRequestResponse('PROFILE_NOT_FOUND');
+    }
+
+    const permissions = serializePermissions(requested as string[]);
+
+    await users.update({ id: user.id, team_id: teamId }, { permissions });
+
+    by.log.info(
+        {
+            module: 'telegram',
+            teamId,
+            userId: user.id,
+            accountId: by.accountId,
+            permissions,
+        },
+        'profile permissions updated',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'profile.permissions',
+        target: `profile:${user.id}`,
+        detail: `${profileLabel(user)} -> ${permissions === '' ? 'all revoked' : permissions}${credit.note}`,
+        changes: {
+            ...changed(
+                { permissions: parsePermissions(user.permissions) },
+                { permissions: parsePermissions(permissions) },
+            ),
+            ...credit.changes,
+        },
+    });
+
+    return { ...user, permissions };
+}
+
 export function profilePermissionUpdate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
@@ -1758,55 +1817,15 @@ export function profilePermissionUpdate(fastify: FastifyInstance) {
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const body = request.body as { permissions?: unknown } | undefined;
-        const requested = body?.permissions;
-
-        if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string')) {
-            throw new BadRequestResponse('PERMISSIONS_INVALID');
-        }
-
-        for (const key of requested as string[]) {
-            if (!isKnownPermission(key)) {
-                throw new BadRequestResponse('PERMISSION_UNKNOWN');
-            }
-        }
-
-        const users = fastify.db.getRepository(TelegramUser);
-
-        const user = await users.findOneBy({ id: profileId, team_id: teamId });
-
-        if (!user) {
-            throw new BadRequestResponse('PROFILE_NOT_FOUND');
-        }
-
-        const permissions = serializePermissions(requested as string[]);
-
-        await users.update({ id: user.id, team_id: teamId }, { permissions });
-
-        request.log.info(
-            {
-                module: 'telegram',
-                teamId,
-                userId: user.id,
-                accountId: request.account_id,
-                permissions,
-            },
-            'profile permissions updated',
+        const user = await setProfilePermissions(
+            fastify,
+            teamId,
+            profileId,
+            (request.body as { permissions?: unknown } | undefined)?.permissions,
+            { log: request.log, accountId: request.account_id },
         );
 
-        await audit(fastify, request.log, {
-            teamId,
-            accountId: request.account_id,
-            action: 'profile.permissions',
-            target: `profile:${user.id}`,
-            detail: `${profileLabel(user)} -> ${permissions === '' ? 'all revoked' : permissions}`,
-            changes: changed(
-                { permissions: parsePermissions(user.permissions) },
-                { permissions: parsePermissions(permissions) },
-            ),
-        });
-
-        reply.send(toProfile({ ...user, permissions }));
+        reply.send(toProfile(user));
     };
 
     return { schema: schemaProfilePermissionUpdate(), config: { ...authGuard() }, handler };

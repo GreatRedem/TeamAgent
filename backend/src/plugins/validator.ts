@@ -9,10 +9,8 @@ interface Rule {
     value: number;
 }
 
-function readField(request: FastifyRequest, field: string): unknown {
-    const body = request.body as Record<string, unknown> | undefined;
-
-    return body?.[field];
+function readField(body: unknown, field: string): unknown {
+    return (body as Record<string, unknown> | undefined)?.[field];
 }
 
 function applyStringRules(value: string, rules: Rule[]): void {
@@ -36,7 +34,7 @@ function applyStringRules(value: string, rules: Rule[]): void {
     }
 }
 
-function validator(request: FastifyRequest, field: string) {
+export function bodyField(body: unknown, field: string) {
     const rules: Rule[] = [];
 
     const builder: Validator = {
@@ -51,7 +49,7 @@ function validator(request: FastifyRequest, field: string) {
             return builder;
         },
         asString: () => {
-            const rawValue = readField(request, field);
+            const rawValue = readField(body, field);
 
             if (rawValue === undefined || rawValue === null) {
                 throw new BadRequestResponse('ERROR_REQUIRED');
@@ -72,6 +70,6 @@ function validator(request: FastifyRequest, field: string) {
 
 export default fastifyPlugin(async (fastify) => {
     fastify.decorateRequest('getBody', function (this: FastifyRequest, field: string) {
-        return validator(this, field);
+        return bodyField(this.body, field);
     });
 });

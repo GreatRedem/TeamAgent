@@ -18,12 +18,13 @@ import {
 } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
+import { bodyField } from '../../plugins/validator.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { TeamAgent, TeamAgentExchange } from '../agent/agent.entity.js';
 import { exchangeView } from '../agent/agent.service.js';
 import { isOpenRouter } from '../agent/agent.transport.js';
 import { exchangeUsage } from '../agent/agent.usage.js';
-import { audit, changed } from '../audit/audit.log.js';
+import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamModel } from '../team/team.entity.js';
 import { freeCandidates, isAutoFree } from './model.auto.js';
@@ -44,7 +45,7 @@ function readModelId(request: FastifyRequest) {
     return readParamId(request, 'modelId', 'MODEL_ID_INVALID');
 }
 
-function toModelView(model: TeamModel) {
+export function toModelView(model: TeamModel) {
     const hint =
         model.api_key === ''
             ? 'none'
@@ -63,8 +64,8 @@ function toModelView(model: TeamModel) {
     };
 }
 
-function readApiKey(request: FastifyRequest): string {
-    const value = request.getBody('api_key').max(KEY_MAX).asString().trim();
+function readApiKey(raw: unknown): string {
+    const value = bodyField(raw, 'api_key').max(KEY_MAX).asString().trim();
 
     if (value !== '' && value.length < KEY_MIN) {
         throw new BadRequestResponse('ERROR_MIN_LENGTH');
@@ -73,8 +74,8 @@ function readApiKey(request: FastifyRequest): string {
     return value;
 }
 
-function readBaseUrl(request: FastifyRequest): string {
-    const value = request.getBody('base_url').min(4).max(URL_MAX).asString().trim();
+function readBaseUrl(raw: unknown): string {
+    const value = bodyField(raw, 'base_url').min(4).max(URL_MAX).asString().trim();
 
     let parsed: URL;
 
@@ -101,10 +102,10 @@ function readBaseUrl(request: FastifyRequest): string {
     return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 }
 
-function readContextTokens(request: FastifyRequest): number {
-    const raw = (request.body as { context_tokens?: unknown } | undefined)?.context_tokens;
-
-    const contextTokens = Number(raw ?? 0);
+function readContextTokens(raw: unknown): number {
+    const contextTokens = Number(
+        (raw as { context_tokens?: unknown } | undefined)?.context_tokens ?? 0,
+    );
 
     if (
         !Number.isInteger(contextTokens) ||
@@ -117,11 +118,11 @@ function readContextTokens(request: FastifyRequest): number {
     return contextTokens;
 }
 
-function readModelBody(request: FastifyRequest) {
-    const name = request.getBody('name').min(NAME_MIN).max(NAME_MAX).asString().trim();
-    const model = request.getBody('model').min(1).max(MODEL_MAX).asString().trim();
-    const baseUrl = readBaseUrl(request);
-    const contextTokens = readContextTokens(request);
+function readModelBody(raw: unknown) {
+    const name = bodyField(raw, 'name').min(NAME_MIN).max(NAME_MAX).asString().trim();
+    const model = bodyField(raw, 'model').min(1).max(MODEL_MAX).asString().trim();
+    const baseUrl = readBaseUrl(raw);
+    const contextTokens = readContextTokens(raw);
 
     if (name.length < NAME_MIN || model === '') {
         throw new BadRequestResponse('ERROR_MIN_LENGTH');
@@ -153,7 +154,7 @@ async function findOwnedModel(
     return model;
 }
 
-interface ModelProbe {
+export interface ModelProbe {
     ok: boolean;
     models?: number;
     found?: boolean;
@@ -278,53 +279,71 @@ async function detectContext(baseUrl: string, apiKey: string, model: string): Pr
     }
 }
 
-export function modelCreate(fastify: FastifyInstance) {
-    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
-        const teamId = readTeamId(request);
+export async function createModel(
+    fastify: FastifyInstance,
+    teamId: number,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamModel> {
+    const credit = attribution(by);
+    const { name, model, baseUrl, contextTokens } = readModelBody(raw);
+    const apiKey = readApiKey(raw);
+    const repository = fastify.db.getRepository(TeamModel);
 
-        const { name, model, baseUrl, contextTokens } = readModelBody(request);
-        const apiKey = readApiKey(request);
+    if (await repository.findOneBy({ team_id: teamId, base_url: baseUrl, model })) {
+        throw new BadRequestResponse('MODEL_ALREADY_ADDED');
+    }
 
-        await findOwnedTeam(fastify, teamId, request.account_id);
+    const detected =
+        contextTokens > 0 || isAutoFree(model)
+            ? contextTokens
+            : await detectContext(baseUrl, apiKey, model);
 
-        const repository = fastify.db.getRepository(TeamModel);
+    const saved = await repository.save({
+        team_id: teamId,
+        name,
+        model,
+        base_url: baseUrl,
+        api_key: apiKey,
+        context_tokens: detected,
+    });
 
-        if (await repository.findOneBy({ team_id: teamId, base_url: baseUrl, model })) {
-            throw new BadRequestResponse('MODEL_ALREADY_ADDED');
-        }
+    by.log.info(
+        { module: 'model', teamId, modelId: saved.id, accountId: by.accountId },
+        'team model added',
+    );
 
-        const detected =
-            contextTokens > 0 || isAutoFree(model)
-                ? contextTokens
-                : await detectContext(baseUrl, apiKey, model);
-
-        const saved = await repository.save({
-            team_id: teamId,
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'model.create',
+        target: `model:${saved.id}`,
+        detail: `${name} - ${model}${credit.note}`,
+        changes: {
             name,
             model,
             base_url: baseUrl,
             api_key: apiKey,
             context_tokens: detected,
-        });
+            ...credit.changes,
+        },
+    });
 
-        request.log.info(
-            { module: 'model', teamId, modelId: saved.id, accountId: request.account_id },
-            'team model added',
-        );
+    return saved;
+}
 
-        await audit(fastify, request.log, {
-            teamId,
+export function modelCreate(fastify: FastifyInstance) {
+    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        const teamId = readTeamId(request);
+
+        readModelBody(request.body);
+        readApiKey(request.body);
+
+        await findOwnedTeam(fastify, teamId, request.account_id);
+
+        const saved = await createModel(fastify, teamId, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'model.create',
-            target: `model:${saved.id}`,
-            detail: `${name} - ${model}`,
-            changes: {
-                name,
-                model,
-                base_url: baseUrl,
-                api_key: apiKey,
-                context_tokens: detected,
-            },
         });
 
         reply.send(toModelView(saved));
@@ -415,68 +434,114 @@ export function modelExchanges(fastify: FastifyInstance) {
     return { schema: schemaModelExchanges(), config: { ...authGuard() }, handler };
 }
 
+export async function updateModel(
+    fastify: FastifyInstance,
+    existing: TeamModel,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamModel> {
+    const credit = attribution(by);
+    const teamId = existing.team_id;
+    const { name, model, baseUrl, contextTokens } = readModelBody(raw);
+    const apiKey = readApiKey(raw);
+    const next = {
+        name,
+        model,
+        base_url: baseUrl,
+        context_tokens: contextTokens,
+        ...(apiKey !== '' && { api_key: apiKey }),
+    };
+    const diff = changed(existing, next);
+
+    await fastify.db.getRepository(TeamModel).update({ id: existing.id, team_id: teamId }, next);
+
+    by.log.info(
+        {
+            module: 'model',
+            teamId,
+            modelId: existing.id,
+            accountId: by.accountId,
+            rotatedKey: apiKey !== '',
+        },
+        'team model updated',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'model.update',
+        target: `model:${existing.id}`,
+        detail: `${name} - changed ${Object.keys(diff).join(', ') || 'nothing'}${credit.note}`,
+        changes: { ...diff, ...credit.changes },
+    });
+
+    return { ...existing, ...next, api_key: apiKey !== '' ? apiKey : existing.api_key };
+}
+
 export function modelUpdate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
         const modelId = readModelId(request);
 
-        const { name, model, baseUrl, contextTokens } = readModelBody(request);
-
-        const apiKey = readApiKey(request);
+        readModelBody(request.body);
+        readApiKey(request.body);
 
         const existing = await findOwnedModel(fastify, teamId, modelId, request.account_id);
-        const diff = changed(existing, {
-            name,
-            model,
-            base_url: baseUrl,
-            context_tokens: contextTokens,
-            ...(apiKey !== '' && { api_key: apiKey }),
-        });
-
-        await fastify.db.getRepository(TeamModel).update(
-            { id: existing.id, team_id: teamId },
-            {
-                name,
-                model,
-                base_url: baseUrl,
-                context_tokens: contextTokens,
-                ...(apiKey !== '' && { api_key: apiKey }),
-            },
-        );
-
-        request.log.info(
-            {
-                module: 'model',
-                teamId,
-                modelId: existing.id,
-                accountId: request.account_id,
-                rotatedKey: apiKey !== '',
-            },
-            'team model updated',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        const saved = await updateModel(fastify, existing, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'model.update',
-            target: `model:${existing.id}`,
-            detail: `${name} - changed ${Object.keys(diff).join(', ') || 'nothing'}`,
-            changes: diff,
         });
 
-        reply.send(
-            toModelView({
-                ...existing,
-                name,
-                model,
-                base_url: baseUrl,
-                context_tokens: contextTokens,
-                api_key: apiKey !== '' ? apiKey : existing.api_key,
-            }),
-        );
+        reply.send(toModelView(saved));
     };
 
     return { schema: schemaModelUpdate(), config: { ...authGuard() }, handler };
+}
+
+export async function removeModel(
+    fastify: FastifyInstance,
+    teamId: number,
+    modelId: number,
+    by: ActedBy,
+): Promise<number> {
+    const credit = attribution(by);
+    const gone = await fastify.db
+        .getRepository(TeamModel)
+        .findOneBy({ id: modelId, team_id: teamId });
+
+    const removed = await fastify.db
+        .getRepository(TeamModel)
+        .delete({ id: modelId, team_id: teamId });
+
+    if (removed.affected !== 1) {
+        throw new BadRequestResponse('MODEL_NOT_FOUND');
+    }
+
+    const detached = await fastify.db
+        .getRepository(TeamAgent)
+        .update({ team_id: teamId, model_id: modelId }, { model_id: 0 });
+
+    by.log.info(
+        {
+            module: 'model',
+            teamId,
+            modelId,
+            accountId: by.accountId,
+            detachedAgents: detached.affected ?? 0,
+        },
+        'team model removed',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'model.remove',
+        target: `model:${modelId}`,
+        detail: `${gone?.name ?? modelId} - ${detached.affected ?? 0} agent(s) detached${credit.note}`,
+        changes: { model: gone, agents_detached: detached.affected ?? 0, ...credit.changes },
+    });
+
+    return detached.affected ?? 0;
 }
 
 export function modelRemove(fastify: FastifyInstance) {
@@ -485,41 +550,9 @@ export function modelRemove(fastify: FastifyInstance) {
         const modelId = readModelId(request);
 
         await findOwnedTeam(fastify, teamId, request.account_id);
-
-        const gone = await fastify.db
-            .getRepository(TeamModel)
-            .findOneBy({ id: modelId, team_id: teamId });
-
-        const removed = await fastify.db
-            .getRepository(TeamModel)
-            .delete({ id: modelId, team_id: teamId });
-
-        if (removed.affected !== 1) {
-            throw new BadRequestResponse('MODEL_NOT_FOUND');
-        }
-
-        const detached = await fastify.db
-            .getRepository(TeamAgent)
-            .update({ team_id: teamId, model_id: modelId }, { model_id: 0 });
-
-        request.log.info(
-            {
-                module: 'model',
-                teamId,
-                modelId,
-                accountId: request.account_id,
-                detachedAgents: detached.affected ?? 0,
-            },
-            'team model removed',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        await removeModel(fastify, teamId, modelId, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'model.remove',
-            target: `model:${modelId}`,
-            detail: `${gone?.name ?? modelId} - ${detached.affected ?? 0} agent(s) detached`,
-            changes: { model: gone, agents_detached: detached.affected ?? 0 },
         });
 
         reply.send({ result: 'OK' });
@@ -528,61 +561,73 @@ export function modelRemove(fastify: FastifyInstance) {
     return { schema: schemaModelRemove(), config: { ...authGuard() }, handler };
 }
 
+export async function testModel(
+    fastify: FastifyInstance,
+    model: TeamModel,
+    by: ActedBy,
+): Promise<ModelProbe> {
+    const credit = attribution(by);
+    const teamId = model.team_id;
+    const probe = await withAutoFree(
+        await probeModel(model.base_url, model.api_key, model.model),
+        model.model,
+    );
+    const learned =
+        !isAutoFree(model.model) &&
+        (probe.context ?? 0) > 0 &&
+        probe.context !== model.context_tokens;
+
+    if (learned) {
+        await fastify.db
+            .getRepository(TeamModel)
+            .update({ id: model.id, team_id: teamId }, { context_tokens: probe.context });
+    }
+
+    by.log.info(
+        {
+            module: 'model',
+            teamId,
+            modelId: model.id,
+            accountId: by.accountId,
+            ok: probe.ok,
+            reason: probe.reason,
+            context: probe.context,
+        },
+        'team model tested',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'model.test',
+        target: `model:${model.id}`,
+        outcome: probe.ok ? 'ok' : 'error',
+        detail: `${
+            probe.ok
+                ? `${probe.models ?? 0} models listed${(probe.context ?? 0) > 0 ? ` - ${probe.context} token window` : ''}`
+                : (probe.reason ?? 'failed')
+        }${credit.note}`,
+        changes: {
+            probe,
+            ...(learned && {
+                context_tokens: { from: model.context_tokens, to: probe.context },
+            }),
+            ...credit.changes,
+        },
+    });
+
+    return probe;
+}
+
 export function modelTest(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
         const modelId = readModelId(request);
-
         const model = await findOwnedModel(fastify, teamId, modelId, request.account_id);
 
-        const probe = await withAutoFree(
-            await probeModel(model.base_url, model.api_key, model.model),
-            model.model,
+        reply.send(
+            await testModel(fastify, model, { log: request.log, accountId: request.account_id }),
         );
-
-        if (
-            !isAutoFree(model.model) &&
-            (probe.context ?? 0) > 0 &&
-            probe.context !== model.context_tokens
-        ) {
-            await fastify.db
-                .getRepository(TeamModel)
-                .update({ id: model.id, team_id: teamId }, { context_tokens: probe.context });
-        }
-
-        request.log.info(
-            {
-                module: 'model',
-                teamId,
-                modelId: model.id,
-                accountId: request.account_id,
-                ok: probe.ok,
-                reason: probe.reason,
-                context: probe.context,
-            },
-            'team model tested',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
-            accountId: request.account_id,
-            action: 'model.test',
-            target: `model:${model.id}`,
-            outcome: probe.ok ? 'ok' : 'error',
-            detail: probe.ok
-                ? `${probe.models ?? 0} models listed${(probe.context ?? 0) > 0 ? ` - ${probe.context} token window` : ''}`
-                : (probe.reason ?? 'failed'),
-            changes: {
-                probe,
-                ...(!isAutoFree(model.model) &&
-                    (probe.context ?? 0) > 0 &&
-                    probe.context !== model.context_tokens && {
-                        context_tokens: { from: model.context_tokens, to: probe.context },
-                    }),
-            },
-        });
-
-        reply.send(probe);
     };
 
     return { schema: schemaModelTest(), config: { ...authGuard() }, handler };
@@ -594,9 +639,9 @@ export function modelProbe(fastify: FastifyInstance) {
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const baseUrl = readBaseUrl(request);
+        const baseUrl = readBaseUrl(request.body);
         const apiKey = listingKey(
-            readApiKey(request),
+            readApiKey(request.body),
             baseUrl,
             await readStoredModel(fastify, request, teamId),
         );
@@ -648,8 +693,8 @@ export function modelListIds(fastify: FastifyInstance) {
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const baseUrl = readBaseUrl(request);
-        const typed = readApiKey(request);
+        const baseUrl = readBaseUrl(request.body);
+        const typed = readApiKey(request.body);
 
         const stored = await readStoredModel(fastify, request, teamId);
 

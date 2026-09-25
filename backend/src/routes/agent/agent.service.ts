@@ -15,8 +15,9 @@ import {
 } from '../../constant.js';
 
 import { authGuard } from '../../plugins/authentication.js';
+import { bodyField } from '../../plugins/validator.js';
 import { BadRequestResponse } from '../../utils/response.js';
-import { audit, changed } from '../audit/audit.log.js';
+import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
 import { TeamTask } from '../task/task.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
@@ -58,7 +59,7 @@ function toDocumentView(document: TeamAgentDocument) {
     };
 }
 
-function toAgentView(agent: TeamAgent, modelName: string, documentCount: number) {
+export function toAgentView(agent: TeamAgent, modelName: string, documentCount: number) {
     return {
         id: agent.id,
         name: agent.name,
@@ -92,12 +93,10 @@ async function findOwnedAgent(
 
 async function readModelId(
     fastify: FastifyInstance,
-    request: FastifyRequest,
+    raw: unknown,
     teamId: number,
 ): Promise<number> {
-    const raw = (request.body as { model_id?: unknown } | undefined)?.model_id;
-
-    const modelId = Number(raw);
+    const modelId = Number((raw as { model_id?: unknown } | undefined)?.model_id);
 
     if (!Number.isInteger(modelId) || modelId < 1) {
         throw new BadRequestResponse('MODEL_ID_INVALID');
@@ -110,9 +109,9 @@ async function readModelId(
     return modelId;
 }
 
-function readAgentBody(request: FastifyRequest) {
-    const name = request.getBody('name').min(NAME_MIN).max(NAME_MAX).asString().trim();
-    const description = request.getBody('description').max(AGENT_DESCRIPTION_MAX).asString().trim();
+function readAgentBody(raw: unknown) {
+    const name = bodyField(raw, 'name').min(NAME_MIN).max(NAME_MAX).asString().trim();
+    const description = bodyField(raw, 'description').max(AGENT_DESCRIPTION_MAX).asString().trim();
 
     if (name.length < NAME_MIN) {
         throw new BadRequestResponse('ERROR_MIN_LENGTH');
@@ -121,9 +120,9 @@ function readAgentBody(request: FastifyRequest) {
     return { name, description };
 }
 
-function readDocumentBody(request: FastifyRequest) {
-    const name = request.getBody('name').min(4).max(DOCUMENT_NAME_MAX).asString().trim();
-    const content = request.getBody('content').max(AGENT_DOCUMENT_CONTENT_MAX).asString();
+function readDocumentBody(raw: unknown) {
+    const name = bodyField(raw, 'name').min(4).max(DOCUMENT_NAME_MAX).asString().trim();
+    const content = bodyField(raw, 'content').max(AGENT_DOCUMENT_CONTENT_MAX).asString();
 
     if (!DOCUMENT_NAME_PATTERN.test(name)) {
         throw new BadRequestResponse('DOCUMENT_NAME_INVALID');
@@ -132,10 +131,71 @@ function readDocumentBody(request: FastifyRequest) {
     return { name, content };
 }
 
-async function modelNames(fastify: FastifyInstance, teamId: number): Promise<Map<number, string>> {
+export async function modelNames(
+    fastify: FastifyInstance,
+    teamId: number,
+): Promise<Map<number, string>> {
     const models = await fastify.db.getRepository(TeamModel).findBy({ team_id: teamId });
 
     return new Map(models.map((model) => [model.id, model.name]));
+}
+
+export async function createAgent(
+    fastify: FastifyInstance,
+    teamId: number,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamAgent> {
+    const credit = attribution(by);
+    const { name, description } = readAgentBody(raw);
+    const modelId = await readModelId(fastify, raw, teamId);
+    const instructions =
+        (raw as { instructions?: unknown } | undefined)?.instructions === undefined
+            ? ''
+            : bodyField(raw, 'instructions').max(AGENT_DOCUMENT_CONTENT_MAX).asString().trim();
+
+    const agent = await fastify.db.getRepository(TeamAgent).save({
+        team_id: teamId,
+        name,
+        description,
+        model_id: modelId,
+        permissions: serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS),
+    });
+
+    const files = DEFAULT_DOCUMENTS.map((document) => ({
+        name: document.name,
+        content:
+            document.name === 'instructions.md' && instructions !== ''
+                ? `${instructions}\n`
+                : document.content,
+    }));
+
+    await fastify.db
+        .getRepository(TeamAgentDocument)
+        .save(files.map((file) => ({ agent_id: agent.id, ...file })));
+
+    by.log.info(
+        { module: 'agent', teamId, agentId: agent.id, modelId, accountId: by.accountId },
+        'agent created',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'agent.create',
+        target: `agent:${agent.id}`,
+        detail: `${name} - model ${modelId} - ${files.length} files seeded${credit.note}`,
+        changes: {
+            name,
+            description,
+            model_id: modelId,
+            permissions: agent.permissions,
+            files,
+            ...credit.changes,
+        },
+    });
+
+    return agent;
 }
 
 export function agentCreate(fastify: FastifyInstance) {
@@ -144,56 +204,13 @@ export function agentCreate(fastify: FastifyInstance) {
 
         await findOwnedTeam(fastify, teamId, request.account_id);
 
-        const { name, description } = readAgentBody(request);
-        const modelId = await readModelId(fastify, request, teamId);
-        const instructions =
-            (request.body as { instructions?: unknown } | undefined)?.instructions === undefined
-                ? ''
-                : request.getBody('instructions').max(AGENT_DOCUMENT_CONTENT_MAX).asString().trim();
-
-        const agent = await fastify.db.getRepository(TeamAgent).save({
-            team_id: teamId,
-            name,
-            description,
-            model_id: modelId,
-            permissions: serializeAgentPermissions(DEFAULT_AGENT_PERMISSIONS),
-        });
-
-        const files = DEFAULT_DOCUMENTS.map((document) => ({
-            name: document.name,
-            content:
-                document.name === 'instructions.md' && instructions !== ''
-                    ? `${instructions}\n`
-                    : document.content,
-        }));
-
-        await fastify.db
-            .getRepository(TeamAgentDocument)
-            .save(files.map((file) => ({ agent_id: agent.id, ...file })));
-
-        request.log.info(
-            { module: 'agent', teamId, agentId: agent.id, modelId, accountId: request.account_id },
-            'agent created',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        const agent = await createAgent(fastify, teamId, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'agent.create',
-            target: `agent:${agent.id}`,
-            detail: `${name} - model ${modelId} - ${files.length} files seeded`,
-            changes: {
-                name,
-                description,
-                model_id: modelId,
-                permissions: agent.permissions,
-                files,
-            },
         });
-
         const names = await modelNames(fastify, teamId);
 
-        reply.send(toAgentView(agent, names.get(modelId) ?? '', DEFAULT_DOCUMENTS.length));
+        reply.send(toAgentView(agent, names.get(agent.model_id) ?? '', DEFAULT_DOCUMENTS.length));
     };
 
     return { schema: schemaAgentCreate(), config: { ...authGuard() }, handler };
@@ -285,6 +302,39 @@ export function agentDetails(fastify: FastifyInstance) {
     return { schema: schemaAgentDetails(), config: { ...authGuard() }, handler };
 }
 
+export async function updateAgent(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamAgent> {
+    const credit = attribution(by);
+    const teamId = agent.team_id;
+    const { name, description } = readAgentBody(raw);
+    const modelId = await readModelId(fastify, raw, teamId);
+    const diff = changed(agent, { name, description, model_id: modelId });
+
+    await fastify.db
+        .getRepository(TeamAgent)
+        .update({ id: agent.id, team_id: teamId }, { name, description, model_id: modelId });
+
+    by.log.info(
+        { module: 'agent', teamId, agentId: agent.id, modelId, accountId: by.accountId },
+        'agent updated',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'agent.update',
+        target: `agent:${agent.id}`,
+        detail: `${name} - changed ${Object.keys(diff).join(', ') || 'nothing'}${credit.note}`,
+        changes: { ...diff, ...credit.changes },
+    });
+
+    return { ...agent, name, description, model_id: modelId };
+}
+
 export function agentUpdate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
@@ -294,45 +344,89 @@ export function agentUpdate(fastify: FastifyInstance) {
             readAgentId(request),
             request.account_id,
         );
-
-        const { name, description } = readAgentBody(request);
-        const modelId = await readModelId(fastify, request, teamId);
-
-        const diff = changed(agent, { name, description, model_id: modelId });
-
-        await fastify.db
-            .getRepository(TeamAgent)
-            .update({ id: agent.id, team_id: teamId }, { name, description, model_id: modelId });
-
+        const saved = await updateAgent(fastify, agent, request.body, {
+            log: request.log,
+            accountId: request.account_id,
+        });
         const documents = await fastify.db
             .getRepository(TeamAgentDocument)
             .countBy({ agent_id: agent.id });
         const names = await modelNames(fastify, teamId);
 
-        request.log.info(
-            { module: 'agent', teamId, agentId: agent.id, modelId, accountId: request.account_id },
-            'agent updated',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
-            accountId: request.account_id,
-            action: 'agent.update',
-            target: `agent:${agent.id}`,
-            detail: `${name} - changed ${Object.keys(diff).join(', ') || 'nothing'}`,
-            changes: diff,
-        });
-
-        reply.send(
-            toAgentView(
-                { ...agent, name, description, model_id: modelId },
-                names.get(modelId) ?? '',
-                documents,
-            ),
-        );
+        reply.send(toAgentView(saved, names.get(saved.model_id) ?? '', documents));
     };
 
     return { schema: schemaAgentUpdate(), config: { ...authGuard() }, handler };
+}
+
+export async function removeAgent(
+    fastify: FastifyInstance,
+    teamId: number,
+    agentId: number,
+    by: ActedBy,
+) {
+    const credit = attribution(by);
+    const gone = await fastify.db
+        .getRepository(TeamAgent)
+        .findOneBy({ id: agentId, team_id: teamId });
+    const files = await fastify.db.getRepository(TeamAgentDocument).findBy({ agent_id: agentId });
+
+    const removed = await fastify.db
+        .getRepository(TeamAgent)
+        .delete({ id: agentId, team_id: teamId });
+
+    if (removed.affected !== 1) {
+        throw new BadRequestResponse('AGENT_NOT_FOUND');
+    }
+
+    await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
+
+    const personal = await fastify.db
+        .getRepository(TelegramUserDocument)
+        .delete({ agent_id: agentId });
+
+    const cancelled = await fastify.db
+        .getRepository(TeamTask)
+        .update(
+            { team_id: teamId, agent_id: agentId, status: 'scheduled' },
+            { status: 'cancelled' },
+        );
+
+    const detached = await fastify.db
+        .getRepository(TeamBot)
+        .update({ team_id: teamId, agent_id: agentId }, { agent_id: 0 });
+
+    by.log.info(
+        {
+            module: 'agent',
+            teamId,
+            agentId,
+            accountId: by.accountId,
+            detachedBots: detached.affected ?? 0,
+        },
+        'agent removed',
+    );
+
+    await audit(fastify, by.log, {
+        teamId,
+        ...credit.who,
+        action: 'agent.remove',
+        target: `agent:${agentId}`,
+        detail: `${gone?.name ?? agentId} - ${detached.affected ?? 0} bot(s) detached, ${cancelled.affected ?? 0} task(s) cancelled${credit.note}`,
+        changes: {
+            agent: gone,
+            files: files.map((file) => ({ name: file.name, content: file.content })),
+            personal_files_removed: personal.affected ?? 0,
+            tasks_cancelled: cancelled.affected ?? 0,
+            bots_detached: detached.affected ?? 0,
+            ...credit.changes,
+        },
+    });
+
+    return {
+        bots_detached: detached.affected ?? 0,
+        tasks_cancelled: cancelled.affected ?? 0,
+    };
 }
 
 export function agentRemove(fastify: FastifyInstance) {
@@ -341,69 +435,141 @@ export function agentRemove(fastify: FastifyInstance) {
         const agentId = readAgentId(request);
 
         await findOwnedTeam(fastify, teamId, request.account_id);
-
-        const gone = await fastify.db
-            .getRepository(TeamAgent)
-            .findOneBy({ id: agentId, team_id: teamId });
-        const files = await fastify.db
-            .getRepository(TeamAgentDocument)
-            .findBy({ agent_id: agentId });
-
-        const removed = await fastify.db
-            .getRepository(TeamAgent)
-            .delete({ id: agentId, team_id: teamId });
-
-        if (removed.affected !== 1) {
-            throw new BadRequestResponse('AGENT_NOT_FOUND');
-        }
-
-        await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
-
-        const personal = await fastify.db
-            .getRepository(TelegramUserDocument)
-            .delete({ agent_id: agentId });
-
-        const cancelled = await fastify.db
-            .getRepository(TeamTask)
-            .update(
-                { team_id: teamId, agent_id: agentId, status: 'scheduled' },
-                { status: 'cancelled' },
-            );
-
-        const detached = await fastify.db
-            .getRepository(TeamBot)
-            .update({ team_id: teamId, agent_id: agentId }, { agent_id: 0 });
-
-        request.log.info(
-            {
-                module: 'agent',
-                teamId,
-                agentId,
-                accountId: request.account_id,
-                detachedBots: detached.affected ?? 0,
-            },
-            'agent removed',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        await removeAgent(fastify, teamId, agentId, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'agent.remove',
-            target: `agent:${agentId}`,
-            detail: `${gone?.name ?? agentId} - ${detached.affected ?? 0} bot(s) detached, ${cancelled.affected ?? 0} task(s) cancelled`,
-            changes: {
-                agent: gone,
-                files: files.map((file) => ({ name: file.name, content: file.content })),
-                personal_files_removed: personal.affected ?? 0,
-                tasks_cancelled: cancelled.affected ?? 0,
-                bots_detached: detached.affected ?? 0,
-            },
         });
 
         reply.send({ result: 'OK' });
     };
 
     return { schema: schemaAgentRemove(), config: { ...authGuard() }, handler };
+}
+
+export async function createAgentDocument(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamAgentDocument> {
+    const credit = attribution(by);
+    const { name, content } = readDocumentBody(raw);
+    const repository = fastify.db.getRepository(TeamAgentDocument);
+
+    if (await repository.findOneBy({ agent_id: agent.id, name })) {
+        throw new BadRequestResponse('DOCUMENT_ALREADY_EXISTS');
+    }
+
+    const document = await repository.save({ agent_id: agent.id, name, content });
+
+    by.log.info(
+        {
+            module: 'agent',
+            teamId: agent.team_id,
+            agentId: agent.id,
+            documentId: document.id,
+            accountId: by.accountId,
+        },
+        'agent document created',
+    );
+
+    await audit(fastify, by.log, {
+        teamId: agent.team_id,
+        ...credit.who,
+        action: 'agent.document.create',
+        target: `agent:${agent.id}`,
+        detail: `${agent.name} - ${name} - ${content.length} chars${credit.note}`,
+        changes: { name, content, ...credit.changes },
+    });
+
+    return document;
+}
+
+export async function updateAgentDocument(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    documentId: number,
+    raw: unknown,
+    by: ActedBy,
+): Promise<TeamAgentDocument> {
+    const credit = attribution(by);
+    const { name, content } = readDocumentBody(raw);
+    const repository = fastify.db.getRepository(TeamAgentDocument);
+    const document = await repository.findOneBy({ id: documentId, agent_id: agent.id });
+
+    if (!document) {
+        throw new BadRequestResponse('DOCUMENT_NOT_FOUND');
+    }
+
+    const clash = await repository.findOneBy({ agent_id: agent.id, name });
+
+    if (clash && clash.id !== document.id) {
+        throw new BadRequestResponse('DOCUMENT_ALREADY_EXISTS');
+    }
+
+    await repository.update({ id: document.id, agent_id: agent.id }, { name, content });
+
+    by.log.info(
+        {
+            module: 'agent',
+            teamId: agent.team_id,
+            agentId: agent.id,
+            documentId: document.id,
+            accountId: by.accountId,
+        },
+        'agent document updated',
+    );
+
+    await audit(fastify, by.log, {
+        teamId: agent.team_id,
+        ...credit.who,
+        action: 'agent.document.update',
+        target: `agent:${agent.id}`,
+        detail: `${agent.name} - ${name} - ${content.length} chars${credit.note}`,
+        changes: { ...changed(document, { name, content }), ...credit.changes },
+    });
+
+    return { ...document, name, content, updated_at: new Date() };
+}
+
+export async function removeAgentDocument(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    documentId: number,
+    by: ActedBy,
+) {
+    const credit = attribution(by);
+    const gone = await fastify.db
+        .getRepository(TeamAgentDocument)
+        .findOneBy({ id: documentId, agent_id: agent.id });
+
+    const removed = await fastify.db
+        .getRepository(TeamAgentDocument)
+        .delete({ id: documentId, agent_id: agent.id });
+
+    if (removed.affected !== 1) {
+        throw new BadRequestResponse('DOCUMENT_NOT_FOUND');
+    }
+
+    by.log.info(
+        {
+            module: 'agent',
+            teamId: agent.team_id,
+            agentId: agent.id,
+            documentId,
+            accountId: by.accountId,
+        },
+        'agent document removed',
+    );
+
+    await audit(fastify, by.log, {
+        teamId: agent.team_id,
+        ...credit.who,
+        action: 'agent.document.remove',
+        target: `agent:${agent.id}`,
+        detail: `${agent.name} - ${gone?.name ?? `document ${documentId}`}${credit.note}`,
+        changes: { name: gone?.name, content: gone?.content, ...credit.changes },
+    });
 }
 
 export function agentDocumentCreate(fastify: FastifyInstance) {
@@ -415,35 +581,9 @@ export function agentDocumentCreate(fastify: FastifyInstance) {
             readAgentId(request),
             request.account_id,
         );
-
-        const { name, content } = readDocumentBody(request);
-
-        const repository = fastify.db.getRepository(TeamAgentDocument);
-
-        if (await repository.findOneBy({ agent_id: agent.id, name })) {
-            throw new BadRequestResponse('DOCUMENT_ALREADY_EXISTS');
-        }
-
-        const document = await repository.save({ agent_id: agent.id, name, content });
-
-        request.log.info(
-            {
-                module: 'agent',
-                teamId,
-                agentId: agent.id,
-                documentId: document.id,
-                accountId: request.account_id,
-            },
-            'agent document created',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        const document = await createAgentDocument(fastify, agent, request.body, {
+            log: request.log,
             accountId: request.account_id,
-            action: 'agent.document.create',
-            target: `agent:${agent.id}`,
-            detail: `${agent.name} - ${name} - ${content.length} chars`,
-            changes: { name, content },
         });
 
         reply.send(toDocumentView(document));
@@ -461,47 +601,15 @@ export function agentDocumentUpdate(fastify: FastifyInstance) {
             readAgentId(request),
             request.account_id,
         );
-        const documentId = readDocumentId(request);
-
-        const { name, content } = readDocumentBody(request);
-
-        const repository = fastify.db.getRepository(TeamAgentDocument);
-
-        const document = await repository.findOneBy({ id: documentId, agent_id: agent.id });
-
-        if (!document) {
-            throw new BadRequestResponse('DOCUMENT_NOT_FOUND');
-        }
-
-        const clash = await repository.findOneBy({ agent_id: agent.id, name });
-
-        if (clash && clash.id !== document.id) {
-            throw new BadRequestResponse('DOCUMENT_ALREADY_EXISTS');
-        }
-
-        await repository.update({ id: document.id, agent_id: agent.id }, { name, content });
-
-        request.log.info(
-            {
-                module: 'agent',
-                teamId,
-                agentId: agent.id,
-                documentId: document.id,
-                accountId: request.account_id,
-            },
-            'agent document updated',
+        const document = await updateAgentDocument(
+            fastify,
+            agent,
+            readDocumentId(request),
+            request.body,
+            { log: request.log, accountId: request.account_id },
         );
 
-        await audit(fastify, request.log, {
-            teamId,
-            accountId: request.account_id,
-            action: 'agent.document.update',
-            target: `agent:${agent.id}`,
-            detail: `${agent.name} - ${name} - ${content.length} chars`,
-            changes: changed(document, { name, content }),
-        });
-
-        reply.send(toDocumentView({ ...document, name, content, updated_at: new Date() }));
+        reply.send(toDocumentView(document));
     };
 
     return { schema: schemaAgentDocumentUpdate(), config: { ...authGuard() }, handler };
@@ -516,38 +624,10 @@ export function agentDocumentRemove(fastify: FastifyInstance) {
             readAgentId(request),
             request.account_id,
         );
-        const documentId = readDocumentId(request);
 
-        const gone = await fastify.db
-            .getRepository(TeamAgentDocument)
-            .findOneBy({ id: documentId, agent_id: agent.id });
-
-        const removed = await fastify.db
-            .getRepository(TeamAgentDocument)
-            .delete({ id: documentId, agent_id: agent.id });
-
-        if (removed.affected !== 1) {
-            throw new BadRequestResponse('DOCUMENT_NOT_FOUND');
-        }
-
-        request.log.info(
-            {
-                module: 'agent',
-                teamId,
-                agentId: agent.id,
-                documentId,
-                accountId: request.account_id,
-            },
-            'agent document removed',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
+        await removeAgentDocument(fastify, agent, readDocumentId(request), {
+            log: request.log,
             accountId: request.account_id,
-            action: 'agent.document.remove',
-            target: `agent:${agent.id}`,
-            detail: `${agent.name} - ${gone?.name ?? `document ${documentId}`}`,
-            changes: { name: gone?.name, content: gone?.content },
         });
 
         reply.send({ result: 'OK' });
@@ -566,6 +646,59 @@ export function agentPermissionCatalog(fastify: FastifyInstance) {
     return { schema: schemaAgentPermissionCatalog(), config: { ...authGuard() }, handler };
 }
 
+export async function setAgentPermissions(
+    fastify: FastifyInstance,
+    agent: TeamAgent,
+    requested: unknown,
+    by: ActedBy,
+): Promise<TeamAgent> {
+    const credit = attribution(by);
+
+    if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string')) {
+        throw new BadRequestResponse('PERMISSIONS_INVALID');
+    }
+
+    for (const key of requested as string[]) {
+        if (!isKnownAgentPermission(key)) {
+            throw new BadRequestResponse('PERMISSION_UNKNOWN');
+        }
+    }
+
+    const permissions = serializeAgentPermissions(requested as string[]);
+
+    await fastify.db
+        .getRepository(TeamAgent)
+        .update({ id: agent.id, team_id: agent.team_id }, { permissions });
+
+    by.log.info(
+        {
+            module: 'agent',
+            teamId: agent.team_id,
+            agentId: agent.id,
+            accountId: by.accountId,
+            permissions,
+        },
+        'agent permissions updated',
+    );
+
+    await audit(fastify, by.log, {
+        teamId: agent.team_id,
+        ...credit.who,
+        action: 'agent.permissions',
+        target: `agent:${agent.id}`,
+        detail: `${agent.name} -> ${permissions === '' ? 'none' : permissions}${credit.note}`,
+        changes: {
+            ...changed(
+                { permissions: parseAgentPermissions(agent.permissions) },
+                { permissions: parseAgentPermissions(permissions) },
+            ),
+            ...credit.changes,
+        },
+    });
+
+    return { ...agent, permissions };
+}
+
 export function agentPermissionUpdate(fastify: FastifyInstance) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
         const teamId = readTeamId(request);
@@ -575,56 +708,18 @@ export function agentPermissionUpdate(fastify: FastifyInstance) {
             readAgentId(request),
             request.account_id,
         );
-
-        const requested = (request.body as { permissions?: unknown } | undefined)?.permissions;
-
-        if (!Array.isArray(requested) || requested.some((key) => typeof key !== 'string')) {
-            throw new BadRequestResponse('PERMISSIONS_INVALID');
-        }
-
-        for (const key of requested as string[]) {
-            if (!isKnownAgentPermission(key)) {
-                throw new BadRequestResponse('PERMISSION_UNKNOWN');
-            }
-        }
-
-        const permissions = serializeAgentPermissions(requested as string[]);
-
-        await fastify.db
-            .getRepository(TeamAgent)
-            .update({ id: agent.id, team_id: teamId }, { permissions });
-
+        const saved = await setAgentPermissions(
+            fastify,
+            agent,
+            (request.body as { permissions?: unknown } | undefined)?.permissions,
+            { log: request.log, accountId: request.account_id },
+        );
         const documents = await fastify.db
             .getRepository(TeamAgentDocument)
             .countBy({ agent_id: agent.id });
         const names = await modelNames(fastify, teamId);
 
-        request.log.info(
-            {
-                module: 'agent',
-                teamId,
-                agentId: agent.id,
-                accountId: request.account_id,
-                permissions,
-            },
-            'agent permissions updated',
-        );
-
-        await audit(fastify, request.log, {
-            teamId,
-            accountId: request.account_id,
-            action: 'agent.permissions',
-            target: `agent:${agent.id}`,
-            detail: `${agent.name} -> ${permissions === '' ? 'none' : permissions}`,
-            changes: changed(
-                { permissions: parseAgentPermissions(agent.permissions) },
-                { permissions: parseAgentPermissions(permissions) },
-            ),
-        });
-
-        reply.send(
-            toAgentView({ ...agent, permissions }, names.get(agent.model_id) ?? '', documents),
-        );
+        reply.send(toAgentView(saved, names.get(agent.model_id) ?? '', documents));
     };
 
     return { schema: schemaAgentPermissionUpdate(), config: { ...authGuard() }, handler };
