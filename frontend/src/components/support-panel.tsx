@@ -10,7 +10,7 @@ import { TICKET_BODY_MAX, TICKET_SUBJECT_MAX } from '@/libs/constant';
 import { apiError, t } from '@/libs/i18n';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -92,29 +92,27 @@ export function SupportPanel({ staff }: { staff: boolean }) {
                 <CardTitle>{t('support.title')}</CardTitle>
                 <CardDescription>{t('support.description')}</CardDescription>
 
-                <CardAction>
-                    <Stack direction="Horizontal" className="flex-wrap justify-end gap-2">
-                        {staff && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                link="/dashboard/support"
-                                icon={<Inbox />}
-                                message={t('support.inboxLink')}
-                            />
-                        )}
+                <Stack direction="Horizontal" className="mt-2 flex-wrap gap-2">
+                    {staff && (
                         <Button
+                            variant="ghost"
                             size="sm"
-                            icon={<Plus />}
-                            onClick={() => {
-                                setSubject('');
-                                setFormError(null);
-                                setOpen(true);
-                            }}
-                            message={t('support.new')}
+                            link="/dashboard/support"
+                            icon={<Inbox />}
+                            message={t('support.inboxLink')}
                         />
-                    </Stack>
-                </CardAction>
+                    )}
+                    <Button
+                        size="sm"
+                        icon={<Plus />}
+                        onClick={() => {
+                            setSubject('');
+                            setFormError(null);
+                            setOpen(true);
+                        }}
+                        message={t('support.new')}
+                    />
+                </Stack>
             </CardHeader>
 
             <CardContent padding="none">
