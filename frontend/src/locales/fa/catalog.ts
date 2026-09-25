@@ -359,6 +359,10 @@ const messages: Record<string, string> = {
 
     'catalog.action.account.create': 'ساخت حساب',
     'catalog.action.account.sign_in': 'ورود به حساب',
+    'catalog.action.account.plan': 'تغییر طرح حساب',
+    'catalog.action.ticket.create': 'باز کردن تیکت',
+    'catalog.action.ticket.reply': 'نوشتن در تیکت',
+    'catalog.action.ticket.status': 'تغییر وضعیت تیکت',
     'catalog.action.agent.call': 'درخواست از ایجنت دیگر',
     'catalog.action.agent.create': 'ساخت ایجنت',
     'catalog.action.agent.document.create': 'ساخت فایل ایجنت',
