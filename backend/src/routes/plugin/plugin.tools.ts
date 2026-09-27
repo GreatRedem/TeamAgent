@@ -226,7 +226,11 @@ export async function pluginTools(
             .map((plugin) => {
                 const { config } = settingsOf(plugin);
                 const target = config['default_chat'] || config['default_channel'] || '';
-                const about = [plugin.account, target === '' ? '' : `default ${target}`]
+                const about = [
+                    plugin.account,
+                    config['site'] ? `posts on ${config['site']}` : '',
+                    target === '' ? '' : `default ${target}`,
+                ]
                     .filter((part) => part !== '')
                     .join(', ');
 
