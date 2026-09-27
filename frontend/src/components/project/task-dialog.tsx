@@ -12,9 +12,14 @@ import {
 import { type TaskAfterOutcome, taskList } from '@/apis/task';
 import { Field } from '@/components/field';
 import { ProfilePicker } from '@/components/profile-picker';
-import { TASK_AFTER_LABELS, TASK_CHOICES_MAX, TASK_REPEAT_LABELS } from '@/libs/constant';
+import {
+    TASK_AFTER_LABELS,
+    TASK_CHOICES_MAX,
+    TASK_PRESETS,
+    TASK_REPEAT_LABELS,
+} from '@/libs/constant';
 import { localInputValue } from '@/libs/format';
-import { apiError, t } from '@/libs/i18n';
+import { apiError, plain, t } from '@/libs/i18n';
 import { profileName } from '@/libs/profileName';
 import { Alert, AlertDescription } from '@/ui/alert';
 import { Button } from '@/ui/button';
@@ -46,6 +51,7 @@ export function TaskDialog({
     onOpenChange: (open: boolean) => void;
     onSaved: (task: TeamTask) => void;
 }) {
+    const [preset, setPreset] = useState('empty');
     const [title, setTitle] = useState('');
     const [goal, setGoal] = useState('');
     const [description, setDescription] = useState('');
@@ -69,6 +75,7 @@ export function TaskDialog({
             return;
         }
 
+        setPreset('empty');
         setTitle(task?.title ?? '');
         setGoal(task?.goal ?? '');
         setDescription(task?.description ?? '');
@@ -158,6 +165,38 @@ export function TaskDialog({
                         <DialogDescription>{t('tasks.dialog.description')}</DialogDescription>
                     </DialogHeader>
 
+                    {task === null && (
+                        <Field
+                            label={t('tasks.field.preset.label')}
+                            hint={t('tasks.field.preset.hint')}>
+                            {(id) => (
+                                <Select
+                                    id={id}
+                                    value={preset}
+                                    onValueChange={(key) => {
+                                        const picked = TASK_PRESETS.find(
+                                            (item) => item.key === key,
+                                        );
+
+                                        setPreset(key);
+                                        setTitle(picked === undefined ? '' : plain(picked.title));
+                                        setGoal(picked === undefined ? '' : plain(picked.goal));
+                                        setDescription(picked?.description ?? '');
+                                        setRepeat(picked?.repeat ?? 'none');
+                                    }}>
+                                    <SelectItem value="empty">
+                                        {t('tasks.field.preset.empty')}
+                                    </SelectItem>
+                                    {TASK_PRESETS.map((item) => (
+                                        <SelectItem key={item.key} value={item.key}>
+                                            {t(item.title)}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            )}
+                        </Field>
+                    )}
+
                     <Field label={t('tasks.field.title.label')}>
                         {(id) => (
                             <Input
@@ -191,6 +230,7 @@ export function TaskDialog({
                             <Textarea
                                 id={id}
                                 value={description}
+                                dir={description === '' ? undefined : 'auto'}
                                 onChange={(event) => setDescription(event.target.value)}
                                 maxLength={4000}
                                 className="min-h-24"

@@ -39,7 +39,7 @@ import type { PlanKey } from '@/apis/account';
 import type { AuditEntry } from '@/apis/audit';
 import type { ProviderPreset } from '@/apis/model';
 import type { PluginDirection, PluginKindKey } from '@/apis/plugin';
-import type { TaskAfterOutcome } from '@/apis/task';
+import type { TaskAfterOutcome, TaskRepeat } from '@/apis/task';
 import type { TicketStatus } from '@/apis/ticket';
 import type { MessageKey } from '@/locales';
 import type { Status } from '@/ui/status-dot';
@@ -134,6 +134,56 @@ export const TASK_AFTER_LABELS: Record<TaskAfterOutcome, MessageKey> = {
 };
 
 export const TASK_CHOICES_MAX = 200;
+
+export const TASK_PRESET_HONESTY =
+    '- If you have none of these tools, or publishing fails, say plainly that nothing was posted and why. Never claim a post you did not make.';
+
+export const TASK_PRESETS: {
+    key: string;
+    title: MessageKey;
+    goal: MessageKey;
+    repeat: TaskRepeat;
+    description: string;
+}[] = [
+    {
+        key: 'x',
+        title: 'tasks.preset.x.title',
+        goal: 'tasks.preset.x.goal',
+        repeat: 'daily',
+        description: `Write one post for X about this project or its field, on something earlier runs have not covered, and publish it.
+
+- Publish with x_post, or with browser_post if that is the X tool you have.
+- At most 280 characters, a link counting as 23, and at most two hashtags.
+${TASK_PRESET_HONESTY}
+- Reply with the exact text you posted.`,
+    },
+    {
+        key: 'telegram',
+        title: 'tasks.preset.telegram.title',
+        goal: 'tasks.preset.telegram.goal',
+        repeat: 'daily',
+        description: `Write one post for our Telegram channel about this project or its field, on something earlier runs have not covered, and publish it.
+
+- Publish with telegram_send_message, or telegram_send_photo when you have a picture at a public https address. It goes to the plugin's default chat unless this task names another. If browser_post is the Telegram tool you have, post text only.
+- Keep it short enough to read on a phone. Markdown is fine.
+${TASK_PRESET_HONESTY}
+- Reply with the exact text you posted.`,
+    },
+    {
+        key: 'instagram',
+        title: 'tasks.preset.instagram.title',
+        goal: 'tasks.preset.instagram.goal',
+        repeat: 'none',
+        description: `Write a caption for one Instagram post about this project or its field, and publish it with the picture below.
+
+- Publish with instagram_publish, or with browser_post if that is the Instagram tool you have.
+- The picture must be at a public https address, and a JPEG for instagram_publish. If no picture address is given below, do not publish: say that a picture is needed.
+${TASK_PRESET_HONESTY}
+- Reply with the exact caption you posted.
+
+Picture:`,
+    },
+];
 
 export const SMS_CODE_LENGTH = 6;
 

@@ -82,6 +82,10 @@ export function t(key: MessageKey, values?: Values): string {
     return fill(messages[key] ?? fallback[key] ?? key, values);
 }
 
+export function plain(key: MessageKey): string {
+    return messages[key] ?? fallback[key] ?? key;
+}
+
 export function tn(key: PluralKey, count: number, values?: Values): string {
     const form = `${key}.${plurals.select(count)}` as MessageKey;
     const other = `${key}.other` as MessageKey;
