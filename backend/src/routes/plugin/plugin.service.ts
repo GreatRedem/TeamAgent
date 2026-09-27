@@ -475,9 +475,11 @@ export function pluginCalls(fastify: FastifyInstance) {
         const agents = new Map(
             (agentIds.length === 0
                 ? []
-                : await fastify.db
-                      .getRepository(TeamAgent)
-                      .find({ where: { id: In(agentIds) }, select: { id: true, name: true } })
+                : await fastify.db.getRepository(TeamAgent).find({
+                      where: { id: In(agentIds) },
+                      select: { id: true, name: true },
+                      withDeleted: true,
+                  })
             ).map((agent) => [agent.id, agent.name]),
         );
 

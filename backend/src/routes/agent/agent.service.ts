@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { In } from 'typeorm';
 import {
     AGENT_DESCRIPTION_MAX,
     AGENT_DOCUMENT_CONTENT_MAX,
@@ -16,13 +17,14 @@ import {
 
 import { authGuard } from '../../plugins/authentication.js';
 import { bodyField } from '../../plugins/validator.js';
+import { idList } from '../../utils/ids.js';
 import { BadRequestResponse } from '../../utils/response.js';
 import { teamRoom } from '../account/account.plan.js';
 import { type ActedBy, attribution, audit, changed } from '../audit/audit.log.js';
+import { TeamPlugin } from '../plugin/plugin.entity.js';
 import { TeamTask } from '../task/task.entity.js';
 import { findOwnedTeam, readPage, readParamId, readTeamId, takePage } from '../team/team.access.js';
 import { TeamBot, TeamModel } from '../team/team.entity.js';
-import { TelegramUserDocument } from '../telegram/telegram.entity.js';
 import { TeamAgent, TeamAgentDocument, TeamAgentExchange } from './agent.entity.js';
 import {
     isKnownAgentPermission,
@@ -372,32 +374,39 @@ export async function removeAgent(
     const gone = await fastify.db
         .getRepository(TeamAgent)
         .findOneBy({ id: agentId, team_id: teamId });
-    const files = await fastify.db.getRepository(TeamAgentDocument).findBy({ agent_id: agentId });
 
-    const removed = await fastify.db
-        .getRepository(TeamAgent)
-        .delete({ id: agentId, team_id: teamId });
-
-    if (removed.affected !== 1) {
+    if (!gone) {
         throw new BadRequestResponse('AGENT_NOT_FOUND');
     }
 
-    await fastify.db.getRepository(TeamAgentDocument).delete({ agent_id: agentId });
-
-    const personal = await fastify.db
-        .getRepository(TelegramUserDocument)
-        .delete({ agent_id: agentId });
+    await fastify.db.getRepository(TeamAgent).softDelete({ id: agentId, team_id: teamId });
 
     const cancelled = await fastify.db
         .getRepository(TeamTask)
         .update(
-            { team_id: teamId, agent_id: agentId, status: 'scheduled' },
+            { team_id: teamId, agent_id: agentId, status: In(['scheduled', 'waiting']) },
             { status: 'cancelled' },
         );
 
     const detached = await fastify.db
         .getRepository(TeamBot)
         .update({ team_id: teamId, agent_id: agentId }, { agent_id: 0 });
+
+    const plugins = (await fastify.db.getRepository(TeamPlugin).findBy({ team_id: teamId })).filter(
+        (plugin) => plugin.hook_agent_id === agentId || idList(plugin.agents).includes(agentId),
+    );
+
+    for (const plugin of plugins) {
+        await fastify.db.getRepository(TeamPlugin).update(
+            { id: plugin.id },
+            {
+                hook_agent_id: plugin.hook_agent_id === agentId ? 0 : plugin.hook_agent_id,
+                agents: idList(plugin.agents)
+                    .filter((id) => id !== agentId)
+                    .join(','),
+            },
+        );
+    }
 
     by.log.info(
         {
@@ -407,7 +416,7 @@ export async function removeAgent(
             accountId: by.accountId,
             detachedBots: detached.affected ?? 0,
         },
-        'agent removed',
+        'agent archived',
     );
 
     await audit(fastify, by.log, {
@@ -415,13 +424,12 @@ export async function removeAgent(
         ...credit.who,
         action: 'agent.remove',
         target: `agent:${agentId}`,
-        detail: `${gone?.name ?? agentId} - ${detached.affected ?? 0} bot(s) detached, ${cancelled.affected ?? 0} task(s) cancelled${credit.note}`,
+        detail: `${gone.name} archived - ${detached.affected ?? 0} bot(s) detached, ${cancelled.affected ?? 0} task(s) cancelled, ${plugins.length} plugin(s) cleared${credit.note}`,
         changes: {
             agent: gone,
-            files: files.map((file) => ({ name: file.name, content: file.content })),
-            personal_files_removed: personal.affected ?? 0,
             tasks_cancelled: cancelled.affected ?? 0,
             bots_detached: detached.affected ?? 0,
+            plugins_cleared: plugins.map((plugin) => plugin.id),
             ...credit.changes,
         },
     });

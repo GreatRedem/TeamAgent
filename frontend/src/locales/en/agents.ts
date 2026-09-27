@@ -48,6 +48,12 @@ const messages = {
     'agents.errors.fileSaveFailed': 'The file could not be saved.',
     'agents.errors.fileRemoveFailed': 'The file could not be removed.',
     'agents.errors.addressInvalid': 'That agent address is not valid.',
+    'agents.errors.removeFailed': 'The agent could not be removed.',
+    'agents.remove.label': 'Remove',
+    'agents.remove.title': 'Remove {name}?',
+    'agents.remove.description':
+        'It stops answering: its bots are detached, its waiting tasks are cancelled and plugins stop using it. It is archived, so its files and history are kept.',
+    'agents.remove.confirm': 'Remove agent',
     'agents.detail.fallbackTitle': 'Agent',
     'agents.detail.loading': 'Loading this agent.',
     'agents.detail.back': 'All agents',

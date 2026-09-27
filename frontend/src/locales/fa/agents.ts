@@ -51,6 +51,12 @@ const messages: Messages<typeof en> = {
     'agents.errors.fileSaveFailed': 'فایل ذخیره نشد.',
     'agents.errors.fileRemoveFailed': 'فایل حذف نشد.',
     'agents.errors.addressInvalid': 'نشانی این ایجنت معتبر نیست.',
+    'agents.errors.removeFailed': 'ایجنت حذف نشد.',
+    'agents.remove.label': 'حذف',
+    'agents.remove.title': '{name} حذف شود؟',
+    'agents.remove.description':
+        'دیگر پاسخ نمی‌دهد: ربات‌هایش جدا می‌شوند، وظیفه‌های در انتظارش لغو می‌شوند و پلاگین‌ها دیگر از آن استفاده نمی‌کنند. بایگانی می‌شود، پس فایل‌ها و سابقه‌اش می‌مانند.',
+    'agents.remove.confirm': 'حذف ایجنت',
     'agents.detail.fallbackTitle': 'ایجنت',
     'agents.detail.loading': 'در حال بارگذاری این ایجنت.',
     'agents.detail.back': 'همهٔ ایجنت‌ها',

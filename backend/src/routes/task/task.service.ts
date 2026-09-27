@@ -62,9 +62,11 @@ export async function taskViews(fastify: FastifyInstance, teamId: number, tasks:
 
     const agents = new Map(
         (
-            await fastify.db
-                .getRepository(TeamAgent)
-                .find({ where: { team_id: teamId }, select: { id: true, name: true } })
+            await fastify.db.getRepository(TeamAgent).find({
+                where: { team_id: teamId },
+                select: { id: true, name: true },
+                withDeleted: true,
+            })
         ).map((agent) => [agent.id, agent.name]),
     );
 

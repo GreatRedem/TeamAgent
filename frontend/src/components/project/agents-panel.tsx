@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     agentCreate,
     agentList,
+    agentRemove,
     modelList,
     type Paged,
     type TeamAgent,
     type TeamModel,
 } from '@/apis';
+import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { Pager } from '@/components/pager';
@@ -111,6 +113,24 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
             }
         },
         [teamId, role, name, description, modelId],
+    );
+
+    const remove = useCallback(
+        async (agentId: number) => {
+            setError(null);
+
+            try {
+                await agentRemove(teamId, agentId);
+
+                setAgents((current) => current?.filter((agent) => agent.id !== agentId) ?? null);
+                setPage(
+                    (current) => current && { ...current, total: Math.max(0, current.total - 1) },
+                );
+            } catch (cause) {
+                setError(apiError(cause, 'agents.errors.removeFailed'));
+            }
+        },
+        [teamId],
     );
 
     const goTo = useCallback(
@@ -392,9 +412,18 @@ export function AgentsPanel({ teamId }: { teamId: number }) {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="w-full"
                                         link={`/dashboard/team/${teamId}/agent/${agent.id}`}
                                         message={t('agents.card.open')}
+                                    />
+
+                                    <Stack direction="Horizontal" as="span" className="grow" />
+
+                                    <ConfirmButton
+                                        label={t('agents.remove.label')}
+                                        title={t('agents.remove.title', { name: agent.name })}
+                                        description={t('agents.remove.description')}
+                                        confirmLabel={t('agents.remove.confirm')}
+                                        onConfirm={() => void remove(agent.id)}
                                     />
                                 </CardFooter>
                             </Card>

@@ -163,7 +163,9 @@ export async function agentNames(
     fastify: FastifyInstance,
     teamId: number,
 ): Promise<Map<number, string>> {
-    const agents = await fastify.db.getRepository(TeamAgent).findBy({ team_id: teamId });
+    const agents = await fastify.db
+        .getRepository(TeamAgent)
+        .find({ where: { team_id: teamId }, withDeleted: true });
 
     return new Map(agents.map((agent) => [agent.id, agent.name]));
 }
@@ -384,6 +386,7 @@ export function teamRemove(fastify: FastifyInstance) {
             const agents = await db.find(TeamAgent, {
                 where: { team_id: id },
                 select: { id: true },
+                withDeleted: true,
             });
             const users = await db.find(TelegramUser, {
                 where: { team_id: id },

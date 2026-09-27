@@ -1,6 +1,7 @@
 import {
     Column,
     CreateDateColumn,
+    DeleteDateColumn,
     Entity,
     Index,
     PrimaryGeneratedColumn,
@@ -34,6 +35,9 @@ export class TeamAgent {
 
     @UpdateDateColumn()
     updated_at: Date;
+
+    @DeleteDateColumn({ type: 'timestamptz' })
+    archived_at: Date | null;
 }
 
 @Entity({ name: 'team_agent_exchange' })

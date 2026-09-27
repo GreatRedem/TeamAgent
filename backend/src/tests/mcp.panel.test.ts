@@ -13,8 +13,11 @@ import { TelegramUser } from '../routes/telegram/telegram.entity.js';
 type Row = Record<string, unknown>;
 
 function matches(row: Row, where: Row = {}): boolean {
-    return Object.entries(where).every(
-        ([key, value]) => typeof value === 'object' || row[key] === value,
+    return (
+        !row['archived_at'] &&
+        Object.entries(where).every(
+            ([key, value]) => typeof value === 'object' || row[key] === value,
+        )
     );
 }
 
@@ -65,6 +68,15 @@ function table(rows: Row[]) {
 
             for (const row of hit) {
                 Object.assign(row, patch);
+            }
+
+            return { affected: hit.length };
+        },
+        softDelete: async (where: Row) => {
+            const hit = rows.filter((row) => matches(row, where));
+
+            for (const row of hit) {
+                row['archived_at'] = new Date();
             }
 
             return { affected: hit.length };
@@ -504,11 +516,30 @@ async function main() {
     assert.equal((await call(11, 'agent_update', { agent_id: 9, name: 'Mine' })).ok, false);
     assert.equal((await call(11, 'agent_update', { agent_id: 6, model: '20' })).ok, true);
     assert.equal(agents.find((row) => row['id'] === 6)?.['model_id'], 20);
+    tables.get(TeamPlugin)?.rows.push({
+        id: 90,
+        team_id: 1,
+        name: 'Inbox',
+        hook_agent_id: supportId,
+        agents: `5,${supportId}`,
+    });
     assert.equal((await call(11, 'agent_delete', { agent_id: supportId })).ok, true);
-    assert.equal(
-        agents.some((row) => row['name'] === 'Support'),
-        false,
+    assert.ok(
+        agents.find((row) => row['name'] === 'Support')?.['archived_at'],
+        'a removed agent is archived, not deleted',
     );
+
+    const remaining = await call(11, 'agent_list');
+
+    assert.ok(
+        remaining.ok && !JSON.stringify(remaining.data).includes('Support'),
+        'an archived agent is no longer listed',
+    );
+
+    const inbox = tables.get(TeamPlugin)?.rows.find((row) => row['id'] === 90);
+
+    assert.equal(inbox?.['hook_agent_id'], 0, 'plugins stop handing work to an archived agent');
+    assert.equal(inbox?.['agents'], '5');
 
     const models = JSON.stringify((await call(11, 'model_list')).data);
 

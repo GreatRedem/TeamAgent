@@ -149,6 +149,7 @@ async function* tableJson(
             where: { ...scope, id: MoreThan(last) },
             order: { id: 'ASC' },
             take: TRANSFER_PAGE,
+            withDeleted: true,
         });
 
         if (rows.length === 0) {
@@ -186,7 +187,7 @@ export function teamExport(fastify: FastifyInstance) {
             (
                 await fastify.db
                     .getRepository(entity)
-                    .find({ where: { team_id: teamId }, select: { id: true } })
+                    .find({ where: { team_id: teamId }, select: { id: true }, withDeleted: true })
             ).map((row) => row.id);
         const owners = new Map([
             ['agents', await idsOf(TeamAgent)],
