@@ -1,6 +1,6 @@
 const messages = {
     'landing.signIn': 'Sign in',
-    'landing.hero.title': 'A team of AI agents that works in Telegram while you sleep',
+    'landing.hero.title': 'A team of AI agents that works for you while you sleep',
     'landing.hero.text':
         'Write each agent as a few markdown files, give it only the tools it needs, connect your bots and models, and read every step it took.',
     'landing.hero.start': 'Start free',

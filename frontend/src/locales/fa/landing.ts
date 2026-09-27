@@ -3,7 +3,7 @@ import type { Messages } from '../types';
 
 const messages: Messages<typeof en> = {
     'landing.signIn': 'ورود',
-    'landing.hero.title': 'تیمی از ایجنت‌های هوش مصنوعی که وقتی خوابید در تلگرام کار می‌کند',
+    'landing.hero.title': 'تیمی از ایجنت‌های هوش مصنوعی که وقتی خوابید برای شما کار می‌کند',
     'landing.hero.text':
         'هر ایجنت را با چند فایل markdown بنویسید، فقط ابزارهایی را که لازم دارد به او بدهید، ربات‌ها و مدل‌هایتان را وصل کنید و هر قدمی را که برداشت ببینید.',
     'landing.hero.start': 'شروع رایگان',
